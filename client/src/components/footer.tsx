@@ -94,6 +94,12 @@ const Footer: React.FC = () => {
           </div>
         </div>
         
+        <div className="mt-6 border-t border-gray-700 pt-6">
+          <p className="text-sm text-gray-400 mt-4">
+            BytSave is a participant in the Amazon Services LLC Associates Program, an affiliate advertising program designed to provide a means for sites to earn advertising fees by advertising and linking to Amazon.com. As an Amazon Associate, we earn from qualifying purchases. Product prices and availability are accurate as of the date/time indicated and are subject to change. Any price and availability information displayed on Amazon at the time of purchase will apply to your purchase.
+          </p>
+        </div>
+        
         <div className="mt-8 border-t border-gray-700 pt-8 md:flex md:items-center md:justify-between">
           <div className="flex space-x-6 md:order-2">
             <a href="#" className="text-gray-400 hover:text-gray-300 text-sm">Terms</a>
