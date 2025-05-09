@@ -1,7 +1,10 @@
 import passport from "passport";
+import { Strategy as LocalStrategy } from "passport-local";
 import { Strategy as GoogleStrategy } from "passport-google-oauth20";
 import { Strategy as FacebookStrategy } from "passport-facebook";
 import { Strategy as TwitterStrategy } from "passport-twitter";
+import { scrypt, randomBytes, timingSafeEqual } from "crypto";
+import { promisify } from "util";
 import session from "express-session";
 import connectPgSimple from "connect-pg-simple";
 import { Express, Request, Response, NextFunction } from "express";
@@ -25,6 +28,36 @@ declare global {
       providerId?: string | null;
     }
   }
+}
+
+// Password utility functions
+const scryptAsync = promisify(scrypt);
+
+async function hashPassword(password: string): Promise<string> {
+  const salt = randomBytes(16).toString('hex');
+  const buf = (await scryptAsync(password, salt, 64)) as Buffer;
+  return `${buf.toString('hex')}.${salt}`;
+}
+
+async function comparePasswords(supplied: string, stored: string): Promise<boolean> {
+  const [hashed, salt] = stored.split('.');
+  const hashedBuf = Buffer.from(hashed, 'hex');
+  const suppliedBuf = (await scryptAsync(supplied, salt, 64)) as Buffer;
+  return timingSafeEqual(hashedBuf, suppliedBuf);
+}
+
+// Helper function to convert DB user to Express.User
+function dbUserToExpressUser(dbUser: any): Express.User {
+  return {
+    id: dbUser.id,
+    email: dbUser.email,
+    username: dbUser.username,
+    firstName: dbUser.firstName,
+    lastName: dbUser.lastName,
+    profileImageUrl: dbUser.profileImageUrl,
+    provider: dbUser.provider,
+    providerId: dbUser.providerId
+  };
 }
 
 // Function to initialize authentication
@@ -60,6 +93,35 @@ export function configureAuth(app: Express) {
   app.use(passport.initialize());
   app.use(passport.session());
   
+  // Configure Local Strategy for username/password auth
+  passport.use(new LocalStrategy(
+    {
+      usernameField: 'email',
+      passwordField: 'password'
+    },
+    async (email, password, done) => {
+      try {
+        // Find user by email
+        const user = await storage.getUserByEmail(email);
+        
+        if (!user || !user.password) {
+          return done(null, false, { message: 'Invalid email or password' });
+        }
+        
+        // Verify password
+        const isValidPassword = await comparePasswords(password, user.password);
+        
+        if (!isValidPassword) {
+          return done(null, false, { message: 'Invalid email or password' });
+        }
+        
+        return done(null, dbUserToExpressUser(user));
+      } catch (error) {
+        return done(error);
+      }
+    }
+  ));
+  
   // Serialize user for session storage
   passport.serializeUser((user: Express.User, done) => {
     done(null, user.id);
@@ -70,17 +132,7 @@ export function configureAuth(app: Express) {
     try {
       const user = await storage.getUser(id);
       if (user) {
-        const userObj: Express.User = {
-          id: user.id,
-          email: user.email,
-          username: user.username,
-          firstName: user.firstName,
-          lastName: user.lastName,
-          profileImageUrl: user.profileImageUrl,
-          provider: user.provider,
-          providerId: user.providerId
-        };
-        done(null, userObj);
+        done(null, dbUserToExpressUser(user));
       } else {
         done(null, false);
       }
@@ -117,15 +169,15 @@ export function configureAuth(app: Express) {
               .where(eq(users.id, existingUser.id))
               .returning();
             
-            return done(null, updatedUser);
+            return done(null, dbUserToExpressUser(updatedUser));
           }
-          return done(null, existingUser);
+          return done(null, dbUserToExpressUser(existingUser));
         }
         
         // Create new user
         const email = profile.emails?.[0]?.value;
         if (!email) {
-          return done(new Error('Email is required'), null);
+          return done(new Error('Email is required'), false);
         }
         
         const newUser = await storage.createUser({
@@ -137,9 +189,9 @@ export function configureAuth(app: Express) {
           providerId: profile.id,
         });
         
-        return done(null, newUser);
+        return done(null, dbUserToExpressUser(newUser));
       } catch (error) {
-        return done(error, null);
+        return done(error, false);
       }
     }));
   }
@@ -173,15 +225,15 @@ export function configureAuth(app: Express) {
               .where(eq(users.id, existingUser.id))
               .returning();
             
-            return done(null, updatedUser);
+            return done(null, dbUserToExpressUser(updatedUser));
           }
-          return done(null, existingUser);
+          return done(null, dbUserToExpressUser(existingUser));
         }
         
         // Create new user
         const email = profile.emails?.[0]?.value;
         if (!email) {
-          return done(new Error('Email is required'), null);
+          return done(new Error('Email is required'), false);
         }
         
         const newUser = await storage.createUser({
@@ -193,9 +245,9 @@ export function configureAuth(app: Express) {
           providerId: profile.id,
         });
         
-        return done(null, newUser);
+        return done(null, dbUserToExpressUser(newUser));
       } catch (error) {
-        return done(error, null);
+        return done(error, false);
       }
     }));
   }
@@ -229,15 +281,15 @@ export function configureAuth(app: Express) {
               .where(eq(users.id, existingUser.id))
               .returning();
             
-            return done(null, updatedUser);
+            return done(null, dbUserToExpressUser(updatedUser));
           }
-          return done(null, existingUser);
+          return done(null, dbUserToExpressUser(existingUser));
         }
         
         // Create new user
         const email = profile.emails?.[0]?.value;
         if (!email) {
-          return done(new Error('Email is required'), null);
+          return done(new Error('Email is required'), false);
         }
         
         const newUser = await storage.createUser({
@@ -248,9 +300,9 @@ export function configureAuth(app: Express) {
           providerId: profile.id,
         });
         
-        return done(null, newUser);
+        return done(null, dbUserToExpressUser(newUser));
       } catch (error) {
-        return done(error, null);
+        return done(error, false);
       }
     }));
   }
