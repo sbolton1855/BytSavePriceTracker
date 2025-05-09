@@ -1,7 +1,10 @@
-import { Link } from "wouter";
 import { Button } from "@/components/ui/button";
 
 const CtaSection: React.FC = () => {
+  const scrollToTracker = () => {
+    document.getElementById('tracker')?.scrollIntoView({ behavior: "smooth" });
+  };
+
   return (
     <section className="py-12 bg-primary-500">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 text-center">
@@ -10,10 +13,12 @@ const CtaSection: React.FC = () => {
           Track your first product for free and never miss a price drop again.
         </p>
         <div className="mt-8">
-          <Button asChild variant="secondary" size="lg">
-            <Link href="#tracker">
-              Track a Product Now
-            </Link>
+          <Button 
+            variant="secondary" 
+            size="lg"
+            onClick={scrollToTracker}
+          >
+            Track a Product Now
           </Button>
         </div>
       </div>

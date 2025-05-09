@@ -1,6 +1,5 @@
 import { useEffect, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { Link } from "wouter";
 import ProductCard from "./product-card";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Button } from "@/components/ui/button";
@@ -158,10 +157,11 @@ const ProductsDisplay: React.FC<ProductsDisplayProps> = ({ email }) => {
                   <p className="mt-1 text-sm text-gray-500">
                     Track more Amazon products to maximize your savings
                   </p>
-                  <Button asChild className="mt-4">
-                    <Link href="#tracker">
-                      Add Product
-                    </Link>
+                  <Button 
+                    className="mt-4"
+                    onClick={() => document.getElementById('tracker')?.scrollIntoView({ behavior: "smooth" })}
+                  >
+                    Add Product
                   </Button>
                 </div>
               </div>
@@ -183,10 +183,11 @@ const ProductsDisplay: React.FC<ProductsDisplayProps> = ({ email }) => {
                 </svg>
                 <h3 className="mt-4 text-lg font-medium text-gray-900">No products tracked yet</h3>
                 <p className="mt-1 text-gray-500">Start tracking an Amazon product to see it here</p>
-                <Button asChild className="mt-6">
-                  <Link href="#tracker">
-                    Track Your First Product
-                  </Link>
+                <Button 
+                  className="mt-6"
+                  onClick={() => document.getElementById('tracker')?.scrollIntoView({ behavior: "smooth" })}
+                >
+                  Track Your First Product
                 </Button>
               </div>
             )}
