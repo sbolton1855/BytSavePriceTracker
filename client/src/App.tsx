@@ -12,6 +12,7 @@ import Home from "@/pages/home";
 import Dashboard from "@/pages/dashboard";
 import HowItWorks from "@/pages/how-it-works";
 import AuthPage from "@/pages/auth-page";
+import ProductDetails from "@/pages/product-details";
 import NotFound from "@/pages/not-found";
 
 function Router() {
@@ -21,6 +22,7 @@ function Router() {
       <ProtectedRoute path="/dashboard" component={Dashboard} />
       <Route path="/how-it-works" component={HowItWorks} />
       <Route path="/auth" component={AuthPage} />
+      <Route path="/products/:id" component={ProductDetails} />
       <Route component={NotFound} />
     </Switch>
   );
