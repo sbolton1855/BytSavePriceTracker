@@ -1,7 +1,7 @@
 import type { Express, Request, Response } from "express";
 import { createServer, type Server } from "http";
 import { storage } from "./storage";
-import { getProductInfo, extractAsinFromUrl, isValidAsin, addAffiliateTag } from "./amazonApi";
+import { getProductInfo, searchProducts, extractAsinFromUrl, isValidAsin, addAffiliateTag } from "./amazonApi";
 import { startPriceChecker } from "./priceChecker";
 import { requireAuth, configureAuth } from "./authService";
 import { z } from "zod";
@@ -17,6 +17,33 @@ export async function registerRoutes(app: Express): Promise<Server> {
   configureAuth(app);
 
   // API endpoints - prefix with /api
+  
+  // Search products by keyword
+  app.get('/api/products/search', async (req, res) => {
+    try {
+      const keyword = req.query.q as string;
+      const limit = parseInt(req.query.limit as string) || 10;
+      
+      if (!keyword || keyword.length < 3) {
+        return res.status(400).json({ 
+          message: 'Search query must be at least 3 characters long' 
+        });
+      }
+      
+      const searchResults = await searchProducts(keyword, limit);
+      
+      // Add affiliate links to URLs
+      const resultsWithAffiliateLinks = searchResults.map(result => ({
+        ...result,
+        affiliateUrl: addAffiliateTag(result.url, AFFILIATE_TAG)
+      }));
+      
+      res.status(200).json(resultsWithAffiliateLinks);
+    } catch (error) {
+      console.error('Error searching products:', error);
+      res.status(500).json({ message: 'Failed to search products' });
+    }
+  });
   
   // Track a new product (non-authenticated)
   app.post('/api/track', async (req, res) => {
@@ -406,6 +433,38 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error) {
       console.error('Error updating tracked product for authenticated user:', error);
       res.status(500).json({ message: 'Failed to update tracked product' });
+    }
+  });
+  
+  // Get price history for a product
+  app.get('/api/products/:id/price-history', async (req, res) => {
+    try {
+      const id = parseInt(req.params.id);
+      
+      if (isNaN(id)) {
+        return res.status(400).json({ message: 'Invalid ID format' });
+      }
+      
+      // Check if product exists
+      const product = await storage.getProduct(id);
+      
+      if (!product) {
+        return res.status(404).json({ message: 'Product not found' });
+      }
+      
+      // Get price history
+      const priceHistory = await storage.getPriceHistoryByProductId(id);
+      
+      res.status(200).json({
+        product: {
+          ...product,
+          affiliateUrl: addAffiliateTag(product.url, AFFILIATE_TAG)
+        },
+        priceHistory
+      });
+    } catch (error) {
+      console.error('Error fetching price history:', error);
+      res.status(500).json({ message: 'Failed to fetch price history' });
     }
   });
   
