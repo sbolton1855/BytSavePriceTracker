@@ -14,6 +14,8 @@ import {
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Loader2 } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { cn } from "@/lib/utils";
 
 type PriceHistoryPoint = {
   id: number;
@@ -45,7 +47,11 @@ interface PriceHistoryChartProps {
   productId: number;
 }
 
+type TimeFrame = '1m' | '3m' | '6m' | '1y' | 'all';
+
 export default function PriceHistoryChart({ productId }: PriceHistoryChartProps) {
+  const [timeFrame, setTimeFrame] = useState<TimeFrame>('1m');
+  
   const {
     data,
     isLoading,
@@ -58,6 +64,39 @@ export default function PriceHistoryChart({ productId }: PriceHistoryChartProps)
 
   const [chartData, setChartData] = useState<any[]>([]);
 
+  // Function to filter data based on selected time frame
+  const filterDataByTimeFrame = (fullData: any[], selectedTimeFrame: TimeFrame) => {
+    if (fullData.length === 0) return [];
+    
+    const now = new Date();
+    const cutoffDate = new Date();
+    
+    switch (selectedTimeFrame) {
+      case '1m':
+        cutoffDate.setMonth(now.getMonth() - 1);
+        break;
+      case '3m':
+        cutoffDate.setMonth(now.getMonth() - 3);
+        break;
+      case '6m':
+        cutoffDate.setMonth(now.getMonth() - 6);
+        break;
+      case '1y':
+        cutoffDate.setFullYear(now.getFullYear() - 1);
+        break;
+      case 'all':
+        // Return all data
+        return fullData;
+      default:
+        cutoffDate.setMonth(now.getMonth() - 1); // Default to 1 month
+    }
+    
+    return fullData.filter(item => item.date >= cutoffDate);
+  };
+
+  // State to store the full unfiltered data
+  const [fullChartData, setFullChartData] = useState<any[]>([]);
+  
   useEffect(() => {
     if (data?.priceHistory) {
       // Create chart data from price history
@@ -89,9 +128,18 @@ export default function PriceHistoryChart({ productId }: PriceHistoryChartProps)
         });
       }
 
-      setChartData(formattedData);
+      // Store full data and filter for display
+      setFullChartData(formattedData);
+      setChartData(filterDataByTimeFrame(formattedData, timeFrame));
     }
   }, [data]);
+  
+  // Update chart when time frame changes
+  useEffect(() => {
+    if (fullChartData.length > 0) {
+      setChartData(filterDataByTimeFrame(fullChartData, timeFrame));
+    }
+  }, [timeFrame, fullChartData]);
 
   const formatPrice = (value: number) => {
     return `$${value.toFixed(2)}`;
@@ -160,6 +208,45 @@ export default function PriceHistoryChart({ productId }: PriceHistoryChartProps)
               </div>
             </div>
 
+            {/* Time frame selection */}
+            <div className="flex flex-wrap gap-2 mt-4">
+              <Button 
+                size="sm" 
+                variant={timeFrame === '1m' ? 'default' : 'outline'}
+                onClick={() => setTimeFrame('1m')}
+              >
+                1 Month
+              </Button>
+              <Button 
+                size="sm" 
+                variant={timeFrame === '3m' ? 'default' : 'outline'}
+                onClick={() => setTimeFrame('3m')}
+              >
+                3 Months
+              </Button>
+              <Button 
+                size="sm" 
+                variant={timeFrame === '6m' ? 'default' : 'outline'}
+                onClick={() => setTimeFrame('6m')}
+              >
+                6 Months
+              </Button>
+              <Button 
+                size="sm" 
+                variant={timeFrame === '1y' ? 'default' : 'outline'}
+                onClick={() => setTimeFrame('1y')}
+              >
+                1 Year
+              </Button>
+              <Button 
+                size="sm" 
+                variant={timeFrame === 'all' ? 'default' : 'outline'}
+                onClick={() => setTimeFrame('all')}
+              >
+                All History
+              </Button>
+            </div>
+
             {chartData.length > 0 ? (
               <div className="h-64 mt-4">
                 <ResponsiveContainer width="100%" height="100%">
@@ -205,7 +292,10 @@ export default function PriceHistoryChart({ productId }: PriceHistoryChartProps)
             ) : (
               <div className="h-64 flex items-center justify-center">
                 <p className="text-muted-foreground">
-                  Not enough price history data available
+                  Not enough price history data available for {timeFrame === '1m' ? '1 month' : 
+                                                             timeFrame === '3m' ? '3 months' : 
+                                                             timeFrame === '6m' ? '6 months' : 
+                                                             timeFrame === '1y' ? '1 year' : 'all time'}
                 </p>
               </div>
             )}
