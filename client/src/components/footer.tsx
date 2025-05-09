@@ -1,6 +1,8 @@
-import { Link } from "wouter";
-
 const Footer: React.FC = () => {
+  const navigateTo = (path: string) => {
+    window.location.href = path;
+  };
+
   return (
     <footer className="bg-gray-800">
       <div className="max-w-7xl mx-auto py-12 px-4 sm:px-6 lg:px-8">
@@ -54,9 +56,12 @@ const Footer: React.FC = () => {
             <h3 className="text-sm font-semibold text-gray-400 tracking-wider uppercase">Resources</h3>
             <ul className="mt-4 space-y-4">
               <li>
-                <Link href="/how-it-works">
-                  <a className="text-base text-gray-300 hover:text-white">How It Works</a>
-                </Link>
+                <div 
+                  className="text-base text-gray-300 hover:text-white cursor-pointer"
+                  onClick={() => navigateTo('/how-it-works')}
+                >
+                  How It Works
+                </div>
               </li>
               <li>
                 <a href="#" className="text-base text-gray-300 hover:text-white">Pricing</a>
