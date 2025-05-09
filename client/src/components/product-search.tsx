@@ -14,6 +14,7 @@ import {
   FormControl,
   FormField,
   FormItem,
+  FormLabel,
   FormMessage,
 } from "@/components/ui/form";
 import {
@@ -234,16 +235,20 @@ export default function ProductSearch({
                     name="targetPrice"
                     render={({ field }) => (
                       <FormItem>
+                        <FormLabel>Desired Price</FormLabel>
                         <FormControl>
                           <Input
-                            type="number"
-                            step="0.01"
-                            min="0.01"
-                            placeholder="Target Price"
+                            type="text"
+                            inputMode="decimal"
+                            placeholder="Enter your desired price"
                             {...field}
-                            onChange={(e) =>
-                              field.onChange(parseFloat(e.target.value))
-                            }
+                            value={field.value > 0 ? field.value.toString() : ''}
+                            onChange={(e) => {
+                              // Remove leading zeros and allow only valid price format
+                              const value = e.target.value.replace(/^0+(?=\d)/, '');
+                              const price = parseFloat(value);
+                              field.onChange(isNaN(price) ? 0 : price);
+                            }}
                             disabled={trackMutation.isPending}
                           />
                         </FormControl>
@@ -321,6 +326,8 @@ export default function ProductSearch({
                               <Input
                                 placeholder="Search for products..."
                                 {...field}
+                                value={field.value}
+                                onChange={(e) => handleSearchInput(e.target.value)}
                                 disabled={isSearching}
                               />
                             </FormControl>
@@ -439,16 +446,20 @@ export default function ProductSearch({
                           name="targetPrice"
                           render={({ field }) => (
                             <FormItem>
+                              <FormLabel>Desired Price</FormLabel>
                               <FormControl>
                                 <Input
-                                  type="number"
-                                  step="0.01"
-                                  min="0.01"
-                                  placeholder="Target Price"
+                                  type="text"
+                                  inputMode="decimal"
+                                  placeholder="Enter your desired price"
                                   {...field}
-                                  onChange={(e) =>
-                                    field.onChange(parseFloat(e.target.value))
-                                  }
+                                  value={field.value > 0 ? field.value.toString() : ''}
+                                  onChange={(e) => {
+                                    // Remove leading zeros and allow only valid price format
+                                    const value = e.target.value.replace(/^0+(?=\d)/, '');
+                                    const price = parseFloat(value);
+                                    field.onChange(isNaN(price) ? 0 : price);
+                                  }}
                                   disabled={trackMutation.isPending}
                                 />
                               </FormControl>
