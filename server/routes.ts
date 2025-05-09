@@ -3,7 +3,7 @@ import { createServer, type Server } from "http";
 import { storage } from "./storage";
 import { getProductInfo, extractAsinFromUrl, isValidAsin, addAffiliateTag } from "./amazonApi";
 import { startPriceChecker } from "./priceChecker";
-import { requireAuth } from "./authService";
+import { requireAuth, configureAuth } from "./authService";
 import { z } from "zod";
 import { trackingFormSchema } from "@shared/schema";
 
@@ -12,6 +12,9 @@ const AFFILIATE_TAG = process.env.AMAZON_AFFILIATE_TAG || 'bytsave-20';
 export async function registerRoutes(app: Express): Promise<Server> {
   // Create HTTP server
   const httpServer = createServer(app);
+
+  // Configure authentication
+  configureAuth(app);
 
   // API endpoints - prefix with /api
   
