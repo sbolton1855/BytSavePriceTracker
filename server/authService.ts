@@ -334,6 +334,80 @@ export function configureAuth(app: Express) {
     });
   });
   
+  // Register route
+  app.post('/api/register', async (req, res) => {
+    try {
+      // Validate with schema
+      const { registerSchema } = await import('@shared/schema');
+      const validation = registerSchema.safeParse(req.body);
+      
+      if (!validation.success) {
+        return res.status(400).json({ 
+          message: 'Invalid form data', 
+          errors: validation.error.format() 
+        });
+      }
+      
+      const { email, password, username, firstName, lastName } = validation.data;
+      
+      // Check if user already exists
+      const existingUser = await storage.getUserByEmail(email);
+      
+      if (existingUser) {
+        return res.status(400).json({ message: 'User with this email already exists' });
+      }
+      
+      // Hash password
+      const hashedPassword = await hashPassword(password);
+      
+      // Create user
+      const newUser = await storage.createUser({
+        email,
+        username: username || null,
+        password: hashedPassword,
+        firstName: firstName || null,
+        lastName: lastName || null,
+        provider: 'local',
+        providerId: null,
+      });
+      
+      // Log the user in
+      req.login(dbUserToExpressUser(newUser), (err) => {
+        if (err) {
+          return res.status(500).json({ message: 'Error during login after registration' });
+        }
+        
+        // Return user data without password
+        const { password, ...userWithoutPassword } = newUser;
+        res.status(201).json(userWithoutPassword);
+      });
+    } catch (error) {
+      console.error('Registration error:', error);
+      res.status(500).json({ message: 'Registration failed' });
+    }
+  });
+  
+  // Login route
+  app.post('/api/login', (req, res, next) => {
+    passport.authenticate('local', (err: any, user: Express.User | false, info: { message?: string }) => {
+      if (err) {
+        return next(err);
+      }
+      
+      if (!user) {
+        return res.status(401).json({ message: info.message || 'Authentication failed' });
+      }
+      
+      req.login(user, (err) => {
+        if (err) {
+          return next(err);
+        }
+        
+        return res.json(user);
+      });
+    })(req, res, next);
+  });
+  
   // Current user route
   app.get('/api/user', (req, res) => {
     if (req.isAuthenticated()) {

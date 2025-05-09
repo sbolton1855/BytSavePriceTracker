@@ -88,6 +88,21 @@ export const trackingFormSchema = z.object({
   email: z.string().email("Please enter a valid email address"),
 });
 
+// Registration form schema with validation
+export const registerSchema = z.object({
+  email: z.string().email("Please enter a valid email address"),
+  password: z.string().min(8, "Password must be at least 8 characters"),
+  username: z.string().optional(),
+  firstName: z.string().optional(),
+  lastName: z.string().optional(),
+});
+
+// Login form schema
+export const loginSchema = z.object({
+  email: z.string().email("Please enter a valid email address"),
+  password: z.string().min(1, "Password is required"),
+});
+
 // Types
 export type InsertUser = z.infer<typeof insertUserSchema>;
 export type User = typeof users.$inferSelect;
@@ -102,6 +117,8 @@ export type InsertPriceHistory = z.infer<typeof insertPriceHistorySchema>;
 export type PriceHistory = typeof priceHistory.$inferSelect;
 
 export type TrackingFormData = z.infer<typeof trackingFormSchema>;
+export type RegisterFormData = z.infer<typeof registerSchema>;
+export type LoginFormData = z.infer<typeof loginSchema>;
 
 // Extended Schema with additional data
 export type TrackedProductWithDetails = TrackedProduct & {
