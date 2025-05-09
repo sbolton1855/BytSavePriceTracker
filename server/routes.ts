@@ -18,6 +18,38 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   // API endpoints - prefix with /api
   
+  // Get highlighted deals (products with biggest price drops)
+  app.get('/api/products/deals', async (req: Request, res: Response) => {
+    try {
+      // Get all products
+      const products = await storage.getAllProducts();
+      
+      // Calculate price drops and filter products with discounts
+      const deals = products
+        .filter(product => {
+          const originalPrice = product.originalPrice ?? product.highestPrice;
+          return originalPrice > product.currentPrice;
+        })
+        .map(product => {
+          const originalPrice = product.originalPrice ?? product.highestPrice;
+          const discountPercentage = ((originalPrice - product.currentPrice) / originalPrice) * 100;
+          return {
+            ...product,
+            discountPercentage: Math.round(discountPercentage)
+          };
+        })
+        // Sort by discount percentage descending
+        .sort((a, b) => b.discountPercentage - a.discountPercentage)
+        // Take top deals
+        .slice(0, 8);
+      
+      res.json(deals);
+    } catch (error) {
+      console.error('Error fetching deals:', error);
+      res.status(500).json({ message: 'Failed to fetch deals' });
+    }
+  });
+  
   // Search products by keyword
   app.get('/api/products/search', async (req, res) => {
     try {
