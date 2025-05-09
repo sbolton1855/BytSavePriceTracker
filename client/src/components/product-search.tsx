@@ -64,6 +64,8 @@ export default function ProductSearch({
   const [searchTab, setSearchTab] = useState<string>("url");
   const [selectedProduct, setSelectedProduct] = useState<ProductSearchResult | null>(null);
   const [email, setEmail] = useState<string>("");
+  const [searchQuery, setSearchQuery] = useState<string>("");
+  const [searchTimeout, setSearchTimeout] = useState<NodeJS.Timeout | null>(null);
   
   // Form for searching products
   const searchForm = useForm<z.infer<typeof searchSchema>>({
@@ -83,27 +85,40 @@ export default function ProductSearch({
     },
   });
   
+  // Handle search input with debounce
+  const handleSearchInput = (value: string) => {
+    if (searchTimeout) clearTimeout(searchTimeout);
+    
+    searchForm.setValue("query", value);
+    
+    const timeout = setTimeout(() => {
+      setSearchQuery(value);
+    }, 800); // Wait 800ms after user stops typing
+    
+    setSearchTimeout(timeout);
+  };
+  
   // Search results query
   const {
     data: searchResults,
     isLoading: isSearching,
     isFetching: isFetchingSearch,
   } = useQuery<ProductSearchResult[]>({
-    queryKey: ["/api/products/search", searchForm.watch("query")],
+    queryKey: ["/api/products/search", searchQuery],
     queryFn: async () => {
-      if (!searchForm.watch("query") || searchForm.watch("query").length < 3) {
+      if (!searchQuery || searchQuery.length < 3) {
         return [];
       }
       
       const res = await fetch(
-        `/api/products/search?q=${encodeURIComponent(searchForm.watch("query"))}`
+        `/api/products/search?q=${encodeURIComponent(searchQuery)}`
       );
       if (!res.ok) {
         throw new Error("Failed to search products");
       }
       return res.json();
     },
-    enabled: searchForm.watch("query").length >= 3 && searchTab === "name",
+    enabled: searchQuery.length >= 3 && searchTab === "name",
   });
   
   // Product tracking mutation
