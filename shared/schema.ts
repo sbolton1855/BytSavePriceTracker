@@ -1,4 +1,5 @@
 import { pgTable, text, serial, integer, boolean, timestamp, doublePrecision } from "drizzle-orm/pg-core";
+import { relations } from "drizzle-orm";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod";
 
@@ -28,6 +29,11 @@ export const products = pgTable("products", {
   highestPrice: doublePrecision("highest_price"),
 });
 
+export const productsRelations = relations(products, ({ many }) => ({
+  trackedProducts: many(trackedProducts),
+  priceHistory: many(priceHistory),
+}));
+
 export const insertProductSchema = createInsertSchema(products).omit({
   id: true,
 });
@@ -42,6 +48,17 @@ export const trackedProducts = pgTable("tracked_products", {
   createdAt: timestamp("created_at").notNull(),
 });
 
+export const trackedProductsRelations = relations(trackedProducts, ({ one }) => ({
+  user: one(users, {
+    fields: [trackedProducts.userId],
+    references: [users.id],
+  }),
+  product: one(products, {
+    fields: [trackedProducts.productId],
+    references: [products.id],
+  }),
+}));
+
 export const insertTrackedProductSchema = createInsertSchema(trackedProducts).omit({
   id: true,
   notified: true,
@@ -53,6 +70,13 @@ export const priceHistory = pgTable("price_history", {
   price: doublePrecision("price").notNull(),
   timestamp: timestamp("timestamp").notNull(),
 });
+
+export const priceHistoryRelations = relations(priceHistory, ({ one }) => ({
+  product: one(products, {
+    fields: [priceHistory.productId],
+    references: [products.id],
+  }),
+}));
 
 export const insertPriceHistorySchema = createInsertSchema(priceHistory).omit({
   id: true,
