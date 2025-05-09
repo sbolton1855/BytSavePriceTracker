@@ -1,0 +1,86 @@
+import { pgTable, text, serial, integer, boolean, timestamp, doublePrecision } from "drizzle-orm/pg-core";
+import { createInsertSchema } from "drizzle-zod";
+import { z } from "zod";
+
+export const users = pgTable("users", {
+  id: serial("id").primaryKey(),
+  username: text("username").notNull().unique(),
+  password: text("password").notNull(),
+  email: text("email").notNull().unique(),
+});
+
+export const insertUserSchema = createInsertSchema(users).pick({
+  username: true,
+  password: true,
+  email: true,
+});
+
+export const products = pgTable("products", {
+  id: serial("id").primaryKey(),
+  asin: text("asin").notNull(),
+  title: text("title").notNull(),
+  url: text("url").notNull(),
+  imageUrl: text("image_url"),
+  currentPrice: doublePrecision("current_price").notNull(),
+  originalPrice: doublePrecision("original_price"),
+  lastChecked: timestamp("last_checked").notNull(),
+  lowestPrice: doublePrecision("lowest_price"),
+  highestPrice: doublePrecision("highest_price"),
+});
+
+export const insertProductSchema = createInsertSchema(products).omit({
+  id: true,
+});
+
+export const trackedProducts = pgTable("tracked_products", {
+  id: serial("id").primaryKey(),
+  userId: integer("user_id"),
+  email: text("email").notNull(),
+  productId: integer("product_id").notNull(),
+  targetPrice: doublePrecision("target_price").notNull(),
+  notified: boolean("notified").default(false),
+  createdAt: timestamp("created_at").notNull(),
+});
+
+export const insertTrackedProductSchema = createInsertSchema(trackedProducts).omit({
+  id: true,
+  notified: true,
+});
+
+export const priceHistory = pgTable("price_history", {
+  id: serial("id").primaryKey(),
+  productId: integer("product_id").notNull(),
+  price: doublePrecision("price").notNull(),
+  timestamp: timestamp("timestamp").notNull(),
+});
+
+export const insertPriceHistorySchema = createInsertSchema(priceHistory).omit({
+  id: true,
+});
+
+// Add validation for tracking form
+export const trackingFormSchema = z.object({
+  productUrl: z.string().min(1, "Product URL or ASIN is required"),
+  targetPrice: z.number().min(0.01, "Target price must be at least 0.01"),
+  email: z.string().email("Please enter a valid email address"),
+});
+
+// Types
+export type InsertUser = z.infer<typeof insertUserSchema>;
+export type User = typeof users.$inferSelect;
+
+export type InsertProduct = z.infer<typeof insertProductSchema>;
+export type Product = typeof products.$inferSelect;
+
+export type InsertTrackedProduct = z.infer<typeof insertTrackedProductSchema>;
+export type TrackedProduct = typeof trackedProducts.$inferSelect;
+
+export type InsertPriceHistory = z.infer<typeof insertPriceHistorySchema>;
+export type PriceHistory = typeof priceHistory.$inferSelect;
+
+export type TrackingFormData = z.infer<typeof trackingFormSchema>;
+
+// Extended Schema with additional data
+export type TrackedProductWithDetails = TrackedProduct & {
+  product: Product;
+};
