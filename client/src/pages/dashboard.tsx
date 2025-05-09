@@ -22,22 +22,33 @@ const Dashboard: React.FC = () => {
           </p>
         </div>
 
-        <Card className="mb-8">
-          <CardHeader className="flex flex-row items-center justify-between">
-            <div>
-              <CardTitle>Your Tracked Products</CardTitle>
+        {userEmail ? (
+          <Card className="mb-8">
+            <CardHeader className="flex flex-row items-center justify-between">
+              <div>
+                <CardTitle>Your Tracked Products</CardTitle>
+                <CardDescription>
+                  Showing price alerts for {userEmail}
+                </CardDescription>
+              </div>
+              <Button 
+                variant="outline"
+                onClick={() => setRefreshTrigger(prev => prev + 1)}
+              >
+                Refresh Products
+              </Button>
+            </CardHeader>
+          </Card>
+        ) : (
+          <Card className="mb-8">
+            <CardHeader>
+              <CardTitle>No Email Available</CardTitle>
               <CardDescription>
-                Showing price alerts for {userEmail}
+                Please update your profile to include an email address
               </CardDescription>
-            </div>
-            <Button 
-              variant="outline"
-              onClick={() => setRefreshTrigger(prev => prev + 1)}
-            >
-              Refresh Products
-            </Button>
-          </CardHeader>
-        </Card>
+            </CardHeader>
+          </Card>
+        )}
 
         <ProductsDisplay email={userEmail} key={refreshTrigger} />
 
