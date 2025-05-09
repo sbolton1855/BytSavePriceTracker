@@ -1,7 +1,10 @@
-import { Link } from "wouter";
 import { Button } from "@/components/ui/button";
 
 const HeroSection: React.FC = () => {
+  const scrollToSection = (id: string) => {
+    document.getElementById(id)?.scrollIntoView({ behavior: "smooth" });
+  };
+
   return (
     <section className="relative bg-white overflow-hidden">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
@@ -15,15 +18,20 @@ const HeroSection: React.FC = () => {
               BytSave monitors Amazon product prices for you. Set your target price and get notified when it's time to buy.
             </p>
             <div className="mt-8 sm:mt-10 flex flex-col sm:flex-row gap-3">
-              <Button asChild size="lg" className="w-full sm:w-auto">
-                <Link href="#tracker">
-                  Track a product
-                </Link>
+              <Button 
+                size="lg" 
+                className="w-full sm:w-auto"
+                onClick={() => scrollToSection('tracker')}
+              >
+                Track a product
               </Button>
-              <Button asChild size="lg" variant="outline" className="w-full sm:w-auto">
-                <Link href="#how-it-works">
-                  How it works
-                </Link>
+              <Button 
+                size="lg" 
+                variant="outline" 
+                className="w-full sm:w-auto"
+                onClick={() => scrollToSection('how-it-works')}
+              >
+                How it works
               </Button>
             </div>
           </div>
