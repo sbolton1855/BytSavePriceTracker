@@ -27,15 +27,22 @@ export async function registerRoutes(app: Express): Promise<Server> {
       // Calculate price drops and filter products with discounts
       const deals = products
         .filter(product => {
-          const originalPrice = product.originalPrice ?? product.highestPrice;
+          // Ensure we have a valid originalPrice to compare against
+          const originalPrice = product.originalPrice !== null ? product.originalPrice : product.highestPrice;
           return originalPrice > product.currentPrice;
         })
         .map(product => {
-          const originalPrice = product.originalPrice ?? product.highestPrice;
-          const discountPercentage = ((originalPrice - product.currentPrice) / originalPrice) * 100;
+          // Ensure we have a valid originalPrice for calculation
+          const originalPrice = product.originalPrice !== null ? product.originalPrice : product.highestPrice;
+          // Avoid division by zero
+          const discountPercentage = originalPrice > 0 
+            ? ((originalPrice - product.currentPrice) / originalPrice) * 100 
+            : 0;
           return {
             ...product,
-            discountPercentage: Math.round(discountPercentage)
+            discountPercentage: Math.round(discountPercentage),
+            // Add affiliate link
+            affiliateUrl: addAffiliateTag(product.url, AFFILIATE_TAG)
           };
         })
         // Sort by discount percentage descending
