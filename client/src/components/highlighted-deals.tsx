@@ -9,6 +9,7 @@ import { Product } from "@shared/schema";
 
 type HighlightedDeal = Product & {
   discountPercentage: number;
+  affiliateUrl?: string;
 };
 
 export default function HighlightedDeals() {
@@ -134,7 +135,7 @@ export default function HighlightedDeals() {
           </CardContent>
           <CardFooter className="p-4 pt-0">
             <Button asChild className="w-full">
-              <a href={deal.url} target="_blank" rel="noopener noreferrer">
+              <a href={deal.affiliateUrl || deal.url} target="_blank" rel="noopener noreferrer">
                 View Deal <ArrowRight className="ml-2 h-4 w-4" />
               </a>
             </Button>
