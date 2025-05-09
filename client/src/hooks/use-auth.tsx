@@ -52,6 +52,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       }
     },
     retry: false,
+    staleTime: 5 * 60 * 1000, // 5 minutes
+    initialData: null, // Initialize with null to avoid undefined
   });
 
   // Register mutation
@@ -103,7 +105,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   // Logout function
   const logout = async () => {
     try {
-      await fetch("/auth/logout");
+      await fetch("/api/logout", { method: "POST" });
       queryClient.setQueryData(["/api/user"], null);
       toast({
         title: "Logged out",
