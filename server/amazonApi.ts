@@ -1,4 +1,17 @@
 import { z } from 'zod';
+import crypto from 'crypto';
+import axios from 'axios';
+
+// Amazon API credentials from environment variables
+const ACCESS_KEY = process.env.AMAZON_ACCESS_KEY;
+const SECRET_KEY = process.env.AMAZON_SECRET_KEY;
+const PARTNER_TAG = process.env.AMAZON_PARTNER_TAG;
+
+// Amazon API endpoints and region
+const REGION = 'us-east-1';
+const HOST = 'webservices.amazon.com';
+const URI = '/paapi5/getitems';
+const SERVICE = 'ProductAdvertisingAPI';
 
 // This URL parsing utility helps extract ASINs from Amazon URLs
 function extractAsinFromUrl(url: string): string | null {
@@ -39,8 +52,98 @@ const amazonProductSchema = z.object({
 
 type AmazonProduct = z.infer<typeof amazonProductSchema>;
 
-// Main function to get product information - simulated for MVP
+// Function to sign request with AWS Signature Version 4
+function signRequest(
+  method: string,
+  payload: string,
+  timestamp: string,
+  accessKey: string,
+  secretKey: string
+): { authorization: string; 'x-amz-date': string } {
+  const date = timestamp.split('T')[0];
+  
+  // Step 1: Create canonical request
+  const canonicalHeaders = 
+    'content-encoding:amz-1.0\n' +
+    'content-type:application/json; charset=utf-8\n' +
+    'host:' + HOST + '\n' +
+    'x-amz-date:' + timestamp + '\n' +
+    'x-amz-target:com.amazon.paapi5.v1.ProductAdvertisingAPIv1.GetItems\n';
+    
+  const signedHeaders = 'content-encoding;content-type;host;x-amz-date;x-amz-target';
+  
+  const payloadHash = crypto
+    .createHash('sha256')
+    .update(payload)
+    .digest('hex');
+    
+  const canonicalRequest = 
+    method + '\n' +
+    URI + '\n' +
+    '\n' + // Query string
+    canonicalHeaders + '\n' +
+    signedHeaders + '\n' +
+    payloadHash;
+    
+  // Step 2: Create string to sign
+  const algorithm = 'AWS4-HMAC-SHA256';
+  const credentialScope = date + '/' + REGION + '/' + SERVICE + '/aws4_request';
+  const canonicalRequestHash = crypto
+    .createHash('sha256')
+    .update(canonicalRequest)
+    .digest('hex');
+    
+  const stringToSign = 
+    algorithm + '\n' +
+    timestamp + '\n' +
+    credentialScope + '\n' +
+    canonicalRequestHash;
+    
+  // Step 3: Calculate signature
+  const kDate = crypto
+    .createHmac('sha256', 'AWS4' + secretKey)
+    .update(date)
+    .digest();
+    
+  const kRegion = crypto
+    .createHmac('sha256', kDate)
+    .update(REGION)
+    .digest();
+    
+  const kService = crypto
+    .createHmac('sha256', kRegion)
+    .update(SERVICE)
+    .digest();
+    
+  const kSigning = crypto
+    .createHmac('sha256', kService)
+    .update('aws4_request')
+    .digest();
+    
+  const signature = crypto
+    .createHmac('sha256', kSigning)
+    .update(stringToSign)
+    .digest('hex');
+    
+  // Step 4: Create authorization header
+  const authorization = 
+    algorithm + ' ' +
+    'Credential=' + accessKey + '/' + credentialScope + ', ' +
+    'SignedHeaders=' + signedHeaders + ', ' +
+    'Signature=' + signature;
+    
+  return {
+    authorization: authorization,
+    'x-amz-date': timestamp,
+  };
+}
+
+// Main function to get product information from Amazon API
 async function getProductInfo(asinOrUrl: string): Promise<AmazonProduct> {
+  if (!ACCESS_KEY || !SECRET_KEY || !PARTNER_TAG) {
+    throw new Error('Amazon API credentials not found in environment variables');
+  }
+
   // Determine if input is ASIN or URL
   let asin = asinOrUrl;
   
@@ -57,52 +160,84 @@ async function getProductInfo(asinOrUrl: string): Promise<AmazonProduct> {
     throw new Error('Invalid ASIN format. ASIN should be a 10-character alphanumeric code');
   }
 
-  // In a real implementation, this would call the Amazon Product Advertising API
-  // For the MVP, we'll simulate the API response
-  
-  // Generate a simulated product based on the ASIN
-  const hash = Array.from(asin).reduce((acc, char) => {
-    return acc + char.charCodeAt(0);
-  }, 0);
-  
-  const basePrice = (hash % 300) + 50; // Price between $50 and $350
-  const discountPercent = hash % 30; // Discount between 0% and 30%
-  const originalPrice = basePrice * (100 / (100 - discountPercent));
-  
-  // Product categories based on ASIN first letter
-  const categories = [
-    'Electronics', 'Books', 'Home & Kitchen', 'Toys & Games',
-    'Clothing', 'Beauty', 'Sports & Outdoors', 'Office Products', 
-    'Tools & Home Improvement', 'Health & Household'
-  ];
-  const categoryIndex = asin.charCodeAt(0) % categories.length;
-  const category = categories[categoryIndex];
-  
-  // Generate product name
-  const adjectives = ['Premium', 'Deluxe', 'Advanced', 'Professional', 'Ultra', 'Smart', 'Portable'];
-  const nouns = ['Pro', 'Max', 'Plus', 'Elite', 'Lite', 'Series', 'Edition'];
-  
-  const adjIndex = hash % adjectives.length;
-  const nounIndex = (hash + 3) % nouns.length;
-  
-  const brandNames = ['TechMaster', 'HomeStyle', 'EcoLife', 'PowerPro', 'ComfortPlus', 'NatureCare', 'PrimeLine'];
-  const brandIndex = (hash + 5) % brandNames.length;
-  
-  const title = `${brandNames[brandIndex]} ${adjectives[adjIndex]} ${category} ${nouns[nounIndex]} (${asin})`;
-  
-  // Create product object
-  return {
-    asin,
-    title,
-    price: Math.round(basePrice * 100) / 100,
-    originalPrice: Math.round(originalPrice * 100) / 100,
-    imageUrl: `https://picsum.photos/seed/${asin}/200/200`,
-    url: `https://www.amazon.com/dp/${asin}`
-  };
+  try {
+    // Create request payload
+    const payload = JSON.stringify({
+      ItemIds: [asin],
+      PartnerTag: PARTNER_TAG,
+      PartnerType: 'Associates',
+      Marketplace: 'www.amazon.com',
+      Resources: [
+        'Images.Primary.Medium',
+        'ItemInfo.Title',
+        'Offers.Listings.Price',
+        'Offers.Listings.SavingBasis'
+      ]
+    });
+
+    // Generate timestamp
+    const timestamp = new Date().toISOString().replace(/[:-]|\.\d{3}/g, '');
+
+    // Sign the request
+    const signature = signRequest('POST', payload, timestamp, ACCESS_KEY, SECRET_KEY);
+
+    // Make the API request
+    const response = await axios({
+      method: 'post',
+      url: `https://${HOST}${URI}`,
+      headers: {
+        'Content-Type': 'application/json; charset=utf-8',
+        'Content-Encoding': 'amz-1.0',
+        'X-Amz-Target': 'com.amazon.paapi5.v1.ProductAdvertisingAPIv1.GetItems',
+        'X-Amz-Date': signature['x-amz-date'],
+        'Authorization': signature.authorization,
+        'Host': HOST
+      },
+      data: payload
+    });
+
+    // Extract product data from response
+    const item = response.data.ItemsResult.Items[0];
+    
+    if (!item) {
+      throw new Error('Product not found');
+    }
+
+    // Get the current price
+    const price = parseFloat(item.Offers?.Listings[0]?.Price?.Amount || '0');
+    
+    // Get original price if available (for discounted items)
+    let originalPrice: number | undefined;
+    if (item.Offers?.Listings[0]?.SavingBasis?.Amount) {
+      originalPrice = parseFloat(item.Offers.Listings[0].SavingBasis.Amount);
+    }
+    
+    // Return formatted product data
+    return {
+      asin: item.ASIN,
+      title: item.ItemInfo.Title.DisplayValue,
+      price: price || 0,
+      originalPrice: originalPrice,
+      imageUrl: item.Images?.Primary?.Medium?.URL,
+      url: item.DetailPageURL
+    };
+  } catch (error) {
+    console.error('Error fetching product from Amazon API:', error);
+    
+    // If it's an AxiosError, check for API-specific error messages
+    if (axios.isAxiosError(error) && error.response) {
+      // Extract error message from Amazon response
+      const errorMessage = error.response.data?.Errors?.[0]?.Message || 'Error communicating with Amazon API';
+      throw new Error(errorMessage);
+    }
+    
+    // For other errors
+    throw new Error('Failed to fetch product information from Amazon: ' + (error instanceof Error ? error.message : 'Unknown error'));
+  }
 }
 
 // Function to add affiliate tag to Amazon URL
-function addAffiliateTag(url: string, tag: string): string {
+function addAffiliateTag(url: string, tag: string = PARTNER_TAG || 'bytsave-20'): string {
   // Check if URL already has parameters
   const hasParams = url.includes('?');
   const separator = hasParams ? '&' : '?';
