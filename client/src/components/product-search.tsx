@@ -186,9 +186,20 @@ export default function ProductSearch({
     setSelectedProduct(product);
     trackForm.setValue("productUrl", product.url);
     
+    // Set a default target price 10% below the current price
+    if (product.price) {
+      const suggestedPrice = Math.round(product.price * 0.9 * 100) / 100; // 10% discount, rounded to 2 decimal places
+      trackForm.setValue("targetPrice", suggestedPrice);
+    }
+    
     if (email) {
       trackForm.setValue("email", email);
     }
+    
+    // Scroll to the tracking form
+    setTimeout(() => {
+      document.getElementById("tracking-form")?.scrollIntoView({ behavior: "smooth" });
+    }, 100);
   };
   
   // Set email for both search modes
@@ -370,7 +381,11 @@ export default function ProductSearch({
 
                   {searchResults && searchResults.length > 0 && !(isSearching || isFetchingSearch) && (
                     <div className="space-y-2">
-                      <h3 className="text-sm font-medium">Search Results</h3>
+                      <h3 className="font-medium mb-2 text-lg flex items-center">
+                        <span className="mr-2 bg-primary text-white px-2 py-1 rounded-full text-xs">1</span>
+                        Select a Product to Track
+                      </h3>
+                      <p className="text-sm text-muted-foreground mb-2">Click on a product below to set up price tracking</p>
                       <div className="space-y-2 max-h-[400px] overflow-y-auto">
                         {searchResults.map((product) => (
                           <div
@@ -378,10 +393,14 @@ export default function ProductSearch({
                             className={`flex items-start border p-3 rounded-md cursor-pointer transition-colors ${
                               selectedProduct?.asin === product.asin
                                 ? "border-primary bg-primary/5"
-                                : "hover:bg-accent"
-                            }`}
+                                : "hover:bg-accent hover:border-primary"
+                            } relative`}
                             onClick={() => selectProduct(product)}
                           >
+                            {/* Click indicator badge */}
+                            <div className="absolute top-2 right-2 text-xs bg-primary text-white px-2 py-1 rounded-md opacity-80">
+                              Click to Track
+                            </div>
                             {product.imageUrl && (
                               <div className="mr-3 flex-shrink-0">
                                 <img
@@ -415,8 +434,14 @@ export default function ProductSearch({
 
                 {/* Product Tracking Form (when product is selected) */}
                 {selectedProduct && (
-                  <div className="mt-6 border-t pt-4">
-                    <h3 className="font-medium mb-3">Set Tracking Details</h3>
+                  <div id="tracking-form" className="mt-6 border-t pt-4 bg-primary-50 p-4 rounded-lg">
+                    <h3 className="font-medium mb-3 text-lg flex items-center">
+                      <span className="mr-2 bg-primary text-white px-2 py-1 rounded-full text-xs">2</span>
+                      Set Price Drop Alert
+                    </h3>
+                    <p className="text-sm text-muted-foreground mb-4">
+                      We'll notify you when the price drops below your desired price
+                    </p>
                     <Form {...trackForm}>
                       <form
                         onSubmit={trackForm.handleSubmit(onTrackSubmit)}
