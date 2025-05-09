@@ -1,12 +1,13 @@
 import { useState } from "react";
 import HeroSection from "@/components/hero-section";
 import FeaturesSection from "@/components/features-section";
-import TrackerForm from "@/components/tracker-form";
+import ProductSearch from "@/components/product-search";
 import ProductsDisplay from "@/components/products-display";
 import NotificationDemo from "@/components/notification-demo";
 import CtaSection from "@/components/cta-section";
 import FAQSection from "@/components/faq-section";
 import { useToast } from "@/hooks/use-toast";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 
 const Home: React.FC = () => {
   const [userEmail, setUserEmail] = useState<string>(() => {
@@ -41,7 +42,21 @@ const Home: React.FC = () => {
     <>
       <HeroSection />
       <FeaturesSection />
-      <TrackerForm onSuccess={handleTrackerSuccess} />
+      
+      <section className="py-16 bg-slate-50">
+        <div className="container">
+          <div className="text-center mb-10">
+            <h2 className="text-3xl font-bold mb-4">Track Amazon Prices</h2>
+            <p className="text-lg text-slate-600 max-w-2xl mx-auto">
+              Enter an Amazon product URL or search by name to start tracking prices
+              and get notified when they drop.
+            </p>
+          </div>
+          
+          <ProductSearch onSuccess={handleTrackerSuccess} />
+        </div>
+      </section>
+      
       <ProductsDisplay email={userEmail} />
       <NotificationDemo />
       <CtaSection />

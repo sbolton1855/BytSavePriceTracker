@@ -45,6 +45,31 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
   
+  // Get a single product by ID
+  app.get('/api/products/:id', async (req, res) => {
+    try {
+      const id = parseInt(req.params.id);
+      
+      if (isNaN(id)) {
+        return res.status(400).json({ message: 'Invalid ID format' });
+      }
+      
+      const product = await storage.getProduct(id);
+      
+      if (!product) {
+        return res.status(404).json({ message: 'Product not found' });
+      }
+      
+      res.status(200).json({
+        ...product,
+        affiliateUrl: addAffiliateTag(product.url, AFFILIATE_TAG)
+      });
+    } catch (error) {
+      console.error('Error fetching product:', error);
+      res.status(500).json({ message: 'Failed to fetch product' });
+    }
+  });
+  
   // Track a new product (non-authenticated)
   app.post('/api/track', async (req, res) => {
     try {
