@@ -2,8 +2,10 @@ import {
   users, type User, type InsertUser,
   products, type Product, type InsertProduct,
   trackedProducts, type TrackedProduct, type InsertTrackedProduct,
-  priceHistory, type PriceHistory, type InsertPriceHistory
+  priceHistory as priceHistoryTable, type PriceHistory, type InsertPriceHistory
 } from "@shared/schema";
+import { db } from "./db";
+import { eq, and, desc } from "drizzle-orm";
 
 // Storage interface for BytSave application
 export interface IStorage {
@@ -37,128 +39,128 @@ export interface IStorage {
   getPriceHistoryByProductId(productId: number): Promise<PriceHistory[]>;
 }
 
-export class MemStorage implements IStorage {
-  private users: Map<number, User>;
-  private products: Map<number, Product>;
-  private trackedProducts: Map<number, TrackedProduct>;
-  private priceHistory: Map<number, PriceHistory>;
-
-  private userId: number;
-  private productId: number;
-  private trackedProductId: number;
-  private priceHistoryId: number;
-
-  constructor() {
-    this.users = new Map();
-    this.products = new Map();
-    this.trackedProducts = new Map();
-    this.priceHistory = new Map();
-
-    this.userId = 1;
-    this.productId = 1;
-    this.trackedProductId = 1;
-    this.priceHistoryId = 1;
-  }
-
+// Database storage implementation
+export class DatabaseStorage implements IStorage {
   // User operations
   async getUser(id: number): Promise<User | undefined> {
-    return this.users.get(id);
+    const [user] = await db.select().from(users).where(eq(users.id, id));
+    return user;
   }
 
   async getUserByUsername(username: string): Promise<User | undefined> {
-    return Array.from(this.users.values()).find(
-      (user) => user.username === username,
-    );
+    const [user] = await db.select().from(users).where(eq(users.username, username));
+    return user;
   }
 
   async getUserByEmail(email: string): Promise<User | undefined> {
-    return Array.from(this.users.values()).find(
-      (user) => user.email === email,
-    );
+    const [user] = await db.select().from(users).where(eq(users.email, email));
+    return user;
   }
 
   async createUser(insertUser: InsertUser): Promise<User> {
-    const id = this.userId++;
-    const user: User = { ...insertUser, id };
-    this.users.set(id, user);
+    const [user] = await db.insert(users).values(insertUser).returning();
     return user;
   }
 
   // Product operations
   async createProduct(insertProduct: InsertProduct): Promise<Product> {
-    const id = this.productId++;
-    const product: Product = { ...insertProduct, id };
-    this.products.set(id, product);
+    const [product] = await db.insert(products).values(insertProduct).returning();
     return product;
   }
 
   async getProduct(id: number): Promise<Product | undefined> {
-    return this.products.get(id);
+    const [product] = await db.select().from(products).where(eq(products.id, id));
+    return product;
   }
 
   async getProductByAsin(asin: string): Promise<Product | undefined> {
-    return Array.from(this.products.values()).find(
-      (product) => product.asin === asin,
-    );
+    const [product] = await db.select().from(products).where(eq(products.asin, asin));
+    return product;
   }
 
   async updateProduct(id: number, updates: Partial<Product>): Promise<Product | undefined> {
-    const product = this.products.get(id);
-    if (!product) return undefined;
-
-    const updatedProduct = { ...product, ...updates };
-    this.products.set(id, updatedProduct);
+    const [updatedProduct] = await db
+      .update(products)
+      .set(updates)
+      .where(eq(products.id, id))
+      .returning();
     return updatedProduct;
   }
 
   async getAllProducts(): Promise<Product[]> {
-    return Array.from(this.products.values());
+    return db.select().from(products);
   }
 
   // Tracked product operations
   async createTrackedProduct(insertTrackedProduct: InsertTrackedProduct): Promise<TrackedProduct> {
-    const id = this.trackedProductId++;
-    const trackedProduct: TrackedProduct = { ...insertTrackedProduct, id, notified: false };
-    this.trackedProducts.set(id, trackedProduct);
+    const [trackedProduct] = await db
+      .insert(trackedProducts)
+      .values({ ...insertTrackedProduct, notified: false })
+      .returning();
     return trackedProduct;
   }
 
   async getTrackedProduct(id: number): Promise<TrackedProduct | undefined> {
-    return this.trackedProducts.get(id);
+    const [trackedProduct] = await db
+      .select()
+      .from(trackedProducts)
+      .where(eq(trackedProducts.id, id));
+    return trackedProduct;
   }
 
   async getTrackedProductsByUserId(userId: number): Promise<TrackedProduct[]> {
-    return Array.from(this.trackedProducts.values()).filter(
-      (tp) => tp.userId === userId,
-    );
+    return db
+      .select()
+      .from(trackedProducts)
+      .where(eq(trackedProducts.userId, userId));
   }
 
   async getTrackedProductsByEmail(email: string): Promise<TrackedProduct[]> {
-    return Array.from(this.trackedProducts.values()).filter(
-      (tp) => tp.email === email,
-    );
+    return db
+      .select()
+      .from(trackedProducts)
+      .where(eq(trackedProducts.email, email));
   }
 
   async getTrackedProductByUserAndProduct(userId: number | null, email: string, productId: number): Promise<TrackedProduct | undefined> {
-    return Array.from(this.trackedProducts.values()).find(
-      (tp) => {
-        if (userId !== null) {
-          return tp.userId === userId && tp.productId === productId;
-        } else {
-          return tp.email === email && tp.productId === productId;
-        }
-      }
-    );
+    let query;
+    if (userId !== null) {
+      query = and(
+        eq(trackedProducts.userId, userId),
+        eq(trackedProducts.productId, productId)
+      );
+    } else {
+      query = and(
+        eq(trackedProducts.email, email),
+        eq(trackedProducts.productId, productId)
+      );
+    }
+
+    const [trackedProduct] = await db
+      .select()
+      .from(trackedProducts)
+      .where(query);
+    
+    return trackedProduct;
   }
 
   async getTrackedProductsNeedingAlerts(): Promise<(TrackedProduct & { product: Product })[]> {
     const result: (TrackedProduct & { product: Product })[] = [];
     
-    for (const tp of this.trackedProducts.values()) {
-      const product = this.products.get(tp.productId);
-      if (!product) continue;
+    // First, get all non-notified tracked products
+    const nonNotifiedProducts = await db
+      .select()
+      .from(trackedProducts)
+      .where(eq(trackedProducts.notified, false));
+    
+    // For each non-notified tracked product, check if price is below target
+    for (const tp of nonNotifiedProducts) {
+      const [product] = await db
+        .select()
+        .from(products)
+        .where(eq(products.id, tp.productId));
       
-      if (!tp.notified && product.currentPrice <= tp.targetPrice) {
+      if (product && product.currentPrice <= tp.targetPrice) {
         result.push({ ...tp, product });
       }
     }
@@ -167,23 +169,35 @@ export class MemStorage implements IStorage {
   }
 
   async updateTrackedProduct(id: number, updates: Partial<TrackedProduct>): Promise<TrackedProduct | undefined> {
-    const trackedProduct = this.trackedProducts.get(id);
-    if (!trackedProduct) return undefined;
-
-    const updatedTrackedProduct = { ...trackedProduct, ...updates };
-    this.trackedProducts.set(id, updatedTrackedProduct);
+    const [updatedTrackedProduct] = await db
+      .update(trackedProducts)
+      .set(updates)
+      .where(eq(trackedProducts.id, id))
+      .returning();
+    
     return updatedTrackedProduct;
   }
 
   async deleteTrackedProduct(id: number): Promise<boolean> {
-    return this.trackedProducts.delete(id);
+    const [deletedTrackedProduct] = await db
+      .delete(trackedProducts)
+      .where(eq(trackedProducts.id, id))
+      .returning();
+    
+    return !!deletedTrackedProduct;
   }
 
   async getAllTrackedProductsWithDetails(): Promise<(TrackedProduct & { product: Product })[]> {
     const result: (TrackedProduct & { product: Product })[] = [];
     
-    for (const tp of this.trackedProducts.values()) {
-      const product = this.products.get(tp.productId);
+    const allTrackedProducts = await db.select().from(trackedProducts);
+    
+    for (const tp of allTrackedProducts) {
+      const [product] = await db
+        .select()
+        .from(products)
+        .where(eq(products.id, tp.productId));
+      
       if (product) {
         result.push({ ...tp, product });
       }
@@ -195,12 +209,19 @@ export class MemStorage implements IStorage {
   async getTrackedProductsWithDetailsByEmail(email: string): Promise<(TrackedProduct & { product: Product })[]> {
     const result: (TrackedProduct & { product: Product })[] = [];
     
-    for (const tp of this.trackedProducts.values()) {
-      if (tp.email === email) {
-        const product = this.products.get(tp.productId);
-        if (product) {
-          result.push({ ...tp, product });
-        }
+    const trackedProductsByEmail = await db
+      .select()
+      .from(trackedProducts)
+      .where(eq(trackedProducts.email, email));
+    
+    for (const tp of trackedProductsByEmail) {
+      const [product] = await db
+        .select()
+        .from(products)
+        .where(eq(products.id, tp.productId));
+      
+      if (product) {
+        result.push({ ...tp, product });
       }
     }
     
@@ -209,17 +230,22 @@ export class MemStorage implements IStorage {
 
   // Price history operations
   async createPriceHistory(insertPriceHistory: InsertPriceHistory): Promise<PriceHistory> {
-    const id = this.priceHistoryId++;
-    const priceHistory: PriceHistory = { ...insertPriceHistory, id };
-    this.priceHistory.set(id, priceHistory);
-    return priceHistory;
+    const [priceHistoryRecord] = await db
+      .insert(priceHistoryTable)
+      .values(insertPriceHistory)
+      .returning();
+    
+    return priceHistoryRecord;
   }
 
   async getPriceHistoryByProductId(productId: number): Promise<PriceHistory[]> {
-    return Array.from(this.priceHistory.values())
-      .filter((ph) => ph.productId === productId)
-      .sort((a, b) => a.timestamp.getTime() - b.timestamp.getTime());
+    return db
+      .select()
+      .from(priceHistoryTable)
+      .where(eq(priceHistoryTable.productId, productId))
+      .orderBy(desc(priceHistoryTable.timestamp));
   }
 }
 
-export const storage = new MemStorage();
+// Export an instance of DatabaseStorage
+export const storage = new DatabaseStorage();
