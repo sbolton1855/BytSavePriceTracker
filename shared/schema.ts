@@ -85,3 +85,31 @@ export type TrackingFormData = z.infer<typeof trackingFormSchema>;
 export type TrackedProductWithDetails = TrackedProduct & {
   product: Product;
 };
+
+// Define relations after all tables have been defined
+export const usersRelations = relations(users, ({ many }) => ({
+  trackedProducts: many(trackedProducts),
+}));
+
+export const productsRelations = relations(products, ({ many }) => ({
+  trackedProducts: many(trackedProducts),
+  priceHistory: many(priceHistory),
+}));
+
+export const trackedProductsRelations = relations(trackedProducts, ({ one }) => ({
+  user: one(users, {
+    fields: [trackedProducts.userId],
+    references: [users.id],
+  }),
+  product: one(products, {
+    fields: [trackedProducts.productId],
+    references: [products.id],
+  }),
+}));
+
+export const priceHistoryRelations = relations(priceHistory, ({ one }) => ({
+  product: one(products, {
+    fields: [priceHistory.productId],
+    references: [products.id],
+  }),
+}));
