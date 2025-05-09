@@ -146,7 +146,7 @@ export function configureAuth(app: Express) {
     passport.use(new GoogleStrategy({
       clientID: process.env.GOOGLE_CLIENT_ID,
       clientSecret: process.env.GOOGLE_CLIENT_SECRET,
-      callbackURL: "/auth/google/callback"
+      callbackURL: "/api/auth/google/callback"
     }, async (accessToken, refreshToken, profile, done) => {
       try {
         // Find user by provider ID or email
@@ -308,9 +308,9 @@ export function configureAuth(app: Express) {
   }
   
   // Authentication routes
-  app.get('/auth/google', passport.authenticate('google', { scope: ['profile', 'email'] }));
-  app.get('/auth/google/callback', 
-    passport.authenticate('google', { failureRedirect: '/login' }),
+  app.get('/api/auth/google', passport.authenticate('google', { scope: ['profile', 'email'] }));
+  app.get('/api/auth/google/callback', 
+    passport.authenticate('google', { failureRedirect: '/auth' }),
     (req, res) => res.redirect('/dashboard')
   );
   
@@ -327,10 +327,10 @@ export function configureAuth(app: Express) {
   );
   
   // Logout route
-  app.get('/auth/logout', (req, res, next) => {
+  app.post('/api/logout', (req, res, next) => {
     req.logout((err) => {
       if (err) { return next(err); }
-      res.redirect('/');
+      res.status(200).json({ message: 'Logged out successfully' });
     });
   });
   
