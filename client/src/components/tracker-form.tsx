@@ -1,0 +1,175 @@
+import { useState } from "react";
+import { useForm } from "react-hook-form";
+import { zodResolver } from "@hookform/resolvers/zod";
+import { useMutation } from "@tanstack/react-query";
+import { 
+  Form, 
+  FormControl, 
+  FormField, 
+  FormItem, 
+  FormLabel, 
+  FormMessage 
+} from "@/components/ui/form";
+import { Input } from "@/components/ui/input";
+import { Button } from "@/components/ui/button";
+import { useToast } from "@/hooks/use-toast";
+import { trackingFormSchema, type TrackingFormData } from "@shared/schema";
+import { apiRequest } from "@/lib/queryClient";
+
+interface TrackerFormProps {
+  onSuccess?: () => void;
+}
+
+const TrackerForm: React.FC<TrackerFormProps> = ({ onSuccess }) => {
+  const { toast } = useToast();
+  const [isSubmitting, setIsSubmitting] = useState(false);
+
+  // Define form
+  const form = useForm<TrackingFormData>({
+    resolver: zodResolver(trackingFormSchema),
+    defaultValues: {
+      productUrl: "",
+      targetPrice: 0,
+      email: "",
+    },
+  });
+
+  // Set up mutation
+  const trackProductMutation = useMutation({
+    mutationFn: async (data: TrackingFormData) => {
+      return apiRequest("POST", "/api/track", data);
+    },
+    onSuccess: () => {
+      toast({
+        title: "Product tracking added!",
+        description: "We'll notify you when the price drops below your target.",
+        variant: "success",
+      });
+      
+      // Reset the form
+      form.reset();
+      
+      // Call onSuccess callback if provided
+      if (onSuccess) {
+        onSuccess();
+      }
+      
+      setIsSubmitting(false);
+    },
+    onError: (error) => {
+      toast({
+        title: "Failed to track product",
+        description: error instanceof Error ? error.message : "Please try again later",
+        variant: "destructive",
+      });
+      setIsSubmitting(false);
+    },
+  });
+
+  // Form submission handler
+  const onSubmit = (data: TrackingFormData) => {
+    setIsSubmitting(true);
+    trackProductMutation.mutate(data);
+  };
+
+  return (
+    <section id="tracker" className="py-12 sm:py-16 bg-white">
+      <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8">
+        <div className="text-center mb-10">
+          <h2 className="text-3xl font-bold text-gray-900">Track an Amazon Product</h2>
+          <p className="mt-3 text-xl text-gray-500">
+            Enter an Amazon product URL or ASIN to start tracking
+          </p>
+        </div>
+
+        <div className="bg-gray-50 rounded-xl p-6 md:p-8 shadow-sm border border-gray-200">
+          <Form {...form}>
+            <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
+              <FormField
+                control={form.control}
+                name="productUrl"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Amazon Product URL or ASIN</FormLabel>
+                    <FormControl>
+                      <Input 
+                        placeholder="https://www.amazon.com/dp/B0123ABCDE or B0123ABCDE" 
+                        {...field} 
+                      />
+                    </FormControl>
+                    <p className="text-xs text-gray-500">Paste a complete Amazon product URL or just the ASIN code</p>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+              
+              <FormField
+                control={form.control}
+                name="targetPrice"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Target Price ($)</FormLabel>
+                    <FormControl>
+                      <div className="relative rounded-md shadow-sm">
+                        <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                          <span className="text-gray-500 sm:text-sm">$</span>
+                        </div>
+                        <Input 
+                          type="number"
+                          step="0.01"
+                          min="0.01"
+                          placeholder="49.99"
+                          className="pl-7"
+                          {...field}
+                          onChange={(e) => {
+                            const value = e.target.value === "" ? 0 : parseFloat(e.target.value);
+                            field.onChange(value);
+                          }}
+                        />
+                      </div>
+                    </FormControl>
+                    <p className="text-xs text-gray-500">We'll notify you when the price drops below this amount</p>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+              
+              <FormField
+                control={form.control}
+                name="email"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Email for Notifications</FormLabel>
+                    <FormControl>
+                      <Input 
+                        type="email"
+                        placeholder="your@email.com" 
+                        {...field} 
+                      />
+                    </FormControl>
+                    <p className="text-xs text-gray-500">We'll send price drop alerts to this email</p>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+              
+              <Button 
+                type="submit" 
+                className="w-full"
+                disabled={isSubmitting}
+              >
+                {isSubmitting ? "Tracking..." : "Start Tracking Price"}
+              </Button>
+
+              <div className="text-center text-xs text-gray-500">
+                <p>By submitting, you agree to our <a href="#" className="text-primary-500 hover:text-primary-600">Terms of Service</a> and <a href="#" className="text-primary-500 hover:text-primary-600">Privacy Policy</a></p>
+              </div>
+            </form>
+          </Form>
+        </div>
+      </div>
+    </section>
+  );
+};
+
+export default TrackerForm;
