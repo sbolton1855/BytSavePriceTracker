@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { queryClient, apiRequest } from "@/lib/queryClient";
 import { useForm } from "react-hook-form";
@@ -66,6 +66,18 @@ export default function ProductSearch({
   const [selectedProduct, setSelectedProduct] = useState<ProductSearchResult | null>(null);
   const [email, setEmail] = useState<string>("");
   const [searchQuery, setSearchQuery] = useState<string>("");
+  const [debouncedSearchQuery, setDebouncedSearchQuery] = useState<string>("");
+  
+  // Debounce the search query
+  useEffect(() => {
+    const handler = setTimeout(() => {
+      setDebouncedSearchQuery(searchQuery);
+    }, 500); // 500ms delay
+    
+    return () => {
+      clearTimeout(handler);
+    };
+  }, [searchQuery]);
   const [searchTimeout, setSearchTimeout] = useState<NodeJS.Timeout | null>(null);
   
   // Form for searching products
@@ -105,21 +117,21 @@ export default function ProductSearch({
     isLoading: isSearching,
     isFetching: isFetchingSearch,
   } = useQuery<ProductSearchResult[]>({
-    queryKey: ["/api/products/search", searchQuery],
+    queryKey: ["/api/products/search", debouncedSearchQuery],
     queryFn: async () => {
-      if (!searchQuery || searchQuery.length < 3) {
+      if (!debouncedSearchQuery || debouncedSearchQuery.length < 3) {
         return [];
       }
       
       const res = await fetch(
-        `/api/products/search?q=${encodeURIComponent(searchQuery)}`
+        `/api/products/search?q=${encodeURIComponent(debouncedSearchQuery)}`
       );
       if (!res.ok) {
         throw new Error("Failed to search products");
       }
       return res.json();
     },
-    enabled: searchQuery.length >= 3 && searchTab === "name",
+    enabled: debouncedSearchQuery.length >= 3 && searchTab === "name",
   });
   
   // Product tracking mutation
