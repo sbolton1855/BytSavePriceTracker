@@ -137,7 +137,23 @@ export class DatabaseStorage implements IStorage {
 
     for (const item of trackedItems) {
       const product = await this.getProduct(item.productId);
-      if (product && product.currentPrice <= item.targetPrice && !item.notificationSent) {
+      if (!product || item.notified) {
+        continue;
+      }
+      
+      // Check price condition based on alert type
+      let shouldAlert = false;
+      
+      if (item.percentageAlert && item.percentageThreshold && product.originalPrice) {
+        // Percentage-based alert: current price is at least X% lower than original
+        const targetDiscountPrice = product.originalPrice * (1 - item.percentageThreshold / 100);
+        shouldAlert = product.currentPrice <= targetDiscountPrice;
+      } else {
+        // Fixed price alert: current price is at or below target price
+        shouldAlert = product.currentPrice <= item.targetPrice;
+      }
+      
+      if (shouldAlert) {
         result.push({ ...item, product });
       }
     }
