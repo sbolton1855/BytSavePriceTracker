@@ -377,24 +377,59 @@ export function configureAuth(app: Express) {
   // Register route
   app.post('/api/register', async (req, res) => {
     try {
-      // Validate with schema
-      const { registerSchema } = await import('@shared/schema');
-      const validation = registerSchema.safeParse(req.body);
+      console.log('Registration request body:', req.body);
       
-      if (!validation.success) {
+      // Validate with schema - using a modified version to handle password confirmation
+      const { email, password } = req.body;
+      
+      if (!email || !password) {
         return res.status(400).json({ 
-          message: 'Invalid form data', 
-          errors: validation.error.format() 
+          message: 'Email and password are required', 
+          errors: { 
+            email: !email ? { _errors: ["Email is required"] } : undefined,
+            password: !password ? { _errors: ["Password is required"] } : undefined
+          }
         });
       }
       
-      const { email, password } = validation.data;
+      // Validate email format
+      if (!/^\S+@\S+\.\S+$/.test(email)) {
+        return res.status(400).json({
+          message: 'Invalid email format',
+          errors: { email: { _errors: ["Please enter a valid email address"] } }
+        });
+      }
+      
+      // Validate password strength
+      if (password.length < 8) {
+        return res.status(400).json({
+          message: 'Password is too short',
+          errors: { password: { _errors: ["Password must be at least 8 characters"] } }
+        });
+      }
+      
+      if (!/[A-Z]/.test(password)) {
+        return res.status(400).json({
+          message: 'Password must contain uppercase letter',
+          errors: { password: { _errors: ["Password must contain at least one uppercase letter"] } }
+        });
+      }
+      
+      if (!/[0-9]/.test(password)) {
+        return res.status(400).json({
+          message: 'Password must contain a number',
+          errors: { password: { _errors: ["Password must contain at least one number"] } }
+        });
+      }
       
       // Check if user already exists
       const existingUser = await storage.getUserByEmail(email);
       
       if (existingUser) {
-        return res.status(400).json({ message: 'User with this email already exists' });
+        return res.status(400).json({ 
+          message: 'User with this email already exists',
+          emailExists: true
+        });
       }
       
       // Hash password
@@ -414,6 +449,7 @@ export function configureAuth(app: Express) {
       // Log the user in
       req.login(dbUserToExpressUser(newUser), (err) => {
         if (err) {
+          console.error('Login after registration error:', err);
           return res.status(500).json({ message: 'Error during login after registration' });
         }
         
@@ -423,7 +459,7 @@ export function configureAuth(app: Express) {
       });
     } catch (error) {
       console.error('Registration error:', error);
-      res.status(500).json({ message: 'Registration failed' });
+      res.status(500).json({ message: 'Registration failed due to server error' });
     }
   });
   
