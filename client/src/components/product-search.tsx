@@ -95,6 +95,8 @@ export default function ProductSearch({
       productUrl: "",
       targetPrice: 0,
       email: "",
+      percentageAlert: false,
+      percentageThreshold: 10, // Default 10% discount
     },
   });
   
@@ -480,30 +482,127 @@ export default function ProductSearch({
 
                         <FormField
                           control={trackForm.control}
-                          name="targetPrice"
+                          name="percentageAlert"
                           render={({ field }) => (
                             <FormItem>
-                              <FormLabel>Desired Price</FormLabel>
-                              <FormControl>
-                                <Input
-                                  type="text"
-                                  inputMode="decimal"
-                                  placeholder="Enter your desired price"
-                                  {...field}
-                                  value={field.value > 0 ? field.value.toString() : ''}
-                                  onChange={(e) => {
-                                    // Remove leading zeros and allow only valid price format
-                                    const value = e.target.value.replace(/^0+(?=\d)/, '');
-                                    const price = parseFloat(value);
-                                    field.onChange(isNaN(price) ? 0 : price);
-                                  }}
-                                  disabled={trackMutation.isPending}
-                                />
-                              </FormControl>
-                              <FormMessage />
+                              <div className="flex flex-col space-y-1.5">
+                                <FormLabel>Alert Type</FormLabel>
+                                <div className="flex">
+                                  <Button
+                                    type="button"
+                                    variant={field.value ? "outline" : "default"}
+                                    className={`flex-1 rounded-r-none ${!field.value ? "bg-primary hover:bg-primary/90" : ""}`}
+                                    onClick={() => {
+                                      field.onChange(false);
+                                    }}
+                                  >
+                                    <DollarSign className="h-4 w-4 mr-1" />
+                                    Fixed Price
+                                  </Button>
+                                  <Button
+                                    type="button"
+                                    variant={field.value ? "default" : "outline"}
+                                    className={`flex-1 rounded-l-none ${field.value ? "bg-primary hover:bg-primary/90" : ""}`}
+                                    onClick={() => {
+                                      field.onChange(true);
+                                    }}
+                                  >
+                                    <Percent className="h-4 w-4 mr-1" />
+                                    Percentage
+                                  </Button>
+                                </div>
+                              </div>
                             </FormItem>
                           )}
                         />
+
+                        {/* Conditional field based on alert type */}
+                        {!trackForm.watch("percentageAlert") ? (
+                          <FormField
+                            control={trackForm.control}
+                            name="targetPrice"
+                            render={({ field }) => (
+                              <FormItem>
+                                <FormLabel>Desired Price</FormLabel>
+                                <FormControl>
+                                  <Input
+                                    type="text"
+                                    inputMode="decimal"
+                                    placeholder="Enter your desired price"
+                                    {...field}
+                                    value={field.value > 0 ? field.value.toString() : ''}
+                                    onChange={(e) => {
+                                      // Remove leading zeros and allow only valid price format
+                                      const value = e.target.value.replace(/^0+(?=\d)/, '');
+                                      const price = parseFloat(value);
+                                      field.onChange(isNaN(price) ? 0 : price);
+                                    }}
+                                    disabled={trackMutation.isPending}
+                                  />
+                                </FormControl>
+                                <FormMessage />
+                                {selectedProduct.price && (
+                                  <FormDescription>
+                                    Current price: ${selectedProduct.price.toFixed(2)}
+                                  </FormDescription>
+                                )}
+                              </FormItem>
+                            )}
+                          />
+                        ) : (
+                          <FormField
+                            control={trackForm.control}
+                            name="percentageThreshold"
+                            render={({ field }) => (
+                              <FormItem>
+                                <FormLabel>Price Drop Percentage</FormLabel>
+                                <div className="space-y-2">
+                                  <div className="flex justify-between">
+                                    <div className="flex space-x-2">
+                                      {[5, 10, 15, 20, 30].map((percent) => (
+                                        <Button
+                                          key={percent}
+                                          type="button"
+                                          size="sm"
+                                          variant={field.value === percent ? "default" : "outline"}
+                                          className={field.value === percent ? "bg-primary hover:bg-primary/90" : ""}
+                                          onClick={() => field.onChange(percent)}
+                                        >
+                                          {percent}%
+                                        </Button>
+                                      ))}
+                                    </div>
+                                  </div>
+                                  <FormControl>
+                                    <div className="flex items-center space-x-2">
+                                      <Input
+                                        type="number"
+                                        inputMode="numeric"
+                                        min={1}
+                                        max={99}
+                                        placeholder="Custom percentage"
+                                        {...field}
+                                        value={field.value || ""}
+                                        onChange={(e) => {
+                                          const value = parseInt(e.target.value);
+                                          field.onChange(isNaN(value) ? 5 : Math.min(99, Math.max(1, value)));
+                                        }}
+                                        disabled={trackMutation.isPending}
+                                      />
+                                      <span>%</span>
+                                    </div>
+                                  </FormControl>
+                                  <FormMessage />
+                                  {selectedProduct.price && field.value && (
+                                    <FormDescription>
+                                      Alert when price drops below ${(selectedProduct.price * (1 - field.value / 100)).toFixed(2)}
+                                    </FormDescription>
+                                  )}
+                                </div>
+                              </FormItem>
+                            )}
+                          />
+                        )}
 
                         <FormField
                           control={trackForm.control}
