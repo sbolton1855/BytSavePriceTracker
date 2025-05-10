@@ -640,6 +640,29 @@ export default function ProductSearch({
                           )}
                         />
 
+                        <div className="bg-muted/50 p-3 rounded-lg mt-4 mb-3 text-sm">
+                          <div className="flex items-center">
+                            <Bell className="h-4 w-4 mr-2 text-primary" />
+                            <span className="font-medium">Alert Summary</span>
+                          </div>
+                          <p className="mt-1 text-muted-foreground">
+                            {trackForm.watch("percentageAlert") ? (
+                              <>
+                                You'll be notified when the price drops by at least 
+                                <strong className="mx-1">{trackForm.watch("percentageThreshold") || 10}%</strong>
+                                {selectedProduct?.price && (
+                                  <>(below ${(selectedProduct.price * (1 - (trackForm.watch("percentageThreshold") || 10) / 100)).toFixed(2)})</>
+                                )}
+                              </>
+                            ) : (
+                              <>
+                                You'll be notified when the price drops below 
+                                <strong className="mx-1">${trackForm.watch("targetPrice") || 0}</strong>
+                              </>
+                            )}
+                          </p>
+                        </div>
+                        
                         <Button
                           type="submit"
                           className="w-full"

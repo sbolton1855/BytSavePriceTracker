@@ -51,7 +51,9 @@ function createPriceDropEmail(
       </div>
       
       <p style="color: #4B5563; font-size: 16px; line-height: 24px; margin-bottom: 20px;">
-        Good news! A product you're tracking has dropped in price below your target.
+        Good news! A product you're tracking has dropped in price ${trackedProduct.percentageAlert 
+          ? `by at least ${trackedProduct.percentageThreshold}%` 
+          : `below your target of $${trackedProduct.targetPrice.toFixed(2)}`}.
       </p>
       
       <div style="background-color: #F9FAFB; border-radius: 8px; padding: 16px; margin-bottom: 20px;">
@@ -76,6 +78,13 @@ function createPriceDropEmail(
           Buy Now on Amazon
         </a>
       </div>
+      
+      <p style="color: #4B5563; font-size: 14px; line-height: 20px; margin: 20px 0; border-top: 1px solid #E5E7EB; padding-top: 20px;">
+        You're receiving this alert because you set up a ${trackedProduct.percentageAlert 
+          ? `percentage-based alert for ${trackedProduct.percentageThreshold}% discount` 
+          : `price target of $${trackedProduct.targetPrice.toFixed(2)}`} 
+        for this product on ${new Date(trackedProduct.createdAt).toLocaleDateString()}.
+      </p>
       
       <p style="color: #6B7280; font-size: 12px; text-align: center; margin-top: 30px;">
         This email was sent by BytSave. <a href="#" style="color: #3B82F6;">Unsubscribe</a> or <a href="#" style="color: #3B82F6;">Manage Preferences</a>
