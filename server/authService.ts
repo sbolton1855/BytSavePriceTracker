@@ -266,10 +266,15 @@ export function configureAuth(app: Express) {
   
   // Configure Twitter Strategy
   if (process.env.TWITTER_CONSUMER_KEY && process.env.TWITTER_CONSUMER_SECRET) {
+    // Get the current domain from environment or default to localhost
+    const domain = process.env.REPLIT_DOMAINS ? 
+      `https://${process.env.REPLIT_DOMAINS.split(',')[0]}` : 
+      'http://localhost:5000';
+    
     passport.use(new TwitterStrategy({
       consumerKey: process.env.TWITTER_CONSUMER_KEY,
       consumerSecret: process.env.TWITTER_CONSUMER_SECRET,
-      callbackURL: "/auth/twitter/callback",
+      callbackURL: `${domain}/api/auth/twitter/callback`,
       includeEmail: true
     }, async (token, tokenSecret, profile, done) => {
       try {
@@ -326,15 +331,15 @@ export function configureAuth(app: Express) {
     (req, res) => res.redirect('/dashboard')
   );
   
-  app.get('/auth/facebook', passport.authenticate('facebook', { scope: ['email'] }));
-  app.get('/auth/facebook/callback',
-    passport.authenticate('facebook', { failureRedirect: '/login' }),
+  app.get('/api/auth/facebook', passport.authenticate('facebook', { scope: ['email'] }));
+  app.get('/api/auth/facebook/callback',
+    passport.authenticate('facebook', { failureRedirect: '/auth' }),
     (req, res) => res.redirect('/dashboard')
   );
   
-  app.get('/auth/twitter', passport.authenticate('twitter'));
-  app.get('/auth/twitter/callback',
-    passport.authenticate('twitter', { failureRedirect: '/login' }),
+  app.get('/api/auth/twitter', passport.authenticate('twitter'));
+  app.get('/api/auth/twitter/callback',
+    passport.authenticate('twitter', { failureRedirect: '/auth' }),
     (req, res) => res.redirect('/dashboard')
   );
   
