@@ -5,7 +5,6 @@ import ProductSearch from "@/components/product-search";
 import ProductsDisplay from "@/components/products-display";
 import NotificationDemo from "@/components/notification-demo";
 import CtaSection from "@/components/cta-section";
-import FAQSection from "@/components/faq-section";
 import HighlightedDeals from "@/components/highlighted-deals";
 import { useToast } from "@/hooks/use-toast";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -73,7 +72,6 @@ const Home: React.FC = () => {
       <ProductsDisplay email={userEmail} />
       <NotificationDemo />
       <CtaSection />
-      <FAQSection />
     </>
   );
 };
