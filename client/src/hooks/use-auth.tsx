@@ -58,23 +58,42 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   // Register mutation
   const registerMutation = useMutation({
-    mutationFn: async (data: RegisterFormData) => {
-      const res = await apiRequest("POST", "/api/register", data);
-      return await res.json();
+    mutationFn: async (data: ApiRegisterFormData) => {
+      try {
+        const res = await apiRequest("POST", "/api/register", data);
+        if (!res.ok) {
+          const errorData = await res.json();
+          throw new Error(errorData.message || "Registration failed");
+        }
+        return await res.json();
+      } catch (error: any) {
+        console.error("Registration API error:", error);
+        if (error.response?.data) {
+          // Format error properly
+          error.message = error.response.data.message || "Registration failed";
+          error.response = error.response.data;
+        }
+        throw error;
+      }
     },
     onSuccess: (user: User) => {
       queryClient.setQueryData(["/api/user"], user);
       toast({
         title: "Registration successful",
-        description: `Welcome, ${user.firstName || user.email}!`,
+        description: `Welcome, ${user.email}!`,
       });
     },
-    onError: (error: Error) => {
-      toast({
-        title: "Registration failed",
-        description: error.message,
-        variant: "destructive",
-      });
+    onError: (error: any) => {
+      console.error("Auth registration error:", error);
+      // Don't show a toast here as the form will handle detailed errors
+      // Only show a toast for unexpected errors
+      if (!error.response?.data?.errors && !error.response?.data?.emailExists) {
+        toast({
+          title: "Registration failed",
+          description: error.message || "An unexpected error occurred",
+          variant: "destructive",
+        });
+      }
       throw error;
     },
   });
