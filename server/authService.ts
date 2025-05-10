@@ -151,13 +151,16 @@ export function configureAuth(app: Express) {
   // Configure Google Strategy
   if (process.env.GOOGLE_CLIENT_ID && process.env.GOOGLE_CLIENT_SECRET) {
     const domain = getBaseDomain();
+    const callbackUrl = `${domain}/api/auth/google/callback`;
     
-    console.log(`Setting up Google OAuth with callback URL: ${domain}/api/auth/google/callback`);
+    console.log(`Setting up Google OAuth with credential ID: ${process.env.GOOGLE_CLIENT_ID?.substring(0, 8)}...`);
+    console.log(`Using callback URL: ${callbackUrl}`);
     
     passport.use(new GoogleStrategy({
       clientID: process.env.GOOGLE_CLIENT_ID,
       clientSecret: process.env.GOOGLE_CLIENT_SECRET,
-      callbackURL: `${domain}/api/auth/google/callback`
+      callbackURL: callbackUrl,
+      passReqToCallback: true
     }, async (accessToken, refreshToken, profile, done) => {
       try {
         // Find user by provider ID or email
