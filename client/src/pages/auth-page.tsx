@@ -108,13 +108,16 @@ export default function AuthPage() {
 // Login Form
 function LoginForm({ 
   isSubmitting, 
-  setIsSubmitting 
+  setIsSubmitting,
+  setActiveTab
 }: { 
   isSubmitting: boolean;
   setIsSubmitting: (value: boolean) => void;
+  setActiveTab: (tab: "login" | "register") => void;
 }) {
   const { login } = useAuth();
   const [showPassword, setShowPassword] = useState(false);
+  const [userNotFound, setUserNotFound] = useState(false);
   
   const form = useForm<z.infer<typeof loginSchema>>({
     resolver: zodResolver(loginSchema),
@@ -122,18 +125,35 @@ function LoginForm({
       email: "",
       password: "",
     },
+    mode: "onChange", // Validates on change
   });
   
   async function onSubmit(values: z.infer<typeof loginSchema>) {
     try {
       setIsSubmitting(true);
+      setUserNotFound(false);
       await login(values);
-    } catch (error) {
+    } catch (error: any) {
       console.error("Login error:", error);
-      form.setError("root", {
-        type: "manual",
-        message: "Invalid email or password. Please try again."
-      });
+      
+      // Check for specific error messages from backend
+      if (error.message?.includes("Account not found") || error.response?.data?.userNotFound) {
+        setUserNotFound(true);
+        form.setError("email", {
+          type: "manual",
+          message: "Account not found. Please check your email or register."
+        });
+      } else if (error.message?.includes("Incorrect password") || error.response?.data?.passwordIncorrect) {
+        form.setError("password", {
+          type: "manual",
+          message: "Incorrect password. Please try again."
+        });
+      } else {
+        form.setError("root", {
+          type: "manual",
+          message: error.message || "Login failed. Please check your credentials."
+        });
+      }
     } finally {
       setIsSubmitting(false);
     }
@@ -141,6 +161,10 @@ function LoginForm({
   
   const togglePasswordVisibility = () => {
     setShowPassword(!showPassword);
+  };
+  
+  const switchToRegister = () => {
+    setActiveTab("register");
   };
   
   return (
@@ -196,6 +220,21 @@ function LoginForm({
             </FormItem>
           )}
         />
+        
+        {userNotFound && (
+          <div className="text-sm text-primary p-2 rounded flex flex-col items-center">
+            <p className="mb-2">New to BytSave? Create an account to get started.</p>
+            <Button 
+              type="button" 
+              variant="outline" 
+              size="sm" 
+              onClick={switchToRegister}
+              className="mt-1"
+            >
+              Register Now
+            </Button>
+          </div>
+        )}
         
         <Button type="submit" className="w-full" disabled={isSubmitting}>
           {isSubmitting ? (

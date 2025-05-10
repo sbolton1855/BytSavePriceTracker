@@ -428,24 +428,55 @@ export function configureAuth(app: Express) {
   });
   
   // Login route
-  app.post('/api/login', (req, res, next) => {
-    passport.authenticate('local', (err: any, user: Express.User | false, info: { message?: string }) => {
-      if (err) {
-        return next(err);
+  app.post('/api/login', async (req, res, next) => {
+    try {
+      // Validate the login data first
+      const { loginSchema } = await import('@shared/schema');
+      const validation = loginSchema.safeParse(req.body);
+      
+      if (!validation.success) {
+        return res.status(400).json({ 
+          message: 'Please check your credentials', 
+          errors: validation.error.format() 
+        });
+      }
+
+      // Check if user exists before attempting authentication
+      const { email } = validation.data;
+      const existingUser = await storage.getUserByEmail(email);
+      
+      if (!existingUser) {
+        return res.status(401).json({ 
+          message: 'Account not found. Please check your email or register for a new account.',
+          userNotFound: true
+        });
       }
       
-      if (!user) {
-        return res.status(401).json({ message: info.message || 'Authentication failed' });
-      }
-      
-      req.login(user, (err) => {
+      // Proceed with authentication
+      passport.authenticate('local', (err: any, user: Express.User | false, info: { message?: string }) => {
         if (err) {
           return next(err);
         }
         
-        return res.json(user);
-      });
-    })(req, res, next);
+        if (!user) {
+          return res.status(401).json({ 
+            message: 'Incorrect password. Please try again or use password reset.',
+            passwordIncorrect: true
+          });
+        }
+        
+        req.login(user, (err) => {
+          if (err) {
+            return next(err);
+          }
+          
+          return res.json(user);
+        });
+      })(req, res, next);
+    } catch (error) {
+      console.error('Login error:', error);
+      return res.status(500).json({ message: 'An unexpected error occurred. Please try again.' });
+    }
   });
   
   // Current user route
