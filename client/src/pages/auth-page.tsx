@@ -7,7 +7,7 @@ import { registerSchema, loginSchema } from "@shared/schema";
 import { useAuth } from "@/hooks/use-auth";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
-import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
+import { Form, FormControl, FormDescription, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Loader2 } from "lucide-react";
@@ -204,6 +204,7 @@ function RegisterForm({
     defaultValues: {
       email: "",
       password: "",
+      passwordConfirm: "",
       username: "",
       firstName: "",
       lastName: "",
@@ -213,7 +214,9 @@ function RegisterForm({
   async function onSubmit(values: z.infer<typeof registerSchema>) {
     try {
       setIsSubmitting(true);
-      await register(values);
+      // Remove passwordConfirm before sending to server
+      const { passwordConfirm, ...registerData } = values;
+      await register(registerData as any);
     } catch (error) {
       console.error("Registration error:", error);
     } finally {
@@ -244,6 +247,23 @@ function RegisterForm({
           render={({ field }) => (
             <FormItem>
               <FormLabel>Password</FormLabel>
+              <FormControl>
+                <Input type="password" placeholder="••••••••" {...field} />
+              </FormControl>
+              <FormDescription className="text-xs">
+                Must have at least 8 characters, 1 uppercase letter and 1 number
+              </FormDescription>
+              <FormMessage />
+            </FormItem>
+          )}
+        />
+        
+        <FormField
+          control={form.control}
+          name="passwordConfirm"
+          render={({ field }) => (
+            <FormItem>
+              <FormLabel>Confirm Password</FormLabel>
               <FormControl>
                 <Input type="password" placeholder="••••••••" {...field} />
               </FormControl>
