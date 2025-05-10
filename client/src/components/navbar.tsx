@@ -69,11 +69,11 @@ const Navbar: React.FC = () => {
               <DropdownMenu>
                 <DropdownMenuTrigger className="ml-3 focus:outline-none">
                   <Avatar className="h-8 w-8">
-                    {user?.profileImageUrl && (
-                      <AvatarImage src={user.profileImageUrl} alt={(user.firstName || user.email || "User") as string} />
+                    {user && user.profileImageUrl && (
+                      <AvatarImage src={user.profileImageUrl} alt={(user && (user.firstName || user.email) || "User") as string} />
                     )}
                     <AvatarFallback>
-                      {user?.email ? user.email[0].toUpperCase() : "U"}
+                      {user && user.email ? user.email[0].toUpperCase() : "U"}
                     </AvatarFallback>
                   </Avatar>
                 </DropdownMenuTrigger>
