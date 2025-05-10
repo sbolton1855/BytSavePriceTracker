@@ -4,8 +4,6 @@ import FeaturesSection from "@/components/features-section";
 import ProductSearch from "@/components/product-search";
 import ProductsDisplay from "@/components/products-display";
 import NotificationDemo from "@/components/notification-demo";
-import CtaSection from "@/components/cta-section";
-import HighlightedDeals from "@/components/highlighted-deals";
 import { useToast } from "@/hooks/use-toast";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 
@@ -57,21 +55,8 @@ const Home: React.FC = () => {
         </div>
       </section>
       
-      <section className="py-16">
-        <div className="container">
-          <div className="text-center mb-10">
-            <h2 className="text-3xl font-bold mb-4">Top Amazon Price Drops</h2>
-            <p className="text-lg text-slate-600 max-w-2xl mx-auto">
-              Check out these products with the biggest recent price drops. Updated daily.
-            </p>
-          </div>
-          <HighlightedDeals />
-        </div>
-      </section>
-      
       <ProductsDisplay email={userEmail} />
       <NotificationDemo />
-      <CtaSection />
     </>
   );
 };
