@@ -1,19 +1,26 @@
-import { 
-  users, type User, type InsertUser,
-  products, type Product, type InsertProduct,
-  trackedProducts, type TrackedProduct, type InsertTrackedProduct,
-  priceHistory as priceHistoryTable, type PriceHistory, type InsertPriceHistory
+import {
+  users,
+  type User,
+  type UpsertUser,
+  products,
+  type Product,
+  type InsertProduct,
+  trackedProducts,
+  type TrackedProduct,
+  type InsertTrackedProduct,
+  priceHistory,
+  type PriceHistory,
+  type InsertPriceHistory,
 } from "@shared/schema";
 import { db } from "./db";
-import { eq, and, desc } from "drizzle-orm";
+import { eq, and, or } from "drizzle-orm";
 
-// Storage interface for BytSave application
+// Interface for storage operations
 export interface IStorage {
   // User operations
-  getUser(id: number): Promise<User | undefined>;
-  getUserByUsername(username: string): Promise<User | undefined>;
+  getUser(id: string): Promise<User | undefined>;
   getUserByEmail(email: string): Promise<User | undefined>;
-  createUser(user: InsertUser): Promise<User>;
+  upsertUser(user: UpsertUser): Promise<User>;
 
   // Product operations
   createProduct(product: InsertProduct): Promise<Product>;
@@ -25,9 +32,9 @@ export interface IStorage {
   // Tracked product operations
   createTrackedProduct(trackedProduct: InsertTrackedProduct): Promise<TrackedProduct>;
   getTrackedProduct(id: number): Promise<TrackedProduct | undefined>;
-  getTrackedProductsByUserId(userId: number): Promise<TrackedProduct[]>;
+  getTrackedProductsByUserId(userId: string): Promise<TrackedProduct[]>;
   getTrackedProductsByEmail(email: string): Promise<TrackedProduct[]>;
-  getTrackedProductByUserAndProduct(userId: number | null, email: string, productId: number): Promise<TrackedProduct | undefined>;
+  getTrackedProductByUserAndProduct(userId: string | null, email: string, productId: number): Promise<TrackedProduct | undefined>;
   getTrackedProductsNeedingAlerts(): Promise<(TrackedProduct & { product: Product })[]>;
   updateTrackedProduct(id: number, updates: Partial<TrackedProduct>): Promise<TrackedProduct | undefined>;
   deleteTrackedProduct(id: number): Promise<boolean>;
@@ -39,26 +46,31 @@ export interface IStorage {
   getPriceHistoryByProductId(productId: number): Promise<PriceHistory[]>;
 }
 
-// Database storage implementation
 export class DatabaseStorage implements IStorage {
   // User operations
-  async getUser(id: number): Promise<User | undefined> {
+  async getUser(id: string): Promise<User | undefined> {
     const [user] = await db.select().from(users).where(eq(users.id, id));
     return user;
   }
 
-  async getUserByUsername(username: string): Promise<User | undefined> {
-    const [user] = await db.select().from(users).where(eq(users.username, username));
-    return user;
-  }
-
   async getUserByEmail(email: string): Promise<User | undefined> {
+    if (!email) return undefined;
     const [user] = await db.select().from(users).where(eq(users.email, email));
     return user;
   }
 
-  async createUser(insertUser: InsertUser): Promise<User> {
-    const [user] = await db.insert(users).values(insertUser).returning();
+  async upsertUser(userData: UpsertUser): Promise<User> {
+    const [user] = await db
+      .insert(users)
+      .values(userData)
+      .onConflictDoUpdate({
+        target: users.id,
+        set: {
+          ...userData,
+          updatedAt: new Date(),
+        },
+      })
+      .returning();
     return user;
   }
 
@@ -79,173 +91,115 @@ export class DatabaseStorage implements IStorage {
   }
 
   async updateProduct(id: number, updates: Partial<Product>): Promise<Product | undefined> {
-    const [updatedProduct] = await db
+    const [product] = await db
       .update(products)
-      .set(updates)
+      .set({ ...updates, updatedAt: new Date() })
       .where(eq(products.id, id))
       .returning();
-    return updatedProduct;
+    return product;
   }
 
   async getAllProducts(): Promise<Product[]> {
-    return db.select().from(products);
+    return await db.select().from(products);
   }
 
   // Tracked product operations
   async createTrackedProduct(insertTrackedProduct: InsertTrackedProduct): Promise<TrackedProduct> {
-    const [trackedProduct] = await db
-      .insert(trackedProducts)
-      .values({ ...insertTrackedProduct, notified: false })
-      .returning();
+    const [trackedProduct] = await db.insert(trackedProducts).values(insertTrackedProduct).returning();
     return trackedProduct;
   }
 
   async getTrackedProduct(id: number): Promise<TrackedProduct | undefined> {
-    const [trackedProduct] = await db
-      .select()
-      .from(trackedProducts)
-      .where(eq(trackedProducts.id, id));
+    const [trackedProduct] = await db.select().from(trackedProducts).where(eq(trackedProducts.id, id));
     return trackedProduct;
   }
 
-  async getTrackedProductsByUserId(userId: number): Promise<TrackedProduct[]> {
-    return db
-      .select()
-      .from(trackedProducts)
-      .where(eq(trackedProducts.userId, userId));
+  async getTrackedProductsByUserId(userId: string): Promise<TrackedProduct[]> {
+    return await db.select().from(trackedProducts).where(eq(trackedProducts.userId, userId));
   }
 
   async getTrackedProductsByEmail(email: string): Promise<TrackedProduct[]> {
-    return db
-      .select()
-      .from(trackedProducts)
-      .where(eq(trackedProducts.email, email));
+    return await db.select().from(trackedProducts).where(eq(trackedProducts.email, email));
   }
 
-  async getTrackedProductByUserAndProduct(userId: number | null, email: string, productId: number): Promise<TrackedProduct | undefined> {
-    let query;
-    if (userId !== null) {
-      query = and(
-        eq(trackedProducts.userId, userId),
-        eq(trackedProducts.productId, productId)
-      );
-    } else {
-      query = and(
-        eq(trackedProducts.email, email),
-        eq(trackedProducts.productId, productId)
-      );
-    }
+  async getTrackedProductByUserAndProduct(userId: string | null, email: string, productId: number): Promise<TrackedProduct | undefined> {
+    const query = userId
+      ? and(eq(trackedProducts.productId, productId), eq(trackedProducts.userId, userId))
+      : and(eq(trackedProducts.productId, productId), eq(trackedProducts.email, email));
 
-    const [trackedProduct] = await db
-      .select()
-      .from(trackedProducts)
-      .where(query);
-    
+    const [trackedProduct] = await db.select().from(trackedProducts).where(query);
     return trackedProduct;
   }
 
   async getTrackedProductsNeedingAlerts(): Promise<(TrackedProduct & { product: Product })[]> {
     const result: (TrackedProduct & { product: Product })[] = [];
-    
-    // First, get all non-notified tracked products
-    const nonNotifiedProducts = await db
-      .select()
-      .from(trackedProducts)
-      .where(eq(trackedProducts.notified, false));
-    
-    // For each non-notified tracked product, check if price is below target
-    for (const tp of nonNotifiedProducts) {
-      const [product] = await db
-        .select()
-        .from(products)
-        .where(eq(products.id, tp.productId));
-      
-      if (product && product.currentPrice <= tp.targetPrice) {
-        result.push({ ...tp, product });
+    const trackedItems = await db.select().from(trackedProducts);
+
+    for (const item of trackedItems) {
+      const product = await this.getProduct(item.productId);
+      if (product && product.currentPrice <= item.targetPrice && !item.notificationSent) {
+        result.push({ ...item, product });
       }
     }
-    
+
     return result;
   }
 
   async updateTrackedProduct(id: number, updates: Partial<TrackedProduct>): Promise<TrackedProduct | undefined> {
-    const [updatedTrackedProduct] = await db
+    const [trackedProduct] = await db
       .update(trackedProducts)
-      .set(updates)
+      .set({ ...updates, updatedAt: new Date() })
       .where(eq(trackedProducts.id, id))
       .returning();
-    
-    return updatedTrackedProduct;
+    return trackedProduct;
   }
 
   async deleteTrackedProduct(id: number): Promise<boolean> {
-    const [deletedTrackedProduct] = await db
-      .delete(trackedProducts)
-      .where(eq(trackedProducts.id, id))
-      .returning();
-    
-    return !!deletedTrackedProduct;
+    const result = await db.delete(trackedProducts).where(eq(trackedProducts.id, id));
+    return result.count > 0;
   }
 
   async getAllTrackedProductsWithDetails(): Promise<(TrackedProduct & { product: Product })[]> {
     const result: (TrackedProduct & { product: Product })[] = [];
-    
-    const allTrackedProducts = await db.select().from(trackedProducts);
-    
-    for (const tp of allTrackedProducts) {
-      const [product] = await db
-        .select()
-        .from(products)
-        .where(eq(products.id, tp.productId));
-      
+    const trackedItems = await db.select().from(trackedProducts);
+
+    for (const item of trackedItems) {
+      const product = await this.getProduct(item.productId);
       if (product) {
-        result.push({ ...tp, product });
+        result.push({ ...item, product });
       }
     }
-    
+
     return result;
   }
 
   async getTrackedProductsWithDetailsByEmail(email: string): Promise<(TrackedProduct & { product: Product })[]> {
     const result: (TrackedProduct & { product: Product })[] = [];
-    
-    const trackedProductsByEmail = await db
-      .select()
-      .from(trackedProducts)
-      .where(eq(trackedProducts.email, email));
-    
-    for (const tp of trackedProductsByEmail) {
-      const [product] = await db
-        .select()
-        .from(products)
-        .where(eq(products.id, tp.productId));
-      
+    const trackedItems = await db.select().from(trackedProducts).where(eq(trackedProducts.email, email));
+
+    for (const item of trackedItems) {
+      const product = await this.getProduct(item.productId);
       if (product) {
-        result.push({ ...tp, product });
+        result.push({ ...item, product });
       }
     }
-    
+
     return result;
   }
 
   // Price history operations
   async createPriceHistory(insertPriceHistory: InsertPriceHistory): Promise<PriceHistory> {
-    const [priceHistoryRecord] = await db
-      .insert(priceHistoryTable)
-      .values(insertPriceHistory)
-      .returning();
-    
-    return priceHistoryRecord;
+    const [priceHistoryItem] = await db.insert(priceHistory).values(insertPriceHistory).returning();
+    return priceHistoryItem;
   }
 
   async getPriceHistoryByProductId(productId: number): Promise<PriceHistory[]> {
-    return db
+    return await db
       .select()
-      .from(priceHistoryTable)
-      .where(eq(priceHistoryTable.productId, productId))
-      .orderBy(desc(priceHistoryTable.timestamp));
+      .from(priceHistory)
+      .where(eq(priceHistory.productId, productId))
+      .orderBy(priceHistory.timestamp);
   }
 }
 
-// Export an instance of DatabaseStorage
 export const storage = new DatabaseStorage();

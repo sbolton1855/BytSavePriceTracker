@@ -1,275 +1,167 @@
+import * as client from "openid-client";
+import { Strategy, type VerifyFunction } from "openid-client/passport";
+
 import passport from "passport";
-import { Strategy as GoogleStrategy } from "passport-google-oauth20";
-import { Strategy as TwitterStrategy } from "passport-twitter";
-import { Strategy as FacebookStrategy } from "passport-facebook";
-import { Strategy as LocalStrategy } from "passport-local";
-import { Express, Request, Response, NextFunction } from "express";
 import session from "express-session";
-import { scrypt, randomBytes, timingSafeEqual } from "crypto";
-import { promisify } from "util";
+import type { Express, RequestHandler } from "express";
+import memoize from "memoizee";
+import connectPg from "connect-pg-simple";
 import { storage } from "./storage";
-import { db } from "./db";
-import { eq, or } from "drizzle-orm";
-import { users } from "@shared/schema";
 
-const scryptAsync = promisify(scrypt);
-
-async function hashPassword(password: string) {
-  const salt = randomBytes(16).toString("hex");
-  const buf = (await scryptAsync(password, salt, 64)) as Buffer;
-  return `${buf.toString("hex")}.${salt}`;
+if (!process.env.REPLIT_DOMAINS) {
+  throw new Error("Environment variable REPLIT_DOMAINS not provided");
 }
 
-async function comparePasswords(supplied: string, stored: string) {
-  const [hashed, salt] = stored.split(".");
-  const hashedBuf = Buffer.from(hashed, "hex");
-  const suppliedBuf = (await scryptAsync(supplied, salt, 64)) as Buffer;
-  return timingSafeEqual(hashedBuf, suppliedBuf);
-}
+const getOidcConfig = memoize(
+  async () => {
+    return await client.discovery(
+      new URL(process.env.ISSUER_URL ?? "https://replit.com/oidc"),
+      process.env.REPL_ID!
+    );
+  },
+  { maxAge: 3600 * 1000 }
+);
 
-function getBaseDomain() {
-  return process.env.REPLIT_DOMAINS ? 
-    `https://${process.env.REPLIT_DOMAINS.split(',')[0]}` : 
-    'http://localhost:5000';
-}
-
-function dbUserToExpressUser(dbUser: any) {
-  // Don't expose password hash to client
-  const { password, ...user } = dbUser;
-  return user;
-}
-
-export async function setupAuth(app: Express) {
-  // Session configuration
-  app.use(session({
-    secret: process.env.SESSION_SECRET || 'dev-secret-key',
+export function getSession() {
+  const sessionTtl = 7 * 24 * 60 * 60 * 1000; // 1 week
+  const pgStore = connectPg(session);
+  const sessionStore = new pgStore({
+    conString: process.env.DATABASE_URL,
+    createTableIfMissing: false,
+    ttl: sessionTtl,
+    tableName: "sessions",
+  });
+  return session({
+    secret: process.env.SESSION_SECRET!,
+    store: sessionStore,
     resave: false,
     saveUninitialized: false,
     cookie: {
-      secure: process.env.NODE_ENV === 'production',
-      maxAge: 7 * 24 * 60 * 60 * 1000, // 1 week
+      httpOnly: true,
+      secure: true,
+      maxAge: sessionTtl,
     },
-  }));
-  
-  // Initialize Passport
+  });
+}
+
+function updateUserSession(
+  user: any,
+  tokens: client.TokenEndpointResponse & client.TokenEndpointResponseHelpers
+) {
+  user.claims = tokens.claims();
+  user.access_token = tokens.access_token;
+  user.refresh_token = tokens.refresh_token;
+  user.expires_at = user.claims?.exp;
+}
+
+async function upsertUser(
+  claims: any,
+) {
+  await storage.upsertUser({
+    id: claims["sub"],
+    email: claims["email"],
+    firstName: claims["first_name"],
+    lastName: claims["last_name"],
+    profileImageUrl: claims["profile_image_url"],
+  });
+}
+
+export async function setupAuth(app: Express) {
+  app.set("trust proxy", 1);
+  app.use(getSession());
   app.use(passport.initialize());
   app.use(passport.session());
-  
-  // User serialization for sessions
-  passport.serializeUser((user: any, done) => {
-    done(null, user.id);
-  });
-  
-  passport.deserializeUser(async (id: number, done) => {
-    try {
-      const user = await storage.getUser(id);
-      done(null, user ? dbUserToExpressUser(user) : null);
-    } catch (err) {
-      done(err, null);
-    }
-  });
-  
-  // Local strategy for username/password login
-  passport.use(new LocalStrategy(
-    { usernameField: 'email' },
-    async (email, password, done) => {
-      try {
-        const user = await storage.getUserByEmail(email);
-        
-        if (!user || !user.password) {
-          return done(null, false, { message: 'Incorrect email or password' });
-        }
-        
-        const passwordMatch = await comparePasswords(password, user.password);
-        if (!passwordMatch) {
-          return done(null, false, { message: 'Incorrect email or password' });
-        }
-        
-        return done(null, dbUserToExpressUser(user));
-      } catch (err) {
-        return done(err);
-      }
-    }
-  ));
-  
-  // Google OAuth Strategy
-  if (process.env.GOOGLE_CLIENT_ID && process.env.GOOGLE_CLIENT_SECRET) {
-    const callbackURL = `${getBaseDomain()}/api/auth/google/callback`;
-    console.log(`Setting up Google OAuth with callback URL: ${callbackURL}`);
-    console.log(`Client ID starts with: ${process.env.GOOGLE_CLIENT_ID.substring(0, 5)}...`);
-    
-    passport.use(new GoogleStrategy({
-      clientID: process.env.GOOGLE_CLIENT_ID,
-      clientSecret: process.env.GOOGLE_CLIENT_SECRET,
-      callbackURL,
-      scope: ['profile', 'email']
-    }, async (accessToken, refreshToken, profile, done) => {
-      try {
-        console.log('Google auth callback received with profile:', profile.id);
-        if (profile.emails && profile.emails[0]) {
-          console.log('Email from profile:', profile.emails[0].value);
-        }
-        
-        // Check if user exists by provider ID or email
-        const [existingUser] = await db.select().from(users).where(
-          or(
-            eq(users.providerId, profile.id),
-            eq(users.email, profile.emails?.[0]?.value || '')
-          )
-        );
-        
-        if (existingUser) {
-          // Update provider details if needed
-          if (existingUser.provider !== 'google' || existingUser.providerId !== profile.id) {
-            const [updatedUser] = await db.update(users)
-              .set({
-                provider: 'google',
-                providerId: profile.id,
-                updatedAt: new Date()
-              })
-              .where(eq(users.id, existingUser.id))
-              .returning();
-            
-            return done(null, dbUserToExpressUser(updatedUser));
-          }
-          
-          return done(null, dbUserToExpressUser(existingUser));
-        }
-        
-        // Create new user
-        const email = profile.emails?.[0]?.value;
-        if (!email) {
-          return done(new Error('Email is required'), false);
-        }
-        
-        const newUser = await storage.createUser({
-          email,
-          firstName: profile.name?.givenName,
-          lastName: profile.name?.familyName,
-          profileImageUrl: profile.photos?.[0]?.value,
-          provider: 'google',
-          providerId: profile.id,
-        });
-        
-        return done(null, dbUserToExpressUser(newUser));
-      } catch (error) {
-        console.error('Google auth error:', error);
-        return done(error, false);
-      }
-    }));
+
+  const config = await getOidcConfig();
+
+  const verify: VerifyFunction = async (
+    tokens: client.TokenEndpointResponse & client.TokenEndpointResponseHelpers,
+    verified: passport.AuthenticateCallback
+  ) => {
+    const user = {};
+    updateUserSession(user, tokens);
+    await upsertUser(tokens.claims());
+    verified(null, user);
+  };
+
+  for (const domain of process.env
+    .REPLIT_DOMAINS!.split(",")) {
+    const strategy = new Strategy(
+      {
+        name: `replitauth:${domain}`,
+        config,
+        scope: "openid email profile offline_access",
+        callbackURL: `https://${domain}/api/callback`,
+      },
+      verify,
+    );
+    passport.use(strategy);
   }
-  
-  // Authentication routes
-  app.get('/api/auth/google', (req, res, next) => {
-    console.log('Starting Google OAuth flow...');
-    passport.authenticate('google', { 
-      scope: ['profile', 'email'],
-      prompt: 'select_account'
+
+  passport.serializeUser((user: Express.User, cb) => cb(null, user));
+  passport.deserializeUser((user: Express.User, cb) => cb(null, user));
+
+  app.get("/api/login", (req, res, next) => {
+    passport.authenticate(`replitauth:${req.hostname}`, {
+      prompt: "login consent",
+      scope: ["openid", "email", "profile", "offline_access"],
     })(req, res, next);
   });
-  
-  app.get('/api/auth/google/callback', (req, res, next) => {
-    console.log('Google OAuth callback received');
-    console.log('Query parameters:', req.query);
-    
-    passport.authenticate('google', { 
-      failureRedirect: '/auth',
-      failureMessage: true
-    })(req, res, (err: any) => {
-      if (err) {
-        console.error('Google auth error:', err);
-        return next(err);
-      }
-      
-      console.log('Google authentication successful, redirecting to dashboard');
-      res.redirect('/dashboard');
-    });
-  });
-  
-  // Register route
-  app.post('/api/register', async (req, res) => {
-    try {
-      // Remove passwordConfirm before sending to database
-      const { passwordConfirm, ...userData } = req.body;
-      
-      // Check if user already exists
-      const existingUser = await storage.getUserByEmail(userData.email);
-      if (existingUser) {
-        return res.status(400).json({ message: 'User with this email already exists' });
-      }
-      
-      // Hash password
-      if (userData.password) {
-        userData.password = await hashPassword(userData.password);
-      }
-      
-      // Create user
-      const newUser = await storage.createUser({
-        ...userData,
-        provider: 'local',
-        providerId: null,
-      });
-      
-      // Log the user in
-      req.login(dbUserToExpressUser(newUser), (err) => {
-        if (err) {
-          return res.status(500).json({ message: 'Error during login after registration' });
-        }
-        
-        // Return user data without password
-        const { password, ...userWithoutPassword } = newUser;
-        res.status(201).json(userWithoutPassword);
-      });
-    } catch (error) {
-      console.error('Registration error:', error);
-      res.status(500).json({ message: 'Registration failed' });
-    }
-  });
-  
-  // Login route
-  app.post('/api/login', (req, res, next) => {
-    passport.authenticate('local', (err: any, user: any, info: { message?: string }) => {
-      if (err) {
-        return next(err);
-      }
-      
-      if (!user) {
-        return res.status(401).json({ message: info.message || 'Authentication failed' });
-      }
-      
-      req.login(user, (err) => {
-        if (err) {
-          return next(err);
-        }
-        
-        return res.json(user);
-      });
+
+  app.get("/api/callback", (req, res, next) => {
+    passport.authenticate(`replitauth:${req.hostname}`, {
+      successReturnToOrRedirect: "/",
+      failureRedirect: "/api/login",
     })(req, res, next);
   });
-  
-  // Logout route
-  app.post('/api/logout', (req, res, next) => {
-    req.logout((err) => {
-      if (err) { return next(err); }
-      res.status(200).json({ message: 'Logged out successfully' });
+
+  app.get("/api/logout", (req, res) => {
+    req.logout(() => {
+      res.redirect(
+        client.buildEndSessionUrl(config, {
+          client_id: process.env.REPL_ID!,
+          post_logout_redirect_uri: `${req.protocol}://${req.hostname}`,
+        }).href
+      );
     });
   });
   
   // Current user route
-  app.get('/api/user', (req, res) => {
-    if (req.isAuthenticated()) {
-      res.json(req.user);
-    } else {
-      res.status(401).json({ message: 'Not authenticated' });
+  app.get('/api/auth/user', isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const user = await storage.getUser(userId);
+      res.json(user);
+    } catch (error) {
+      console.error("Error fetching user:", error);
+      res.status(500).json({ message: "Failed to fetch user" });
     }
   });
 }
 
-// Middleware to ensure authentication
-export function requireAuth(req: Request, res: Response, next: NextFunction) {
-  if (req.isAuthenticated()) {
+export const isAuthenticated: RequestHandler = async (req, res, next) => {
+  const user = req.user as any;
+
+  if (!req.isAuthenticated() || !user.expires_at) {
+    return res.status(401).json({ message: "Unauthorized" });
+  }
+
+  const now = Math.floor(Date.now() / 1000);
+  if (now <= user.expires_at) {
     return next();
   }
-  
-  res.status(401).json({ message: 'Authentication required' });
-}
+
+  const refreshToken = user.refresh_token;
+  if (!refreshToken) {
+    return res.redirect("/api/login");
+  }
+
+  try {
+    const config = await getOidcConfig();
+    const tokenResponse = await client.refreshTokenGrant(config, refreshToken);
+    updateUserSession(user, tokenResponse);
+    return next();
+  } catch (error) {
+    return res.redirect("/api/login");
+  }
+};
