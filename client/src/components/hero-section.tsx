@@ -135,7 +135,12 @@ const PriceTrackerDashboard: React.FC = () => {
           <div className="space-y-3 max-h-[300px] overflow-y-auto">
             {selectedDeals.length > 0 ? (
               selectedDeals.map((deal, index) => (
-                <div key={index} className="flex items-center p-2 bg-gray-50 rounded-md border border-gray-200 hover:bg-gray-100 transition-colors">
+                <a 
+                  href={deal.affiliateUrl || deal.url} 
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="flex items-center p-2 bg-gray-50 rounded-md border border-gray-200 hover:bg-gray-100 transition-colors cursor-pointer"
+                >
                   <div className="w-12 h-12 min-w-[48px] bg-gray-100 rounded-md overflow-hidden mr-3 flex items-center justify-center">
                     {deal.imageUrl ? (
                       <img 
@@ -167,8 +172,11 @@ const PriceTrackerDashboard: React.FC = () => {
                         </>
                       )}
                     </div>
+                    <div className="mt-1">
+                      <span className="text-xs text-blue-600">View on Amazon →</span>
+                    </div>
                   </div>
-                </div>
+                </a>
               ))
             ) : (
               <div className="p-3 bg-gray-50 rounded-md text-sm text-gray-500 text-center">
