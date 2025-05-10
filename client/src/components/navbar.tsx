@@ -1,6 +1,6 @@
 import { Link, useLocation } from "wouter";
 import { Button } from "@/components/ui/button";
-import { useAuth } from "@/hooks/use-auth";
+import { useAuth } from "@/hooks/useAuth";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { 
   DropdownMenu,
@@ -14,7 +14,7 @@ import { Loader2 } from "lucide-react";
 
 const Navbar: React.FC = () => {
   const [location] = useLocation();
-  const { user, isLoading, isAuthenticated, logout } = useAuth();
+  const { user, isLoading, isAuthenticated } = useAuth();
 
   return (
     <nav className="bg-white shadow-sm">
@@ -60,10 +60,10 @@ const Navbar: React.FC = () => {
                 <DropdownMenuTrigger className="ml-3 focus:outline-none">
                   <Avatar className="h-8 w-8">
                     {user?.profileImageUrl && (
-                      <AvatarImage src={user.profileImageUrl} alt={user.firstName || user.email} />
+                      <AvatarImage src={user.profileImageUrl} alt={(user.firstName || user.email || "User") as string} />
                     )}
                     <AvatarFallback>
-                      {user?.firstName ? user.firstName[0].toUpperCase() : user?.email[0].toUpperCase()}
+                      {user?.email ? user.email[0].toUpperCase() : "U"}
                     </AvatarFallback>
                   </Avatar>
                 </DropdownMenuTrigger>
@@ -73,8 +73,8 @@ const Navbar: React.FC = () => {
                   <DropdownMenuItem asChild>
                     <Link href="/dashboard">Dashboard</Link>
                   </DropdownMenuItem>
-                  <DropdownMenuItem onClick={logout}>
-                    Logout
+                  <DropdownMenuItem asChild>
+                    <a href="/api/logout">Logout</a>
                   </DropdownMenuItem>
                 </DropdownMenuContent>
               </DropdownMenu>
