@@ -33,11 +33,66 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Get highlighted deals (products with biggest price drops)
   app.get('/api/products/deals', async (req: Request, res: Response) => {
     try {
+      // Extract category filter if provided
+      const { category } = req.query;
+      
       // Get all products
       const products = await storage.getAllProducts();
       
+      // Define category-based filters for promotions
+      const categoryFilters = {
+        beauty: (product: any) => 
+          product.title.toLowerCase().includes("beauty") || 
+          product.title.toLowerCase().includes("makeup") || 
+          product.title.toLowerCase().includes("skincare") || 
+          product.title.toLowerCase().includes("haircare") ||
+          product.title.toLowerCase().includes("fragrance"),
+        
+        seasonal: (product: any) => {
+          // Determine current season
+          const now = new Date();
+          const month = now.getMonth();
+          
+          // Spring: March-May (2-4), Summer: June-August (5-7), Fall: Sept-Nov (8-10), Winter: Dec-Feb (11, 0, 1)
+          const seasonalKeywords = {
+            spring: ["spring", "easter", "gardening", "cleaning", "renewal"],
+            summer: ["summer", "beach", "pool", "vacation", "outdoors", "bbq", "grill"],
+            fall: ["fall", "autumn", "halloween", "thanksgiving", "harvest"],
+            winter: ["winter", "christmas", "holiday", "snow", "gift"]
+          };
+          
+          let currentSeasonKeywords;
+          if (month >= 2 && month <= 4) currentSeasonKeywords = seasonalKeywords.spring;
+          else if (month >= 5 && month <= 7) currentSeasonKeywords = seasonalKeywords.summer;
+          else if (month >= 8 && month <= 10) currentSeasonKeywords = seasonalKeywords.fall;
+          else currentSeasonKeywords = seasonalKeywords.winter;
+          
+          return currentSeasonKeywords.some(keyword => 
+            product.title.toLowerCase().includes(keyword)
+          );
+        },
+        
+        events: (product: any) => {
+          // Check for event keywords
+          const eventKeywords = [
+            "prime day", "black friday", "cyber monday", "deal", "promotion", 
+            "limited time", "special offer", "sale", "discount", "clearance"
+          ];
+          
+          return eventKeywords.some(keyword => 
+            product.title.toLowerCase().includes(keyword)
+          );
+        }
+      };
+      
+      // Apply category filter if specified
+      let filteredProducts = products;
+      if (category && typeof category === 'string' && Object.keys(categoryFilters).includes(category)) {
+        filteredProducts = products.filter((categoryFilters as any)[category]);
+      }
+      
       // Calculate price drops and filter products with discounts
-      const deals = products
+      const deals = filteredProducts
         .filter(product => {
           // Ensure we have a valid originalPrice to compare against
           const originalPrice = product.originalPrice !== null ? product.originalPrice : product.highestPrice;
@@ -59,8 +114,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
         })
         // Sort by discount percentage descending
         .sort((a, b) => b.discountPercentage - a.discountPercentage)
-        // Take top deals
-        .slice(0, 8);
+        // Take top deals (use all for category-specific, otherwise limit to 8)
+        .slice(0, category ? undefined : 8);
       
       res.json(deals);
     } catch (error) {

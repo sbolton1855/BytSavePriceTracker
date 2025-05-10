@@ -13,6 +13,8 @@ import Dashboard from "@/pages/dashboard";
 import HowItWorks from "@/pages/how-it-works";
 import AuthPage from "@/pages/auth-page";
 import ProductDetails from "@/pages/product-details";
+import FAQ from "@/pages/faq";
+import Deals from "@/pages/deals";
 import NotFound from "@/pages/not-found";
 
 function Router() {
@@ -23,6 +25,8 @@ function Router() {
       <Route path="/how-it-works" component={HowItWorks} />
       <Route path="/auth" component={AuthPage} />
       <Route path="/products/:id" component={ProductDetails} />
+      <Route path="/faq" component={FAQ} />
+      <Route path="/deals" component={Deals} />
       <Route component={NotFound} />
     </Switch>
   );
