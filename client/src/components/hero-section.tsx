@@ -39,7 +39,7 @@ const PriceTrackerDashboard: React.FC = () => {
   };
 
   // Get three random deals to display in the notification alerts
-  const [selectedDeals, setSelectedDeals] = useState<any[]>([]);
+  const [selectedDeals, setSelectedDeals] = useState<ProductDeal[]>([]);
   const [isRefreshing, setIsRefreshing] = useState(false);
   
   // Update time display
@@ -48,7 +48,7 @@ const PriceTrackerDashboard: React.FC = () => {
   useEffect(() => {
     if (deals && deals.length > 0) {
       // Get deals with original prices that show a price drop
-      const dealsWithPrices = deals.filter(deal => 
+      const dealsWithPrices = deals.filter((deal: ProductDeal) => 
         deal.originalPrice && deal.originalPrice > deal.currentPrice
       );
       
@@ -58,8 +58,10 @@ const PriceTrackerDashboard: React.FC = () => {
       } else {
         // Sort by highest discount percentage and take top 3
         const sorted = [...dealsWithPrices].sort((a, b) => {
-          const discountA = ((a.originalPrice - a.currentPrice) / a.originalPrice);
-          const discountB = ((b.originalPrice - b.currentPrice) / b.originalPrice);
+          const aOriginal = a.originalPrice || a.currentPrice;
+          const bOriginal = b.originalPrice || b.currentPrice;
+          const discountA = ((aOriginal - a.currentPrice) / aOriginal);
+          const discountB = ((bOriginal - b.currentPrice) / bOriginal);
           return discountB - discountA;
         });
         setSelectedDeals(sorted.slice(0, Math.min(3, sorted.length)));
@@ -123,7 +125,7 @@ const PriceTrackerDashboard: React.FC = () => {
           <div className="bg-green-50 p-3 rounded-lg">
             <h4 className="text-sm font-medium text-green-800 mb-1">Price Drops</h4>
             <p className="text-2xl font-bold text-green-600">
-              {deals?.filter(d => d.originalPrice && d.originalPrice > d.currentPrice).length || 0}
+              {deals?.filter((d: ProductDeal) => d.originalPrice && d.originalPrice > d.currentPrice).length || 0}
             </p>
           </div>
         </div>
