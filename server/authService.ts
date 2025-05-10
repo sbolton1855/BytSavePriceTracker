@@ -388,7 +388,7 @@ export function configureAuth(app: Express) {
         });
       }
       
-      const { email, password, username, firstName, lastName } = validation.data;
+      const { email, password } = validation.data;
       
       // Check if user already exists
       const existingUser = await storage.getUserByEmail(email);
@@ -400,13 +400,13 @@ export function configureAuth(app: Express) {
       // Hash password
       const hashedPassword = await hashPassword(password);
       
-      // Create user
+      // Create user with minimal information
       const newUser = await storage.createUser({
         email,
-        username: username || null,
         password: hashedPassword,
-        firstName: firstName || null,
-        lastName: lastName || null,
+        username: null,
+        firstName: null,
+        lastName: null,
         provider: 'local',
         providerId: null,
       });
