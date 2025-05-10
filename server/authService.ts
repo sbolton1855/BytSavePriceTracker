@@ -143,10 +143,17 @@ export function configureAuth(app: Express) {
   
   // Configure Google Strategy
   if (process.env.GOOGLE_CLIENT_ID && process.env.GOOGLE_CLIENT_SECRET) {
+    // Get the current domain from environment or default to localhost
+    const domain = process.env.REPLIT_DOMAINS ? 
+      `https://${process.env.REPLIT_DOMAINS.split(',')[0]}` : 
+      'http://localhost:5000';
+    
+    console.log(`Setting up Google OAuth with callback URL: ${domain}/api/auth/google/callback`);
+    
     passport.use(new GoogleStrategy({
       clientID: process.env.GOOGLE_CLIENT_ID,
       clientSecret: process.env.GOOGLE_CLIENT_SECRET,
-      callbackURL: "/api/auth/google/callback"
+      callbackURL: `${domain}/api/auth/google/callback`
     }, async (accessToken, refreshToken, profile, done) => {
       try {
         // Find user by provider ID or email
@@ -198,10 +205,15 @@ export function configureAuth(app: Express) {
   
   // Configure Facebook Strategy
   if (process.env.FACEBOOK_APP_ID && process.env.FACEBOOK_APP_SECRET) {
+    // Get the current domain from environment or default to localhost
+    const domain = process.env.REPLIT_DOMAINS ? 
+      `https://${process.env.REPLIT_DOMAINS.split(',')[0]}` : 
+      'http://localhost:5000';
+    
     passport.use(new FacebookStrategy({
       clientID: process.env.FACEBOOK_APP_ID,
       clientSecret: process.env.FACEBOOK_APP_SECRET,
-      callbackURL: "/auth/facebook/callback",
+      callbackURL: `${domain}/api/auth/facebook/callback`,
       profileFields: ['id', 'emails', 'name', 'picture.type(large)']
     }, async (accessToken, refreshToken, profile, done) => {
       try {
