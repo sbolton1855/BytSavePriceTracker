@@ -86,6 +86,8 @@ export const insertPriceHistorySchema = createInsertSchema(priceHistory).omit({
 export const trackingFormSchema = z.object({
   productUrl: z.string().min(1, "Product URL or ASIN is required"),
   targetPrice: z.number().min(0.01, "Target price must be at least 0.01"),
+  percentageAlert: z.boolean().optional().default(false),
+  percentageThreshold: z.number().min(1, "Percentage must be at least 1%").max(99, "Percentage must be less than 100%").optional(),
   email: z.string().email("Please enter a valid email address"),
 });
 
