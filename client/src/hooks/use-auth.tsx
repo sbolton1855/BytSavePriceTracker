@@ -1,7 +1,7 @@
 import { createContext, useContext, ReactNode } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { queryClient, apiRequest } from "@/lib/queryClient";
-import { RegisterFormData, LoginFormData } from "@shared/schema";
+import { ApiRegisterFormData, LoginFormData } from "@shared/schema";
 import { useToast } from "@/hooks/use-toast";
 
 type User = {
@@ -20,7 +20,7 @@ type AuthContextType = {
   isAuthenticated: boolean;
   error: Error | null;
   logout: () => void;
-  register: (data: RegisterFormData) => Promise<User>;
+  register: (data: ApiRegisterFormData) => Promise<User>;
   login: (data: LoginFormData) => Promise<User>;
 };
 
