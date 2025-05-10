@@ -14,7 +14,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Loader2 } from "lucide-react";
 
 export default function AuthPage() {
-  const { user, isLoading, login, register } = useAuth();
+  const { user, isLoading } = useAuth();
   const [activeTab, setActiveTab] = useState<"login" | "register">("login");
   const [isSubmitting, setIsSubmitting] = useState(false);
   
@@ -83,20 +83,53 @@ export default function AuthPage() {
             </TabsList>
             
             <TabsContent value="login">
-              <LoginForm setIsSubmitting={setIsSubmitting} isSubmitting={isSubmitting} />
+              <LoginForm 
+                setIsSubmitting={setIsSubmitting} 
+                isSubmitting={isSubmitting}
+                setActiveTab={setActiveTab} 
+              />
             </TabsContent>
             
             <TabsContent value="register">
-              <RegisterForm setIsSubmitting={setIsSubmitting} isSubmitting={isSubmitting} />
+              <RegisterForm 
+                setIsSubmitting={setIsSubmitting} 
+                isSubmitting={isSubmitting}
+                setActiveTab={setActiveTab}
+              />
             </TabsContent>
           </Tabs>
           
-          {/* Footer with helpful message */}
+          {/* Footer with helpful message and action buttons */}
           <CardFooter className="flex flex-col space-y-4 mt-4 border-t pt-4">
-            <div className="text-sm text-center text-muted-foreground">
+            <div className="text-sm text-center space-y-2">
               {activeTab === "login" 
-                ? "Don't have an account? Switch to Register" 
-                : "Already have an account? Switch to Login"}
+                ? (
+                  <>
+                    <p className="text-muted-foreground">Don't have an account?</p>
+                    <Button 
+                      variant="outline" 
+                      size="sm" 
+                      onClick={() => setActiveTab("register")}
+                      className="mx-auto"
+                    >
+                      Create Account
+                    </Button>
+                  </>
+                ) 
+                : (
+                  <>
+                    <p className="text-muted-foreground">Already have an account?</p>
+                    <Button 
+                      variant="outline" 
+                      size="sm" 
+                      onClick={() => setActiveTab("login")}
+                      className="mx-auto"
+                    >
+                      Sign In
+                    </Button>
+                  </>
+                )
+              }
             </div>
           </CardFooter>
         </Card>
@@ -254,14 +287,17 @@ function LoginForm({
 // Register Form
 function RegisterForm({ 
   isSubmitting, 
-  setIsSubmitting 
+  setIsSubmitting,
+  setActiveTab
 }: { 
   isSubmitting: boolean;
   setIsSubmitting: (value: boolean) => void;
+  setActiveTab: (tab: "login" | "register") => void;
 }) {
   const { register } = useAuth();
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
+  const [emailExists, setEmailExists] = useState(false);
   
   const form = useForm<z.infer<typeof registerSchema>>({
     resolver: zodResolver(registerSchema),
@@ -276,6 +312,7 @@ function RegisterForm({
   async function onSubmit(values: z.infer<typeof registerSchema>) {
     try {
       setIsSubmitting(true);
+      setEmailExists(false);
       // Remove passwordConfirm before sending to server
       const { passwordConfirm, ...registerData } = values;
       await register(registerData as any);
@@ -283,15 +320,22 @@ function RegisterForm({
       console.error("Registration error:", error);
       
       // Handle different types of registration errors
-      if (error.message?.includes("email already exists")) {
+      if (error.message?.includes("email already exists") || 
+          error.response?.data?.message?.includes("already exists")) {
+        setEmailExists(true);
         form.setError("email", {
           type: "manual",
           message: "This email is already registered. Please login instead."
         });
+      } else if (error.message?.includes("password")) {
+        form.setError("password", {
+          type: "manual",
+          message: error.message || "Password does not meet requirements."
+        });
       } else {
         form.setError("root", {
           type: "manual",
-          message: "Registration failed. Please try again later."
+          message: error.message || "Registration failed. Please try again later."
         });
       }
     } finally {
@@ -305,6 +349,10 @@ function RegisterForm({
   
   const toggleConfirmPasswordVisibility = () => {
     setShowConfirmPassword(!showConfirmPassword);
+  };
+
+  const switchToLogin = () => {
+    setActiveTab("login");
   };
   
   return (
@@ -395,7 +443,20 @@ function RegisterForm({
           )}
         />
         
-        {/* Optional fields removed to simplify registration */}
+        {emailExists && (
+          <div className="text-sm text-primary p-2 rounded flex flex-col items-center">
+            <p className="mb-2">This email is already registered. Switch to login instead.</p>
+            <Button 
+              type="button" 
+              variant="outline" 
+              size="sm" 
+              onClick={switchToLogin}
+              className="mt-1"
+            >
+              Sign In
+            </Button>
+          </div>
+        )}
         
         <div className="text-xs text-muted-foreground">
           <span className="text-destructive">*</span> Required fields
