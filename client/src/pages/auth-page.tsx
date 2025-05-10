@@ -313,19 +313,38 @@ function RegisterForm({
     try {
       setIsSubmitting(true);
       setEmailExists(false);
-      // Remove passwordConfirm before sending to server
-      const { passwordConfirm, ...registerData } = values;
-      await register(registerData as any);
+      
+      // Perform client-side validation
+      if (values.password !== values.passwordConfirm) {
+        form.setError("passwordConfirm", {
+          type: "manual",
+          message: "Passwords do not match"
+        });
+        setIsSubmitting(false);
+        return;
+      }
+      
+      // Only send email and password to server
+      const { email, password } = values;
+      await register({ email, password });
     } catch (error: any) {
       console.error("Registration error:", error);
       
       // Handle different types of registration errors
-      if (error.message?.includes("email already exists") || 
+      if (error.response?.data?.emailExists || 
+          error.message?.includes("email already exists") || 
           error.response?.data?.message?.includes("already exists")) {
         setEmailExists(true);
         form.setError("email", {
           type: "manual",
           message: "This email is already registered. Please login instead."
+        });
+      } else if (error.response?.data?.errors?.password) {
+        // Handle server-side password validation errors
+        const passwordErrors = error.response.data.errors.password._errors;
+        form.setError("password", {
+          type: "manual",
+          message: passwordErrors[0] || "Password does not meet requirements."
         });
       } else if (error.message?.includes("password")) {
         form.setError("password", {
