@@ -3,7 +3,7 @@ import { createServer, type Server } from "http";
 import { storage } from "./storage";
 import { getProductInfo, searchProducts, extractAsinFromUrl, isValidAsin, addAffiliateTag } from "./amazonApi";
 import { startPriceChecker } from "./priceChecker";
-import { requireAuth, configureAuth } from "./authService";
+import { requireAuth, setupAuth } from "./replitAuth";
 import { z } from "zod";
 import { trackingFormSchema } from "@shared/schema";
 
@@ -14,7 +14,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   const httpServer = createServer(app);
 
   // Configure authentication
-  configureAuth(app);
+  await setupAuth(app);
 
   // API endpoints - prefix with /api
   
