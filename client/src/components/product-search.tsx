@@ -16,6 +16,7 @@ import {
   FormItem,
   FormLabel,
   FormMessage,
+  FormDescription,
 } from "@/components/ui/form";
 import {
   Card,
@@ -180,6 +181,13 @@ export default function ProductSearch({
   
   // Track product form submission
   const onTrackSubmit = (data: TrackingFormData) => {
+    // For percentage-based alerts, calculate the target price if we have a current price
+    if (data.percentageAlert && selectedProduct?.price && data.percentageThreshold) {
+      const calculatedPrice = selectedProduct.price * (1 - data.percentageThreshold / 100);
+      // Round to 2 decimal places
+      data.targetPrice = Math.round(calculatedPrice * 100) / 100;
+    }
+    
     trackMutation.mutate(data);
   };
   
@@ -188,10 +196,15 @@ export default function ProductSearch({
     setSelectedProduct(product);
     trackForm.setValue("productUrl", product.url);
     
-    // Set a default target price 10% below the current price
+    // Set up default values based on the current price
     if (product.price) {
-      const suggestedPrice = Math.round(product.price * 0.9 * 100) / 100; // 10% discount, rounded to 2 decimal places
+      // Default fixed price: 10% below current price, rounded to 2 decimal places
+      const suggestedPrice = Math.round(product.price * 0.9 * 100) / 100;
       trackForm.setValue("targetPrice", suggestedPrice);
+      
+      // Default percentage threshold: 10% 
+      trackForm.setValue("percentageThreshold", 10);
+      trackForm.setValue("percentageAlert", false); // Default to fixed price mode
     }
     
     if (email) {
@@ -542,9 +555,9 @@ export default function ProductSearch({
                                 </FormControl>
                                 <FormMessage />
                                 {selectedProduct.price && (
-                                  <FormDescription>
+                                  <p className="text-xs text-muted-foreground mt-1">
                                     Current price: ${selectedProduct.price.toFixed(2)}
-                                  </FormDescription>
+                                  </p>
                                 )}
                               </FormItem>
                             )}
@@ -594,9 +607,9 @@ export default function ProductSearch({
                                   </FormControl>
                                   <FormMessage />
                                   {selectedProduct.price && field.value && (
-                                    <FormDescription>
+                                    <p className="text-xs text-muted-foreground mt-1">
                                       Alert when price drops below ${(selectedProduct.price * (1 - field.value / 100)).toFixed(2)}
-                                    </FormDescription>
+                                    </p>
                                   )}
                                 </div>
                               </FormItem>
