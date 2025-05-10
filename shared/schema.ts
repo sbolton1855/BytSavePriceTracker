@@ -62,6 +62,8 @@ export const trackedProducts = pgTable("tracked_products", {
   email: text("email").notNull(),
   productId: integer("product_id").notNull(),
   targetPrice: doublePrecision("target_price").notNull(),
+  percentageAlert: boolean("percentage_alert").default(false),
+  percentageThreshold: integer("percentage_threshold"),
   notified: boolean("notified").default(false),
   createdAt: timestamp("created_at").notNull(),
 });
