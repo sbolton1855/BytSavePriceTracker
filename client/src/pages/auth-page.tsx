@@ -5,6 +5,7 @@ import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { registerSchema, loginSchema } from "@shared/schema";
 import { useAuth } from "@/hooks/use-auth";
+import { Eye, EyeOff } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { Form, FormControl, FormDescription, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
@@ -113,6 +114,7 @@ function LoginForm({
   setIsSubmitting: (value: boolean) => void;
 }) {
   const { login } = useAuth();
+  const [showPassword, setShowPassword] = useState(false);
   
   const form = useForm<z.infer<typeof loginSchema>>({
     resolver: zodResolver(loginSchema),
@@ -128,14 +130,28 @@ function LoginForm({
       await login(values);
     } catch (error) {
       console.error("Login error:", error);
+      form.setError("root", {
+        type: "manual",
+        message: "Invalid email or password. Please try again."
+      });
     } finally {
       setIsSubmitting(false);
     }
   }
   
+  const togglePasswordVisibility = () => {
+    setShowPassword(!showPassword);
+  };
+  
   return (
     <Form {...form}>
       <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4 px-6 py-2">
+        {form.formState.errors.root && (
+          <div className="text-sm text-destructive mb-2 p-2 border border-destructive/20 bg-destructive/10 rounded">
+            {form.formState.errors.root.message}
+          </div>
+        )}
+        
         <FormField
           control={form.control}
           name="email"
@@ -156,9 +172,26 @@ function LoginForm({
           render={({ field }) => (
             <FormItem>
               <FormLabel>Password</FormLabel>
-              <FormControl>
-                <Input type="password" placeholder="••••••••" {...field} />
-              </FormControl>
+              <div className="relative">
+                <FormControl>
+                  <Input 
+                    type={showPassword ? "text" : "password"} 
+                    placeholder="••••••••" 
+                    {...field} 
+                  />
+                </FormControl>
+                <Button 
+                  type="button"
+                  variant="ghost" 
+                  size="icon"
+                  className="absolute right-2 top-1/2 -translate-y-1/2 h-8 w-8"
+                  onClick={togglePasswordVisibility}
+                >
+                  {showPassword ? 
+                    <EyeOff className="h-4 w-4 text-muted-foreground" /> : 
+                    <Eye className="h-4 w-4 text-muted-foreground" />}
+                </Button>
+              </div>
               <FormMessage />
             </FormItem>
           )}
@@ -188,6 +221,8 @@ function RegisterForm({
   setIsSubmitting: (value: boolean) => void;
 }) {
   const { register } = useAuth();
+  const [showPassword, setShowPassword] = useState(false);
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   
   const form = useForm<z.infer<typeof registerSchema>>({
     resolver: zodResolver(registerSchema),
@@ -199,6 +234,7 @@ function RegisterForm({
       firstName: "",
       lastName: "",
     },
+    mode: "onChange", // Validate fields as they change
   });
   
   async function onSubmit(values: z.infer<typeof registerSchema>) {
@@ -207,22 +243,49 @@ function RegisterForm({
       // Remove passwordConfirm before sending to server
       const { passwordConfirm, ...registerData } = values;
       await register(registerData as any);
-    } catch (error) {
+    } catch (error: any) {
       console.error("Registration error:", error);
+      
+      // Handle different types of registration errors
+      if (error.message?.includes("email already exists")) {
+        form.setError("email", {
+          type: "manual",
+          message: "This email is already registered. Please login instead."
+        });
+      } else {
+        form.setError("root", {
+          type: "manual",
+          message: "Registration failed. Please try again later."
+        });
+      }
     } finally {
       setIsSubmitting(false);
     }
   }
   
+  const togglePasswordVisibility = () => {
+    setShowPassword(!showPassword);
+  };
+  
+  const toggleConfirmPasswordVisibility = () => {
+    setShowConfirmPassword(!showConfirmPassword);
+  };
+  
   return (
     <Form {...form}>
       <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4 px-6 py-2">
+        {form.formState.errors.root && (
+          <div className="text-sm text-destructive mb-2 p-2 border border-destructive/20 bg-destructive/10 rounded">
+            {form.formState.errors.root.message}
+          </div>
+        )}
+        
         <FormField
           control={form.control}
           name="email"
           render={({ field }) => (
             <FormItem>
-              <FormLabel>Email</FormLabel>
+              <FormLabel>Email <span className="text-destructive">*</span></FormLabel>
               <FormControl>
                 <Input placeholder="you@example.com" {...field} />
               </FormControl>
@@ -236,10 +299,27 @@ function RegisterForm({
           name="password"
           render={({ field }) => (
             <FormItem>
-              <FormLabel>Password</FormLabel>
-              <FormControl>
-                <Input type="password" placeholder="••••••••" {...field} />
-              </FormControl>
+              <FormLabel>Password <span className="text-destructive">*</span></FormLabel>
+              <div className="relative">
+                <FormControl>
+                  <Input 
+                    type={showPassword ? "text" : "password"} 
+                    placeholder="••••••••" 
+                    {...field} 
+                  />
+                </FormControl>
+                <Button 
+                  type="button"
+                  variant="ghost" 
+                  size="icon"
+                  className="absolute right-2 top-1/2 -translate-y-1/2 h-8 w-8"
+                  onClick={togglePasswordVisibility}
+                >
+                  {showPassword ? 
+                    <EyeOff className="h-4 w-4 text-muted-foreground" /> : 
+                    <Eye className="h-4 w-4 text-muted-foreground" />}
+                </Button>
+              </div>
               <FormDescription className="text-xs">
                 Must have at least 8 characters, 1 uppercase letter and 1 number
               </FormDescription>
@@ -253,10 +333,27 @@ function RegisterForm({
           name="passwordConfirm"
           render={({ field }) => (
             <FormItem>
-              <FormLabel>Confirm Password</FormLabel>
-              <FormControl>
-                <Input type="password" placeholder="••••••••" {...field} />
-              </FormControl>
+              <FormLabel>Confirm Password <span className="text-destructive">*</span></FormLabel>
+              <div className="relative">
+                <FormControl>
+                  <Input 
+                    type={showConfirmPassword ? "text" : "password"} 
+                    placeholder="••••••••" 
+                    {...field} 
+                  />
+                </FormControl>
+                <Button 
+                  type="button"
+                  variant="ghost" 
+                  size="icon"
+                  className="absolute right-2 top-1/2 -translate-y-1/2 h-8 w-8"
+                  onClick={toggleConfirmPasswordVisibility}
+                >
+                  {showConfirmPassword ? 
+                    <EyeOff className="h-4 w-4 text-muted-foreground" /> : 
+                    <Eye className="h-4 w-4 text-muted-foreground" />}
+                </Button>
+              </div>
               <FormMessage />
             </FormItem>
           )}
@@ -305,6 +402,10 @@ function RegisterForm({
             </FormItem>
           )}
         />
+        
+        <div className="text-xs text-muted-foreground">
+          <span className="text-destructive">*</span> Required fields
+        </div>
         
         <Button type="submit" className="w-full" disabled={isSubmitting}>
           {isSubmitting ? (
