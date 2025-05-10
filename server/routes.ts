@@ -3,27 +3,17 @@ import { createServer, type Server } from "http";
 import { storage } from "./storage";
 import { getProductInfo, searchProducts, extractAsinFromUrl, isValidAsin, addAffiliateTag } from "./amazonApi";
 import { startPriceChecker } from "./priceChecker";
-import { isAuthenticated, setupAuth } from "./replitAuth";
+import { requireAuth, configureAuth } from "./authService";
 import { z } from "zod";
 import { trackingFormSchema } from "@shared/schema";
 
 const AFFILIATE_TAG = process.env.AMAZON_PARTNER_TAG || 'bytsave-20';
 
 export async function registerRoutes(app: Express): Promise<Server> {
-  // Setup Replit authentication
-  await setupAuth(app);
+  // Setup authentication
+  configureAuth(app);
 
-  // Auth routes
-  app.get('/api/auth/user', isAuthenticated, async (req: any, res) => {
-    try {
-      const userId = req.user.claims.sub;
-      const user = await storage.getUser(userId);
-      res.json(user);
-    } catch (error) {
-      console.error("Error fetching user:", error);
-      res.status(500).json({ message: "Failed to fetch user" });
-    }
-  });
+  // Note: Auth routes are already set up in authService.ts
 
   // Create HTTP server
   const httpServer = createServer(app);
@@ -271,7 +261,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Get tracked products for the current authenticated user
-  app.get('/api/my/tracked-products', isAuthenticated, async (req: Request, res: Response) => {
+  app.get('/api/my/tracked-products', requireAuth, async (req: Request, res: Response) => {
     try {
       const userId = (req.user as any).claims.sub;
       const trackedProducts = await storage.getTrackedProductsByUserId(userId);
@@ -303,7 +293,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Track a new product
-  app.post('/api/my/track', isAuthenticated, async (req: Request, res: Response) => {
+  app.post('/api/my/track', requireAuth, async (req: Request, res: Response) => {
     try {
       // Validate request body
       const result = trackingFormSchema.safeParse(req.body);
@@ -392,7 +382,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Delete a tracked product
-  app.delete('/api/my/tracked-products/:id', isAuthenticated, async (req: Request, res: Response) => {
+  app.delete('/api/my/tracked-products/:id', requireAuth, async (req: Request, res: Response) => {
     try {
       const id = parseInt(req.params.id);
       if (isNaN(id)) {
@@ -423,7 +413,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Update a tracked product (modify target price)
-  app.patch('/api/my/tracked-products/:id', isAuthenticated, async (req: Request, res: Response) => {
+  app.patch('/api/my/tracked-products/:id', requireAuth, async (req: Request, res: Response) => {
     try {
       const id = parseInt(req.params.id);
       if (isNaN(id)) {
@@ -462,7 +452,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Manually refresh a product's price
-  app.post('/api/my/refresh-price/:id', isAuthenticated, async (req: Request, res: Response) => {
+  app.post('/api/my/refresh-price/:id', requireAuth, async (req: Request, res: Response) => {
     try {
       const id = parseInt(req.params.id);
       if (isNaN(id)) {
