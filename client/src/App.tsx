@@ -41,7 +41,9 @@ function Router() {
       <Route path="/deals">
         <Deals />
       </Route>
-      <Route component={NotFound} />
+      <Route>
+        <NotFound />
+      </Route>
     </Switch>
   );
 }
