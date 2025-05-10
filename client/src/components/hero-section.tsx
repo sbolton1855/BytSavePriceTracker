@@ -4,10 +4,25 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { useEffect, useState } from "react";
 import { Check, TrendingDown, RefreshCw } from "lucide-react";
 
+// Type definition for product deals
+interface ProductDeal {
+  id: number;
+  asin: string;
+  title: string;
+  url: string;
+  imageUrl: string | null;
+  currentPrice: number;
+  originalPrice: number | null;
+  lowestPrice: number;
+  highestPrice: number;
+  lastChecked: string;
+  affiliateUrl: string;
+}
+
 // Real-time dashboard with actual price drop alerts
 const PriceTrackerDashboard: React.FC = () => {
   // Get real price drop deals from the backend
-  const { data: deals, isLoading, refetch } = useQuery({
+  const { data: deals, isLoading, refetch } = useQuery<ProductDeal[]>({
     queryKey: ["/api/products/deals"],
     staleTime: 5 * 60 * 1000, // 5 minutes
   });
