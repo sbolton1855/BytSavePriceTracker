@@ -324,9 +324,9 @@ function RegisterForm({
         return;
       }
       
-      // Only send email and password to server
+      // Only send email and password to server (API only needs these two fields)
       const { email, password } = values;
-      await register({ email, password });
+      await register({ email, password } as any);
     } catch (error: any) {
       console.error("Registration error:", error);
       
