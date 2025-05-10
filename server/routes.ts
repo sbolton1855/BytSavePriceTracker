@@ -301,17 +301,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(400).json({ error: 'Invalid request data', details: result.error.format() });
       }
       
-      const { asin, url, targetPrice, email } = result.data;
+      const { productUrl, targetPrice, email, percentageAlert, percentageThreshold } = result.data;
       
-      // Get product ASIN (either directly provided or extracted from URL)
-      let productAsin = asin;
-      if (!productAsin && url) {
-        const extractedAsin = extractAsinFromUrl(url);
-        if (!extractedAsin) {
-          return res.status(400).json({ error: 'Invalid Amazon URL' });
-        }
-        productAsin = extractedAsin;
+      // Extract ASIN from product URL
+      const extractedAsin = extractAsinFromUrl(productUrl);
+      if (!extractedAsin) {
+        return res.status(400).json({ error: 'Invalid Amazon URL or ASIN' });
       }
+      const productAsin = extractedAsin;
       
       if (!isValidAsin(productAsin)) {
         return res.status(400).json({ error: 'Invalid ASIN format' });
@@ -355,11 +352,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
       );
       
       if (existingTracking) {
-        // Update the existing tracking with new target price
+        // Update the existing tracking with new settings
         const updated = await storage.updateTrackedProduct(existingTracking.id, {
           targetPrice,
-          notified: false,
-          updatedAt: new Date()
+          percentageAlert: percentageAlert || false,
+          percentageThreshold: percentageThreshold || null,
+          notified: false
         });
         
         return res.json(updated);
@@ -368,10 +366,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
       // Create new tracking entry
       const tracking = await storage.createTrackedProduct({
         userId,
-        email: email || null,
+        email,
         productId: product.id,
         targetPrice,
-        notified: false
+        percentageAlert: percentageAlert || false,
+        percentageThreshold: percentageThreshold || null,
+        createdAt: new Date()
       });
       
       res.status(201).json(tracking);
