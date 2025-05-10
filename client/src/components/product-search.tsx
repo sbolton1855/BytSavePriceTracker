@@ -5,7 +5,7 @@ import { useForm } from "react-hook-form";
 import { z } from "zod";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useToast } from "@/hooks/use-toast";
-import { Loader2, Search, Link, ChevronRight } from "lucide-react";
+import { Loader2, Search, Link, ChevronRight, ArrowDown, Bell, Percent, DollarSign } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
