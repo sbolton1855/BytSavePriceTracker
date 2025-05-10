@@ -141,12 +141,16 @@ export function configureAuth(app: Express) {
     }
   });
   
-  // Configure Google Strategy
-  if (process.env.GOOGLE_CLIENT_ID && process.env.GOOGLE_CLIENT_SECRET) {
-    // Get the current domain from environment or default to localhost
-    const domain = process.env.REPLIT_DOMAINS ? 
+  // Helper function to get the base domain for callbacks
+  function getBaseDomain() {
+    return process.env.REPLIT_DOMAINS ? 
       `https://${process.env.REPLIT_DOMAINS.split(',')[0]}` : 
       'http://localhost:5000';
+  }
+
+  // Configure Google Strategy
+  if (process.env.GOOGLE_CLIENT_ID && process.env.GOOGLE_CLIENT_SECRET) {
+    const domain = getBaseDomain();
     
     console.log(`Setting up Google OAuth with callback URL: ${domain}/api/auth/google/callback`);
     
@@ -205,10 +209,7 @@ export function configureAuth(app: Express) {
   
   // Configure Facebook Strategy
   if (process.env.FACEBOOK_APP_ID && process.env.FACEBOOK_APP_SECRET) {
-    // Get the current domain from environment or default to localhost
-    const domain = process.env.REPLIT_DOMAINS ? 
-      `https://${process.env.REPLIT_DOMAINS.split(',')[0]}` : 
-      'http://localhost:5000';
+    const domain = getBaseDomain();
     
     passport.use(new FacebookStrategy({
       clientID: process.env.FACEBOOK_APP_ID,
@@ -266,10 +267,7 @@ export function configureAuth(app: Express) {
   
   // Configure Twitter Strategy
   if (process.env.TWITTER_CONSUMER_KEY && process.env.TWITTER_CONSUMER_SECRET) {
-    // Get the current domain from environment or default to localhost
-    const domain = process.env.REPLIT_DOMAINS ? 
-      `https://${process.env.REPLIT_DOMAINS.split(',')[0]}` : 
-      'http://localhost:5000';
+    const domain = getBaseDomain();
     
     passport.use(new TwitterStrategy({
       consumerKey: process.env.TWITTER_CONSUMER_KEY,
@@ -325,11 +323,33 @@ export function configureAuth(app: Express) {
   }
   
   // Authentication routes
-  app.get('/api/auth/google', passport.authenticate('google', { scope: ['profile', 'email'] }));
-  app.get('/api/auth/google/callback', 
-    passport.authenticate('google', { failureRedirect: '/auth' }),
-    (req, res) => res.redirect('/dashboard')
-  );
+  app.get('/api/auth/google', (req, res, next) => {
+    console.log('Starting Google OAuth flow...');
+    console.log('Request URL:', req.url);
+    console.log('Request headers:', req.headers.host);
+    
+    passport.authenticate('google', { 
+      scope: ['profile', 'email'],
+      prompt: 'select_account'
+    })(req, res, next);
+  });
+  
+  app.get('/api/auth/google/callback', (req, res, next) => {
+    console.log('Google OAuth callback received');
+    console.log('Query parameters:', req.query);
+    
+    passport.authenticate('google', { 
+      failureRedirect: '/auth',
+      failureMessage: true
+    })(req, res, (err: any) => {
+      if (err) {
+        console.error('Google auth error:', err);
+        return next(err);
+      }
+      console.log('Google authentication successful, redirecting to dashboard');
+      res.redirect('/dashboard');
+    });
+  });
   
   app.get('/api/auth/facebook', passport.authenticate('facebook', { scope: ['email'] }));
   app.get('/api/auth/facebook/callback',
