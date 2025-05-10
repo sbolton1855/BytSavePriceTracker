@@ -120,14 +120,14 @@ export default function ProductSearch({
     isLoading: isSearching,
     isFetching: isFetchingSearch,
   } = useQuery<ProductSearchResult[]>({
-    queryKey: ["/api/products/search", debouncedSearchQuery],
+    queryKey: ["/api/search", debouncedSearchQuery],
     queryFn: async () => {
       if (!debouncedSearchQuery || debouncedSearchQuery.length < 3) {
         return [];
       }
       
       const res = await fetch(
-        `/api/products/search?q=${encodeURIComponent(debouncedSearchQuery)}`
+        `/api/search?q=${encodeURIComponent(debouncedSearchQuery)}`
       );
       if (!res.ok) {
         throw new Error("Failed to search products");
@@ -140,7 +140,7 @@ export default function ProductSearch({
   // Product tracking mutation
   const trackMutation = useMutation({
     mutationFn: async (data: TrackingFormData) => {
-      const res = await apiRequest("POST", "/api/track", data);
+      const res = await apiRequest("POST", "/api/my/track", data);
       if (!res.ok) {
         const error = await res.json();
         throw new Error(error.message || "Failed to track product");
