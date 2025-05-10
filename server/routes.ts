@@ -263,7 +263,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Get tracked products for the current authenticated user
   app.get('/api/my/tracked-products', requireAuth, async (req: Request, res: Response) => {
     try {
-      const userId = (req.user as any).claims.sub;
+      const userId = (req.user as any).id.toString();
       const trackedProducts = await storage.getTrackedProductsByUserId(userId);
       
       // For each tracked product, fetch the product details
@@ -345,7 +345,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
       
       // Get user ID from authenticated session
-      const userId = (req.user as any).claims.sub;
+      const userId = (req.user as any).id.toString();
       
       // Check if user is already tracking this product
       const existingTracking = await storage.getTrackedProductByUserAndProduct(
@@ -395,7 +395,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
       
       // Ensure user owns this tracking (security check)
-      const userId = (req.user as any).claims.sub;
+      const userId = (req.user as any).id.toString();
       if (trackedProduct.userId !== userId) {
         return res.status(403).json({ error: 'Not authorized to delete this tracked product' });
       }
@@ -432,7 +432,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
       
       // Ensure user owns this tracking (security check)
-      const userId = (req.user as any).claims.sub;
+      const userId = (req.user as any).id.toString();
       if (trackedProduct.userId !== userId) {
         return res.status(403).json({ error: 'Not authorized to update this tracked product' });
       }
