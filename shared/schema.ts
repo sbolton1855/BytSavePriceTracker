@@ -54,7 +54,7 @@ export const insertProductSchema = createInsertSchema(products).omit({
 
 export const trackedProducts = pgTable("tracked_products", {
   id: serial("id").primaryKey(),
-  userId: integer("user_id"),
+  userId: varchar("user_id"),
   email: text("email").notNull(),
   productId: integer("product_id").notNull(),
   targetPrice: doublePrecision("target_price").notNull(),
