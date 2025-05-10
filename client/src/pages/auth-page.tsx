@@ -230,9 +230,6 @@ function RegisterForm({
       email: "",
       password: "",
       passwordConfirm: "",
-      username: "",
-      firstName: "",
-      lastName: "",
     },
     mode: "onChange", // Validate fields as they change
   });
@@ -359,49 +356,7 @@ function RegisterForm({
           )}
         />
         
-        <div className="grid grid-cols-2 gap-4">
-          <FormField
-            control={form.control}
-            name="firstName"
-            render={({ field }) => (
-              <FormItem>
-                <FormLabel>First Name</FormLabel>
-                <FormControl>
-                  <Input placeholder="John" {...field} />
-                </FormControl>
-                <FormMessage />
-              </FormItem>
-            )}
-          />
-          
-          <FormField
-            control={form.control}
-            name="lastName"
-            render={({ field }) => (
-              <FormItem>
-                <FormLabel>Last Name</FormLabel>
-                <FormControl>
-                  <Input placeholder="Doe" {...field} />
-                </FormControl>
-                <FormMessage />
-              </FormItem>
-            )}
-          />
-        </div>
-        
-        <FormField
-          control={form.control}
-          name="username"
-          render={({ field }) => (
-            <FormItem>
-              <FormLabel>Username (Optional)</FormLabel>
-              <FormControl>
-                <Input placeholder="johndoe" {...field} />
-              </FormControl>
-              <FormMessage />
-            </FormItem>
-          )}
-        />
+        {/* Optional fields removed to simplify registration */}
         
         <div className="text-xs text-muted-foreground">
           <span className="text-destructive">*</span> Required fields
