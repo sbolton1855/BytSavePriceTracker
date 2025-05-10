@@ -19,24 +19,21 @@ export const sessions = pgTable(
 );
 
 export const users = pgTable("users", {
-  id: serial("id").primaryKey(),
-  username: text("username").unique(),
-  email: text("email").notNull().unique(),
-  password: text("password"),
-  firstName: text("first_name"),
-  lastName: text("last_name"),
-  profileImageUrl: text("profile_image_url"),
-  provider: text("provider"),
-  providerId: text("provider_id"),
-  createdAt: timestamp("created_at").defaultNow().notNull(),
-  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+  id: varchar("id").primaryKey().notNull(),
+  email: varchar("email").unique(),
+  firstName: varchar("first_name"),
+  lastName: varchar("last_name"),
+  profileImageUrl: varchar("profile_image_url"),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
 });
 
 export const insertUserSchema = createInsertSchema(users).omit({
-  id: true,
   createdAt: true,
   updatedAt: true,
 });
+
+export type UpsertUser = typeof users.$inferInsert;
 
 export const products = pgTable("products", {
   id: serial("id").primaryKey(),
@@ -112,7 +109,6 @@ export const loginSchema = z.object({
 });
 
 // Types
-export type InsertUser = z.infer<typeof insertUserSchema>;
 export type User = typeof users.$inferSelect;
 
 export type InsertProduct = z.infer<typeof insertProductSchema>;

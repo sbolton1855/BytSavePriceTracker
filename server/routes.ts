@@ -3,11 +3,11 @@ import { createServer, type Server } from "http";
 import { storage } from "./storage";
 import { getProductInfo, searchProducts, extractAsinFromUrl, isValidAsin, addAffiliateTag } from "./amazonApi";
 import { startPriceChecker } from "./priceChecker";
-import { requireAuth, setupAuth } from "./replitAuth";
+import { isAuthenticated, setupAuth } from "./replitAuth";
 import { z } from "zod";
 import { trackingFormSchema } from "@shared/schema";
 
-const AFFILIATE_TAG = process.env.AMAZON_AFFILIATE_TAG || 'bytsave-20';
+const AFFILIATE_TAG = process.env.AMAZON_PARTNER_TAG || 'bytsave-20';
 
 export async function registerRoutes(app: Express): Promise<Server> {
   // Create HTTP server
@@ -53,612 +53,396 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.json(deals);
     } catch (error) {
       console.error('Error fetching deals:', error);
-      res.status(500).json({ message: 'Failed to fetch deals' });
+      res.status(500).json({ error: 'Failed to fetch deals' });
     }
   });
-  
-  // Search products by keyword
-  app.get('/api/products/search', async (req, res) => {
+
+  // Search for Amazon products
+  app.get('/api/search', async (req: Request, res: Response) => {
     try {
-      const keyword = req.query.q as string;
-      const limit = parseInt(req.query.limit as string) || 10;
+      const { q } = req.query;
       
-      if (!keyword || keyword.length < 3) {
-        return res.status(400).json({ 
-          message: 'Search query must be at least 3 characters long' 
+      if (!q || typeof q !== 'string') {
+        return res.status(400).json({ error: 'Search query is required' });
+      }
+      
+      const results = await searchProducts(q);
+      
+      // Format results with affiliate links
+      const formattedResults = results.map(result => ({
+        ...result,
+        affiliateUrl: addAffiliateTag(result.url, AFFILIATE_TAG),
+      }));
+      
+      res.json(formattedResults);
+    } catch (error) {
+      console.error('Search error:', error);
+      res.status(500).json({ error: 'Search failed' });
+    }
+  });
+
+  // Get product details by ASIN or URL
+  app.get('/api/product', async (req: Request, res: Response) => {
+    try {
+      const { asin, url } = req.query;
+      
+      if (!asin && !url) {
+        return res.status(400).json({ error: 'ASIN or URL is required' });
+      }
+      
+      // Extract ASIN from URL or use provided ASIN
+      let productAsin = '';
+      if (url && typeof url === 'string') {
+        const extractedAsin = extractAsinFromUrl(url);
+        if (!extractedAsin) {
+          return res.status(400).json({ error: 'Invalid Amazon URL' });
+        }
+        productAsin = extractedAsin;
+      } else if (asin && typeof asin === 'string') {
+        if (!isValidAsin(asin)) {
+          return res.status(400).json({ error: 'Invalid ASIN format' });
+        }
+        productAsin = asin;
+      }
+      
+      // Check if product exists in our database first
+      let product = await storage.getProductByAsin(productAsin);
+      
+      if (!product) {
+        // If not found in DB, fetch from Amazon API
+        const amazonProduct = await getProductInfo(productAsin);
+        
+        // Save to our database
+        product = await storage.createProduct({
+          asin: amazonProduct.asin,
+          title: amazonProduct.title,
+          url: amazonProduct.url,
+          imageUrl: amazonProduct.imageUrl,
+          currentPrice: amazonProduct.price,
+          originalPrice: amazonProduct.price, // Initially same as current
+          lowestPrice: amazonProduct.price,
+          highestPrice: amazonProduct.price,
+          lastChecked: new Date()
         });
       }
       
-      const searchResults = await searchProducts(keyword, limit);
-      
-      // Add affiliate links to URLs
-      const resultsWithAffiliateLinks = searchResults.map(result => ({
-        ...result,
-        affiliateUrl: addAffiliateTag(result.url, AFFILIATE_TAG)
-      }));
-      
-      res.status(200).json(resultsWithAffiliateLinks);
-    } catch (error) {
-      console.error('Error searching products:', error);
-      res.status(500).json({ message: 'Failed to search products' });
-    }
-  });
-  
-  // Get a single product by ID
-  app.get('/api/products/:id', async (req, res) => {
-    try {
-      const id = parseInt(req.params.id);
-      
-      if (isNaN(id)) {
-        return res.status(400).json({ message: 'Invalid ID format' });
-      }
-      
-      const product = await storage.getProduct(id);
-      
-      if (!product) {
-        return res.status(404).json({ message: 'Product not found' });
-      }
-      
-      res.status(200).json({
+      // Add affiliate url to response
+      const response = {
         ...product,
         affiliateUrl: addAffiliateTag(product.url, AFFILIATE_TAG)
-      });
-    } catch (error) {
-      console.error('Error fetching product:', error);
-      res.status(500).json({ message: 'Failed to fetch product' });
+      };
+      
+      res.json(response);
+    } catch (error: any) {
+      console.error('Product lookup error:', error);
+      res.status(500).json({ error: error.message || 'Failed to get product details' });
     }
   });
-  
-  // Track a new product (non-authenticated)
-  app.post('/api/track', async (req, res) => {
-    try {
-      // Validate request body
-      const validation = trackingFormSchema.safeParse(req.body);
-      
-      if (!validation.success) {
-        return res.status(400).json({ 
-          message: 'Invalid form data', 
-          errors: validation.error.format() 
-        });
-      }
-      
-      const { productUrl, targetPrice, email } = validation.data;
-      
-      // Extract ASIN from URL or use directly if it's an ASIN
-      let asin: string | null = null;
-      
-      if (productUrl.includes('amazon.com')) {
-        asin = extractAsinFromUrl(productUrl);
-      } else if (isValidAsin(productUrl)) {
-        asin = productUrl;
-      }
-      
-      if (!asin) {
-        return res.status(400).json({
-          message: 'Invalid Amazon URL or ASIN provided'
-        });
-      }
-      
-      // Check if product exists in our database
-      let product = await storage.getProductByAsin(asin);
-      
-      // If not, fetch product info and create it
-      if (!product) {
-        const productInfo = await getProductInfo(asin);
-        
-        product = await storage.createProduct({
-          asin: productInfo.asin,
-          title: productInfo.title,
-          url: productInfo.url,
-          imageUrl: productInfo.imageUrl,
-          currentPrice: productInfo.price,
-          originalPrice: productInfo.originalPrice,
-          lastChecked: new Date(),
-          lowestPrice: productInfo.price,
-          highestPrice: productInfo.price
-        });
-      }
-      
-      // Check if user is already tracking this product
-      const existingTracking = await storage.getTrackedProductByUserAndProduct(
-        null, // No user ID since we're using email
-        email, 
-        product.id
-      );
-      
-      if (existingTracking) {
-        // Update the existing tracking with new target price
-        const updated = await storage.updateTrackedProduct(existingTracking.id, {
-          targetPrice,
-          notified: product.currentPrice <= targetPrice ? false : existingTracking.notified
-        });
-        
-        return res.status(200).json({
-          message: 'Updated existing product tracking',
-          tracking: updated
-        });
-      }
-      
-      // Create new tracked product
-      const trackedProduct = await storage.createTrackedProduct({
-        userId: null, // No user ID since we're using email
-        email,
-        productId: product.id,
-        targetPrice,
-        createdAt: new Date()
-      });
-      
-      res.status(201).json({
-        message: 'Product tracking created successfully',
-        tracking: trackedProduct
-      });
-    } catch (error) {
-      console.error('Error tracking product:', error);
-      res.status(500).json({ message: 'Failed to track product' });
-    }
-  });
-  
-  // Get all tracked products for a user (by email for non-authenticated users)
-  app.get('/api/tracked-products', async (req, res) => {
-    try {
-      const email = req.query.email as string;
-      
-      if (!email) {
-        return res.status(400).json({ message: 'Email is required' });
-      }
-      
-      const trackedProducts = await storage.getTrackedProductsWithDetailsByEmail(email);
-      
-      // Add affiliate links to product URLs
-      const productsWithAffiliateLinks = trackedProducts.map(tp => ({
-        ...tp,
-        product: {
-          ...tp.product,
-          affiliateUrl: addAffiliateTag(tp.product.url, AFFILIATE_TAG)
-        }
-      }));
-      
-      res.status(200).json(productsWithAffiliateLinks);
-    } catch (error) {
-      console.error('Error fetching tracked products:', error);
-      res.status(500).json({ message: 'Failed to fetch tracked products' });
-    }
-  });
-  
-  // Get all tracked products for authenticated user
-  app.get('/api/my/tracked-products', requireAuth, async (req: Request, res: Response) => {
-    try {
-      // Use the authenticated user's ID
-      const userId = req.user!.id;
-      
-      // Get tracked products for the authenticated user
-      const trackedProducts = await storage.getTrackedProductsByUserId(userId);
-      
-      // Get full product details for each tracked product
-      const result = [];
-      for (const tp of trackedProducts) {
-        const product = await storage.getProduct(tp.productId);
-        if (product) {
-          result.push({
-            ...tp,
-            product: {
-              ...product,
-              affiliateUrl: addAffiliateTag(product.url, AFFILIATE_TAG)
-            }
-          });
-        }
-      }
-      
-      res.status(200).json(result);
-    } catch (error) {
-      console.error('Error fetching tracked products for authenticated user:', error);
-      res.status(500).json({ message: 'Failed to fetch tracked products' });
-    }
-  });
-  
-  // Track a new product (authenticated user)
-  app.post('/api/my/track', requireAuth, async (req: Request, res: Response) => {
-    try {
-      // Validate request body
-      const validation = trackingFormSchema.safeParse(req.body);
-      
-      if (!validation.success) {
-        return res.status(400).json({ 
-          message: 'Invalid form data', 
-          errors: validation.error.format() 
-        });
-      }
-      
-      const { productUrl, targetPrice } = validation.data;
-      const userId = req.user!.id;
-      
-      // Extract ASIN from URL or use directly if it's an ASIN
-      let asin: string | null = null;
-      
-      if (productUrl.includes('amazon.com')) {
-        asin = extractAsinFromUrl(productUrl);
-      } else if (isValidAsin(productUrl)) {
-        asin = productUrl;
-      }
-      
-      if (!asin) {
-        return res.status(400).json({
-          message: 'Invalid Amazon URL or ASIN provided'
-        });
-      }
-      
-      // Check if product exists in our database
-      let product = await storage.getProductByAsin(asin);
-      
-      // If not, fetch product info and create it
-      if (!product) {
-        const productInfo = await getProductInfo(asin);
-        
-        product = await storage.createProduct({
-          asin: productInfo.asin,
-          title: productInfo.title,
-          url: productInfo.url,
-          imageUrl: productInfo.imageUrl,
-          currentPrice: productInfo.price,
-          originalPrice: productInfo.originalPrice,
-          lastChecked: new Date(),
-          lowestPrice: productInfo.price,
-          highestPrice: productInfo.price
-        });
-      }
-      
-      // Check if user is already tracking this product
-      const existingTracking = await storage.getTrackedProductByUserAndProduct(
-        userId,
-        req.user!.email, 
-        product.id
-      );
-      
-      if (existingTracking) {
-        // Update the existing tracking with new target price
-        const updated = await storage.updateTrackedProduct(existingTracking.id, {
-          targetPrice,
-          notified: product.currentPrice <= targetPrice ? false : existingTracking.notified
-        });
-        
-        return res.status(200).json({
-          message: 'Updated existing product tracking',
-          tracking: updated
-        });
-      }
-      
-      // Create new tracked product
-      const trackedProduct = await storage.createTrackedProduct({
-        userId,
-        email: req.user!.email,
-        productId: product.id,
-        targetPrice,
-        createdAt: new Date()
-      });
-      
-      res.status(201).json({
-        message: 'Product tracking created successfully',
-        tracking: trackedProduct
-      });
-    } catch (error) {
-      console.error('Error tracking product for authenticated user:', error);
-      res.status(500).json({ message: 'Failed to track product' });
-    }
-  });
-  
-  // Delete a tracked product
-  app.delete('/api/tracked-products/:id', async (req, res) => {
-    try {
-      const id = parseInt(req.params.id);
-      
-      if (isNaN(id)) {
-        return res.status(400).json({ message: 'Invalid ID format' });
-      }
-      
-      const deleted = await storage.deleteTrackedProduct(id);
-      
-      if (!deleted) {
-        return res.status(404).json({ message: 'Tracked product not found' });
-      }
-      
-      res.status(200).json({ message: 'Tracked product deleted successfully' });
-    } catch (error) {
-      console.error('Error deleting tracked product:', error);
-      res.status(500).json({ message: 'Failed to delete tracked product' });
-    }
-  });
-  
-  // Update a tracked product's target price
-  app.patch('/api/tracked-products/:id', async (req, res) => {
-    try {
-      const id = parseInt(req.params.id);
-      
-      if (isNaN(id)) {
-        return res.status(400).json({ message: 'Invalid ID format' });
-      }
-      
-      const { targetPrice } = req.body;
-      
-      // Validate target price
-      if (typeof targetPrice !== 'number' || targetPrice <= 0) {
-        return res.status(400).json({ message: 'Invalid target price' });
-      }
-      
-      const trackedProduct = await storage.getTrackedProduct(id);
-      
-      if (!trackedProduct) {
-        return res.status(404).json({ message: 'Tracked product not found' });
-      }
-      
-      // Get the product to check current price
-      const product = await storage.getProduct(trackedProduct.productId);
-      
-      if (!product) {
-        return res.status(404).json({ message: 'Product not found' });
-      }
-      
-      // Update the tracked product
-      const updated = await storage.updateTrackedProduct(id, {
-        targetPrice,
-        // Reset notification status if price is already below target
-        notified: product.currentPrice <= targetPrice ? false : trackedProduct.notified
-      });
-      
-      res.status(200).json({
-        message: 'Target price updated successfully',
-        tracking: updated
-      });
-    } catch (error) {
-      console.error('Error updating tracked product:', error);
-      res.status(500).json({ message: 'Failed to update tracked product' });
-    }
-  });
-  
-  // Delete a tracked product (authenticated user)
-  app.delete('/api/my/tracked-products/:id', requireAuth, async (req: Request, res: Response) => {
-    try {
-      const id = parseInt(req.params.id);
-      
-      if (isNaN(id)) {
-        return res.status(400).json({ message: 'Invalid ID format' });
-      }
-      
-      // Get the tracked product
-      const trackedProduct = await storage.getTrackedProduct(id);
-      
-      if (!trackedProduct) {
-        return res.status(404).json({ message: 'Tracked product not found' });
-      }
-      
-      // Check if the tracked product belongs to the authenticated user
-      if (trackedProduct.userId !== req.user!.id) {
-        return res.status(403).json({ message: 'Not authorized to delete this tracked product' });
-      }
-      
-      const deleted = await storage.deleteTrackedProduct(id);
-      
-      if (!deleted) {
-        return res.status(404).json({ message: 'Failed to delete tracked product' });
-      }
-      
-      res.status(200).json({ message: 'Tracked product deleted successfully' });
-    } catch (error) {
-      console.error('Error deleting tracked product for authenticated user:', error);
-      res.status(500).json({ message: 'Failed to delete tracked product' });
-    }
-  });
-  
-  // Update a tracked product (authenticated user)
-  app.patch('/api/my/tracked-products/:id', requireAuth, async (req: Request, res: Response) => {
-    try {
-      const id = parseInt(req.params.id);
-      
-      if (isNaN(id)) {
-        return res.status(400).json({ message: 'Invalid ID format' });
-      }
-      
-      const { targetPrice } = req.body;
-      
-      // Validate target price
-      if (typeof targetPrice !== 'number' || targetPrice <= 0) {
-        return res.status(400).json({ message: 'Invalid target price' });
-      }
-      
-      // Get the tracked product
-      const trackedProduct = await storage.getTrackedProduct(id);
-      
-      if (!trackedProduct) {
-        return res.status(404).json({ message: 'Tracked product not found' });
-      }
-      
-      // Check if the tracked product belongs to the authenticated user
-      if (trackedProduct.userId !== req.user!.id) {
-        return res.status(403).json({ message: 'Not authorized to update this tracked product' });
-      }
-      
-      // Get the product to check current price
-      const product = await storage.getProduct(trackedProduct.productId);
-      
-      if (!product) {
-        return res.status(404).json({ message: 'Product not found' });
-      }
-      
-      // Update the tracked product
-      const updated = await storage.updateTrackedProduct(id, {
-        targetPrice,
-        // Reset notification status if price is already below target
-        notified: product.currentPrice <= targetPrice ? false : trackedProduct.notified
-      });
-      
-      res.status(200).json({
-        message: 'Target price updated successfully',
-        tracking: updated
-      });
-    } catch (error) {
-      console.error('Error updating tracked product for authenticated user:', error);
-      res.status(500).json({ message: 'Failed to update tracked product' });
-    }
-  });
-  
+
   // Get price history for a product
-  app.get('/api/products/:id/price-history', async (req, res) => {
+  app.get('/api/products/:id/price-history', async (req: Request, res: Response) => {
     try {
-      const id = parseInt(req.params.id);
+      const productId = parseInt(req.params.id);
       
-      if (isNaN(id)) {
-        return res.status(400).json({ message: 'Invalid ID format' });
+      if (isNaN(productId)) {
+        return res.status(400).json({ error: 'Invalid product ID' });
       }
       
-      // Check if product exists
-      const product = await storage.getProduct(id);
-      
+      // Get product details
+      const product = await storage.getProduct(productId);
       if (!product) {
-        return res.status(404).json({ message: 'Product not found' });
+        return res.status(404).json({ error: 'Product not found' });
       }
       
       // Get price history
-      const priceHistory = await storage.getPriceHistoryByProductId(id);
+      const priceHistory = await storage.getPriceHistoryByProductId(productId);
       
-      res.status(200).json({
+      // Add affiliate url to response
+      const response = {
         product: {
           ...product,
           affiliateUrl: addAffiliateTag(product.url, AFFILIATE_TAG)
         },
         priceHistory
-      });
+      };
+      
+      res.json(response);
     } catch (error) {
       console.error('Error fetching price history:', error);
-      res.status(500).json({ message: 'Failed to fetch price history' });
-    }
-  });
-  
-  // Manually refresh a product's price
-  app.post('/api/refresh-price/:id', async (req, res) => {
-    try {
-      const id = parseInt(req.params.id);
-      
-      if (isNaN(id)) {
-        return res.status(400).json({ message: 'Invalid ID format' });
-      }
-      
-      const trackedProduct = await storage.getTrackedProduct(id);
-      
-      if (!trackedProduct) {
-        return res.status(404).json({ message: 'Tracked product not found' });
-      }
-      
-      const product = await storage.getProduct(trackedProduct.productId);
-      
-      if (!product) {
-        return res.status(404).json({ message: 'Product not found' });
-      }
-      
-      // Fetch latest product info
-      const productInfo = await getProductInfo(product.asin);
-      
-      // Update product
-      const updatedProduct = await storage.updateProduct(product.id, {
-        currentPrice: productInfo.price,
-        originalPrice: productInfo.originalPrice || product.originalPrice,
-        lastChecked: new Date(),
-        lowestPrice: product.lowestPrice ? Math.min(product.lowestPrice, productInfo.price) : productInfo.price,
-        highestPrice: product.highestPrice ? Math.max(product.highestPrice, productInfo.price) : productInfo.price
-      });
-      
-      // Check if we need to update notification status
-      if (productInfo.price <= trackedProduct.targetPrice && trackedProduct.notified) {
-        await storage.updateTrackedProduct(trackedProduct.id, { notified: false });
-      }
-      
-      res.status(200).json({
-        message: 'Product price refreshed successfully',
-        product: updatedProduct
-      });
-    } catch (error) {
-      console.error('Error refreshing product price:', error);
-      res.status(500).json({ message: 'Failed to refresh product price' });
-    }
-  });
-  
-  // Get price history for a product
-  app.get('/api/price-history/:productId', async (req, res) => {
-    try {
-      const productId = parseInt(req.params.productId);
-      
-      if (isNaN(productId)) {
-        return res.status(400).json({ message: 'Invalid product ID format' });
-      }
-      
-      const product = await storage.getProduct(productId);
-      
-      if (!product) {
-        return res.status(404).json({ message: 'Product not found' });
-      }
-      
-      const priceHistory = await storage.getPriceHistoryByProductId(productId);
-      
-      res.status(200).json(priceHistory);
-    } catch (error) {
-      console.error('Error fetching price history:', error);
-      res.status(500).json({ message: 'Failed to fetch price history' });
+      res.status(500).json({ error: 'Failed to fetch price history' });
     }
   });
 
-  // Refresh price for authenticated user's tracked product
-  app.post('/api/my/refresh-price/:id', requireAuth, async (req: Request, res: Response) => {
+  // Get all tracked products, either for the authenticated user or by email
+  app.get('/api/tracked-products', async (req: Request, res: Response) => {
     try {
-      const id = parseInt(req.params.id);
+      const { email } = req.query;
       
-      if (isNaN(id)) {
-        return res.status(400).json({ message: 'Invalid ID format' });
+      // Check if email provided as query param
+      if (email && typeof email === 'string') {
+        const trackedProducts = await storage.getTrackedProductsWithDetailsByEmail(email);
+        
+        // Add affiliate urls to response
+        const response = trackedProducts.map(item => ({
+          ...item,
+          product: {
+            ...item.product,
+            affiliateUrl: addAffiliateTag(item.product.url, AFFILIATE_TAG)
+          }
+        }));
+        
+        return res.json(response);
       }
       
-      // Get the tracked product
-      const trackedProduct = await storage.getTrackedProduct(id);
-      
-      if (!trackedProduct) {
-        return res.status(404).json({ message: 'Tracked product not found' });
-      }
-      
-      // Check if the tracked product belongs to the authenticated user
-      if (trackedProduct.userId !== req.user!.id) {
-        return res.status(403).json({ message: 'Not authorized to refresh this product' });
-      }
-      
-      const product = await storage.getProduct(trackedProduct.productId);
-      
-      if (!product) {
-        return res.status(404).json({ message: 'Product not found' });
-      }
-      
-      // Fetch latest product info
-      const productInfo = await getProductInfo(product.asin);
-      
-      // Update product
-      const updatedProduct = await storage.updateProduct(product.id, {
-        currentPrice: productInfo.price,
-        originalPrice: productInfo.originalPrice || product.originalPrice,
-        lastChecked: new Date(),
-        lowestPrice: product.lowestPrice ? Math.min(product.lowestPrice, productInfo.price) : productInfo.price,
-        highestPrice: product.highestPrice ? Math.max(product.highestPrice, productInfo.price) : productInfo.price
-      });
-      
-      // Check if we need to update notification status
-      if (productInfo.price <= trackedProduct.targetPrice && trackedProduct.notified) {
-        await storage.updateTrackedProduct(trackedProduct.id, { notified: false });
-      }
-      
-      res.status(200).json({
-        message: 'Product price refreshed successfully',
-        product: updatedProduct
-      });
+      // Otherwise attempt to get user's tracked products
+      // Return empty array if user is not authenticated
+      res.json([]);
     } catch (error) {
-      console.error('Error refreshing product price for authenticated user:', error);
-      res.status(500).json({ message: 'Failed to refresh product price' });
+      console.error('Error fetching tracked products:', error);
+      res.status(500).json({ error: 'Failed to fetch tracked products' });
     }
   });
-  
-  // Start price checker in the background
+
+  // Get tracked products for the current authenticated user
+  app.get('/api/my/tracked-products', isAuthenticated, async (req: Request, res: Response) => {
+    try {
+      const userId = (req.user as any).claims.sub;
+      const trackedProducts = await storage.getTrackedProductsByUserId(userId);
+      
+      // For each tracked product, fetch the product details
+      const fullDetails = await Promise.all(
+        trackedProducts.map(async (item) => {
+          const product = await storage.getProduct(item.productId);
+          if (!product) return null;
+          
+          return {
+            ...item,
+            product: {
+              ...product,
+              affiliateUrl: addAffiliateTag(product.url, AFFILIATE_TAG)
+            }
+          };
+        })
+      );
+      
+      // Filter out any null entries (products that may have been deleted)
+      const response = fullDetails.filter(item => item !== null);
+      
+      res.json(response);
+    } catch (error) {
+      console.error('Error fetching user tracked products:', error);
+      res.status(500).json({ error: 'Failed to fetch tracked products' });
+    }
+  });
+
+  // Track a new product
+  app.post('/api/my/track', isAuthenticated, async (req: Request, res: Response) => {
+    try {
+      // Validate request body
+      const result = trackingFormSchema.safeParse(req.body);
+      if (!result.success) {
+        return res.status(400).json({ error: 'Invalid request data', details: result.error.format() });
+      }
+      
+      const { asin, url, targetPrice, email } = result.data;
+      
+      // Get product ASIN (either directly provided or extracted from URL)
+      let productAsin = asin;
+      if (!productAsin && url) {
+        const extractedAsin = extractAsinFromUrl(url);
+        if (!extractedAsin) {
+          return res.status(400).json({ error: 'Invalid Amazon URL' });
+        }
+        productAsin = extractedAsin;
+      }
+      
+      if (!isValidAsin(productAsin)) {
+        return res.status(400).json({ error: 'Invalid ASIN format' });
+      }
+      
+      // Check if product exists in our database
+      let product = await storage.getProductByAsin(productAsin);
+      
+      // If product doesn't exist, fetch it from Amazon API and create it
+      if (!product) {
+        const amazonProduct = await getProductInfo(productAsin);
+        
+        product = await storage.createProduct({
+          asin: amazonProduct.asin,
+          title: amazonProduct.title,
+          url: amazonProduct.url,
+          imageUrl: amazonProduct.imageUrl,
+          currentPrice: amazonProduct.price,
+          originalPrice: amazonProduct.price, // Initially same as current
+          lowestPrice: amazonProduct.price,
+          highestPrice: amazonProduct.price,
+          lastChecked: new Date()
+        });
+        
+        // Also create initial price history entry
+        await storage.createPriceHistory({
+          productId: product.id,
+          price: amazonProduct.price,
+          timestamp: new Date()
+        });
+      }
+      
+      // Get user ID from authenticated session
+      const userId = (req.user as any).claims.sub;
+      
+      // Check if user is already tracking this product
+      const existingTracking = await storage.getTrackedProductByUserAndProduct(
+        userId, 
+        email || '',
+        product.id
+      );
+      
+      if (existingTracking) {
+        // Update the existing tracking with new target price
+        const updated = await storage.updateTrackedProduct(existingTracking.id, {
+          targetPrice,
+          notified: false,
+          updatedAt: new Date()
+        });
+        
+        return res.json(updated);
+      }
+      
+      // Create new tracking entry
+      const tracking = await storage.createTrackedProduct({
+        userId,
+        email: email || null,
+        productId: product.id,
+        targetPrice,
+        notified: false
+      });
+      
+      res.status(201).json(tracking);
+    } catch (error: any) {
+      console.error('Error tracking product:', error);
+      res.status(500).json({ error: error.message || 'Failed to track product' });
+    }
+  });
+
+  // Delete a tracked product
+  app.delete('/api/my/tracked-products/:id', isAuthenticated, async (req: Request, res: Response) => {
+    try {
+      const id = parseInt(req.params.id);
+      if (isNaN(id)) {
+        return res.status(400).json({ error: 'Invalid ID' });
+      }
+      
+      const trackedProduct = await storage.getTrackedProduct(id);
+      if (!trackedProduct) {
+        return res.status(404).json({ error: 'Tracked product not found' });
+      }
+      
+      // Ensure user owns this tracking (security check)
+      const userId = (req.user as any).claims.sub;
+      if (trackedProduct.userId !== userId) {
+        return res.status(403).json({ error: 'Not authorized to delete this tracked product' });
+      }
+      
+      const success = await storage.deleteTrackedProduct(id);
+      if (!success) {
+        return res.status(500).json({ error: 'Failed to delete tracked product' });
+      }
+      
+      res.status(204).send();
+    } catch (error) {
+      console.error('Error deleting tracked product:', error);
+      res.status(500).json({ error: 'Server error' });
+    }
+  });
+
+  // Update a tracked product (modify target price)
+  app.patch('/api/my/tracked-products/:id', isAuthenticated, async (req: Request, res: Response) => {
+    try {
+      const id = parseInt(req.params.id);
+      if (isNaN(id)) {
+        return res.status(400).json({ error: 'Invalid ID' });
+      }
+      
+      // Validate the target price
+      const { targetPrice } = req.body;
+      if (targetPrice === undefined || typeof targetPrice !== 'number' || targetPrice <= 0) {
+        return res.status(400).json({ error: 'Valid target price is required' });
+      }
+      
+      const trackedProduct = await storage.getTrackedProduct(id);
+      if (!trackedProduct) {
+        return res.status(404).json({ error: 'Tracked product not found' });
+      }
+      
+      // Ensure user owns this tracking (security check)
+      const userId = (req.user as any).claims.sub;
+      if (trackedProduct.userId !== userId) {
+        return res.status(403).json({ error: 'Not authorized to update this tracked product' });
+      }
+      
+      // Update with new target price and reset notification status
+      const updated = await storage.updateTrackedProduct(id, {
+        targetPrice,
+        notified: false,
+        updatedAt: new Date()
+      });
+      
+      res.json(updated);
+    } catch (error) {
+      console.error('Error updating tracked product:', error);
+      res.status(500).json({ error: 'Server error' });
+    }
+  });
+
+  // Manually refresh a product's price
+  app.post('/api/my/refresh-price/:id', isAuthenticated, async (req: Request, res: Response) => {
+    try {
+      const id = parseInt(req.params.id);
+      if (isNaN(id)) {
+        return res.status(400).json({ error: 'Invalid ID' });
+      }
+      
+      const product = await storage.getProduct(id);
+      if (!product) {
+        return res.status(404).json({ error: 'Product not found' });
+      }
+      
+      // Fetch fresh data from Amazon
+      const amazonProduct = await getProductInfo(product.asin);
+      
+      // Calculate new lowest and highest prices
+      const lowestPrice = Math.min(product.lowestPrice, amazonProduct.price);
+      const highestPrice = Math.max(product.highestPrice, amazonProduct.price);
+      
+      // Update our product record
+      const updated = await storage.updateProduct(id, {
+        currentPrice: amazonProduct.price,
+        lowestPrice,
+        highestPrice,
+        lastChecked: new Date()
+      });
+      
+      // Also create a price history entry
+      await storage.createPriceHistory({
+        productId: id,
+        price: amazonProduct.price,
+        timestamp: new Date()
+      });
+      
+      // Add affiliate link to response
+      const response = {
+        ...updated,
+        affiliateUrl: addAffiliateTag(updated!.url, AFFILIATE_TAG)
+      };
+      
+      res.json(response);
+    } catch (error: any) {
+      console.error('Error refreshing price:', error);
+      res.status(500).json({ error: error.message || 'Failed to refresh price' });
+    }
+  });
+
+  // Start price checker background service
   startPriceChecker();
 
   return httpServer;
