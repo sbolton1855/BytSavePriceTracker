@@ -22,9 +22,12 @@ const ProductsDisplay: React.FC<ProductsDisplayProps> = ({ email }) => {
     queryKey: ['/api/tracked-products', email],
     enabled: !!email,
     queryFn: async ({ queryKey }) => {
+      console.log("Fetching tracked products for email:", email);
       const res = await fetch(`${queryKey[0]}?email=${encodeURIComponent(email)}`);
       if (!res.ok) throw new Error('Failed to fetch tracked products');
-      return res.json();
+      const data = await res.json();
+      console.log("Tracked products data:", data);
+      return data;
     }
   });
 
@@ -62,6 +65,13 @@ const ProductsDisplay: React.FC<ProductsDisplayProps> = ({ email }) => {
       });
     }
   }, [isError, error, toast]);
+  
+  // Debug effect to show data changes
+  useEffect(() => {
+    console.log("ProductsDisplay - current email:", email);
+    console.log("ProductsDisplay - data changed:", data);
+    console.log("ProductsDisplay - filteredProducts:", filteredProducts);
+  }, [email, data, filteredProducts]);
 
   return (
     <section className="py-12 bg-gray-50" id="dashboard">
