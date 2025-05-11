@@ -136,8 +136,13 @@ const ProductCard: React.FC<ProductCardProps> = ({ trackedProduct, onRefresh }) 
       setIsDeleting(false);
       setShowDeleteConfirm(false);
       
+      console.log("Product deleted, invalidating queries");
       // Force refresh the tracked products list by invalidating and then explicitly refetching
+      // We need to invalidate all queries that contain '/api/tracked-products' in their key
       queryClient.invalidateQueries({ queryKey: ['/api/tracked-products'] });
+      queryClient.invalidateQueries({ queryKey: ['/api/my/tracked-products'] });
+      
+      // Force an immediate refetch of the tracked products
       queryClient.refetchQueries({ queryKey: ['/api/tracked-products'] });
       
       // Also trigger the parent's refresh callback
