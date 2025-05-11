@@ -730,12 +730,15 @@ export default function ProductSearch({
                                         className="rounded-l-none"
                                         placeholder="Enter your desired price"
                                         {...field}
-                                        value={field.value > 0 ? field.value.toString() : ''}
+                                        value={field.value !== undefined && field.value !== null && field.value > 0 ? field.value.toString() : ''}
                                         onChange={(e) => {
-                                          // Remove leading zeros and allow only valid price format
-                                          const value = e.target.value.replace(/^0+(?=\d)/, '');
-                                          const price = parseFloat(value);
-                                          field.onChange(isNaN(price) ? 0 : price);
+                                          // Allow decimal input and proper formatting
+                                          const value = e.target.value;
+                                          // Allow empty input, single decimal point, or valid decimal number
+                                          if (value === '' || value === '.' || /^\d*\.?\d*$/.test(value)) {
+                                            // For display purposes only, store as string in field
+                                            field.onChange(value === '' || value === '.' ? 0 : parseFloat(value));
+                                          }
                                         }}
                                         disabled={trackMutation.isPending}
                                       />
@@ -777,7 +780,7 @@ export default function ProductSearch({
                                         <span className="text-muted-foreground">Current price: </span>
                                         <span className="font-medium">${selectedProduct.price.toFixed(2)}</span>
                                       </p>
-                                      {field.value > 0 && field.value < selectedProduct.price && (
+                                      {field.value !== undefined && field.value !== null && field.value > 0 && field.value < selectedProduct.price && (
                                         <p className="text-sm mt-1 text-green-600 flex items-center">
                                           <ArrowDown className="h-3 w-3 mr-1" />
                                           Potential savings: ${(selectedProduct.price - field.value).toFixed(2)} 
@@ -815,7 +818,7 @@ export default function ProductSearch({
                                         <span className="font-bold text-primary ml-1">${selectedProduct.price.toFixed(2)}</span>
                                       </div>
                                       
-                                      {field.value && field.value > 0 && (
+                                      {field.value !== undefined && field.value !== null && field.value > 0 && (
                                         <div className="mt-2 pt-2 border-t border-primary/10">
                                           <div className="flex items-center text-sm">
                                             <ArrowDown className="h-4 w-4 mr-1 text-green-600" />
@@ -853,7 +856,7 @@ export default function ProductSearch({
                                       <FormLabel className="text-sm">
                                         Or enter a custom percentage:
                                       </FormLabel>
-                                      {field.value > 0 && (
+                                      {field.value !== undefined && field.value !== null && field.value > 0 && (
                                         <Button 
                                           type="button" 
                                           variant="ghost" 
@@ -868,21 +871,24 @@ export default function ProductSearch({
                                     <FormControl>
                                       <div className="flex items-center relative">
                                         <Input
-                                          type="number"
-                                          inputMode="numeric"
-                                          min={1}
-                                          max={99}
+                                          type="text"
+                                          inputMode="decimal"
                                           className="text-right pr-10 text-lg h-12"
                                           placeholder="Enter custom %"
                                           {...field}
-                                          value={field.value || ""}
+                                          value={field.value !== undefined && field.value !== null ? field.value : ""}
                                           onChange={(e) => {
-                                            // When user types in custom field, it takes precedence over buttons
-                                            const value = e.target.value === "" ? 0 : parseInt(e.target.value);
-                                            if (value === 0) {
-                                              field.onChange(0); // Use 0 instead of null to avoid type issues
-                                            } else {
-                                              field.onChange(isNaN(value) ? 0 : Math.min(99, Math.max(1, value)));
+                                            // Allow decimal percentages for more precise alerts
+                                            const value = e.target.value;
+                                            // Allow empty input, single decimal point, or valid decimal number
+                                            if (value === '' || value === '.' || /^\d*\.?\d*$/.test(value)) {
+                                              const numValue = value === '' || value === '.' ? 0 : parseFloat(value);
+                                              // Ensure the percentage is between 0.1 and 99
+                                              if (value === '' || value === '.' || isNaN(numValue)) {
+                                                field.onChange(0);
+                                              } else {
+                                                field.onChange(Math.min(99, Math.max(0.1, numValue)));
+                                              }
                                             }
                                           }}
                                           disabled={trackMutation.isPending}
