@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
+import { queryClient } from "@/lib/queryClient";
 import ProductCard from "./product-card";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Button } from "@/components/ui/button";
@@ -80,16 +81,20 @@ const ProductsDisplay: React.FC<ProductsDisplayProps> = ({ email }) => {
   useEffect(() => {
     const handleProductDeleted = () => {
       console.log("Product deletion detected, refetching data");
-      // Force a refetch with a small delay to ensure database has updated
+      // Force a complete data refresh
+      queryClient.resetQueries({ queryKey: ['/api/tracked-products'] });
       setTimeout(() => {
+        console.log("Performing manual refetch after deletion");
         refetch();
       }, 500);
     };
     
     const handleProductTracked = () => {
       console.log("Product tracking detected, refetching data");
-      // Force a refetch with a small delay to ensure database has updated
+      // Force a complete data refresh
+      queryClient.resetQueries({ queryKey: ['/api/tracked-products'] });
       setTimeout(() => {
+        console.log("Performing manual refetch after tracking");
         refetch();
       }, 500);
     };
