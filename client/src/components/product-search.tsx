@@ -6,7 +6,7 @@ import { z } from "zod";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/hooks/use-auth";
-import { Loader2, Search, Link, ChevronRight, ArrowDown, Bell, Percent, DollarSign } from "lucide-react";
+import { Loader2, Search, Link, ChevronRight, ArrowDown, Bell, Percent, DollarSign, TrendingDown } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -924,10 +924,33 @@ export default function ProductSearch({
                           </div>
                         </div>
                         
-                        {/* Display price history if product is selected and has an ID */}
+                        {/* Price History Chart for informed decision making */}
                         {selectedProduct?.id && (
-                          <div className="mt-6 mb-6">
+                          <div className="mt-6 mb-6 border rounded-lg p-4 bg-slate-50">
+                            <div className="flex items-center mb-3">
+                              <TrendingDown className="h-5 w-5 mr-2 text-primary" />
+                              <h3 className="text-lg font-semibold">Price History</h3>
+                            </div>
+                            <p className="text-sm text-muted-foreground mb-4">
+                              Review the price history below to help set a reasonable target price or percentage alert
+                            </p>
                             <PriceHistoryChart productId={selectedProduct.id} />
+                            
+                            {/* Price stats and recommendations */}
+                            <div className="grid grid-cols-2 gap-3 mt-4 pt-3 border-t border-slate-200">
+                              <div className="px-3 py-2 bg-white rounded-md border border-slate-200">
+                                <p className="text-xs text-muted-foreground mb-1">Lowest Recorded Price</p>
+                                <p className="text-base font-semibold text-green-600">
+                                  ${selectedProduct.lowestPrice ? selectedProduct.lowestPrice.toFixed(2) : "N/A"}
+                                </p>
+                              </div>
+                              <div className="px-3 py-2 bg-white rounded-md border border-slate-200">
+                                <p className="text-xs text-muted-foreground mb-1">Highest Recorded Price</p>
+                                <p className="text-base font-semibold text-red-500">
+                                  ${selectedProduct.highestPrice ? selectedProduct.highestPrice.toFixed(2) : "N/A"}
+                                </p>
+                              </div>
+                            </div>
                           </div>
                         )}
                         

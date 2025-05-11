@@ -134,11 +134,18 @@ export default function HighlightedDeals() {
             )}
           </CardContent>
           <CardFooter className="p-4 pt-0">
-            <Button asChild className="w-full">
-              <a href={deal.affiliateUrl || deal.url} target="_blank" rel="noopener noreferrer">
-                View Deal <ArrowRight className="ml-2 h-4 w-4" />
-              </a>
-            </Button>
+            <div className="space-y-2">
+              <Button asChild className="w-full">
+                <a href={deal.affiliateUrl || deal.url} target="_blank" rel="noopener noreferrer">
+                  View Deal <ArrowRight className="ml-2 h-4 w-4" />
+                </a>
+              </Button>
+              <Badge variant="outline" className="w-full justify-center py-1 border-dashed text-xs text-muted-foreground hover:bg-primary/5 cursor-pointer hover:border-primary transition-colors">
+                <a href={`/dashboard?track=${deal.asin}`} className="flex items-center w-full justify-center">
+                  Click to Track
+                </a>
+              </Badge>
+            </div>
           </CardFooter>
         </Card>
       ))}
