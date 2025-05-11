@@ -1079,16 +1079,21 @@ export default function ProductSearch({
                         
                         <Button
                           type="submit"
-                          className="w-full mt-4"
+                          className="w-full mt-6"
+                          size="lg"
                           disabled={trackMutation.isPending}
+                          variant="default"
                         >
                           {trackMutation.isPending ? (
                             <>
-                              <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                              <Loader2 className="mr-2 h-5 w-5 animate-spin" />
                               Setting up tracking...
                             </>
                           ) : (
-                            "Track Price"
+                            <>
+                              <Bell className="mr-2 h-5 w-5" />
+                              Track Price
+                            </>
                           )}
                         </Button>
                       </form>
