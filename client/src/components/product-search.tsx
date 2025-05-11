@@ -151,6 +151,35 @@ export default function ProductSearch({
     enabled: debouncedSearchQuery.length >= 3 && searchTab === "name",
   });
   
+  // URL/ASIN search query
+  const {
+    data: productData,
+    isLoading: isProductLoading,
+  } = useQuery<ProductSearchResult>({
+    queryKey: ["/api/product", trackForm.watch("productUrl")],
+    queryFn: async () => {
+      const url = trackForm.watch("productUrl");
+      if (!url || url.length < 10) { // Basic validation for URL or ASIN
+        return null;
+      }
+      
+      const res = await fetch(
+        `/api/product?url=${encodeURIComponent(url)}`
+      );
+      if (!res.ok) {
+        throw new Error("Failed to fetch product details");
+      }
+      
+      const data = await res.json();
+      // Automatically set selected product when data is returned
+      if (data) {
+        setSelectedProduct(data);
+      }
+      return data;
+    },
+    enabled: trackForm.watch("productUrl").length >= 10 && searchTab === "url",
+  });
+  
   // Product tracking mutation
   const trackMutation = useMutation({
     mutationFn: async (data: TrackingFormData) => {
@@ -289,6 +318,41 @@ export default function ProductSearch({
                       </FormItem>
                     )}
                   />
+                  
+                  {isProductLoading && (
+                    <div className="flex items-center justify-center py-4">
+                      <Loader2 className="h-6 w-6 animate-spin text-primary mr-2" />
+                      <span>Loading product details...</span>
+                    </div>
+                  )}
+                  
+                  {productData && (
+                    <div className="bg-slate-50 p-4 rounded-md mt-4">
+                      <div className="flex items-start gap-3">
+                        {productData.imageUrl && (
+                          <img 
+                            src={productData.imageUrl} 
+                            alt={productData.title} 
+                            className="w-16 h-16 object-contain"
+                          />
+                        )}
+                        <div>
+                          <p className="font-medium text-sm">{productData.title}</p>
+                          {productData.price && (
+                            <p className="text-primary font-bold mt-1">${productData.price.toFixed(2)}</p>
+                          )}
+                          <a 
+                            href={productData.affiliateUrl} 
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="text-xs text-blue-600 hover:underline inline-flex items-center mt-1"
+                          >
+                            View on Amazon <ChevronRight className="h-3 w-3 ml-1" />
+                          </a>
+                        </div>
+                      </div>
+                    </div>
+                  )}
 
                   <FormField
                     control={trackForm.control}
