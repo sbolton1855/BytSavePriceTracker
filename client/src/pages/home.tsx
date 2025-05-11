@@ -43,7 +43,7 @@ const Home: React.FC = () => {
       <HeroSection />
       <FeaturesSection />
       
-      <section className="py-16 bg-slate-50">
+      <section id="tracker" className="py-16 bg-slate-50">
         <div className="container">
           <div className="text-center mb-10">
             <h2 className="text-3xl font-bold mb-4">Track Amazon Prices</h2>
