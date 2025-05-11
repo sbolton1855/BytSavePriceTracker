@@ -209,26 +209,36 @@ export default function ProductSearch({
       
       // Get the target price from the form data or result
       const targetPrice = trackForm.getValues("targetPrice");
+      const isPercentage = trackForm.getValues("percentageAlert");
+      const percentThreshold = trackForm.getValues("percentageThreshold");
+      
+      // Create a more descriptive success message
+      let alertDescription = "";
+      if (isPercentage) {
+        alertDescription = `We'll notify you when ${selectedProduct?.title?.substring(0, 25)}... drops by ${percentThreshold}% (to $${targetPrice.toFixed(2)}).`;
+      } else {
+        alertDescription = `We'll notify you when ${selectedProduct?.title?.substring(0, 25)}... drops below $${targetPrice.toFixed(2)}.`;
+      }
       
       // Show success toast with product details
       toast({
-        title: "Product tracking set up! ✅",
-        description: `We'll notify you when ${selectedProduct?.title?.substring(0, 30)}... drops below $${targetPrice.toFixed(2)}.`,
+        title: "✅ Product tracking set up!",
+        description: alertDescription,
         duration: 8000,
       });
       
-      // Show additional confirmation
+      // Show additional confirmation with specific instructions
       setTimeout(() => {
         toast({
-          title: "View in dashboard",
-          description: "Scroll down to see your tracked products",
+          title: "Product Added to Dashboard",
+          description: "Your tracked product has been added to your dashboard",
           action: (
             <Button 
               onClick={() => document.getElementById('dashboard')?.scrollIntoView({ behavior: "smooth" })}
               variant="outline"
               size="sm"
             >
-              Go to Dashboard
+              View My Products
             </Button>
           ),
         });
@@ -239,8 +249,9 @@ export default function ProductSearch({
       searchForm.reset();
       setSelectedProduct(null);
       
-      // Invalidate tracked products query to refresh the dashboard
+      // Invalidate both tracked products queries to refresh the dashboard
       queryClient.invalidateQueries({ queryKey: ["/api/tracked-products"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/my/tracked-products"] });
       
       // Call success callback if provided
       if (onSuccess) {
@@ -324,10 +335,38 @@ export default function ProductSearch({
     if (selectedProduct.id) {
       trackingData.productId = selectedProduct.id;
       console.log(`Using product ID: ${trackingData.productId}`);
+      
+      // Double-check that other required fields are set
+      if (!trackingData.targetPrice) {
+        console.error("Missing targetPrice before submission");
+        toast({
+          title: "Missing price target",
+          description: "Please set a target price for the alert",
+          variant: "destructive",
+        });
+        return;
+      }
+      
+      // All validations passed, show pending toast
+      toast({
+        title: "Setting up price tracking...",
+        description: "Adding product to your tracked items",
+      });
+      
     } else {
       console.log(`No product ID available, will use URL: ${trackingData.productUrl}`);
+      if (!trackingData.productUrl) {
+        toast({
+          title: "Missing product information",
+          description: "Please select a product first",
+          variant: "destructive",
+        });
+        return;
+      }
     }
     
+    // Submit the tracking request with full details
+    console.log("Submitting tracking request with validated data:", JSON.stringify(trackingData));
     trackMutation.mutate(trackingData);
   };
   
