@@ -31,7 +31,9 @@ const ProductsDisplay: React.FC<ProductsDisplayProps> = ({ email }) => {
       try {
         // Force email to uppercase to match stored format (SBOLTON1855@GMAIL.COM)
         const upperEmail = email.toUpperCase();
-        const res = await fetch(`${queryKey[0]}?email=${encodeURIComponent(upperEmail)}`);
+        // Add timestamp to prevent caching
+        const timestamp = new Date().getTime();
+        const res = await fetch(`${queryKey[0]}?email=${encodeURIComponent(upperEmail)}&_t=${timestamp}`);
         if (!res.ok) throw new Error('Failed to fetch tracked products');
         const data = await res.json();
         console.log("Tracked products data:", data);
@@ -41,11 +43,15 @@ const ProductsDisplay: React.FC<ProductsDisplayProps> = ({ email }) => {
         throw err;
       }
     },
-    retry: 1
+    retry: 1,
+    // Shorter stale time to refresh data more frequently
+    staleTime: 5000,
+    // Refetch on window focus to keep data fresh
+    refetchOnWindowFocus: true
   });
 
   // Filter products based on selection
-  const filteredProducts = data ? data.filter(product => {
+  const filteredProducts = data ? data.filter((product: TrackedProductWithDetails) => {
     switch (filter) {
       case "price-dropped":
         return product.product.currentPrice < (product.product.originalPrice || Number.POSITIVE_INFINITY);
@@ -173,7 +179,7 @@ const ProductsDisplay: React.FC<ProductsDisplayProps> = ({ email }) => {
           <>
             {filteredProducts && filteredProducts.length > 0 ? (
               <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
-                {filteredProducts.map((trackedProduct) => (
+                {filteredProducts.map((trackedProduct: TrackedProductWithDetails) => (
                   <ProductCard 
                     key={trackedProduct.id} 
                     trackedProduct={trackedProduct} 
