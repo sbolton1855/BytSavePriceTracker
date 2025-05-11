@@ -552,9 +552,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
       // Fetch fresh data from Amazon
       const amazonProduct = await getProductInfo(product.asin);
       
-      // Calculate new lowest and highest prices
-      const lowestPrice = Math.min(product.lowestPrice, amazonProduct.price);
-      const highestPrice = Math.max(product.highestPrice, amazonProduct.price);
+      // Calculate new lowest and highest prices with null checks
+      const lowestPrice = product.lowestPrice !== null
+        ? Math.min(product.lowestPrice, amazonProduct.price)
+        : amazonProduct.price;
+      const highestPrice = product.highestPrice !== null
+        ? Math.max(product.highestPrice, amazonProduct.price)
+        : amazonProduct.price;
       
       // Update our product record
       const updated = await storage.updateProduct(id, {
