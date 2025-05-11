@@ -194,7 +194,7 @@ export function configureAuth(app: Express) {
           return done(new Error('Email is required'), false);
         }
         
-        const newUser = await storage.createUser({
+        const newUser = await storage.upsertUser({
           email,
           firstName: profile.name?.givenName,
           lastName: profile.name?.familyName,
@@ -252,7 +252,7 @@ export function configureAuth(app: Express) {
           return done(new Error('Email is required'), false);
         }
         
-        const newUser = await storage.createUser({
+        const newUser = await storage.upsertUser({
           email,
           firstName: profile.name?.givenName,
           lastName: profile.name?.familyName,
@@ -436,7 +436,7 @@ export function configureAuth(app: Express) {
       const hashedPassword = await hashPassword(password);
       
       // Create user with minimal information
-      const newUser = await storage.createUser({
+      const newUser = await storage.upsertUser({
         email,
         password: hashedPassword,
         username: null,
