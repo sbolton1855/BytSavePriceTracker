@@ -820,19 +820,7 @@ export default function ProductSearch({
                                   
                                   <FormMessage />
                                   
-                                  {/* Preview box for calculated price */}
-                                  {selectedProduct.price && field.value && field.value > 0 && (
-                                    <div className="bg-slate-100 p-2 rounded-md border border-slate-200">
-                                      <p className="text-sm font-medium flex items-center">
-                                        <ArrowDown className="h-4 w-4 mr-1 text-primary" />
-                                        {field.value}% off current price:
-                                      </p>
-                                      <p className="text-sm mt-1">
-                                        <span className="text-muted-foreground">You'll be notified at: </span>
-                                        <span className="font-bold text-primary">${(selectedProduct.price * (1 - field.value / 100)).toFixed(2)}</span>
-                                      </p>
-                                    </div>
-                                  )}
+                                  {/* Remove the redundant preview box since we already have one above */}
                                 </div>
                               </FormItem>
                             )}
@@ -842,51 +830,95 @@ export default function ProductSearch({
                         {/* Email field completely removed for authenticated users */}
 
                         <div className="bg-primary/5 border border-primary/20 p-4 rounded-lg mt-6 mb-4">
-                          <div className="flex items-center">
+                          <div className="flex items-center mb-3">
                             <Bell className="h-5 w-5 mr-2 text-primary" />
                             <span className="font-semibold text-base">Price Alert Summary</span>
                           </div>
                           
-                          <div className="mt-3 p-3 bg-white rounded-md border border-gray-100">
-                            {trackForm.watch("percentageAlert") ? (
-                              <div className="space-y-2">
-                                <div className="flex items-center">
-                                  <Percent className="h-4 w-4 mr-2 text-primary" />
-                                  <span className="font-medium">Percentage-based alert</span>
-                                </div>
-                                <p className="text-sm">
-                                  You'll be notified when the price drops by at least&nbsp;
-                                  <strong className="text-primary">{trackForm.watch("percentageThreshold") || 0}%</strong>
-                                </p>
-                                {selectedProduct?.price && typeof selectedProduct.price === 'number' && trackForm.watch("percentageThreshold") > 0 && (
-                                  <div className="flex items-center mt-1 border-t pt-2">
-                                    <ArrowDown className="h-4 w-4 mr-2 text-green-600" />
-                                    <span className="text-sm">
-                                      Alert price: <strong className="text-green-600">${(selectedProduct.price * (1 - (trackForm.watch("percentageThreshold") || 0) / 100)).toFixed(2)}</strong>
-                                    </span>
+                          <div className="p-3 bg-white rounded-md border border-gray-100">
+                            {selectedProduct?.price && typeof selectedProduct.price === 'number' ? (
+                              trackForm.watch("percentageAlert") ? (
+                                <div className="space-y-3">
+                                  {/* Percentage alert summary */}
+                                  <div className="flex items-center">
+                                    <Percent className="h-5 w-5 mr-2 text-primary" />
+                                    <div>
+                                      <div className="font-medium">Percentage-based alert</div>
+                                      <div className="text-xs text-muted-foreground mt-0.5">Current price: ${selectedProduct.price ? selectedProduct.price.toFixed(2) : "0.00"}</div>
+                                    </div>
                                   </div>
-                                )}
-                              </div>
+                                  
+                                  <div className="bg-green-50 p-2 rounded-md border border-green-100">
+                                    <div className="flex">
+                                      <div className="flex-shrink-0 mr-2">
+                                        <ArrowDown className="h-5 w-5 text-green-600" />
+                                      </div>
+                                      <div>
+                                        <p className="text-sm font-medium mb-1 text-slate-800">
+                                          {trackForm.watch("percentageThreshold") || 0}% price drop alert
+                                        </p>
+                                        {(trackForm.watch("percentageThreshold") || 0) > 0 ? (
+                                          <p className="text-xs text-slate-600">
+                                            You'll be notified when price drops below <strong className="text-green-700">${selectedProduct.price ? (selectedProduct.price * (1 - (trackForm.watch("percentageThreshold") || 0) / 100)).toFixed(2) : "0.00"}</strong>
+                                          </p>
+                                        ) : (
+                                          <p className="text-xs text-orange-600">
+                                            Please select a percentage drop value
+                                          </p>
+                                        )}
+                                      </div>
+                                    </div>
+                                  </div>
+                                </div>
+                              ) : (
+                                <div className="space-y-3">
+                                  {/* Fixed price alert summary */}
+                                  <div className="flex items-center">
+                                    <DollarSign className="h-5 w-5 mr-2 text-primary" />
+                                    <div>
+                                      <div className="font-medium">Fixed price alert</div>
+                                      <div className="text-xs text-muted-foreground mt-0.5">Current price: ${selectedProduct.price.toFixed(2)}</div>
+                                    </div>
+                                  </div>
+                                  
+                                  <div className="bg-blue-50 p-2 rounded-md border border-blue-100">
+                                    <div className="flex">
+                                      <div className="flex-shrink-0 mr-2">
+                                        <DollarSign className="h-5 w-5 text-blue-600" />
+                                      </div>
+                                      <div>
+                                        <p className="text-sm font-medium mb-1 text-slate-800">
+                                          Exact price alert: <strong className="text-blue-700">${trackForm.watch("targetPrice") || 0}</strong>
+                                        </p>
+                                        {trackForm.watch("targetPrice") > 0 ? (
+                                          trackForm.watch("targetPrice") < selectedProduct.price ? (
+                                            <p className="text-xs flex items-center text-slate-600">
+                                              <span className="mr-1">Potential savings:</span>
+                                              <span className="bg-green-100 text-green-700 px-1.5 py-0.5 rounded-full font-medium">
+                                                ${(selectedProduct.price - trackForm.watch("targetPrice")).toFixed(2)} ({Math.round((1 - trackForm.watch("targetPrice")/selectedProduct.price) * 100)}% off)
+                                              </span>
+                                            </p>
+                                          ) : (
+                                            <p className="text-xs text-amber-600">
+                                              Target price is above current price
+                                            </p>
+                                          )
+                                        ) : (
+                                          <p className="text-xs text-orange-600">
+                                            Please enter a target price
+                                          </p>
+                                        )}
+                                      </div>
+                                    </div>
+                                  </div>
+                                </div>
+                              )
                             ) : (
-                              <div className="space-y-2">
-                                <div className="flex items-center">
-                                  <DollarSign className="h-4 w-4 mr-2 text-primary" />
-                                  <span className="font-medium">Fixed price alert</span>
+                              <div className="text-center p-3 text-muted-foreground text-sm">
+                                <div className="mb-2 opacity-70">
+                                  <Bell className="h-5 w-5 mx-auto mb-1" />
                                 </div>
-                                <p className="text-sm">
-                                  You'll be notified when the price drops below&nbsp;
-                                  <strong className="text-primary">${trackForm.watch("targetPrice") || 0}</strong>
-                                </p>
-                                {selectedProduct?.price && trackForm.watch("targetPrice") > 0 && (
-                                  <div className="flex items-center mt-1 border-t pt-2">
-                                    <span className="text-sm mr-2">Current price: ${selectedProduct.price.toFixed(2)}</span>
-                                    {trackForm.watch("targetPrice") < selectedProduct.price ? (
-                                      <span className="text-xs bg-green-100 text-green-700 px-2 py-0.5 rounded-full">
-                                        Save ${(selectedProduct.price - trackForm.watch("targetPrice")).toFixed(2)}
-                                      </span>
-                                    ) : null}
-                                  </div>
-                                )}
+                                Select a product to see your alert summary
                               </div>
                             )}
                           </div>
