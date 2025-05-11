@@ -20,15 +20,28 @@ const ProductsDisplay: React.FC<ProductsDisplayProps> = ({ email }) => {
   // Fetch tracked products
   const { data, isLoading, isError, error, refetch } = useQuery<TrackedProductWithDetails[]>({
     queryKey: ['/api/tracked-products', email],
-    enabled: !!email,
+    enabled: !!email && email.length > 0,
     queryFn: async ({ queryKey }) => {
       console.log("Fetching tracked products for email:", email);
-      const res = await fetch(`${queryKey[0]}?email=${encodeURIComponent(email)}`);
-      if (!res.ok) throw new Error('Failed to fetch tracked products');
-      const data = await res.json();
-      console.log("Tracked products data:", data);
-      return data;
-    }
+      if (!email || email.length === 0) {
+        console.log("No email provided, returning empty array");
+        return [];
+      }
+      
+      try {
+        // Force email to uppercase to match stored format (SBOLTON1855@GMAIL.COM)
+        const upperEmail = email.toUpperCase();
+        const res = await fetch(`${queryKey[0]}?email=${encodeURIComponent(upperEmail)}`);
+        if (!res.ok) throw new Error('Failed to fetch tracked products');
+        const data = await res.json();
+        console.log("Tracked products data:", data);
+        return data;
+      } catch (err) {
+        console.error("Error fetching tracked products:", err);
+        throw err;
+      }
+    },
+    retry: 1
   });
 
   // Filter products based on selection
@@ -71,7 +84,20 @@ const ProductsDisplay: React.FC<ProductsDisplayProps> = ({ email }) => {
     console.log("ProductsDisplay - current email:", email);
     console.log("ProductsDisplay - data changed:", data);
     console.log("ProductsDisplay - filteredProducts:", filteredProducts);
-  }, [email, data, filteredProducts]);
+    
+    // Show detailed debug info
+    if (!email || email.length === 0) {
+      console.log("ProductsDisplay - No email provided");
+    } else if (isLoading) {
+      console.log("ProductsDisplay - Loading data for email:", email);
+    } else if (isError) {
+      console.error("ProductsDisplay - Error fetching data:", error);
+    } else if (!data || data.length === 0) {
+      console.log("ProductsDisplay - No products found for email:", email);
+    } else {
+      console.log("ProductsDisplay - Found", data.length, "products for email:", email);
+    }
+  }, [email, data, filteredProducts, isLoading, isError, error]);
 
   return (
     <section className="py-12 bg-gray-50" id="dashboard">
