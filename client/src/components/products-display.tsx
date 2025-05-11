@@ -75,6 +75,25 @@ const ProductsDisplay: React.FC<ProductsDisplayProps> = ({ email }) => {
     });
   };
 
+  // Listen for product deletion event
+  useEffect(() => {
+    const handleProductDeleted = () => {
+      console.log("Product deletion detected, refetching data");
+      // Force a refetch with a small delay to ensure database has updated
+      setTimeout(() => {
+        refetch();
+      }, 500);
+    };
+    
+    // Add event listener
+    document.addEventListener('product-deleted', handleProductDeleted);
+    
+    // Clean up
+    return () => {
+      document.removeEventListener('product-deleted', handleProductDeleted);
+    };
+  }, [refetch]);
+
   useEffect(() => {
     if (isError) {
       toast({
