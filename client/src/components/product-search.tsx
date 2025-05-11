@@ -58,6 +58,8 @@ type ProductSearchResult = {
   url: string;
   affiliateUrl: string;
   id?: number;
+  lowestPrice?: number;
+  highestPrice?: number;
 };
 
 export default function ProductSearch({ 
@@ -941,13 +943,13 @@ export default function ProductSearch({
                               <div className="px-3 py-2 bg-white rounded-md border border-slate-200">
                                 <p className="text-xs text-muted-foreground mb-1">Lowest Recorded Price</p>
                                 <p className="text-base font-semibold text-green-600">
-                                  ${selectedProduct.lowestPrice ? selectedProduct.lowestPrice.toFixed(2) : "N/A"}
+                                  ${selectedProduct?.lowestPrice ? selectedProduct.lowestPrice.toFixed(2) : "N/A"}
                                 </p>
                               </div>
                               <div className="px-3 py-2 bg-white rounded-md border border-slate-200">
                                 <p className="text-xs text-muted-foreground mb-1">Highest Recorded Price</p>
                                 <p className="text-base font-semibold text-red-500">
-                                  ${selectedProduct.highestPrice ? selectedProduct.highestPrice.toFixed(2) : "N/A"}
+                                  ${selectedProduct?.highestPrice ? selectedProduct.highestPrice.toFixed(2) : "N/A"}
                                 </p>
                               </div>
                             </div>
