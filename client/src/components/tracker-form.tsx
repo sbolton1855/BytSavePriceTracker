@@ -13,6 +13,7 @@ import {
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/hooks/use-toast";
+import { useAuth } from "@/hooks/use-auth";
 import { trackingFormSchema, type TrackingFormData } from "@shared/schema";
 import { apiRequest } from "@/lib/queryClient";
 
@@ -44,7 +45,7 @@ const TrackerForm: React.FC<TrackerFormProps> = ({ onSuccess }) => {
       toast({
         title: "Product tracking added!",
         description: "We'll notify you when the price drops below your target.",
-        variant: "success",
+        variant: "default",
       });
       
       // Reset the form
