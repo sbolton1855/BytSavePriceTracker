@@ -15,6 +15,12 @@ const Dashboard: React.FC = () => {
   // Get the user's email for product tracking
   const userEmail = user?.email || "";
   
+  // Debug user info
+  useEffect(() => {
+    console.log("Dashboard - user info:", user);
+    console.log("Dashboard - using email:", userEmail);
+  }, [user, userEmail]);
+  
   // Handle successful search and tracking
   const handleSearchSuccess = () => {
     toast({
