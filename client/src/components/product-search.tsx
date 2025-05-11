@@ -185,6 +185,7 @@ export default function ProductSearch({
   // Product tracking mutation
   const trackMutation = useMutation({
     mutationFn: async (data: TrackingFormData) => {
+      console.log("About to send track request with data:", data);
       const res = await apiRequest("POST", "/api/my/track", data);
       if (!res.ok) {
         const error = await res.json();
@@ -192,7 +193,8 @@ export default function ProductSearch({
       }
       return res.json();
     },
-    onSuccess: () => {
+    onSuccess: (result) => {
+      console.log("Track mutation succeeded with result:", result);
       toast({
         title: "Product tracking set up",
         description: "We'll notify you when the price drops below your target.",
@@ -204,12 +206,16 @@ export default function ProductSearch({
       searchForm.reset();
       setSelectedProduct(null);
       
+      // Invalidate tracked products query to refresh the dashboard
+      queryClient.invalidateQueries({ queryKey: ["/api/my/tracked-products"] });
+      
       // Call success callback if provided
       if (onSuccess) {
         onSuccess();
       }
     },
     onError: (error: Error) => {
+      console.error("Track mutation failed:", error);
       toast({
         title: "Failed to track product",
         description: error.message,
@@ -226,6 +232,16 @@ export default function ProductSearch({
   
   // Track product form submission
   const onTrackSubmit = (data: TrackingFormData) => {
+    // Make sure we have a selected product
+    if (!selectedProduct) {
+      toast({
+        title: "Product required",
+        description: "Please select a product to track",
+        variant: "destructive",
+      });
+      return;
+    }
+    
     // For percentage-based alerts, calculate the target price if we have a current price
     if (data.percentageAlert && selectedProduct?.price && data.percentageThreshold) {
       const calculatedPrice = selectedProduct.price * (1 - data.percentageThreshold / 100);
@@ -243,6 +259,32 @@ export default function ProductSearch({
         variant: "destructive",
       });
       return;
+    }
+    
+    // Log the data being sent
+    console.log("Submitting tracking data:", data);
+    
+    if (data.percentageAlert && (!data.percentageThreshold || data.percentageThreshold <= 0)) {
+      toast({
+        title: "Percentage required",
+        description: "Please select a percentage for the price drop alert",
+        variant: "destructive",
+      });
+      return;
+    }
+    
+    if (!data.percentageAlert && (!data.targetPrice || data.targetPrice <= 0)) {
+      toast({
+        title: "Target price required",
+        description: "Please enter a target price for the alert",
+        variant: "destructive",
+      });
+      return;
+    }
+    
+    // Make sure productId is set from the selected product
+    if (selectedProduct.id) {
+      data.productId = selectedProduct.id;
     }
     
     trackMutation.mutate(data);
