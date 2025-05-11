@@ -16,7 +16,12 @@ import { Badge } from "@/components/ui/badge";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest, queryClient } from "@/lib/queryClient";
-import type { TrackedProductWithDetails } from "@shared/schema";
+import type { TrackedProductWithDetails, Product } from "@shared/schema";
+
+// Extended product type to include optional affiliateUrl
+interface ProductWithAffiliate extends Product {
+  affiliateUrl?: string;
+}
 
 interface ProductCardProps {
   trackedProduct: TrackedProductWithDetails;
@@ -31,7 +36,8 @@ const ProductCard: React.FC<ProductCardProps> = ({ trackedProduct, onRefresh }) 
   const [isDeleting, setIsDeleting] = useState(false);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
 
-  const { product } = trackedProduct;
+  // Cast the product to our extended type that includes affiliateUrl
+  const product = trackedProduct.product as ProductWithAffiliate;
   
   // Calculate price difference percentage
   const percentOff = product.originalPrice 
@@ -119,13 +125,28 @@ const ProductCard: React.FC<ProductCardProps> = ({ trackedProduct, onRefresh }) 
       return apiRequest("DELETE", `/api/tracked-products/${trackedProduct.id}`, {});
     },
     onSuccess: () => {
+      // Show confirmation toast
       toast({
-        title: "Product removed from tracking",
+        title: "Product removed from tracking ✓",
         description: "You'll no longer receive price alerts for this product.",
       });
+      
       setIsDeleting(false);
       setShowDeleteConfirm(false);
+      
+      // Force refresh the tracked products list
       queryClient.invalidateQueries({ queryKey: ['/api/tracked-products'] });
+      
+      // Also trigger the parent's refresh callback
+      onRefresh();
+      
+      // Give a small delay to allow the DOM to update
+      setTimeout(() => {
+        toast({
+          title: "Refreshed product list",
+          description: "Your tracked products have been updated",
+        });
+      }, 1000);
     },
     onError: (error) => {
       toast({

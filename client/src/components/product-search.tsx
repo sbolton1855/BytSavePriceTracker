@@ -206,11 +206,33 @@ export default function ProductSearch({
     },
     onSuccess: (result) => {
       console.log("Track mutation succeeded with result:", result);
+      
+      // Get the target price from the form data or result
+      const targetPrice = trackForm.getValues("targetPrice");
+      
+      // Show success toast with product details
       toast({
-        title: "Product tracking set up",
-        description: "We'll notify you when the price drops below your target.",
-        duration: 5000,
+        title: "Product tracking set up! ✅",
+        description: `We'll notify you when ${selectedProduct?.title?.substring(0, 30)}... drops below $${targetPrice.toFixed(2)}.`,
+        duration: 8000,
       });
+      
+      // Show additional confirmation
+      setTimeout(() => {
+        toast({
+          title: "View in dashboard",
+          description: "Scroll down to see your tracked products",
+          action: (
+            <Button 
+              onClick={() => document.getElementById('dashboard')?.scrollIntoView({ behavior: "smooth" })}
+              variant="outline"
+              size="sm"
+            >
+              Go to Dashboard
+            </Button>
+          ),
+        });
+      }, 1000);
       
       // Reset forms
       trackForm.reset();
