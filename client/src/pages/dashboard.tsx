@@ -80,7 +80,7 @@ const Dashboard: React.FC = () => {
           key={refreshTrigger} 
         />
 
-        <div className="mt-8">
+        <div className="mt-8" id="search-section">
           <Card>
             <CardHeader>
               <CardTitle>Search & Track Amazon Products</CardTitle>
