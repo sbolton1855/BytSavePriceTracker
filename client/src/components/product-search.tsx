@@ -44,6 +44,7 @@ import {
   TrackingFormData,
   trackingFormSchema,
 } from "@shared/schema";
+import PriceHistoryChart from "@/components/price-history-chart";
 
 const searchSchema = z.object({
   query: z.string().min(3, "Search query must be at least 3 characters"),
@@ -56,6 +57,7 @@ type ProductSearchResult = {
   imageUrl?: string;
   url: string;
   affiliateUrl: string;
+  id?: number;
 };
 
 export default function ProductSearch({ 
@@ -687,9 +689,16 @@ export default function ProductSearch({
                           </p>
                         </div>
                         
+                        {/* Display price history if product is selected and has an ID */}
+                        {selectedProduct?.id && (
+                          <div className="mt-6 mb-6">
+                            <PriceHistoryChart productId={selectedProduct.id} />
+                          </div>
+                        )}
+                        
                         <Button
                           type="submit"
-                          className="w-full"
+                          className="w-full mt-4"
                           disabled={trackMutation.isPending}
                         >
                           {trackMutation.isPending ? (
