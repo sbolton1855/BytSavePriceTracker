@@ -27,6 +27,9 @@ export default function HighlightedDeals() {
       }
       return res.json();
     },
+    // Add caching to prevent excessive API calls
+    staleTime: 5 * 60 * 1000, // 5 minutes
+    refetchOnWindowFocus: false,
   });
 
   // Process deals to calculate discount percentages
@@ -59,21 +62,34 @@ export default function HighlightedDeals() {
     return (
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
         {Array.from({ length: 6 }).map((_, i) => (
-          <Card key={i} className="overflow-hidden">
-            <div className="aspect-video bg-slate-100 flex items-center justify-center">
+          <Card key={i} className="overflow-hidden h-full">
+            <div className="aspect-video bg-slate-100 flex items-center justify-center relative">
               <Skeleton className="h-[140px] w-[200px]" />
+              {/* Simulate badge positions */}
+              <div className="absolute top-2 right-2">
+                <Skeleton className="h-5 w-16 rounded-full" />
+              </div>
             </div>
             <CardHeader className="p-4">
               <Skeleton className="h-4 w-full mb-2" />
               <Skeleton className="h-4 w-3/4" />
             </CardHeader>
-            <CardContent className="p-4 pt-0">
-              <Skeleton className="h-6 w-24 mb-2" />
-              <Skeleton className="h-4 w-1/2" />
+            <CardContent className="p-4 pt-0 flex-grow">
+              <Skeleton className="h-6 w-24 mb-3" />
+              <div className="space-y-2">
+                <Skeleton className="h-4 w-28" />
+                <Skeleton className="h-4 w-32" />
+              </div>
+              <div className="mt-3 flex justify-between">
+                <Skeleton className="h-3 w-20" />
+                <Skeleton className="h-3 w-20" />
+              </div>
             </CardContent>
             <CardFooter className="p-4 pt-0">
-              <Skeleton className="h-10 w-full" />
-              <Skeleton className="h-6 w-full mt-2" />
+              <div className="space-y-2 w-full">
+                <Skeleton className="h-10 w-full" />
+                <Skeleton className="h-7 w-full" />
+              </div>
             </CardFooter>
           </Card>
         ))}
@@ -158,8 +174,8 @@ export default function HighlightedDeals() {
             {/* Historical price context */}
             <div className="mt-2 text-xs text-muted-foreground">
               <div className="flex justify-between">
-                <span>Lowest: ${deal.lowestPrice.toFixed(2)}</span>
-                <span>Highest: ${deal.highestPrice.toFixed(2)}</span>
+                <span>Lowest: ${(deal.lowestPrice ?? deal.currentPrice).toFixed(2)}</span>
+                <span>Highest: ${(deal.highestPrice ?? deal.currentPrice).toFixed(2)}</span>
               </div>
             </div>
           </CardContent>
