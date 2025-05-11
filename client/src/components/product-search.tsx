@@ -231,9 +231,16 @@ export default function ProductSearch({
       data.targetPrice = Math.round(calculatedPrice * 100) / 100;
     }
     
-    // Ensure we use the user's email if they're authenticated
+    // Always ensure we use the user's email if they're authenticated
     if (isAuthenticated && user?.email) {
       data.email = user.email;
+    } else if (!data.email || data.email.trim() === '') {
+      toast({
+        title: "Email required",
+        description: "Please provide an email address for price drop notifications",
+        variant: "destructive",
+      });
+      return;
     }
     
     trackMutation.mutate(data);
@@ -327,30 +334,40 @@ export default function ProductSearch({
                   )}
                   
                   {productData && (
-                    <div className="bg-slate-50 p-4 rounded-md mt-4">
-                      <div className="flex items-start gap-3">
-                        {productData.imageUrl && (
-                          <img 
-                            src={productData.imageUrl} 
-                            alt={productData.title} 
-                            className="w-16 h-16 object-contain"
-                          />
-                        )}
-                        <div>
-                          <p className="font-medium text-sm">{productData.title}</p>
-                          {productData.price && (
-                            <p className="text-primary font-bold mt-1">${productData.price.toFixed(2)}</p>
+                    <div className="mt-4">
+                      <div className="bg-slate-50 p-4 rounded-md">
+                        <div className="flex items-start gap-3">
+                          {productData.imageUrl && (
+                            <img 
+                              src={productData.imageUrl} 
+                              alt={productData.title} 
+                              className="w-16 h-16 object-contain"
+                            />
                           )}
-                          <a 
-                            href={productData.affiliateUrl} 
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            className="text-xs text-blue-600 hover:underline inline-flex items-center mt-1"
-                          >
-                            View on Amazon <ChevronRight className="h-3 w-3 ml-1" />
-                          </a>
+                          <div>
+                            <p className="font-medium text-sm">{productData.title}</p>
+                            {productData.price && (
+                              <p className="text-primary font-bold mt-1">${productData.price.toFixed(2)}</p>
+                            )}
+                            <a 
+                              href={productData.affiliateUrl} 
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="text-xs text-blue-600 hover:underline inline-flex items-center mt-1"
+                            >
+                              View on Amazon <ChevronRight className="h-3 w-3 ml-1" />
+                            </a>
+                          </div>
                         </div>
                       </div>
+                      
+                      {/* Display price history if product has an ID */}
+                      {productData.id && (
+                        <div className="mt-4 bg-white p-4 rounded-md border">
+                          <h3 className="text-sm font-medium mb-2">Price History</h3>
+                          <PriceHistoryChart productId={productData.id} />
+                        </div>
+                      )}
                     </div>
                   )}
 
@@ -500,10 +517,7 @@ export default function ProductSearch({
                             } relative`}
                             onClick={() => selectProduct(product)}
                           >
-                            {/* Click indicator badge */}
-                            <div className="absolute top-2 right-2 text-xs bg-primary text-white px-2 py-1 rounded-md opacity-80">
-                              Click to Track
-                            </div>
+                            {/* Now at the bottom instead of top-right */}
                             {product.imageUrl && (
                               <div className="mr-3 flex-shrink-0">
                                 <img
@@ -526,6 +540,9 @@ export default function ProductSearch({
                                   Price unavailable
                                 </p>
                               )}
+                              <div className="text-xs bg-primary text-white px-2 py-1 rounded-md inline-block mt-2">
+                                Click to Track
+                              </div>
                             </div>
                             <ChevronRight className="h-5 w-5 text-muted-foreground flex-shrink-0" />
                           </div>
@@ -705,30 +722,7 @@ export default function ProductSearch({
                           />
                         )}
 
-                        {!isAuthenticated && (
-                          <FormField
-                            control={trackForm.control}
-                            name="email"
-                            render={({ field }) => (
-                              <FormItem>
-                                <FormControl>
-                                  <Input
-                                    type="email"
-                                    placeholder="Your Email"
-                                    {...field}
-                                    value={email || field.value}
-                                    onChange={(e) => {
-                                      field.onChange(e);
-                                      handleEmailChange(e);
-                                    }}
-                                    disabled={trackMutation.isPending}
-                                  />
-                                </FormControl>
-                                <FormMessage />
-                              </FormItem>
-                            )}
-                          />
-                        )}
+                        {/* Email field completely removed for authenticated users */}
 
                         <div className="bg-muted/50 p-3 rounded-lg mt-4 mb-3 text-sm">
                           <div className="flex items-center">
