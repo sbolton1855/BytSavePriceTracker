@@ -1,6 +1,6 @@
 import { storage } from './storage';
 import { sendPriceDropAlert } from './emailService';
-import { getProductInfo } from './amazonApi';
+import { getProductInfo, searchProducts } from './amazonApi';
 import type { Product } from '@shared/schema';
 
 // Interval for checking prices (in ms)
@@ -45,8 +45,42 @@ async function updateProductPrice(product: Product): Promise<Product | undefined
 async function checkPricesAndNotify(): Promise<void> {
   try {
     console.log('Starting price check routine...');
+
+    // Search for trending products in different categories
+    const searchTerms = [
+      'electronics bestseller',
+      'trending tech gadgets',
+      'top rated home products',
+      'best selling beauty products'
+    ];
+
+    for (const term of searchTerms) {
+      try {
+        const results = await searchProducts(term, 5);
+        
+        // Add each product to database if not exists
+        for (const result of results) {
+          const existing = await storage.getProductByAsin(result.asin);
+          if (!existing) {
+            await storage.createProduct({
+              asin: result.asin,
+              title: result.title,
+              url: result.url,
+              imageUrl: result.imageUrl,
+              currentPrice: result.price || 0,
+              originalPrice: result.price || 0,
+              lowestPrice: result.price || 0,
+              highestPrice: result.price || 0,
+              lastChecked: new Date()
+            });
+          }
+        }
+      } catch (error) {
+        console.error(`Error searching for ${term}:`, error);
+      }
+    }
     
-    // Get all products
+    // Get all products (including newly discovered ones)
     const products = await storage.getAllProducts();
     
     // Update prices for all products
