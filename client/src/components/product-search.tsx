@@ -191,7 +191,16 @@ export default function ProductSearch({
       const endpoint = "/api/my/track";
       console.log(`Calling endpoint ${endpoint} with data:`, JSON.stringify(data));
       
-      const res = await apiRequest("POST", endpoint, data);
+      // Use fetch directly to have more control over the request
+      const res = await fetch(endpoint, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        credentials: 'include', // Important for sending auth cookies
+        body: JSON.stringify(data)
+      });
+      
       if (!res.ok) {
         const errorText = await res.text();
         console.error(`Error response from ${endpoint}:`, errorText);
@@ -202,6 +211,7 @@ export default function ProductSearch({
           throw new Error(errorText || "Failed to track product");
         }
       }
+      
       return res.json();
     },
     onSuccess: (result) => {
@@ -224,7 +234,7 @@ export default function ProductSearch({
       toast({
         title: "✅ Product tracking set up!",
         description: alertDescription,
-        duration: 8000,
+        duration: 5000,
       });
       
       // Reset forms
@@ -232,21 +242,20 @@ export default function ProductSearch({
       searchForm.reset();
       setSelectedProduct(null);
       
-      console.log("Product tracked, invalidating queries");
+      console.log("Product tracked, invalidating queries...");
       
-      // Invalidate all relevant queries to refresh the dashboard
-      queryClient.invalidateQueries({ queryKey: ['/api/tracked-products'] });
-      queryClient.invalidateQueries({ queryKey: ['/api/my/tracked-products'] });
+      // Complete reset of the cache
+      queryClient.resetQueries({ queryKey: ['/api/tracked-products'] });
       
-      // Force an immediate refetch of the tracked products
-      queryClient.refetchQueries({ queryKey: ['/api/tracked-products'] });
-      
-      // Dispatch a custom event to notify other components
-      const event = new Event('product-tracked');
-      document.dispatchEvent(event);
-      
-      // Show additional confirmation with specific instructions
+      // Give the server a moment to process, then refetch
       setTimeout(() => {
+        console.log("Refetching tracked products...");
+        queryClient.refetchQueries({ queryKey: ['/api/tracked-products'] });
+        
+        // Dispatch a custom event to notify other components
+        document.dispatchEvent(new CustomEvent('product-tracked'));
+        
+        // Show additional confirmation with specific instructions
         toast({
           title: "Product Added to Dashboard",
           description: "Your tracked product has been added to your dashboard",
@@ -260,12 +269,12 @@ export default function ProductSearch({
             </Button>
           ),
         });
-      }, 1000);
-      
-      // Call success callback if provided
-      if (onSuccess) {
-        onSuccess();
-      }
+        
+        // Call success callback if provided
+        if (onSuccess) {
+          onSuccess();
+        }
+      }, 300);
     },
     onError: (error: Error) => {
       console.error("Track mutation failed:", error);
