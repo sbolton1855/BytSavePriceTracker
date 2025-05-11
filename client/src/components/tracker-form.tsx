@@ -22,6 +22,7 @@ interface TrackerFormProps {
 
 const TrackerForm: React.FC<TrackerFormProps> = ({ onSuccess }) => {
   const { toast } = useToast();
+  const { user, isAuthenticated } = useAuth();
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   // Define form
@@ -134,24 +135,26 @@ const TrackerForm: React.FC<TrackerFormProps> = ({ onSuccess }) => {
                 )}
               />
               
-              <FormField
-                control={form.control}
-                name="email"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Email for Notifications</FormLabel>
-                    <FormControl>
-                      <Input 
-                        type="email"
-                        placeholder="your@email.com" 
-                        {...field} 
-                      />
-                    </FormControl>
-                    <p className="text-xs text-gray-500">We'll send price drop alerts to this email</p>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
+              {!isAuthenticated && (
+                <FormField
+                  control={form.control}
+                  name="email"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Email for Notifications</FormLabel>
+                      <FormControl>
+                        <Input 
+                          type="email"
+                          placeholder="your@email.com" 
+                          {...field} 
+                        />
+                      </FormControl>
+                      <p className="text-xs text-gray-500">We'll send price drop alerts to this email</p>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+              )}
               
               <Button 
                 type="submit" 
