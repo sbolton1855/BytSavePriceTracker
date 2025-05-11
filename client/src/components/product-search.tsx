@@ -186,10 +186,21 @@ export default function ProductSearch({
   const trackMutation = useMutation({
     mutationFn: async (data: TrackingFormData) => {
       console.log("About to send track request with data:", data);
-      const res = await apiRequest("POST", "/api/my/track", data);
+      
+      // Use the correct endpoint
+      const endpoint = "/api/my/track";
+      console.log(`Calling endpoint ${endpoint} with data:`, JSON.stringify(data));
+      
+      const res = await apiRequest("POST", endpoint, data);
       if (!res.ok) {
-        const error = await res.json();
-        throw new Error(error.message || "Failed to track product");
+        const errorText = await res.text();
+        console.error(`Error response from ${endpoint}:`, errorText);
+        try {
+          const error = JSON.parse(errorText);
+          throw new Error(error.error || error.message || "Failed to track product");
+        } catch (e) {
+          throw new Error(errorText || "Failed to track product");
+        }
       }
       return res.json();
     },
@@ -207,7 +218,7 @@ export default function ProductSearch({
       setSelectedProduct(null);
       
       // Invalidate tracked products query to refresh the dashboard
-      queryClient.invalidateQueries({ queryKey: ["/api/my/tracked-products"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/tracked-products"] });
       
       // Call success callback if provided
       if (onSuccess) {
@@ -242,17 +253,22 @@ export default function ProductSearch({
       return;
     }
     
+    // Create a copy of the data to avoid mutating the original form data
+    const trackingData = { ...data };
+    
     // For percentage-based alerts, calculate the target price if we have a current price
-    if (data.percentageAlert && selectedProduct?.price && data.percentageThreshold) {
-      const calculatedPrice = selectedProduct.price * (1 - data.percentageThreshold / 100);
+    if (trackingData.percentageAlert && selectedProduct?.price && trackingData.percentageThreshold) {
+      const calculatedPrice = selectedProduct.price * (1 - trackingData.percentageThreshold / 100);
       // Round to 2 decimal places
-      data.targetPrice = Math.round(calculatedPrice * 100) / 100;
+      trackingData.targetPrice = Math.round(calculatedPrice * 100) / 100;
+      console.log(`Calculated target price: $${trackingData.targetPrice} based on ${trackingData.percentageThreshold}% off $${selectedProduct.price}`);
     }
     
     // Always ensure we use the user's email if they're authenticated
     if (isAuthenticated && user?.email) {
-      data.email = user.email;
-    } else if (!data.email || data.email.trim() === '') {
+      trackingData.email = user.email;
+      console.log(`Using authenticated user email: ${trackingData.email}`);
+    } else if (!trackingData.email || trackingData.email.trim() === '') {
       toast({
         title: "Email required",
         description: "Please provide an email address for price drop notifications",
@@ -261,10 +277,10 @@ export default function ProductSearch({
       return;
     }
     
-    // Log the data being sent
-    console.log("Submitting tracking data:", data);
+    // Log the data being prepared
+    console.log("Preparing tracking data:", trackingData);
     
-    if (data.percentageAlert && (!data.percentageThreshold || data.percentageThreshold <= 0)) {
+    if (trackingData.percentageAlert && (!trackingData.percentageThreshold || trackingData.percentageThreshold <= 0)) {
       toast({
         title: "Percentage required",
         description: "Please select a percentage for the price drop alert",
@@ -273,7 +289,7 @@ export default function ProductSearch({
       return;
     }
     
-    if (!data.percentageAlert && (!data.targetPrice || data.targetPrice <= 0)) {
+    if (!trackingData.percentageAlert && (!trackingData.targetPrice || trackingData.targetPrice <= 0)) {
       toast({
         title: "Target price required",
         description: "Please enter a target price for the alert",
@@ -284,10 +300,13 @@ export default function ProductSearch({
     
     // Make sure productId is set from the selected product
     if (selectedProduct.id) {
-      data.productId = selectedProduct.id;
+      trackingData.productId = selectedProduct.id;
+      console.log(`Using product ID: ${trackingData.productId}`);
+    } else {
+      console.log(`No product ID available, will use URL: ${trackingData.productUrl}`);
     }
     
-    trackMutation.mutate(data);
+    trackMutation.mutate(trackingData);
   };
   
   // Set product URL and email when a search result is selected
