@@ -187,45 +187,35 @@ export default function ProductSearch({
     mutationFn: async (data: TrackingFormData) => {
       console.log("About to send track request with data:", data);
       
+      // Check authentication first
+      if (!isAuthenticated) {
+        console.error("User not authenticated, redirecting to login");
+        window.location.href = "/auth";
+        throw new Error("Please log in to track products");
+      }
+      
       // Use the correct endpoint
       const endpoint = "/api/my/track";
       console.log(`Calling endpoint ${endpoint} with data:`, JSON.stringify(data));
       
-      // Log the session cookie
-      console.log("Cookies being sent:", document.cookie);
-      
-      // Use fetch directly to have more control over the request
-      const res = await fetch(endpoint, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json'
-        },
-        credentials: 'include', // Important for sending auth cookies
-        body: JSON.stringify(data)
-      });
-      
-      console.log("Track API response status:", res.status);
-      console.log("Track API response headers:", JSON.stringify([...res.headers.entries()]));
-      
-      if (res.status === 401) {
-        // Redirect to auth page for unauthenticated users
-        console.error("Authentication required - redirecting to login");
-        window.location.href = "/auth";
-        throw new Error("Please log in to track products");
-      }
-    
-      if (!res.ok) {
-        const errorText = await res.text();
-        console.error(`Error response from ${endpoint}:`, errorText);
-        try {
-          const error = JSON.parse(errorText);
-          throw new Error(error.error || error.message || "Failed to track product");
-        } catch (e) {
-          throw new Error(errorText || "Failed to track product");
+      // Use the API request utility which handles credentials properly
+      try {
+        const response = await apiRequest("POST", endpoint, data);
+        const result = await response.json();
+        console.log("Track API response:", result);
+        return result;
+      } catch (error) {
+        console.error("Track API request failed:", error);
+        
+        // Check if the error is due to authentication
+        const errorMessage = error instanceof Error ? error.message : String(error);
+        if (errorMessage.includes("401") || errorMessage.includes("Unauthorized")) {
+          window.location.href = "/auth";
+          throw new Error("Please log in to track products");
         }
+        
+        throw error;
       }
-      
-      return res.json();
     },
     onSuccess: (result) => {
       console.log("Track mutation succeeded with result:", result);
@@ -257,16 +247,23 @@ export default function ProductSearch({
       
       console.log("Product tracked, invalidating queries...");
       
-      // Complete reset of the cache
+      // Forcefully invalidate and reset all related queries
+      queryClient.resetQueries({ queryKey: ['/api/my/tracked-products'] });
       queryClient.resetQueries({ queryKey: ['/api/tracked-products'] });
       
-      // Give the server a moment to process, then refetch
-      setTimeout(() => {
-        console.log("Refetching tracked products...");
-        queryClient.refetchQueries({ queryKey: ['/api/tracked-products'] });
+      // Make a direct API call to fetch the latest data
+      fetch('/api/tracked-products', { 
+        credentials: 'include',
+        headers: { 'Cache-Control': 'no-cache' }
+      })
+      .then(response => response.json())
+      .then(data => {
+        console.log("Fresh tracked products data:", data);
+        // Update the cache with fresh data
+        queryClient.setQueryData(['/api/tracked-products'], data);
         
         // Dispatch a custom event to notify other components
-        document.dispatchEvent(new CustomEvent('product-tracked'));
+        document.dispatchEvent(new CustomEvent('product-tracked', { detail: data }));
         
         // Show additional confirmation with specific instructions
         toast({
@@ -287,7 +284,10 @@ export default function ProductSearch({
         if (onSuccess) {
           onSuccess();
         }
-      }, 300);
+      })
+      .catch(error => {
+        console.error("Error fetching updated tracked products:", error);
+      });
     },
     onError: (error: Error) => {
       console.error("Track mutation failed:", error);
