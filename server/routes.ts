@@ -126,9 +126,16 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const results = await searchProducts(q);
       
       // Format results with affiliate links
-      const formattedResults = results.map(result => ({
-        ...result,
-        affiliateUrl: addAffiliateTag(result.url, AFFILIATE_TAG),
+      // Format results with affiliate links, also check if product exists in DB to get ID
+      const formattedResults = await Promise.all(results.map(async result => {
+        // Check if product exists in our database to get its ID
+        const existingProduct = await storage.getProductByAsin(result.asin);
+        
+        return {
+          ...result,
+          id: existingProduct?.id, // Include ID if product exists in DB
+          affiliateUrl: addAffiliateTag(result.url, AFFILIATE_TAG),
+        };
       }));
       
       res.json(formattedResults);
