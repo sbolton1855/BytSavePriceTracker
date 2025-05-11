@@ -642,28 +642,73 @@ export default function ProductSearch({
                             render={({ field }) => (
                               <FormItem>
                                 <FormLabel>Desired Price</FormLabel>
-                                <FormControl>
-                                  <Input
-                                    type="text"
-                                    inputMode="decimal"
-                                    placeholder="Enter your desired price"
-                                    {...field}
-                                    value={field.value > 0 ? field.value.toString() : ''}
-                                    onChange={(e) => {
-                                      // Remove leading zeros and allow only valid price format
-                                      const value = e.target.value.replace(/^0+(?=\d)/, '');
-                                      const price = parseFloat(value);
-                                      field.onChange(isNaN(price) ? 0 : price);
-                                    }}
-                                    disabled={trackMutation.isPending}
-                                  />
-                                </FormControl>
-                                <FormMessage />
-                                {selectedProduct.price && (
-                                  <p className="text-xs text-muted-foreground mt-1">
-                                    Current price: ${selectedProduct.price.toFixed(2)}
-                                  </p>
-                                )}
+                                <div className="space-y-4">
+                                  <FormControl>
+                                    <div className="flex items-center">
+                                      <span className="bg-muted px-3 py-2 rounded-l-md border border-r-0 border-input">$</span>
+                                      <Input
+                                        type="text"
+                                        inputMode="decimal"
+                                        className="rounded-l-none"
+                                        placeholder="Enter your desired price"
+                                        {...field}
+                                        value={field.value > 0 ? field.value.toString() : ''}
+                                        onChange={(e) => {
+                                          // Remove leading zeros and allow only valid price format
+                                          const value = e.target.value.replace(/^0+(?=\d)/, '');
+                                          const price = parseFloat(value);
+                                          field.onChange(isNaN(price) ? 0 : price);
+                                        }}
+                                        disabled={trackMutation.isPending}
+                                      />
+                                    </div>
+                                  </FormControl>
+                                  
+                                  <FormMessage />
+                                  
+                                  {/* Quick suggestions based on current price */}
+                                  {selectedProduct?.price && typeof selectedProduct.price === 'number' && (
+                                    <div>
+                                      <div className="flex items-center mb-2">
+                                        <span className="text-xs text-muted-foreground">Quick suggestions:</span>
+                                      </div>
+                                      <div className="flex flex-wrap gap-2">
+                                        {[5, 10, 15, 20].map((discount) => {
+                                          const suggestedPrice = Math.round(selectedProduct.price! * (1 - discount/100) * 100) / 100;
+                                          return (
+                                            <Button
+                                              key={discount}
+                                              type="button"
+                                              size="sm"
+                                              variant="outline"
+                                              className="text-xs"
+                                              onClick={() => field.onChange(suggestedPrice)}
+                                            >
+                                              ${suggestedPrice} <span className="text-muted-foreground ml-1">({discount}% off)</span>
+                                            </Button>
+                                          );
+                                        })}
+                                      </div>
+                                    </div>
+                                  )}
+                                  
+                                  {/* Current price display */}
+                                  {selectedProduct?.price && typeof selectedProduct.price === 'number' && (
+                                    <div className="bg-slate-100 p-2 rounded-md border border-slate-200">
+                                      <p className="text-sm">
+                                        <span className="text-muted-foreground">Current price: </span>
+                                        <span className="font-medium">${selectedProduct.price.toFixed(2)}</span>
+                                      </p>
+                                      {field.value > 0 && field.value < selectedProduct.price && (
+                                        <p className="text-sm mt-1 text-green-600 flex items-center">
+                                          <ArrowDown className="h-3 w-3 mr-1" />
+                                          Potential savings: ${(selectedProduct.price - field.value).toFixed(2)} 
+                                          ({Math.round((1 - field.value/selectedProduct.price) * 100)}% off)
+                                        </p>
+                                      )}
+                                    </div>
+                                  )}
+                                </div>
                               </FormItem>
                             )}
                           />
@@ -674,47 +719,63 @@ export default function ProductSearch({
                             render={({ field }) => (
                               <FormItem>
                                 <FormLabel>Price Drop Percentage</FormLabel>
-                                <div className="space-y-2">
-                                  <div className="flex justify-between">
-                                    <div className="flex flex-wrap gap-2">
-                                      {[5, 10, 15, 20, 30, 50].map((percent) => (
-                                        <Button
-                                          key={percent}
-                                          type="button"
-                                          size="sm"
-                                          variant={field.value === percent ? "default" : "outline"}
-                                          className={field.value === percent ? "bg-primary hover:bg-primary/90" : ""}
-                                          onClick={() => field.onChange(percent)}
-                                        >
-                                          {percent}%
-                                        </Button>
-                                      ))}
-                                    </div>
+                                <div className="space-y-4">
+                                  {/* Quick selection buttons */}
+                                  <div className="flex flex-wrap gap-2">
+                                    {[5, 10, 15, 20, 30, 50].map((percent) => (
+                                      <Button
+                                        key={percent}
+                                        type="button"
+                                        size="sm"
+                                        variant={field.value === percent ? "default" : "outline"}
+                                        className={field.value === percent ? "bg-primary hover:bg-primary/90" : ""}
+                                        onClick={() => field.onChange(percent)}
+                                      >
+                                        {percent}%
+                                      </Button>
+                                    ))}
                                   </div>
-                                  <FormControl>
-                                    <div className="flex items-center space-x-2">
-                                      <Input
-                                        type="number"
-                                        inputMode="numeric"
-                                        min={1}
-                                        max={99}
-                                        placeholder="Custom percentage"
-                                        {...field}
-                                        value={field.value || ""}
-                                        onChange={(e) => {
-                                          const value = parseInt(e.target.value);
-                                          field.onChange(isNaN(value) ? 5 : Math.min(99, Math.max(1, value)));
-                                        }}
-                                        disabled={trackMutation.isPending}
-                                      />
-                                      <span>%</span>
-                                    </div>
-                                  </FormControl>
+                                  
+                                  {/* Custom percentage input */}
+                                  <div className="border-t pt-3">
+                                    <FormLabel className="text-xs text-muted-foreground mb-2 block">
+                                      Or enter a custom percentage:
+                                    </FormLabel>
+                                    <FormControl>
+                                      <div className="flex items-center space-x-2">
+                                        <Input
+                                          type="number"
+                                          inputMode="numeric"
+                                          min={1}
+                                          max={99}
+                                          placeholder="Custom percentage"
+                                          {...field}
+                                          value={field.value || ""}
+                                          onChange={(e) => {
+                                            const value = parseInt(e.target.value);
+                                            field.onChange(isNaN(value) ? 5 : Math.min(99, Math.max(1, value)));
+                                          }}
+                                          disabled={trackMutation.isPending}
+                                        />
+                                        <span>%</span>
+                                      </div>
+                                    </FormControl>
+                                  </div>
+                                  
                                   <FormMessage />
+                                  
+                                  {/* Preview box for calculated price */}
                                   {selectedProduct.price && field.value && field.value > 0 && (
-                                    <p className="text-xs text-muted-foreground mt-1">
-                                      Alert when price drops below ${(selectedProduct.price * (1 - field.value / 100)).toFixed(2)}
-                                    </p>
+                                    <div className="bg-slate-100 p-2 rounded-md border border-slate-200">
+                                      <p className="text-sm font-medium flex items-center">
+                                        <ArrowDown className="h-4 w-4 mr-1 text-primary" />
+                                        {field.value}% off current price:
+                                      </p>
+                                      <p className="text-sm mt-1">
+                                        <span className="text-muted-foreground">You'll be notified at: </span>
+                                        <span className="font-bold text-primary">${(selectedProduct.price * (1 - field.value / 100)).toFixed(2)}</span>
+                                      </p>
+                                    </div>
                                   )}
                                 </div>
                               </FormItem>
@@ -724,27 +785,55 @@ export default function ProductSearch({
 
                         {/* Email field completely removed for authenticated users */}
 
-                        <div className="bg-muted/50 p-3 rounded-lg mt-4 mb-3 text-sm">
+                        <div className="bg-primary/5 border border-primary/20 p-4 rounded-lg mt-6 mb-4">
                           <div className="flex items-center">
-                            <Bell className="h-4 w-4 mr-2 text-primary" />
-                            <span className="font-medium">Alert Summary</span>
+                            <Bell className="h-5 w-5 mr-2 text-primary" />
+                            <span className="font-semibold text-base">Price Alert Summary</span>
                           </div>
-                          <p className="mt-1 text-muted-foreground">
+                          
+                          <div className="mt-3 p-3 bg-white rounded-md border border-gray-100">
                             {trackForm.watch("percentageAlert") ? (
-                              <>
-                                You'll be notified when the price drops by at least 
-                                <strong className="mx-1">{trackForm.watch("percentageThreshold") || 10}%</strong>
-                                {selectedProduct?.price && (
-                                  <>(below ${(selectedProduct.price * (1 - (trackForm.watch("percentageThreshold") || 10) / 100)).toFixed(2)})</>
+                              <div className="space-y-2">
+                                <div className="flex items-center">
+                                  <Percent className="h-4 w-4 mr-2 text-primary" />
+                                  <span className="font-medium">Percentage-based alert</span>
+                                </div>
+                                <p className="text-sm">
+                                  You'll be notified when the price drops by at least&nbsp;
+                                  <strong className="text-primary">{trackForm.watch("percentageThreshold") || 0}%</strong>
+                                </p>
+                                {selectedProduct?.price && typeof selectedProduct.price === 'number' && trackForm.watch("percentageThreshold") > 0 && (
+                                  <div className="flex items-center mt-1 border-t pt-2">
+                                    <ArrowDown className="h-4 w-4 mr-2 text-green-600" />
+                                    <span className="text-sm">
+                                      Alert price: <strong className="text-green-600">${(selectedProduct.price * (1 - (trackForm.watch("percentageThreshold") || 0) / 100)).toFixed(2)}</strong>
+                                    </span>
+                                  </div>
                                 )}
-                              </>
+                              </div>
                             ) : (
-                              <>
-                                You'll be notified when the price drops below 
-                                <strong className="mx-1">${trackForm.watch("targetPrice") || 0}</strong>
-                              </>
+                              <div className="space-y-2">
+                                <div className="flex items-center">
+                                  <DollarSign className="h-4 w-4 mr-2 text-primary" />
+                                  <span className="font-medium">Fixed price alert</span>
+                                </div>
+                                <p className="text-sm">
+                                  You'll be notified when the price drops below&nbsp;
+                                  <strong className="text-primary">${trackForm.watch("targetPrice") || 0}</strong>
+                                </p>
+                                {selectedProduct?.price && trackForm.watch("targetPrice") > 0 && (
+                                  <div className="flex items-center mt-1 border-t pt-2">
+                                    <span className="text-sm mr-2">Current price: ${selectedProduct.price.toFixed(2)}</span>
+                                    {trackForm.watch("targetPrice") < selectedProduct.price ? (
+                                      <span className="text-xs bg-green-100 text-green-700 px-2 py-0.5 rounded-full">
+                                        Save ${(selectedProduct.price - trackForm.watch("targetPrice")).toFixed(2)}
+                                      </span>
+                                    ) : null}
+                                  </div>
+                                )}
+                              </div>
                             )}
-                          </p>
+                          </div>
                         </div>
                         
                         {/* Display price history if product is selected and has an ID */}
