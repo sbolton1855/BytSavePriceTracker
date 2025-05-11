@@ -116,20 +116,20 @@ const PriceTrackerDashboard: React.FC = () => {
             <span className="sr-only">Refresh</span>
           </button>
         </div>
-        
-        <div className="grid grid-cols-2 gap-4 mb-4">
-          <div className="bg-blue-50 p-3 rounded-lg">
-            <h4 className="text-sm font-medium text-blue-800 mb-1">Products Tracked</h4>
-            <p className="text-2xl font-bold text-blue-600">{deals?.length || 0}</p>
+        {false && (  // Change false to a condition if needed
+          <div className="grid grid-cols-2 gap-4 mb-4">
+            <div className="bg-blue-50 p-3 rounded-lg">
+              <h4 className="text-sm font-medium text-blue-800 mb-1">Products Tracked</h4>
+              <p className="text-2xl font-bold text-blue-600">{deals?.length || 0}</p>
+            </div>
+            <div className="bg-green-50 p-3 rounded-lg">
+              <h4 className="text-sm font-medium text-green-800 mb-1">Price Drops</h4>
+              <p className="text-2xl font-bold text-green-600">
+                {deals?.filter((d: ProductDeal) => d.originalPrice && d.originalPrice > d.currentPrice).length || 0}
+              </p>
+            </div>
           </div>
-          <div className="bg-green-50 p-3 rounded-lg">
-            <h4 className="text-sm font-medium text-green-800 mb-1">Price Drops</h4>
-            <p className="text-2xl font-bold text-green-600">
-              {deals?.filter((d: ProductDeal) => d.originalPrice && d.originalPrice > d.currentPrice).length || 0}
-            </p>
-          </div>
-        </div>
-        
+        )} 
         <div className="mb-4">
           <h4 className="text-sm font-medium text-gray-700 mb-2">Latest Price Alerts</h4>
           <div className="space-y-3 max-h-[300px] overflow-y-auto">
