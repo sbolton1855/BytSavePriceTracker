@@ -227,6 +227,24 @@ export default function ProductSearch({
         duration: 8000,
       });
       
+      // Reset forms
+      trackForm.reset();
+      searchForm.reset();
+      setSelectedProduct(null);
+      
+      console.log("Product tracked, invalidating queries");
+      
+      // Invalidate all relevant queries to refresh the dashboard
+      queryClient.invalidateQueries({ queryKey: ['/api/tracked-products'] });
+      queryClient.invalidateQueries({ queryKey: ['/api/my/tracked-products'] });
+      
+      // Force an immediate refetch of the tracked products
+      queryClient.refetchQueries({ queryKey: ['/api/tracked-products'] });
+      
+      // Dispatch a custom event to notify other components
+      const event = new Event('product-tracked');
+      document.dispatchEvent(event);
+      
       // Show additional confirmation with specific instructions
       setTimeout(() => {
         toast({
@@ -243,15 +261,6 @@ export default function ProductSearch({
           ),
         });
       }, 1000);
-      
-      // Reset forms
-      trackForm.reset();
-      searchForm.reset();
-      setSelectedProduct(null);
-      
-      // Invalidate both tracked products queries to refresh the dashboard
-      queryClient.invalidateQueries({ queryKey: ["/api/tracked-products"] });
-      queryClient.invalidateQueries({ queryKey: ["/api/my/tracked-products"] });
       
       // Call success callback if provided
       if (onSuccess) {
