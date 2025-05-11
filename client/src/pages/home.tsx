@@ -5,12 +5,14 @@ import ProductSearch from "@/components/product-search";
 import ProductsDisplay from "@/components/products-display";
 import NotificationDemo from "@/components/notification-demo";
 import { useToast } from "@/hooks/use-toast";
+import { useAuth } from "@/hooks/use-auth";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 
 const Home: React.FC = () => {
+  const { user } = useAuth();
   const [userEmail, setUserEmail] = useState<string>(() => {
-    // Try to get email from local storage
-    return localStorage.getItem("bytsave_user_email") || "";
+    // Use authenticated user's email or get from local storage
+    return user?.email || localStorage.getItem("bytsave_user_email") || "";
   });
   const { toast } = useToast();
 

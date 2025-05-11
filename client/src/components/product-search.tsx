@@ -101,7 +101,7 @@ export default function ProductSearch({
       targetPrice: 0,
       email: user?.email || "",
       percentageAlert: false,
-      percentageThreshold: 10, // Default 10% discount
+      percentageThreshold: 0, // No default percentage, user must select one
     },
   });
   
@@ -219,8 +219,8 @@ export default function ProductSearch({
       const suggestedPrice = Math.round(product.price * 0.9 * 100) / 100;
       trackForm.setValue("targetPrice", suggestedPrice);
       
-      // Default percentage threshold: 10% 
-      trackForm.setValue("percentageThreshold", 10);
+      // Reset percentage threshold, requiring user selection
+      trackForm.setValue("percentageThreshold", 0);
       trackForm.setValue("percentageAlert", false); // Default to fixed price mode
     }
     
@@ -593,8 +593,8 @@ export default function ProductSearch({
                                 <FormLabel>Price Drop Percentage</FormLabel>
                                 <div className="space-y-2">
                                   <div className="flex justify-between">
-                                    <div className="flex space-x-2">
-                                      {[5, 10, 15, 20, 30].map((percent) => (
+                                    <div className="flex flex-wrap gap-2">
+                                      {[5, 10, 15, 20, 30, 50].map((percent) => (
                                         <Button
                                           key={percent}
                                           type="button"
@@ -628,7 +628,7 @@ export default function ProductSearch({
                                     </div>
                                   </FormControl>
                                   <FormMessage />
-                                  {selectedProduct.price && field.value && (
+                                  {selectedProduct.price && field.value && field.value > 0 && (
                                     <p className="text-xs text-muted-foreground mt-1">
                                       Alert when price drops below ${(selectedProduct.price * (1 - field.value / 100)).toFixed(2)}
                                     </p>
