@@ -22,7 +22,7 @@ const ProductsDisplay: React.FC<ProductsDisplayProps> = ({ email }) => {
     queryKey: ['/api/tracked-products', email],
     enabled: !!email && email.length > 0,
     queryFn: async ({ queryKey }) => {
-      console.log("Fetching tracked products for email:", email);
+      console.log("ProductsDisplay - current email:", email);
       if (!email || email.length === 0) {
         console.log("No email provided, returning empty array");
         return [];
@@ -36,7 +36,7 @@ const ProductsDisplay: React.FC<ProductsDisplayProps> = ({ email }) => {
         const res = await fetch(`${queryKey[0]}?email=${encodeURIComponent(upperEmail)}&_t=${timestamp}`);
         if (!res.ok) throw new Error('Failed to fetch tracked products');
         const data = await res.json();
-        console.log("Tracked products data:", data);
+        console.log("ProductsDisplay - data changed:", data);
         return data;
       } catch (err) {
         console.error("Error fetching tracked products:", err);
@@ -45,9 +45,10 @@ const ProductsDisplay: React.FC<ProductsDisplayProps> = ({ email }) => {
     },
     retry: 1,
     // Shorter stale time to refresh data more frequently
-    staleTime: 5000,
+    staleTime: 0, // Always fetch fresh data
     // Refetch on window focus to keep data fresh
-    refetchOnWindowFocus: true
+    refetchOnWindowFocus: true,
+    refetchOnMount: true
   });
 
   // Filter products based on selection
