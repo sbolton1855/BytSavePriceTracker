@@ -598,41 +598,61 @@ export default function ProductSearch({
                           </a>
                         </div>
 
-                        <FormField
-                          control={trackForm.control}
-                          name="percentageAlert"
-                          render={({ field }) => (
-                            <FormItem>
-                              <div className="flex flex-col space-y-1.5">
-                                <FormLabel>Alert Type</FormLabel>
-                                <div className="flex">
-                                  <Button
-                                    type="button"
-                                    variant={field.value ? "outline" : "default"}
-                                    className={`flex-1 rounded-r-none ${!field.value ? "bg-primary hover:bg-primary/90" : ""}`}
-                                    onClick={() => {
-                                      field.onChange(false);
-                                    }}
-                                  >
-                                    <DollarSign className="h-4 w-4 mr-1" />
-                                    Fixed Price
-                                  </Button>
-                                  <Button
-                                    type="button"
-                                    variant={field.value ? "default" : "outline"}
-                                    className={`flex-1 rounded-l-none ${field.value ? "bg-primary hover:bg-primary/90" : ""}`}
-                                    onClick={() => {
-                                      field.onChange(true);
-                                    }}
-                                  >
-                                    <Percent className="h-4 w-4 mr-1" />
-                                    Percentage
-                                  </Button>
+                        <div className="mb-6 bg-primary/5 p-4 rounded-lg border border-primary/10">
+                          <h3 className="text-base font-medium mb-2">Set Your Price Alert</h3>
+                          <p className="text-sm text-muted-foreground mb-4">
+                            Choose how you want to be notified when the price drops
+                          </p>
+                          
+                          <FormField
+                            control={trackForm.control}
+                            name="percentageAlert"
+                            render={({ field }) => (
+                              <FormItem>
+                                <div className="flex flex-col space-y-1.5">
+                                  <div className="flex">
+                                    <Button
+                                      type="button"
+                                      variant={field.value ? "outline" : "default"}
+                                      className={`flex-1 rounded-r-none text-sm py-6 ${!field.value ? "bg-primary hover:bg-primary/90" : ""}`}
+                                      onClick={() => {
+                                        field.onChange(false);
+                                      }}
+                                    >
+                                      <div className="flex flex-col items-center">
+                                        <DollarSign className="h-5 w-5 mb-1" />
+                                        <span>Fixed Price</span>
+                                        <span className="text-xs opacity-80 mt-1">
+                                          Alert at specific price
+                                        </span>
+                                      </div>
+                                    </Button>
+                                    <Button
+                                      type="button"
+                                      variant={field.value ? "default" : "outline"}
+                                      className={`flex-1 rounded-l-none text-sm py-6 ${field.value ? "bg-primary hover:bg-primary/90" : ""}`}
+                                      onClick={() => {
+                                        field.onChange(true);
+                                        // Default to 10% if not set
+                                        if (!trackForm.watch("percentageThreshold")) {
+                                          trackForm.setValue("percentageThreshold", 10);
+                                        }
+                                      }}
+                                    >
+                                      <div className="flex flex-col items-center">
+                                        <Percent className="h-5 w-5 mb-1" />
+                                        <span>Percentage Drop</span>
+                                        <span className="text-xs opacity-80 mt-1">
+                                          Alert when price drops by %
+                                        </span>
+                                      </div>
+                                    </Button>
+                                  </div>
                                 </div>
-                              </div>
-                            </FormItem>
-                          )}
-                        />
+                              </FormItem>
+                            )}
+                          />
+                        </div>
 
                         {/* Conditional field based on alert type */}
                         {!trackForm.watch("percentageAlert") ? (
@@ -718,37 +738,71 @@ export default function ProductSearch({
                             name="percentageThreshold"
                             render={({ field }) => (
                               <FormItem>
-                                <FormLabel>Price Drop Percentage</FormLabel>
                                 <div className="space-y-4">
-                                  {/* Quick selection buttons */}
-                                  <div className="flex flex-wrap gap-2">
+                                  <div className="mb-2">
+                                    <FormLabel className="text-base font-medium mb-2 inline-flex items-center">
+                                      <Percent className="h-4 w-4 mr-1 text-primary" />
+                                      Price Drop Percentage
+                                    </FormLabel>
+                                    <p className="text-xs text-muted-foreground">
+                                      Select how much the price needs to drop before we alert you
+                                    </p>
+                                  </div>
+                                  
+                                  {/* Current price display and preview calculation */}
+                                  {selectedProduct?.price && typeof selectedProduct.price === 'number' && (
+                                    <div className="bg-primary/5 p-3 rounded-lg border border-primary/10 mb-4">
+                                      <div className="flex items-center text-sm font-medium">
+                                        <span>Current price: </span>
+                                        <span className="font-bold text-primary ml-1">${selectedProduct.price.toFixed(2)}</span>
+                                      </div>
+                                      
+                                      {field.value && field.value > 0 && (
+                                        <div className="mt-2 pt-2 border-t border-primary/10">
+                                          <div className="flex items-center text-sm">
+                                            <ArrowDown className="h-4 w-4 mr-1 text-green-600" />
+                                            <span>
+                                              Alert at: <strong className="text-green-600">${(selectedProduct.price * (1 - field.value / 100)).toFixed(2)}</strong> 
+                                              <span className="text-muted-foreground ml-1">({field.value}% off)</span>
+                                            </span>
+                                          </div>
+                                          <div className="mt-1 text-xs text-muted-foreground">
+                                            Potential savings: ${(selectedProduct.price * field.value / 100).toFixed(2)}
+                                          </div>
+                                        </div>
+                                      )}
+                                    </div>
+                                  )}
+                                  
+                                  {/* Quick selection buttons in a grid */}
+                                  <div className="grid grid-cols-3 gap-2">
                                     {[5, 10, 15, 20, 30, 50].map((percent) => (
                                       <Button
                                         key={percent}
                                         type="button"
-                                        size="sm"
                                         variant={field.value === percent ? "default" : "outline"}
-                                        className={field.value === percent ? "bg-primary hover:bg-primary/90" : ""}
+                                        className={`${field.value === percent ? "bg-primary hover:bg-primary/90 border-2 border-primary" : "border border-input"} h-12`}
                                         onClick={() => field.onChange(percent)}
                                       >
-                                        {percent}%
+                                        <span className="text-lg font-semibold">{percent}%</span>
                                       </Button>
                                     ))}
                                   </div>
                                   
                                   {/* Custom percentage input */}
-                                  <div className="border-t pt-3">
-                                    <FormLabel className="text-xs text-muted-foreground mb-2 block">
+                                  <div className="pt-3 border-t">
+                                    <FormLabel className="text-sm mb-2 block">
                                       Or enter a custom percentage:
                                     </FormLabel>
                                     <FormControl>
-                                      <div className="flex items-center space-x-2">
+                                      <div className="flex items-center relative">
                                         <Input
                                           type="number"
                                           inputMode="numeric"
                                           min={1}
                                           max={99}
-                                          placeholder="Custom percentage"
+                                          className="text-right pr-10 text-lg h-12"
+                                          placeholder="0"
                                           {...field}
                                           value={field.value || ""}
                                           onChange={(e) => {
@@ -757,7 +811,9 @@ export default function ProductSearch({
                                           }}
                                           disabled={trackMutation.isPending}
                                         />
-                                        <span>%</span>
+                                        <div className="absolute right-3 pointer-events-none">
+                                          <span className="text-lg">%</span>
+                                        </div>
                                       </div>
                                     </FormControl>
                                   </div>
