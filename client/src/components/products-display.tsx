@@ -220,7 +220,7 @@ const ProductsDisplay: React.FC<ProductsDisplayProps> = ({ email }) => {
                   </p>
                   <Button 
                     className="mt-4"
-                    onClick={() => document.getElementById('tracker')?.scrollIntoView({ behavior: "smooth" })}
+                    onClick={() => document.getElementById('search-section')?.scrollIntoView({ behavior: "smooth" })}
                   >
                     Add Product
                   </Button>
@@ -246,7 +246,7 @@ const ProductsDisplay: React.FC<ProductsDisplayProps> = ({ email }) => {
                 <p className="mt-1 text-gray-500">Start tracking an Amazon product to see it here</p>
                 <Button 
                   className="mt-6"
-                  onClick={() => document.getElementById('tracker')?.scrollIntoView({ behavior: "smooth" })}
+                  onClick={() => document.getElementById('search-section')?.scrollIntoView({ behavior: "smooth" })}
                 >
                   Track Your First Product
                 </Button>
