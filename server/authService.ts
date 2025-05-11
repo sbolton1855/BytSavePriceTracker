@@ -310,7 +310,7 @@ export function configureAuth(app: Express) {
           return done(new Error('Email is required'), false);
         }
         
-        const newUser = await storage.createUser({
+        const newUser = await storage.upsertUser({
           email,
           username: profile.username,
           profileImageUrl: profile.photos?.[0]?.value?.replace('_normal', ''),
