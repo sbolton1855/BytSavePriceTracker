@@ -60,9 +60,31 @@ async function checkPricesAndNotify(): Promise<void> {
     // Get all products (including newly discovered ones)
     const products = await storage.getAllProducts();
     
-    // Update prices for all products
-    for (const product of products) {
-      await updateProductPrice(product);
+    // Update prices for a limited subset of products with rate limiting to avoid API throttling
+    // In production, spread the updates throughout the day
+    // In development, just update a few products per run
+    const maxUpdatesPerRun = process.env.NODE_ENV === 'production' ? 20 : 3;
+    
+    // Sort by lastChecked (oldest first) to prioritize products that haven't been updated in a while
+    const sortedProducts = [...products].sort((a, b) => {
+      const aDate = a.lastChecked ? new Date(a.lastChecked).getTime() : 0;
+      const bDate = b.lastChecked ? new Date(b.lastChecked).getTime() : 0;
+      return aDate - bDate;
+    });
+    
+    // Take a subset of products to update
+    const productsToUpdate = sortedProducts.slice(0, maxUpdatesPerRun);
+    console.log(`Updating prices for ${productsToUpdate.length} out of ${products.length} products`);
+    
+    // Update prices with delays between requests to avoid throttling
+    for (const product of productsToUpdate) {
+      try {
+        await updateProductPrice(product);
+        // Add delay between API calls to avoid throttling
+        await new Promise(resolve => setTimeout(resolve, 1000));
+      } catch (error) {
+        console.error(`Failed to update price for product ${product.asin}:`, error);
+      }
     }
     
     // Find tracked products that need alerts

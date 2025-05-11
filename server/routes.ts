@@ -82,11 +82,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
       
       // Calculate price drops and filter products with discounts
-      const deals = filteredProducts
+      let deals = filteredProducts
         .filter(product => {
           // Ensure we have a valid originalPrice to compare against
           const originalPrice = product.originalPrice !== null ? product.originalPrice : product.highestPrice;
-          return originalPrice > product.currentPrice;
+          // Filter out products without a meaningful price difference (at least 5% discount)
+          const priceDifference = originalPrice - product.currentPrice;
+          const percentDifference = (priceDifference / originalPrice) * 100;
+          return originalPrice > product.currentPrice && percentDifference >= 5;
         })
         .map(product => {
           // Ensure we have a valid originalPrice for calculation
@@ -95,17 +98,58 @@ export async function registerRoutes(app: Express): Promise<Server> {
           const discountPercentage = originalPrice > 0 
             ? ((originalPrice - product.currentPrice) / originalPrice) * 100 
             : 0;
+          
+          // Calculate potential savings
+          const savings = originalPrice - product.currentPrice;
+          
           return {
             ...product,
             discountPercentage: Math.round(discountPercentage),
+            savings: Math.round(savings * 100) / 100,
             // Add affiliate link
             affiliateUrl: addAffiliateTag(product.url, AFFILIATE_TAG)
           };
         })
-        // Sort by discount percentage descending
-        .sort((a, b) => b.discountPercentage - a.discountPercentage)
-        // Take top deals (use all for category-specific, otherwise limit to 8)
-        .slice(0, category ? undefined : 8);
+        // Sort by highest discount percentage first
+        .sort((a, b) => b.discountPercentage - a.discountPercentage);
+      
+      // If we have too few deals for a good display, include some recently added products
+      if (deals.length < 5) {
+        console.log('Not enough deals found, adding recently added products');
+        
+        // Get recently added products (that aren't already in the deals list)
+        const existingIds = new Set(deals.map(d => d.id));
+        const recentProducts = filteredProducts
+          .filter(p => !existingIds.has(p.id))
+          .sort((a, b) => {
+            // Sort by lastChecked date (newest first)
+            const aDate = a.lastChecked ? new Date(a.lastChecked).getTime() : 0;
+            const bDate = b.lastChecked ? new Date(b.lastChecked).getTime() : 0;
+            return bDate - aDate;
+          })
+          .slice(0, 5) // Take up to 5 recent products
+          .map(product => {
+            // Format them like deals
+            const originalPrice = product.originalPrice !== null ? product.originalPrice : product.highestPrice;
+            const discountPercentage = originalPrice > 0 
+              ? ((originalPrice - product.currentPrice) / originalPrice) * 100 
+              : 0;
+            
+            return {
+              ...product,
+              discountPercentage: Math.round(discountPercentage),
+              savings: Math.round((originalPrice - product.currentPrice) * 100) / 100,
+              affiliateUrl: addAffiliateTag(product.url, AFFILIATE_TAG),
+              isNewAddition: true // Flag to identify recent additions
+            };
+          });
+        
+        // Combine the two lists
+        deals = [...deals, ...recentProducts];
+      }
+      
+      // Take top deals (use all for category-specific, otherwise limit to 8)
+      deals = deals.slice(0, category ? undefined : 8);
       
       res.json(deals);
     } catch (error) {
