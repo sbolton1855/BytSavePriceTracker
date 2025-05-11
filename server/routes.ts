@@ -86,6 +86,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
         .filter(product => {
           // Ensure we have a valid originalPrice to compare against
           const originalPrice = product.originalPrice !== null ? product.originalPrice : product.highestPrice;
+          
+          // Avoid null/undefined comparisons
+          if (originalPrice === null || originalPrice === undefined) {
+            return false;
+          }
+          
           // Filter out products without a meaningful price difference (at least 5% discount)
           const priceDifference = originalPrice - product.currentPrice;
           const percentDifference = (priceDifference / originalPrice) * 100;
@@ -94,13 +100,17 @@ export async function registerRoutes(app: Express): Promise<Server> {
         .map(product => {
           // Ensure we have a valid originalPrice for calculation
           const originalPrice = product.originalPrice !== null ? product.originalPrice : product.highestPrice;
+          
+          // Use a safe default if originalPrice is null/undefined
+          const safeOriginalPrice = originalPrice ?? product.currentPrice;
+          
           // Avoid division by zero
-          const discountPercentage = originalPrice > 0 
-            ? ((originalPrice - product.currentPrice) / originalPrice) * 100 
+          const discountPercentage = safeOriginalPrice > 0 
+            ? ((safeOriginalPrice - product.currentPrice) / safeOriginalPrice) * 100 
             : 0;
           
           // Calculate potential savings
-          const savings = originalPrice - product.currentPrice;
+          const savings = safeOriginalPrice - product.currentPrice;
           
           return {
             ...product,
@@ -131,14 +141,17 @@ export async function registerRoutes(app: Express): Promise<Server> {
           .map(product => {
             // Format them like deals
             const originalPrice = product.originalPrice !== null ? product.originalPrice : product.highestPrice;
-            const discountPercentage = originalPrice > 0 
-              ? ((originalPrice - product.currentPrice) / originalPrice) * 100 
+            // Use a safe default if originalPrice is null/undefined
+            const safeOriginalPrice = originalPrice ?? product.currentPrice;
+            
+            const discountPercentage = safeOriginalPrice > 0 
+              ? ((safeOriginalPrice - product.currentPrice) / safeOriginalPrice) * 100 
               : 0;
             
             return {
               ...product,
               discountPercentage: Math.round(discountPercentage),
-              savings: Math.round((originalPrice - product.currentPrice) * 100) / 100,
+              savings: Math.round((safeOriginalPrice - product.currentPrice) * 100) / 100,
               affiliateUrl: addAffiliateTag(product.url, AFFILIATE_TAG),
               isNewAddition: true // Flag to identify recent additions
             };
@@ -513,8 +526,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       // Update with new target price and reset notification status
       const updated = await storage.updateTrackedProduct(id, {
         targetPrice,
-        notified: false,
-        updatedAt: new Date()
+        notified: false
       });
       
       res.json(updated);

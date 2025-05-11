@@ -136,6 +136,7 @@ const PriceTrackerDashboard: React.FC = () => {
             {selectedDeals.length > 0 ? (
               selectedDeals.map((deal, index) => (
                 <a 
+                  key={deal.id || `deal-${index}`}
                   href={deal.affiliateUrl || deal.url} 
                   target="_blank"
                   rel="noopener noreferrer"
