@@ -3,14 +3,28 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Button } from "@/components/ui/button";
 import ProductsDisplay from "@/components/products-display";
 import TrackerForm from "@/components/tracker-form";
+import ProductSearch from "@/components/product-search";
 import { useAuth } from "@/hooks/use-auth";
+import { useToast } from "@/hooks/use-toast";
 
 const Dashboard: React.FC = () => {
   const { user } = useAuth();
+  const { toast } = useToast();
   const [refreshTrigger, setRefreshTrigger] = useState(0);
   
   // Get the user's email for product tracking
   const userEmail = user?.email || "";
+  
+  // Handle successful search and tracking
+  const handleSearchSuccess = () => {
+    toast({
+      title: "Product tracking started",
+      description: "We'll send an email when the price drops below your target.",
+    });
+    
+    // Refresh the product list
+    setRefreshTrigger(prev => prev + 1);
+  };
 
   return (
     <div className="py-10 bg-gray-50 min-h-screen">
@@ -50,14 +64,28 @@ const Dashboard: React.FC = () => {
           </Card>
         )}
 
+        <div className="mb-8">
+          <Card>
+            <CardHeader>
+              <CardTitle>Search & Track Amazon Products</CardTitle>
+              <CardDescription>
+                Search by name or enter an Amazon URL to track prices
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              <ProductSearch onSuccess={handleSearchSuccess} />
+            </CardContent>
+          </Card>
+        </div>
+
         <ProductsDisplay email={userEmail} key={refreshTrigger} />
 
         <div className="mt-12">
           <Card>
             <CardHeader>
-              <CardTitle>Track a New Product</CardTitle>
+              <CardTitle>Quick Track by URL</CardTitle>
               <CardDescription>
-                Add another Amazon product to your tracking list
+                Quickly add an Amazon product URL to your tracking list
               </CardDescription>
             </CardHeader>
             <CardContent>
