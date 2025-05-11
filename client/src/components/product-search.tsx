@@ -7,6 +7,7 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/hooks/use-auth";
 import { Loader2, Search, Link, ChevronRight, ArrowDown, Bell, Percent, DollarSign, TrendingDown } from "lucide-react";
+import PriceHistoryChart from "@/components/price-history-chart";
 
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -44,7 +45,6 @@ import {
   TrackingFormData,
   trackingFormSchema,
 } from "@shared/schema";
-import PriceHistoryChart from "@/components/price-history-chart";
 
 const searchSchema = z.object({
   query: z.string().min(3, "Search query must be at least 3 characters"),
@@ -641,6 +641,14 @@ export default function ProductSearch({
                             </Button>
                           </a>
                         </div>
+
+                        {/* Add price history chart if we have a product ID */}
+                        {selectedProduct.id && (
+                          <div className="mb-6">
+                            <h3 className="text-base font-medium mb-2">Price History</h3>
+                            <PriceHistoryChart productId={selectedProduct.id} />
+                          </div>
+                        )}
 
                         <div className="mb-6 bg-primary/5 p-4 rounded-lg border border-primary/10">
                           <div className="mb-4">
