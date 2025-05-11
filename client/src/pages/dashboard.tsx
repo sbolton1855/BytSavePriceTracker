@@ -63,24 +63,7 @@ const Dashboard: React.FC = () => {
           </p>
         </div>
 
-        {userEmail ? (
-          <Card className="mb-8">
-            <CardHeader className="flex flex-row items-center justify-between">
-              <div>
-                <CardTitle>Your Tracked Products</CardTitle>
-                <CardDescription>
-                  Showing price alerts for {userEmail}
-                </CardDescription>
-              </div>
-              <Button 
-                variant="outline"
-                onClick={() => setRefreshTrigger(prev => prev + 1)}
-              >
-                Refresh Products
-              </Button>
-            </CardHeader>
-          </Card>
-        ) : (
+        {!userEmail && (
           <Card className="mb-8">
             <CardHeader>
               <CardTitle>No Email Available</CardTitle>
@@ -91,7 +74,13 @@ const Dashboard: React.FC = () => {
           </Card>
         )}
 
-        <div className="mb-8">
+        {/* For testing - use hardcoded email if no email is available */}
+        <ProductsDisplay 
+          email={userEmail || "SBOLTON1855@GMAIL.COM"} 
+          key={refreshTrigger} 
+        />
+
+        <div className="mt-8">
           <Card>
             <CardHeader>
               <CardTitle>Search & Track Amazon Products</CardTitle>
@@ -104,12 +93,6 @@ const Dashboard: React.FC = () => {
             </CardContent>
           </Card>
         </div>
-
-        {/* For testing - use hardcoded email if no email is available */}
-        <ProductsDisplay 
-          email={userEmail || "SBOLTON1855@GMAIL.COM"} 
-          key={refreshTrigger} 
-        />
       </div>
     </div>
   );
