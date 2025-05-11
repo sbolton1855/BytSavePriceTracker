@@ -124,7 +124,28 @@ const ProductCard: React.FC<ProductCardProps> = ({ trackedProduct, onRefresh }) 
   const deleteTrackingMutation = useMutation({
     mutationFn: async () => {
       console.log(`Deleting tracked product with ID: ${trackedProduct.id}`);
-      return apiRequest("DELETE", `/api/my/tracked-products/${trackedProduct.id}`, {});
+      
+      // Include credentials to ensure the auth cookie is sent
+      const res = await fetch(`/api/my/tracked-products/${trackedProduct.id}`, {
+        method: 'DELETE',
+        credentials: 'include',
+        headers: {
+          'Content-Type': 'application/json'
+        }
+      });
+      
+      if (!res.ok) {
+        const errorText = await res.text();
+        console.error("Delete API error response:", errorText);
+        try {
+          const errorJson = JSON.parse(errorText);
+          throw new Error(errorJson.error || errorJson.message || "Failed to delete product");
+        } catch (e) {
+          throw new Error(errorText || "Failed to delete product");
+        }
+      }
+      
+      return res;
     },
     onSuccess: () => {
       // Show confirmation toast
@@ -137,27 +158,20 @@ const ProductCard: React.FC<ProductCardProps> = ({ trackedProduct, onRefresh }) 
       setShowDeleteConfirm(false);
       
       console.log("Product deleted, invalidating queries");
-      // Force refresh the tracked products list by invalidating and then explicitly refetching
-      // We need to invalidate all queries that contain '/api/tracked-products' in their key
-      queryClient.invalidateQueries({ queryKey: ['/api/tracked-products'] });
-      queryClient.invalidateQueries({ queryKey: ['/api/my/tracked-products'] });
+      
+      // Reset the cache completely for tracked products
+      queryClient.resetQueries({ queryKey: ['/api/tracked-products'] });
       
       // Force an immediate refetch of the tracked products
-      queryClient.refetchQueries({ queryKey: ['/api/tracked-products'] });
-      
-      // Also trigger the parent's refresh callback
-      onRefresh();
-      
-      // Force re-render any components using the data
-      document.dispatchEvent(new Event('product-deleted'));
-      
-      // Give a small delay to allow the DOM to update
       setTimeout(() => {
-        toast({
-          title: "Refreshed product list",
-          description: "Your tracked products have been updated",
-        });
-      }, 1000);
+        queryClient.refetchQueries({ queryKey: ['/api/tracked-products'] });
+        
+        // Force re-render any components using the data
+        document.dispatchEvent(new CustomEvent('product-deleted'));
+        
+        // Also trigger the parent's refresh callback
+        onRefresh();
+      }, 300);
     },
     onError: (error) => {
       toast({
