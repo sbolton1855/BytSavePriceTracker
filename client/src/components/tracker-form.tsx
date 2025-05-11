@@ -13,6 +13,7 @@ import {
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/hooks/use-toast";
+import { useAuth } from "@/hooks/use-auth";
 import { trackingFormSchema, type TrackingFormData } from "@shared/schema";
 import { apiRequest } from "@/lib/queryClient";
 
@@ -22,6 +23,7 @@ interface TrackerFormProps {
 
 const TrackerForm: React.FC<TrackerFormProps> = ({ onSuccess }) => {
   const { toast } = useToast();
+  const { user, isAuthenticated } = useAuth();
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   // Define form
@@ -43,7 +45,7 @@ const TrackerForm: React.FC<TrackerFormProps> = ({ onSuccess }) => {
       toast({
         title: "Product tracking added!",
         description: "We'll notify you when the price drops below your target.",
-        variant: "success",
+        variant: "default",
       });
       
       // Reset the form
@@ -134,24 +136,26 @@ const TrackerForm: React.FC<TrackerFormProps> = ({ onSuccess }) => {
                 )}
               />
               
-              <FormField
-                control={form.control}
-                name="email"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Email for Notifications</FormLabel>
-                    <FormControl>
-                      <Input 
-                        type="email"
-                        placeholder="your@email.com" 
-                        {...field} 
-                      />
-                    </FormControl>
-                    <p className="text-xs text-gray-500">We'll send price drop alerts to this email</p>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
+              {!isAuthenticated && (
+                <FormField
+                  control={form.control}
+                  name="email"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Email for Notifications</FormLabel>
+                      <FormControl>
+                        <Input 
+                          type="email"
+                          placeholder="your@email.com" 
+                          {...field} 
+                        />
+                      </FormControl>
+                      <p className="text-xs text-gray-500">We'll send price drop alerts to this email</p>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+              )}
               
               <Button 
                 type="submit" 
