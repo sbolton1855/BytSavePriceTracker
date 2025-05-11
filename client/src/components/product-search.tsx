@@ -307,6 +307,18 @@ export default function ProductSearch({
   
   // Track product form submission
   const onTrackSubmit = (data: TrackingFormData) => {
+    // Check if the user is authenticated first
+    if (!isAuthenticated) {
+      console.error("User not authenticated, redirecting to login");
+      toast({
+        title: "Authentication required",
+        description: "Please log in to track products",
+        variant: "destructive",
+      });
+      setTimeout(() => window.location.href = "/auth", 1500);
+      return;
+    }
+    
     // Make sure we have a selected product
     if (!selectedProduct) {
       toast({
@@ -398,7 +410,94 @@ export default function ProductSearch({
     
     // Submit the tracking request with full details
     console.log("Submitting tracking request with validated data:", JSON.stringify(trackingData));
-    trackMutation.mutate(trackingData);
+    
+    // Manually trigger the API call instead of using the mutation to have more control
+    fetch('/api/my/track', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json'
+      },
+      credentials: 'include',
+      body: JSON.stringify(trackingData)
+    })
+    .then(response => {
+      console.log("Track API response status:", response.status);
+      
+      if (response.status === 401) {
+        console.error("Authentication required");
+        toast({
+          title: "Authentication required",
+          description: "Please log in to track products",
+          variant: "destructive",
+        });
+        setTimeout(() => window.location.href = "/auth", 1500);
+        throw new Error("Authentication required");
+      }
+      
+      if (!response.ok) {
+        return response.text().then(text => {
+          console.error("Track API error:", text);
+          throw new Error(text || "Failed to track product");
+        });
+      }
+      
+      return response.json();
+    })
+    .then(result => {
+      console.log("Track API success:", result);
+      
+      // Show success toast
+      toast({
+        title: "✅ Product tracking set up!",
+        description: trackingData.percentageAlert ? 
+          `We'll notify you when ${selectedProduct?.title?.substring(0, 25)}... drops by ${trackingData.percentageThreshold}%.` :
+          `We'll notify you when ${selectedProduct?.title?.substring(0, 25)}... drops below $${trackingData.targetPrice.toFixed(2)}.`,
+        duration: 5000,
+      });
+      
+      // Reset forms
+      trackForm.reset();
+      searchForm.reset();
+      setSelectedProduct(null);
+      
+      // Forcefully invalidate and refresh the product list
+      queryClient.invalidateQueries({ queryKey: ['/api/tracked-products'] });
+      queryClient.resetQueries({ queryKey: ['/api/tracked-products'] });
+      
+      // Force a fetch with a fresh request to update the UI
+      fetch('/api/tracked-products', { credentials: 'include', cache: 'no-store' })
+        .then(res => res.json())
+        .then(data => {
+          queryClient.setQueryData(['/api/tracked-products'], data);
+          document.dispatchEvent(new CustomEvent('product-tracked'));
+          
+          // Show confirmation with view option
+          toast({
+            title: "Product Added to Dashboard",
+            description: "Your tracked product has been added to your dashboard",
+            action: (
+              <Button 
+                onClick={() => document.getElementById('dashboard')?.scrollIntoView({ behavior: "smooth" })}
+                variant="outline"
+                size="sm"
+              >
+                View My Products
+              </Button>
+            ),
+          });
+          
+          // Call success callback if provided
+          if (onSuccess) onSuccess();
+        });
+    })
+    .catch(error => {
+      console.error("Track product error:", error);
+      toast({
+        title: "Failed to track product",
+        description: error.message || "Something went wrong. Please try again.",
+        variant: "destructive",
+      });
+    });
   };
   
   // Set product URL and email when a search result is selected
