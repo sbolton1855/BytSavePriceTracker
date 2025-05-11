@@ -105,7 +105,11 @@ const Dashboard: React.FC = () => {
           </Card>
         </div>
 
-        <ProductsDisplay email={userEmail} key={refreshTrigger} />
+        {/* For testing - use hardcoded email if no email is available */}
+        <ProductsDisplay 
+          email={userEmail || "SBOLTON1855@GMAIL.COM"} 
+          key={refreshTrigger} 
+        />
 
         <div className="mt-12">
           <Card>
