@@ -302,51 +302,72 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Track a new product
   app.post('/api/my/track', requireAuth, async (req: Request, res: Response) => {
     try {
+      // Log the incoming request data for debugging
+      console.log('Track request received:', req.body);
+      
       // Validate request body
       const result = trackingFormSchema.safeParse(req.body);
       if (!result.success) {
         return res.status(400).json({ error: 'Invalid request data', details: result.error.format() });
       }
       
-      const { productUrl, targetPrice, email, percentageAlert, percentageThreshold } = result.data;
+      const { productUrl, targetPrice, email, percentageAlert, percentageThreshold, productId } = result.data;
       
-      // Extract ASIN from product URL
-      const extractedAsin = extractAsinFromUrl(productUrl);
-      if (!extractedAsin) {
-        return res.status(400).json({ error: 'Invalid Amazon URL or ASIN' });
+      let product;
+      
+      // If productId is provided, use that to fetch the product directly
+      if (productId) {
+        console.log('Using provided productId:', productId);
+        product = await storage.getProduct(productId);
+        if (!product) {
+          return res.status(404).json({ error: 'Product not found with the provided ID' });
+        }
+      } else {
+        // Otherwise, extract ASIN from product URL
+        console.log('No productId provided, extracting from URL:', productUrl);
+        const extractedAsin = extractAsinFromUrl(productUrl);
+        if (!extractedAsin) {
+          return res.status(400).json({ error: 'Invalid Amazon URL or ASIN' });
+        }
+        const productAsin = extractedAsin;
+        
+        if (!isValidAsin(productAsin)) {
+          return res.status(400).json({ error: 'Invalid ASIN format' });
+        }
+        
+        // Check if product exists in our database
+        product = await storage.getProductByAsin(productAsin);
+        
+        // If product doesn't exist, fetch it from Amazon API and create it
+        if (!product) {
+          const amazonProduct = await getProductInfo(productAsin);
+          
+          product = await storage.createProduct({
+            asin: amazonProduct.asin,
+            title: amazonProduct.title,
+            url: amazonProduct.url,
+            imageUrl: amazonProduct.imageUrl,
+            currentPrice: amazonProduct.price,
+            originalPrice: amazonProduct.price, // Initially same as current
+            lowestPrice: amazonProduct.price,
+            highestPrice: amazonProduct.price,
+            lastChecked: new Date()
+          });
+          
+          // Also create initial price history entry
+          await storage.createPriceHistory({
+            productId: product.id,
+            price: amazonProduct.price,
+            timestamp: new Date()
+          });
+        }
       }
-      const productAsin = extractedAsin;
       
-      if (!isValidAsin(productAsin)) {
-        return res.status(400).json({ error: 'Invalid ASIN format' });
-      }
-      
-      // Check if product exists in our database
-      let product = await storage.getProductByAsin(productAsin);
-      
-      // If product doesn't exist, fetch it from Amazon API and create it
       if (!product) {
-        const amazonProduct = await getProductInfo(productAsin);
-        
-        product = await storage.createProduct({
-          asin: amazonProduct.asin,
-          title: amazonProduct.title,
-          url: amazonProduct.url,
-          imageUrl: amazonProduct.imageUrl,
-          currentPrice: amazonProduct.price,
-          originalPrice: amazonProduct.price, // Initially same as current
-          lowestPrice: amazonProduct.price,
-          highestPrice: amazonProduct.price,
-          lastChecked: new Date()
-        });
-        
-        // Also create initial price history entry
-        await storage.createPriceHistory({
-          productId: product.id,
-          price: amazonProduct.price,
-          timestamp: new Date()
-        });
+        return res.status(500).json({ error: 'Failed to get or create product' });
       }
+      
+      console.log('Product to track:', product);
       
       // Get user ID from authenticated session
       const userId = (req.user as any).id.toString();
@@ -381,6 +402,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         createdAt: new Date()
       });
       
+      console.log('Created new tracking:', tracking);
       res.status(201).json(tracking);
     } catch (error: any) {
       console.error('Error tracking product:', error);
