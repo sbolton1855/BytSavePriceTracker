@@ -5,6 +5,7 @@ import { useForm } from "react-hook-form";
 import { z } from "zod";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useToast } from "@/hooks/use-toast";
+import { useAuth } from "@/hooks/use-auth";
 import { Loader2, Search, Link, ChevronRight, ArrowDown, Bell, Percent, DollarSign } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
@@ -63,9 +64,10 @@ export default function ProductSearch({
   onSuccess?: () => void 
 }) {
   const { toast } = useToast();
+  const { user, isAuthenticated } = useAuth();
   const [searchTab, setSearchTab] = useState<string>("url");
   const [selectedProduct, setSelectedProduct] = useState<ProductSearchResult | null>(null);
-  const [email, setEmail] = useState<string>("");
+  const [email, setEmail] = useState<string>(user?.email || "");
   const [searchQuery, setSearchQuery] = useState<string>("");
   const [debouncedSearchQuery, setDebouncedSearchQuery] = useState<string>("");
   
@@ -79,6 +81,8 @@ export default function ProductSearch({
       clearTimeout(handler);
     };
   }, [searchQuery]);
+  
+  // We'll add the user email effect after trackForm is defined
   const [searchTimeout, setSearchTimeout] = useState<NodeJS.Timeout | null>(null);
   
   // Form for searching products
@@ -95,11 +99,19 @@ export default function ProductSearch({
     defaultValues: {
       productUrl: "",
       targetPrice: 0,
-      email: "",
+      email: user?.email || "",
       percentageAlert: false,
       percentageThreshold: 10, // Default 10% discount
     },
   });
+  
+  // Update email when user authentication changes
+  useEffect(() => {
+    if (user?.email) {
+      setEmail(user.email);
+      trackForm.setValue("email", user.email);
+    }
+  }, [user, trackForm]);
   
   // Handle search input with debounce
   const handleSearchInput = (value: string) => {
@@ -188,6 +200,11 @@ export default function ProductSearch({
       data.targetPrice = Math.round(calculatedPrice * 100) / 100;
     }
     
+    // Ensure we use the user's email if they're authenticated
+    if (isAuthenticated && user?.email) {
+      data.email = user.email;
+    }
+    
     trackMutation.mutate(data);
   };
   
@@ -207,7 +224,10 @@ export default function ProductSearch({
       trackForm.setValue("percentageAlert", false); // Default to fixed price mode
     }
     
-    if (email) {
+    // Set email - prioritize authenticated user's email
+    if (user?.email) {
+      trackForm.setValue("email", user.email);
+    } else if (email) {
       trackForm.setValue("email", email);
     }
     
@@ -295,28 +315,30 @@ export default function ProductSearch({
                     )}
                   />
 
-                  <FormField
-                    control={trackForm.control}
-                    name="email"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormControl>
-                          <Input
-                            type="email"
-                            placeholder="Your Email"
-                            {...field}
-                            value={email || field.value}
-                            onChange={(e) => {
-                              field.onChange(e);
-                              handleEmailChange(e);
-                            }}
-                            disabled={trackMutation.isPending}
-                          />
-                        </FormControl>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
+                  {!isAuthenticated && (
+                    <FormField
+                      control={trackForm.control}
+                      name="email"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormControl>
+                            <Input
+                              type="email"
+                              placeholder="Your Email"
+                              {...field}
+                              value={email || field.value}
+                              onChange={(e) => {
+                                field.onChange(e);
+                                handleEmailChange(e);
+                              }}
+                              disabled={trackMutation.isPending}
+                            />
+                          </FormControl>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+                  )}
 
                   <Button
                     type="submit"
@@ -617,28 +639,30 @@ export default function ProductSearch({
                           />
                         )}
 
-                        <FormField
-                          control={trackForm.control}
-                          name="email"
-                          render={({ field }) => (
-                            <FormItem>
-                              <FormControl>
-                                <Input
-                                  type="email"
-                                  placeholder="Your Email"
-                                  {...field}
-                                  value={email || field.value}
-                                  onChange={(e) => {
-                                    field.onChange(e);
-                                    handleEmailChange(e);
-                                  }}
-                                  disabled={trackMutation.isPending}
-                                />
-                              </FormControl>
-                              <FormMessage />
-                            </FormItem>
-                          )}
-                        />
+                        {!isAuthenticated && (
+                          <FormField
+                            control={trackForm.control}
+                            name="email"
+                            render={({ field }) => (
+                              <FormItem>
+                                <FormControl>
+                                  <Input
+                                    type="email"
+                                    placeholder="Your Email"
+                                    {...field}
+                                    value={email || field.value}
+                                    onChange={(e) => {
+                                      field.onChange(e);
+                                      handleEmailChange(e);
+                                    }}
+                                    disabled={trackMutation.isPending}
+                                  />
+                                </FormControl>
+                                <FormMessage />
+                              </FormItem>
+                            )}
+                          />
+                        )}
 
                         <div className="bg-muted/50 p-3 rounded-lg mt-4 mb-3 text-sm">
                           <div className="flex items-center">
