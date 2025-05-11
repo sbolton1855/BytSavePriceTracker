@@ -2,7 +2,7 @@ import { useState, useEffect } from "react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import ProductsDisplay from "@/components/products-display";
-import TrackerForm from "@/components/tracker-form";
+
 import ProductSearch from "@/components/product-search";
 import { useAuth } from "@/hooks/use-auth";
 import { useToast } from "@/hooks/use-toast";
@@ -110,35 +110,6 @@ const Dashboard: React.FC = () => {
           email={userEmail || "SBOLTON1855@GMAIL.COM"} 
           key={refreshTrigger} 
         />
-
-        <div className="mt-12">
-          <Card>
-            <CardHeader>
-              <CardTitle>Quick Track by URL</CardTitle>
-              <CardDescription>
-                Quickly add an Amazon product URL to your tracking list
-              </CardDescription>
-            </CardHeader>
-            <CardContent>
-              <TrackerForm 
-                onSuccess={() => {
-                  // Get the email from the form if available
-                  const emailInput = document.querySelector('input[name="email"]') as HTMLInputElement;
-                  if (emailInput && emailInput.value) {
-                    const email = emailInput.value;
-                    setUserEmail(email);
-                    
-                    // Save to local storage for persistence
-                    localStorage.setItem("bytsave_user_email", email);
-                  }
-                  
-                  // Refresh the product list
-                  setRefreshTrigger(prev => prev + 1);
-                }} 
-              />
-            </CardContent>
-          </Card>
-        </div>
       </div>
     </div>
   );
