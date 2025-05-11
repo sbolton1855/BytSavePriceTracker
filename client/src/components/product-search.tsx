@@ -191,6 +191,9 @@ export default function ProductSearch({
       const endpoint = "/api/my/track";
       console.log(`Calling endpoint ${endpoint} with data:`, JSON.stringify(data));
       
+      // Log the session cookie
+      console.log("Cookies being sent:", document.cookie);
+      
       // Use fetch directly to have more control over the request
       const res = await fetch(endpoint, {
         method: 'POST',
@@ -201,6 +204,16 @@ export default function ProductSearch({
         body: JSON.stringify(data)
       });
       
+      console.log("Track API response status:", res.status);
+      console.log("Track API response headers:", JSON.stringify([...res.headers.entries()]));
+      
+      if (res.status === 401) {
+        // Redirect to auth page for unauthenticated users
+        console.error("Authentication required - redirecting to login");
+        window.location.href = "/auth";
+        throw new Error("Please log in to track products");
+      }
+    
       if (!res.ok) {
         const errorText = await res.text();
         console.error(`Error response from ${endpoint}:`, errorText);
