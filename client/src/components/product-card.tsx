@@ -99,7 +99,8 @@ const ProductCard: React.FC<ProductCardProps> = ({ trackedProduct, onRefresh }) 
   // Refresh price mutation
   const refreshPriceMutation = useMutation({
     mutationFn: async () => {
-      return apiRequest("POST", `/api/refresh-price/${trackedProduct.id}`, {});
+      console.log(`Refreshing price for tracked product with ID: ${trackedProduct.id}`);
+      return apiRequest("POST", `/api/my/refresh-price/${trackedProduct.id}`, {});
     },
     onSuccess: () => {
       toast({
@@ -122,7 +123,8 @@ const ProductCard: React.FC<ProductCardProps> = ({ trackedProduct, onRefresh }) 
   // Delete tracking mutation
   const deleteTrackingMutation = useMutation({
     mutationFn: async () => {
-      return apiRequest("DELETE", `/api/tracked-products/${trackedProduct.id}`, {});
+      console.log(`Deleting tracked product with ID: ${trackedProduct.id}`);
+      return apiRequest("DELETE", `/api/my/tracked-products/${trackedProduct.id}`, {});
     },
     onSuccess: () => {
       // Show confirmation toast
@@ -134,11 +136,15 @@ const ProductCard: React.FC<ProductCardProps> = ({ trackedProduct, onRefresh }) 
       setIsDeleting(false);
       setShowDeleteConfirm(false);
       
-      // Force refresh the tracked products list
+      // Force refresh the tracked products list by invalidating and then explicitly refetching
       queryClient.invalidateQueries({ queryKey: ['/api/tracked-products'] });
+      queryClient.refetchQueries({ queryKey: ['/api/tracked-products'] });
       
       // Also trigger the parent's refresh callback
       onRefresh();
+      
+      // Force re-render any components using the data
+      document.dispatchEvent(new Event('product-deleted'));
       
       // Give a small delay to allow the DOM to update
       setTimeout(() => {
