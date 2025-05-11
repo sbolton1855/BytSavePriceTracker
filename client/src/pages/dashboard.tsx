@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import ProductsDisplay from "@/components/products-display";
@@ -13,7 +13,10 @@ const Dashboard: React.FC = () => {
   const [refreshTrigger, setRefreshTrigger] = useState(0);
   
   // Get the user's email for product tracking
-  const userEmail = user?.email || "";
+  const [userEmail, setUserEmail] = useState<string>(() => {
+    // Use authenticated user's email or get from local storage
+    return user?.email || localStorage.getItem("bytsave_user_email") || "";
+  });
   
   // Debug user info
   useEffect(() => {
@@ -21,8 +24,26 @@ const Dashboard: React.FC = () => {
     console.log("Dashboard - using email:", userEmail);
   }, [user, userEmail]);
   
+  // Update email from user when auth status changes
+  useEffect(() => {
+    if (user?.email) {
+      setUserEmail(user.email);
+      localStorage.setItem("bytsave_user_email", user.email);
+    }
+  }, [user]);
+  
   // Handle successful search and tracking
   const handleSearchSuccess = () => {
+    // Get the email from the form if available
+    const emailInput = document.querySelector('input[name="email"]') as HTMLInputElement;
+    if (emailInput && emailInput.value) {
+      const email = emailInput.value;
+      setUserEmail(email);
+      
+      // Save to local storage for persistence
+      localStorage.setItem("bytsave_user_email", email);
+    }
+    
     toast({
       title: "Product tracking started",
       description: "We'll send an email when the price drops below your target.",
@@ -97,6 +118,16 @@ const Dashboard: React.FC = () => {
             <CardContent>
               <TrackerForm 
                 onSuccess={() => {
+                  // Get the email from the form if available
+                  const emailInput = document.querySelector('input[name="email"]') as HTMLInputElement;
+                  if (emailInput && emailInput.value) {
+                    const email = emailInput.value;
+                    setUserEmail(email);
+                    
+                    // Save to local storage for persistence
+                    localStorage.setItem("bytsave_user_email", email);
+                  }
+                  
                   // Refresh the product list
                   setRefreshTrigger(prev => prev + 1);
                 }} 
