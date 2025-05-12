@@ -248,11 +248,10 @@ export default function ProductSearch({
       console.log("Product tracked, invalidating queries...");
 
       // Forcefully invalidate and reset all related queries
-      queryClient.resetQueries({ queryKey: ['/api/my/tracked-products'] });
-      queryClient.resetQueries({ queryKey: ['/api/tracked-products'] });
+      queryClient.invalidateQueries({ queryKey: ['/api/my/tracked-products'] });
 
       // Make a direct API call to fetch the latest data
-      fetch('/api/tracked-products', { 
+      fetch('/api/my/tracked-products', { 
         credentials: 'include',
         headers: { 'Cache-Control': 'no-cache' }
       })
@@ -260,7 +259,7 @@ export default function ProductSearch({
       .then(data => {
         console.log("Fresh tracked products data:", data);
         // Update the cache with fresh data
-        queryClient.setQueryData(['/api/tracked-products'], data);
+        queryClient.setQueryData(['/api/my/tracked-products'], data);
 
         // Dispatch a custom event to notify other components
         document.dispatchEvent(new CustomEvent('product-tracked', { detail: data }));
