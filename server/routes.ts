@@ -9,6 +9,70 @@ import { trackingFormSchema } from "@shared/schema";
 
 const AFFILIATE_TAG = process.env.AMAZON_PARTNER_TAG || 'bytsave-20';
 
+/**
+ * Helper function that intelligently adds price history entries only when needed
+ * 
+ * Will only create a new price history entry if:
+ * 1. No previous price history exists, or
+ * 2. The current price is different from the last recorded price, or
+ * 3. Significant time has passed since the last price point (over 12 hours)
+ * 
+ * @param productId - The product ID to add price history for
+ * @param currentPrice - The current price to potentially add
+ * @returns Promise<boolean> - Whether a new price history entry was created
+ */
+async function intelligentlyAddPriceHistory(productId: number, currentPrice: number): Promise<boolean> {
+  try {
+    // Get the most recent price history for this product
+    const priceHistory = await storage.getPriceHistoryByProductId(productId);
+    
+    // If no price history exists, always add the first entry
+    if (!priceHistory || priceHistory.length === 0) {
+      console.log(`Creating first price history entry for product ${productId} at $${currentPrice}`);
+      await storage.createPriceHistory({
+        productId,
+        price: currentPrice,
+        timestamp: new Date()
+      });
+      return true;
+    }
+    
+    // Sort by timestamp to get the most recent entry
+    priceHistory.sort((a, b) => 
+      new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime()
+    );
+    
+    const latestEntry = priceHistory[0];
+    const latestTimestamp = new Date(latestEntry.timestamp);
+    const now = new Date();
+    const hoursSinceLastUpdate = (now.getTime() - latestTimestamp.getTime()) / (1000 * 60 * 60);
+    
+    // Add new entry if price changed or significant time has passed
+    const priceChanged = Math.abs(latestEntry.price - currentPrice) > 0.01; // 1 cent threshold
+    const significantTimePassed = hoursSinceLastUpdate > 12; // 12 hour threshold
+    
+    if (priceChanged || significantTimePassed) {
+      const reason = priceChanged ? "price changed" : "time threshold exceeded";
+      console.log(`Creating new price history entry for product ${productId} at $${currentPrice} (reason: ${reason})`);
+      
+      await storage.createPriceHistory({
+        productId,
+        price: currentPrice,
+        timestamp: new Date()
+      });
+      return true;
+    }
+    
+    console.log(`Skipping price history entry for product ${productId} ($${currentPrice}) - no significant change`);
+    return false;
+  } catch (error) {
+    console.error("Error adding price history:", error);
+    return false;
+  }
+}
+
+export { intelligentlyAddPriceHistory };
+
 export async function registerRoutes(app: Express): Promise<Server> {
   // Setup authentication
   configureAuth(app);
@@ -411,12 +475,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
             lastChecked: new Date()
           });
           
-          // Also create initial price history entry
-          await storage.createPriceHistory({
-            productId: product.id,
-            price: amazonProduct.price,
-            timestamp: new Date()
-          });
+          // Create initial price history entry (always add for new products)
+          await intelligentlyAddPriceHistory(product.id, amazonProduct.price);
         }
       }
       
@@ -568,12 +628,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
         lastChecked: new Date()
       });
       
-      // Also create a price history entry
-      await storage.createPriceHistory({
-        productId: id,
-        price: amazonProduct.price,
-        timestamp: new Date()
-      });
+      // Intelligently add a price history entry (only when needed)
+      await intelligentlyAddPriceHistory(id, amazonProduct.price);
       
       // Add affiliate link to response
       const response = {
