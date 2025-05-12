@@ -20,23 +20,20 @@ const ProductsDisplay: React.FC<ProductsDisplayProps> = ({ email }) => {
   const { user, isAuthenticated } = useAuth();
   const [filter, setFilter] = useState<FilterOption>("all");
   
-  // Fetch tracked products
+  // Fetch tracked products - using authenticated endpoint
   const { data, isLoading, isError, error, refetch } = useQuery<TrackedProductWithDetails[]>({
-    queryKey: ['/api/tracked-products', email],
-    enabled: !!email && email.length > 0,
+    queryKey: ['/api/my/tracked-products'],
+    enabled: isAuthenticated && !!user,
     queryFn: async ({ queryKey }) => {
-      console.log("ProductsDisplay - current email:", email);
-      if (!email || email.length === 0) {
-        console.log("No email provided, returning empty array");
-        return [];
-      }
+      console.log("ProductsDisplay - Fetching tracked products for authenticated user");
       
       try {
-        // Force email to uppercase to match stored format (SBOLTON1855@GMAIL.COM)
-        const upperEmail = email.toUpperCase();
         // Add timestamp to prevent caching
         const timestamp = new Date().getTime();
-        const res = await fetch(`${queryKey[0]}?email=${encodeURIComponent(upperEmail)}&_t=${timestamp}`);
+        const res = await fetch(`${queryKey[0]}?_t=${timestamp}`, {
+          credentials: 'include' // Important for authenticated requests
+        });
+        
         if (!res.ok) throw new Error('Failed to fetch tracked products');
         const data = await res.json();
         console.log("ProductsDisplay - data changed:", data);
