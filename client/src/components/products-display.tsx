@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/button";
 import { useToast } from "@/hooks/use-toast";
 import { Skeleton } from "@/components/ui/skeleton";
 import type { TrackedProductWithDetails } from "@shared/schema";
+import { useAuth } from "@/hooks/use-auth";
 
 interface ProductsDisplayProps {
   email: string;
@@ -16,6 +17,7 @@ type FilterOption = "all" | "price-dropped" | "target-reached" | "recently-added
 
 const ProductsDisplay: React.FC<ProductsDisplayProps> = ({ email }) => {
   const { toast } = useToast();
+  const { user, isAuthenticated } = useAuth();
   const [filter, setFilter] = useState<FilterOption>("all");
   
   // Fetch tracked products
@@ -139,6 +141,11 @@ const ProductsDisplay: React.FC<ProductsDisplayProps> = ({ email }) => {
       console.log("ProductsDisplay - Found", data.length, "products for email:", email);
     }
   }, [email, data, filteredProducts, isLoading, isError, error]);
+
+  // If not authenticated, don't render this section at all
+  if (!isAuthenticated) {
+    return null;
+  }
 
   return (
     <section className="py-12 bg-gray-50" id="dashboard">
