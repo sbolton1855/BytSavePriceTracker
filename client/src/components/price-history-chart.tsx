@@ -108,23 +108,38 @@ export default function PriceHistoryChart({ productId }: PriceHistoryChartProps)
       // Sort by date
       formattedData.sort((a, b) => a.date.getTime() - b.date.getTime());
 
-      // Add current price if it's not already in the chart
-      const lastDate = formattedData.length > 0 
-        ? formattedData[formattedData.length - 1].date 
+      // Get current price and date information
+      const lastDataPoint = formattedData.length > 0 
+        ? formattedData[formattedData.length - 1] 
         : null;
         
       const currentDate = data.product.lastChecked 
         ? new Date(data.product.lastChecked) 
         : new Date();
+      
+      const currentPrice = data.product.currentPrice;
 
-      // Only add current price if it's more recent than the last price history point
-      if (
-        !lastDate ||
-        currentDate.getTime() > lastDate.getTime()
-      ) {
+      // Only add current price if:
+      // 1. There are no existing data points, or
+      // 2. The current date is significantly newer than the last data point (more than 12 hours), or
+      // 3. The current price is different from the last recorded price
+      const shouldAddCurrentPrice = 
+        !lastDataPoint || 
+        (currentDate.getTime() - lastDataPoint.date.getTime() > 12 * 60 * 60 * 1000) || // 12 hours
+        (Math.abs(currentPrice - lastDataPoint.price) > 0.01); // Check if price is different (1 cent threshold)
+      
+      if (shouldAddCurrentPrice) {
+        console.log("Adding current price to chart data:", {
+          date: currentDate,
+          price: currentPrice,
+          reason: !lastDataPoint ? "No existing data" : 
+                  (currentDate.getTime() - lastDataPoint.date.getTime() > 12 * 60 * 60 * 1000) ? "Time difference > 12h" :
+                  "Price changed"
+        });
+        
         formattedData.push({
           date: currentDate,
-          price: data.product.currentPrice,
+          price: currentPrice,
         });
       }
 
@@ -132,7 +147,7 @@ export default function PriceHistoryChart({ productId }: PriceHistoryChartProps)
       setFullChartData(formattedData);
       setChartData(filterDataByTimeFrame(formattedData, timeFrame));
     }
-  }, [data]);
+  }, [data, timeFrame]);
   
   // Update chart when time frame changes
   useEffect(() => {
