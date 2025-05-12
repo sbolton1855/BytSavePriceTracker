@@ -677,20 +677,22 @@ export default function ProductSearch({
                     </div>
                   ) : null}
 
-                  <Button
-                    type="submit"
-                    className="w-full"
-                    disabled={trackMutation.isPending}
-                  >
-                    {trackMutation.isPending ? (
-                      <>
-                        <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                        Setting up tracking...
-                      </>
-                    ) : (
-                      "Track Price"
-                    )}
-                  </Button>
+                  {isAuthenticated && (
+                    <Button
+                      type="submit"
+                      className="w-full"
+                      disabled={trackMutation.isPending}
+                    >
+                      {trackMutation.isPending ? (
+                        <>
+                          <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                          Setting up tracking...
+                        </>
+                      ) : (
+                        "Track Price"
+                      )}
+                    </Button>
+                  )}
                 </form>
               </Form>
             </CardContent>
