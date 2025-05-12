@@ -74,21 +74,21 @@ export default function ProductSearch({
   const [email, setEmail] = useState<string>(user?.email || "");
   const [searchQuery, setSearchQuery] = useState<string>("");
   const [debouncedSearchQuery, setDebouncedSearchQuery] = useState<string>("");
-  
+
   // Debounce the search query
   useEffect(() => {
     const handler = setTimeout(() => {
       setDebouncedSearchQuery(searchQuery);
     }, 500); // 500ms delay
-    
+
     return () => {
       clearTimeout(handler);
     };
   }, [searchQuery]);
-  
+
   // We'll add the user email effect after trackForm is defined
   const [searchTimeout, setSearchTimeout] = useState<NodeJS.Timeout | null>(null);
-  
+
   // Form for searching products
   const searchForm = useForm<z.infer<typeof searchSchema>>({
     resolver: zodResolver(searchSchema),
@@ -96,7 +96,7 @@ export default function ProductSearch({
       query: "",
     },
   });
-  
+
   // Form for tracking products
   const trackForm = useForm<TrackingFormData>({
     resolver: zodResolver(trackingFormSchema),
@@ -108,7 +108,7 @@ export default function ProductSearch({
       percentageThreshold: 0, // No default percentage, user must select one
     },
   });
-  
+
   // Update email when user authentication changes
   useEffect(() => {
     if (user?.email) {
@@ -116,20 +116,20 @@ export default function ProductSearch({
       trackForm.setValue("email", user.email);
     }
   }, [user, trackForm]);
-  
+
   // Handle search input with debounce
   const handleSearchInput = (value: string) => {
     if (searchTimeout) clearTimeout(searchTimeout);
-    
+
     searchForm.setValue("query", value);
-    
+
     const timeout = setTimeout(() => {
       setSearchQuery(value);
     }, 800); // Wait 800ms after user stops typing
-    
+
     setSearchTimeout(timeout);
   };
-  
+
   // Search results query
   const {
     data: searchResults,
@@ -141,7 +141,7 @@ export default function ProductSearch({
       if (!debouncedSearchQuery || debouncedSearchQuery.length < 3) {
         return [];
       }
-      
+
       const res = await fetch(
         `/api/search?q=${encodeURIComponent(debouncedSearchQuery)}`
       );
@@ -152,7 +152,7 @@ export default function ProductSearch({
     },
     enabled: debouncedSearchQuery.length >= 3 && searchTab === "name",
   });
-  
+
   // URL/ASIN search query
   const {
     data: productData,
@@ -164,14 +164,14 @@ export default function ProductSearch({
       if (!url || url.length < 10) { // Basic validation for URL or ASIN
         return null;
       }
-      
+
       const res = await fetch(
         `/api/product?url=${encodeURIComponent(url)}`
       );
       if (!res.ok) {
         throw new Error("Failed to fetch product details");
       }
-      
+
       const data = await res.json();
       // Automatically set selected product when data is returned
       if (data) {
@@ -181,23 +181,23 @@ export default function ProductSearch({
     },
     enabled: trackForm.watch("productUrl").length >= 10 && searchTab === "url",
   });
-  
+
   // Product tracking mutation
   const trackMutation = useMutation({
     mutationFn: async (data: TrackingFormData) => {
       console.log("About to send track request with data:", data);
-      
+
       // Check authentication first
       if (!isAuthenticated) {
         console.error("User not authenticated, redirecting to login");
         window.location.href = "/auth";
         throw new Error("Please log in to track products");
       }
-      
+
       // Use the correct endpoint
       const endpoint = "/api/my/track";
       console.log(`Calling endpoint ${endpoint} with data:`, JSON.stringify(data));
-      
+
       // Use the API request utility which handles credentials properly
       try {
         const response = await apiRequest("POST", endpoint, data);
@@ -206,25 +206,25 @@ export default function ProductSearch({
         return result;
       } catch (error) {
         console.error("Track API request failed:", error);
-        
+
         // Check if the error is due to authentication
         const errorMessage = error instanceof Error ? error.message : String(error);
         if (errorMessage.includes("401") || errorMessage.includes("Unauthorized")) {
           window.location.href = "/auth";
           throw new Error("Please log in to track products");
         }
-        
+
         throw error;
       }
     },
     onSuccess: (result) => {
       console.log("Track mutation succeeded with result:", result);
-      
+
       // Get the target price from the form data or result
       const targetPrice = trackForm.getValues("targetPrice");
       const isPercentage = trackForm.getValues("percentageAlert");
       const percentThreshold = trackForm.getValues("percentageThreshold");
-      
+
       // Create a more descriptive success message
       let alertDescription = "";
       if (isPercentage) {
@@ -232,25 +232,25 @@ export default function ProductSearch({
       } else {
         alertDescription = `We'll notify you when ${selectedProduct?.title?.substring(0, 25)}... drops below $${targetPrice.toFixed(2)}.`;
       }
-      
+
       // Show success toast with product details
       toast({
         title: "✅ Product tracking set up!",
         description: alertDescription,
         duration: 5000,
       });
-      
+
       // Reset forms
       trackForm.reset();
       searchForm.reset();
       setSelectedProduct(null);
-      
+
       console.log("Product tracked, invalidating queries...");
-      
+
       // Forcefully invalidate and reset all related queries
       queryClient.resetQueries({ queryKey: ['/api/my/tracked-products'] });
       queryClient.resetQueries({ queryKey: ['/api/tracked-products'] });
-      
+
       // Make a direct API call to fetch the latest data
       fetch('/api/tracked-products', { 
         credentials: 'include',
@@ -261,10 +261,10 @@ export default function ProductSearch({
         console.log("Fresh tracked products data:", data);
         // Update the cache with fresh data
         queryClient.setQueryData(['/api/tracked-products'], data);
-        
+
         // Dispatch a custom event to notify other components
         document.dispatchEvent(new CustomEvent('product-tracked', { detail: data }));
-        
+
         // Show additional confirmation with specific instructions
         toast({
           title: "Product Added to Dashboard",
@@ -279,7 +279,7 @@ export default function ProductSearch({
             </Button>
           ),
         });
-        
+
         // Call success callback if provided
         if (onSuccess) {
           onSuccess();
@@ -299,12 +299,12 @@ export default function ProductSearch({
       });
     },
   });
-  
+
   // Search products by name
   const onSearchSubmit = (data: z.infer<typeof searchSchema>) => {
     // Search is handled by the useQuery hook
   };
-  
+
   // Track product form submission
   const onTrackSubmit = (data: TrackingFormData) => {
     // Check if the user is authenticated first
@@ -318,7 +318,7 @@ export default function ProductSearch({
       setTimeout(() => window.location.href = "/auth", 1500);
       return;
     }
-    
+
     // Make sure we have a selected product
     if (!selectedProduct) {
       toast({
@@ -328,10 +328,10 @@ export default function ProductSearch({
       });
       return;
     }
-    
+
     // Create a copy of the data to avoid mutating the original form data
     const trackingData = { ...data };
-    
+
     // For percentage-based alerts, calculate the target price if we have a current price
     if (trackingData.percentageAlert && selectedProduct?.price && trackingData.percentageThreshold) {
       const calculatedPrice = selectedProduct.price * (1 - trackingData.percentageThreshold / 100);
@@ -339,7 +339,7 @@ export default function ProductSearch({
       trackingData.targetPrice = Math.round(calculatedPrice * 100) / 100;
       console.log(`Calculated target price: $${trackingData.targetPrice} based on ${trackingData.percentageThreshold}% off $${selectedProduct.price}`);
     }
-    
+
     // Always ensure we use the user's email if they're authenticated
     if (isAuthenticated && user?.email) {
       trackingData.email = user.email;
@@ -352,10 +352,10 @@ export default function ProductSearch({
       });
       return;
     }
-    
+
     // Log the data being prepared
     console.log("Preparing tracking data:", trackingData);
-    
+
     if (trackingData.percentageAlert && (!trackingData.percentageThreshold || trackingData.percentageThreshold <= 0)) {
       toast({
         title: "Percentage required",
@@ -364,7 +364,7 @@ export default function ProductSearch({
       });
       return;
     }
-    
+
     if (!trackingData.percentageAlert && (!trackingData.targetPrice || trackingData.targetPrice <= 0)) {
       toast({
         title: "Target price required",
@@ -373,12 +373,12 @@ export default function ProductSearch({
       });
       return;
     }
-    
+
     // Make sure productId is set from the selected product
     if (selectedProduct.id) {
       trackingData.productId = selectedProduct.id;
       console.log(`Using product ID: ${trackingData.productId}`);
-      
+
       // Double-check that other required fields are set
       if (!trackingData.targetPrice) {
         console.error("Missing targetPrice before submission");
@@ -389,13 +389,13 @@ export default function ProductSearch({
         });
         return;
       }
-      
+
       // All validations passed, show pending toast
       toast({
         title: "Setting up price tracking...",
         description: "Adding product to your tracked items",
       });
-      
+
     } else {
       console.log(`No product ID available, will use URL: ${trackingData.productUrl}`);
       if (!trackingData.productUrl) {
@@ -407,10 +407,10 @@ export default function ProductSearch({
         return;
       }
     }
-    
+
     // Submit the tracking request with full details
     console.log("Submitting tracking request with validated data:", JSON.stringify(trackingData));
-    
+
     // Manually trigger the API call instead of using the mutation to have more control
     fetch('/api/my/track', {
       method: 'POST',
@@ -422,7 +422,7 @@ export default function ProductSearch({
     })
     .then(response => {
       console.log("Track API response status:", response.status);
-      
+
       if (response.status === 401) {
         console.error("Authentication required");
         toast({
@@ -433,19 +433,19 @@ export default function ProductSearch({
         setTimeout(() => window.location.href = "/auth", 1500);
         throw new Error("Authentication required");
       }
-      
+
       if (!response.ok) {
         return response.text().then(text => {
           console.error("Track API error:", text);
           throw new Error(text || "Failed to track product");
         });
       }
-      
+
       return response.json();
     })
     .then(result => {
       console.log("Track API success:", result);
-      
+
       // Show success toast
       toast({
         title: "✅ Product tracking set up!",
@@ -454,23 +454,23 @@ export default function ProductSearch({
           `We'll notify you when ${selectedProduct?.title?.substring(0, 25)}... drops below $${trackingData.targetPrice.toFixed(2)}.`,
         duration: 5000,
       });
-      
+
       // Reset forms
       trackForm.reset();
       searchForm.reset();
       setSelectedProduct(null);
-      
+
       // Forcefully invalidate and refresh the product list
       queryClient.invalidateQueries({ queryKey: ['/api/tracked-products'] });
       queryClient.resetQueries({ queryKey: ['/api/tracked-products'] });
-      
+
       // Force a fetch with a fresh request to update the UI
       fetch('/api/tracked-products', { credentials: 'include', cache: 'no-store' })
         .then(res => res.json())
         .then(data => {
           queryClient.setQueryData(['/api/tracked-products'], data);
           document.dispatchEvent(new CustomEvent('product-tracked'));
-          
+
           // Show confirmation with view option
           toast({
             title: "Product Added to Dashboard",
@@ -485,7 +485,7 @@ export default function ProductSearch({
               </Button>
             ),
           });
-          
+
           // Call success callback if provided
           if (onSuccess) onSuccess();
         });
@@ -499,42 +499,42 @@ export default function ProductSearch({
       });
     });
   };
-  
+
   // Set product URL and email when a search result is selected
   const selectProduct = (product: ProductSearchResult) => {
     setSelectedProduct(product);
     trackForm.setValue("productUrl", product.url);
-    
+
     // Set up default values based on the current price
     if (product.price) {
       // Default fixed price: 10% below current price, rounded to 2 decimal places
       const suggestedPrice = Math.round(product.price * 0.9 * 100) / 100;
       trackForm.setValue("targetPrice", suggestedPrice);
-      
+
       // Reset percentage threshold, requiring user selection
       trackForm.setValue("percentageThreshold", 0);
       trackForm.setValue("percentageAlert", false); // Default to fixed price mode
     }
-    
+
     // Set email - prioritize authenticated user's email
     if (user?.email) {
       trackForm.setValue("email", user.email);
     } else if (email) {
       trackForm.setValue("email", email);
     }
-    
+
     // Scroll to the tracking form
     setTimeout(() => {
       document.getElementById("tracking-form")?.scrollIntoView({ behavior: "smooth" });
     }, 100);
   };
-  
+
   // Set email for both search modes
   const handleEmailChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     setEmail(e.target.value);
     trackForm.setValue("email", e.target.value);
   };
-  
+
   return (
     <div className="w-full max-w-3xl mx-auto">
       <Tabs
@@ -579,14 +579,14 @@ export default function ProductSearch({
                       </FormItem>
                     )}
                   />
-                  
+
                   {isProductLoading && (
                     <div className="flex items-center justify-center py-4">
                       <Loader2 className="h-6 w-6 animate-spin text-primary mr-2" />
                       <span>Loading product details...</span>
                     </div>
                   )}
-                  
+
                   {productData && (
                     <div className="mt-4">
                       <div className="bg-slate-50 p-4 rounded-md">
@@ -614,7 +614,7 @@ export default function ProductSearch({
                           </div>
                         </div>
                       </div>
-                      
+
                       {/* Removed duplicate price history chart */}
                     </div>
                   )}
@@ -855,59 +855,23 @@ export default function ProductSearch({
                               Choose how you want to be notified when the price drops
                             </p>
                           </div>
+
+                          {/* Hidden field to always set percentageAlert to false */}
+                          <input type="hidden" {...trackForm.register("percentageAlert")} value="false" />
                           
-                          <FormField
-                            control={trackForm.control}
-                            name="percentageAlert"
-                            render={({ field }) => (
-                              <FormItem>
-                                <div className="space-y-3">
-                                  <div className="grid grid-cols-2 gap-3">
-                                    <div 
-                                      className={`border rounded-lg p-3 cursor-pointer transition-colors ${!field.value 
-                                        ? 'bg-primary/10 border-primary/30 shadow-sm' 
-                                        : 'bg-card border-input hover:border-primary/20 hover:bg-primary/5'}`}
-                                      onClick={() => {
-                                        field.onChange(false);
-                                      }}
-                                    >
-                                      <div className={`flex flex-col items-center text-center h-full justify-center py-3 ${!field.value ? 'text-primary' : ''}`}>
-                                        <DollarSign className={`h-8 w-8 mb-2 ${!field.value ? 'text-primary' : 'text-muted-foreground'}`} />
-                                        <div className="font-medium">Fixed Price</div>
-                                        <div className="text-xs mt-1 text-muted-foreground">
-                                          Alert when price falls below a specific amount
-                                        </div>
-                                      </div>
-                                    </div>
-                                    
-                                    <div 
-                                      className={`border rounded-lg p-3 cursor-pointer transition-colors ${field.value 
-                                        ? 'bg-primary/10 border-primary/30 shadow-sm' 
-                                        : 'bg-card border-input hover:border-primary/20 hover:bg-primary/5'}`}
-                                      onClick={() => {
-                                        field.onChange(true);
-                                        // Don't set a default percentage - let user select
-                                        if (trackForm.watch("percentageThreshold")) {
-                                          // Keep existing value if already set
-                                        } else {
-                                          // Clear any previous value - use 0 instead of null to avoid type issues
-                                          trackForm.setValue("percentageThreshold", 0);
-                                        }
-                                      }}
-                                    >
-                                      <div className={`flex flex-col items-center text-center h-full justify-center py-3 ${field.value ? 'text-primary' : ''}`}>
-                                        <Percent className={`h-8 w-8 mb-2 ${field.value ? 'text-primary' : 'text-muted-foreground'}`} />
-                                        <div className="font-medium">Percentage Drop</div>
-                                        <div className="text-xs mt-1 text-muted-foreground">
-                                          Alert when price drops by a percentage
-                                        </div>
-                                      </div>
-                                    </div>
+                          <div className="space-y-3">
+                            <div className="grid">
+                              <div className="border rounded-lg p-3 bg-primary/10 border-primary/30 shadow-sm">
+                                <div className="flex flex-col items-center text-center h-full justify-center py-3 text-primary">
+                                  <DollarSign className="h-8 w-8 mb-2 text-primary" />
+                                  <div className="font-medium">Price Alert</div>
+                                  <div className="text-xs mt-1 text-muted-foreground">
+                                    Alert when price falls below your target price
                                   </div>
                                 </div>
-                              </FormItem>
-                            )}
-                          />
+                              </div>
+                            </div>
+                          </div>
                         </div>
 
                         {/* Conditional field based on alert type */}
@@ -942,9 +906,9 @@ export default function ProductSearch({
                                       />
                                     </div>
                                   </FormControl>
-                                  
+
                                   <FormMessage />
-                                  
+
                                   {/* Quick suggestions based on current price */}
                                   {selectedProduct?.price && typeof selectedProduct.price === 'number' && (
                                     <div>
@@ -970,7 +934,7 @@ export default function ProductSearch({
                                       </div>
                                     </div>
                                   )}
-                                  
+
                                   {/* Current price display */}
                                   {selectedProduct?.price && typeof selectedProduct.price === 'number' && (
                                     <div className="bg-slate-100 p-2 rounded-md border border-slate-200">
@@ -1007,7 +971,7 @@ export default function ProductSearch({
                                       Select how much the price needs to drop before we alert you
                                     </p>
                                   </div>
-                                  
+
                                   {/* Current price display and preview calculation */}
                                   {selectedProduct?.price && typeof selectedProduct.price === 'number' && (
                                     <div className="bg-primary/5 p-3 rounded-lg border border-primary/10 mb-4">
@@ -1015,7 +979,7 @@ export default function ProductSearch({
                                         <span>Current price: </span>
                                         <span className="font-bold text-primary ml-1">${selectedProduct.price.toFixed(2)}</span>
                                       </div>
-                                      
+
                                       {field.value !== undefined && field.value !== null && field.value > 0 && (
                                         <div className="mt-2 pt-2 border-t border-primary/10">
                                           <div className="flex items-center text-sm">
@@ -1032,7 +996,7 @@ export default function ProductSearch({
                                       )}
                                     </div>
                                   )}
-                                  
+
                                   {/* Quick selection buttons in a grid */}
                                   <div className="grid grid-cols-3 gap-2">
                                     {[5, 10, 15, 20, 30, 50].map((percent) => (
@@ -1047,7 +1011,7 @@ export default function ProductSearch({
                                       </Button>
                                     ))}
                                   </div>
-                                  
+
                                   {/* Custom percentage input - acts as an alternative to buttons */}
                                   <div className="pt-3 border-t">
                                     <div className="flex justify-between mb-2">
@@ -1097,9 +1061,9 @@ export default function ProductSearch({
                                       </div>
                                     </FormControl>
                                   </div>
-                                  
+
                                   <FormMessage />
-                                  
+
                                   {/* Remove the redundant preview box since we already have one above */}
                                 </div>
                               </FormItem>
@@ -1114,85 +1078,50 @@ export default function ProductSearch({
                             <Bell className="h-5 w-5 mr-2 text-primary" />
                             <span className="font-semibold text-base">Price Alert Summary</span>
                           </div>
-                          
+
                           <div className="p-3 bg-white rounded-md border border-gray-100">
                             {selectedProduct?.price && typeof selectedProduct.price === 'number' ? (
-                              trackForm.watch("percentageAlert") ? (
-                                <div className="space-y-3">
-                                  {/* Percentage alert summary */}
-                                  <div className="flex items-center">
-                                    <Percent className="h-5 w-5 mr-2 text-primary" />
-                                    <div>
-                                      <div className="font-medium">Percentage-based alert</div>
-                                      <div className="text-xs text-muted-foreground mt-0.5">Current price: ${selectedProduct.price ? selectedProduct.price.toFixed(2) : "0.00"}</div>
-                                    </div>
+                              <div className="space-y-3">
+                                {/* Fixed price alert summary */}
+                                <div className="flex items-center">
+                                  <DollarSign className="h-5 w-5 mr-2 text-primary" />
+                                  <div>
+                                    <div className="font-medium">Price alert</div>
+                                    <div className="text-xs text-muted-foreground mt-0.5">Current price: ${selectedProduct.price.toFixed(2)}</div>
                                   </div>
-                                  
-                                  <div className="bg-green-50 p-2 rounded-md border border-green-100">
-                                    <div className="flex">
-                                      <div className="flex-shrink-0 mr-2">
-                                        <ArrowDown className="h-5 w-5 text-green-600" />
-                                      </div>
-                                      <div>
-                                        <p className="text-sm font-medium mb-1 text-slate-800">
-                                          {trackForm.watch("percentageThreshold") || 0}% price drop alert
-                                        </p>
-                                        {(trackForm.watch("percentageThreshold") || 0) > 0 ? (
-                                          <p className="text-xs text-slate-600">
-                                            You'll be notified when price drops below <strong className="text-green-700">${selectedProduct.price ? (selectedProduct.price * (1 - (trackForm.watch("percentageThreshold") || 0) / 100)).toFixed(2) : "0.00"}</strong>
+                                </div>
+
+                                <div className="bg-blue-50 p-2 rounded-md border border-blue-100">
+                                  <div className="flex">
+                                    <div className="flex-shrink-0 mr-2">
+                                      <DollarSign className="h-5 w-5 text-blue-600" />
+                                    </div>
+                                    <div>
+                                      <p className="text-sm font-medium mb-1 text-slate-800">
+                                        Target price: <strong className="text-blue-700">${trackForm.watch("targetPrice") || 0}</strong>
+                                      </p>
+                                      {trackForm.watch("targetPrice") > 0 ? (
+                                        trackForm.watch("targetPrice") < selectedProduct.price ? (
+                                          <p className="text-xs flex items-center text-slate-600">
+                                            <span className="mr-1">Potential savings:</span>
+                                            <span className="bg-green-100 text-green-700 px-1.5 py-0.5 rounded-full font-medium">
+                                              ${(selectedProduct.price - trackForm.watch("targetPrice")).toFixed(2)} ({Math.round((1 - trackForm.watch("targetPrice")/selectedProduct.price) * 100)}% off)
+                                            </span>
                                           </p>
                                         ) : (
-                                          <p className="text-xs text-orange-600">
-                                            Please select a percentage drop value
+                                          <p className="text-xs text-amber-600">
+                                            Target price is above current price
                                           </p>
-                                        )}
-                                      </div>
+                                        )
+                                      ) : (
+                                        <p className="text-xs text-orange-600">
+                                          Please enter a target price
+                                        </p>
+                                      )}
                                     </div>
                                   </div>
                                 </div>
-                              ) : (
-                                <div className="space-y-3">
-                                  {/* Fixed price alert summary */}
-                                  <div className="flex items-center">
-                                    <DollarSign className="h-5 w-5 mr-2 text-primary" />
-                                    <div>
-                                      <div className="font-medium">Fixed price alert</div>
-                                      <div className="text-xs text-muted-foreground mt-0.5">Current price: ${selectedProduct.price.toFixed(2)}</div>
-                                    </div>
-                                  </div>
-                                  
-                                  <div className="bg-blue-50 p-2 rounded-md border border-blue-100">
-                                    <div className="flex">
-                                      <div className="flex-shrink-0 mr-2">
-                                        <DollarSign className="h-5 w-5 text-blue-600" />
-                                      </div>
-                                      <div>
-                                        <p className="text-sm font-medium mb-1 text-slate-800">
-                                          Exact price alert: <strong className="text-blue-700">${trackForm.watch("targetPrice") || 0}</strong>
-                                        </p>
-                                        {trackForm.watch("targetPrice") > 0 ? (
-                                          trackForm.watch("targetPrice") < selectedProduct.price ? (
-                                            <p className="text-xs flex items-center text-slate-600">
-                                              <span className="mr-1">Potential savings:</span>
-                                              <span className="bg-green-100 text-green-700 px-1.5 py-0.5 rounded-full font-medium">
-                                                ${(selectedProduct.price - trackForm.watch("targetPrice")).toFixed(2)} ({Math.round((1 - trackForm.watch("targetPrice")/selectedProduct.price) * 100)}% off)
-                                              </span>
-                                            </p>
-                                          ) : (
-                                            <p className="text-xs text-amber-600">
-                                              Target price is above current price
-                                            </p>
-                                          )
-                                        ) : (
-                                          <p className="text-xs text-orange-600">
-                                            Please enter a target price
-                                          </p>
-                                        )}
-                                      </div>
-                                    </div>
-                                  </div>
-                                </div>
-                              )
+                              </div>
                             ) : (
                               <div className="text-center p-3 text-muted-foreground text-sm">
                                 <div className="mb-2 opacity-70">
@@ -1203,7 +1132,7 @@ export default function ProductSearch({
                             )}
                           </div>
                         </div>
-                        
+
                         {/* Price History Chart for informed decision making */}
                         {selectedProduct?.id && (
                           <div className="mt-6 mb-6 border rounded-lg p-4 bg-slate-50">
@@ -1215,7 +1144,7 @@ export default function ProductSearch({
                               Review the price history below to help set a reasonable target price or percentage alert
                             </p>
                             <PriceHistoryChart productId={selectedProduct.id} />
-                            
+
                             {/* Price stats and recommendations */}
                             <div className="grid grid-cols-2 gap-3 mt-4 pt-3 border-t border-slate-200">
                               <div className="px-3 py-2 bg-white rounded-md border border-slate-200">
@@ -1233,7 +1162,7 @@ export default function ProductSearch({
                             </div>
                           </div>
                         )}
-                        
+
                         <Button
                           type="submit"
                           className="w-full mt-6"
