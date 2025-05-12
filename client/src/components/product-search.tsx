@@ -615,13 +615,7 @@ export default function ProductSearch({
                         </div>
                       </div>
                       
-                      {/* Display price history if product has an ID */}
-                      {productData.id && (
-                        <div className="mt-4 bg-white p-4 rounded-md border">
-                          <h3 className="text-sm font-medium mb-2">Price History</h3>
-                          <PriceHistoryChart productId={productData.id} />
-                        </div>
-                      )}
+                      {/* Removed duplicate price history chart */}
                     </div>
                   )}
 
@@ -852,13 +846,7 @@ export default function ProductSearch({
                           </a>
                         </div>
 
-                        {/* Add price history chart if we have a product ID */}
-                        {selectedProduct.id && (
-                          <div className="mb-6">
-                            <h3 className="text-base font-medium mb-2">Price History</h3>
-                            <PriceHistoryChart productId={selectedProduct.id} />
-                          </div>
-                        )}
+                        {/* Removed duplicate price history chart - only kept in the alert section below */}
 
                         <div className="mb-6 bg-primary/5 p-4 rounded-lg border border-primary/10">
                           <div className="mb-4">
