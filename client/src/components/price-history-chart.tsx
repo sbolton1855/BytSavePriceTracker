@@ -99,8 +99,8 @@ export default function PriceHistoryChart({ productId }: PriceHistoryChartProps)
   
   useEffect(() => {
     if (data?.priceHistory) {
-      // Create chart data from price history
-      const formattedData = data.priceHistory.map((point) => ({
+      // Create and optimize chart data
+      let formattedData = data.priceHistory.map((point) => ({
         date: new Date(point.timestamp),
         price: point.price,
       }));
@@ -108,35 +108,32 @@ export default function PriceHistoryChart({ productId }: PriceHistoryChartProps)
       // Sort by date
       formattedData.sort((a, b) => a.date.getTime() - b.date.getTime());
 
-      // Get current price and date information
-      const lastDataPoint = formattedData.length > 0 
-        ? formattedData[formattedData.length - 1] 
-        : null;
+      // Remove duplicate price points that occur on the same day
+      formattedData = formattedData.reduce((acc, current, index, array) => {
+        if (index === 0) return [current];
         
-      const currentDate = data.product.lastChecked 
-        ? new Date(data.product.lastChecked) 
-        : new Date();
-      
-      const currentPrice = data.product.currentPrice;
+        const prev = acc[acc.length - 1];
+        const sameDay = prev.date.toDateString() === current.date.toDateString();
+        const samePrice = Math.abs(prev.price - current.price) < 0.01;
+        
+        // Only keep point if price changed or it's a different day
+        if (!sameDay || !samePrice) {
+          acc.push(current);
+        }
+        return acc;
+      }, [] as typeof formattedData);
 
-      // Only add current price if:
-      // 1. There are no existing data points, or
-      // 2. The current date is significantly newer than the last data point (more than 12 hours), or
-      // 3. The current price is different from the last recorded price
-      const shouldAddCurrentPrice = 
-        !lastDataPoint || 
-        (currentDate.getTime() - lastDataPoint.date.getTime() > 12 * 60 * 60 * 1000) || // 12 hours
-        (Math.abs(currentPrice - lastDataPoint.price) > 0.01); // Check if price is different (1 cent threshold)
+      // Add current price point if needed
+      const lastDataPoint = formattedData[formattedData.length - 1];
+      const currentDate = new Date(data.product.lastChecked);
+      const currentPrice = data.product.currentPrice;
       
-      if (shouldAddCurrentPrice) {
-        console.log("Adding current price to chart data:", {
-          date: currentDate,
-          price: currentPrice,
-          reason: !lastDataPoint ? "No existing data" : 
-                  (currentDate.getTime() - lastDataPoint.date.getTime() > 12 * 60 * 60 * 1000) ? "Time difference > 12h" :
-                  "Price changed"
-        });
-        
+      const differentDay = !lastDataPoint || 
+        lastDataPoint.date.toDateString() !== currentDate.toDateString();
+      const priceChanged = !lastDataPoint || 
+        Math.abs(lastDataPoint.price - currentPrice) > 0.01;
+      
+      if (differentDay || priceChanged) {
         formattedData.push({
           date: currentDate,
           price: currentPrice,
