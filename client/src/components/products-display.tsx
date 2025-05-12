@@ -142,8 +142,8 @@ const ProductsDisplay: React.FC<ProductsDisplayProps> = ({ email }) => {
     }
   }, [email, data, filteredProducts, isLoading, isError, error]);
 
-  // If not authenticated, don't render this section at all
-  if (!isAuthenticated) {
+  // If not authenticated or no user, don't render this section at all
+  if (!isAuthenticated || !user) {
     return null;
   }
 
