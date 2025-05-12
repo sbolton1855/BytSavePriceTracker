@@ -2,6 +2,7 @@ import { storage } from './storage';
 import { sendPriceDropAlert } from './emailService';
 import { getProductInfo, searchProducts } from './amazonApi';
 import type { Product } from '@shared/schema';
+import { intelligentlyAddPriceHistory } from './routes';
 
 // Interval for checking prices (in ms)
 // 4 hours in production, shorter for development
@@ -15,15 +16,8 @@ async function updateProductPrice(product: Product): Promise<Product | undefined
     // Fetch latest product info from Amazon API
     const latestInfo = await getProductInfo(product.asin);
     
-    // Prepare price history entry
-    const priceHistoryEntry = {
-      productId: product.id,
-      price: latestInfo.price,
-      timestamp: new Date()
-    };
-    
-    // Store price in history
-    await storage.createPriceHistory(priceHistoryEntry);
+    // Intelligently store price in history (only when needed)
+    await intelligentlyAddPriceHistory(product.id, latestInfo.price);
     
     // Update product data
     const updatedProduct = await storage.updateProduct(product.id, {
@@ -216,12 +210,8 @@ async function discoverNewProducts(): Promise<void> {
               lastChecked: new Date()
             });
             
-            // Add initial price history entry
-            await storage.createPriceHistory({
-              productId: newProduct.id,
-              price: result.price,
-              timestamp: new Date()
-            });
+            // Add initial price history entry (always add for new products)
+            await intelligentlyAddPriceHistory(newProduct.id, result.price);
             
             newProductCount++;
             console.log(`Added new product: ${result.title}`);
