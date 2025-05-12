@@ -856,58 +856,22 @@ export default function ProductSearch({
                             </p>
                           </div>
 
-                          <FormField
-                            control={trackForm.control}
-                            name="percentageAlert"
-                            render={({ field }) => (
-                              <FormItem>
-                                <div className="space-y-3">
-                                  <div className="grid grid-cols-2 gap-3">
-                                    <div 
-                                      className={`border rounded-lg p-3 cursor-pointer transition-colors ${!field.value 
-                                        ? 'bg-primary/10 border-primary/30 shadow-sm' 
-                                        : 'bg-card border-input hover:border-primary/20 hover:bg-primary/5'}`}
-                                      onClick={() => {
-                                        field.onChange(false);
-                                      }}
-                                    >
-                                      <div className={`flex flex-col items-center text-center h-full justify-center py-3 ${!field.value ? 'text-primary' : ''}`}>
-                                        <DollarSign className={`h-8 w-8 mb-2 ${!field.value ? 'text-primary' : 'text-muted-foreground'}`} />
-                                        <div className="font-medium">Fixed Price</div>
-                                        <div className="text-xs mt-1 text-muted-foreground">
-                                          Alert when price falls below a specific amount
-                                        </div>
-                                      </div>
-                                    </div>
-
-                                    <div 
-                                      className={`border rounded-lg p-3 cursor-pointer transition-colors ${field.value 
-                                        ? 'bg-primary/10 border-primary/30 shadow-sm' 
-                                        : 'bg-card border-input hover:border-primary/20 hover:bg-primary/5'}`}
-                                      onClick={() => {
-                                        field.onChange(true);
-                                        // Don't set a default percentage - let user select
-                                        if (trackForm.watch("percentageThreshold")) {
-                                          // Keep existing value if already set
-                                        } else {
-                                          // Clear any previous value - use 0 instead of null to avoid type issues
-                                          trackForm.setValue("percentageThreshold", 0);
-                                        }
-                                      }}
-                                    >
-                                      <div className={`flex flex-col items-center text-center h-full justify-center py-3 ${field.value ? 'text-primary' : ''}`}>
-                                        <Percent className={`h-8 w-8 mb-2 ${field.value ? 'text-primary' : 'text-muted-foreground'}`} />
-                                        <div className="font-medium">Percentage Drop</div>
-                                        <div className="text-xs mt-1 text-muted-foreground">
-                                          Alert when price drops by a percentage
-                                        </div>
-                                      </div>
-                                    </div>
+                          {/* Hidden field to always set percentageAlert to false */}
+                          <input type="hidden" {...trackForm.register("percentageAlert")} value="false" />
+                          
+                          <div className="space-y-3">
+                            <div className="grid">
+                              <div className="border rounded-lg p-3 bg-primary/10 border-primary/30 shadow-sm">
+                                <div className="flex flex-col items-center text-center h-full justify-center py-3 text-primary">
+                                  <DollarSign className="h-8 w-8 mb-2 text-primary" />
+                                  <div className="font-medium">Price Alert</div>
+                                  <div className="text-xs mt-1 text-muted-foreground">
+                                    Alert when price falls below your target price
                                   </div>
                                 </div>
-                              </FormItem>
-                            )}
-                          />
+                              </div>
+                            </div>
+                          </div>
                         </div>
 
                         {/* Conditional field based on alert type */}
@@ -1117,82 +1081,47 @@ export default function ProductSearch({
 
                           <div className="p-3 bg-white rounded-md border border-gray-100">
                             {selectedProduct?.price && typeof selectedProduct.price === 'number' ? (
-                              trackForm.watch("percentageAlert") ? (
-                                <div className="space-y-3">
-                                  {/* Percentage alert summary */}
-                                  <div className="flex items-center">
-                                    <Percent className="h-5 w-5 mr-2 text-primary" />
-                                    <div>
-                                      <div className="font-medium">Percentage-based alert</div>
-                                      <div className="text-xs text-muted-foreground mt-0.5">Current price: ${selectedProduct.price ? selectedProduct.price.toFixed(2) : "0.00"}</div>
-                                    </div>
+                              <div className="space-y-3">
+                                {/* Fixed price alert summary */}
+                                <div className="flex items-center">
+                                  <DollarSign className="h-5 w-5 mr-2 text-primary" />
+                                  <div>
+                                    <div className="font-medium">Price alert</div>
+                                    <div className="text-xs text-muted-foreground mt-0.5">Current price: ${selectedProduct.price.toFixed(2)}</div>
                                   </div>
+                                </div>
 
-                                  <div className="bg-green-50 p-2 rounded-md border border-green-100">
-                                    <div className="flex">
-                                      <div className="flex-shrink-0 mr-2">
-                                        <ArrowDown className="h-5 w-5 text-green-600" />
-                                      </div>
-                                      <div>
-                                        <p className="text-sm font-medium mb-1 text-slate-800">
-                                          {trackForm.watch("percentageThreshold") || 0}% price drop alert
-                                        </p>
-                                        {(trackForm.watch("percentageThreshold") || 0) > 0 ? (
-                                          <p className="text-xs text-slate-600">
-                                            You'll be notified when price drops below <strong className="text-green-700">${selectedProduct.price ? (selectedProduct.price * (1 - (trackForm.watch("percentageThreshold") || 0) / 100)).toFixed(2) : "0.00"}</strong>
+                                <div className="bg-blue-50 p-2 rounded-md border border-blue-100">
+                                  <div className="flex">
+                                    <div className="flex-shrink-0 mr-2">
+                                      <DollarSign className="h-5 w-5 text-blue-600" />
+                                    </div>
+                                    <div>
+                                      <p className="text-sm font-medium mb-1 text-slate-800">
+                                        Target price: <strong className="text-blue-700">${trackForm.watch("targetPrice") || 0}</strong>
+                                      </p>
+                                      {trackForm.watch("targetPrice") > 0 ? (
+                                        trackForm.watch("targetPrice") < selectedProduct.price ? (
+                                          <p className="text-xs flex items-center text-slate-600">
+                                            <span className="mr-1">Potential savings:</span>
+                                            <span className="bg-green-100 text-green-700 px-1.5 py-0.5 rounded-full font-medium">
+                                              ${(selectedProduct.price - trackForm.watch("targetPrice")).toFixed(2)} ({Math.round((1 - trackForm.watch("targetPrice")/selectedProduct.price) * 100)}% off)
+                                            </span>
                                           </p>
                                         ) : (
-                                          <p className="text-xs text-orange-600">
-                                            Please select a percentage drop value
+                                          <p className="text-xs text-amber-600">
+                                            Target price is above current price
                                           </p>
-                                        )}
-                                      </div>
+                                        )
+                                      ) : (
+                                        <p className="text-xs text-orange-600">
+                                          Please enter a target price
+                                        </p>
+                                      )}
                                     </div>
                                   </div>
                                 </div>
-                              ) : (
-                                <div className="space-y-3">
-                                  {/* Fixed price alert summary */}
-                                  <div className="flex items-center">
-                                    <DollarSign className="h-5 w-5 mr-2 text-primary" />
-                                    <div>
-                                      <div className="font-medium">Fixed price alert</div>
-                                      <div className="text-xs text-muted-foreground mt-0.5">Current price: ${selectedProduct.price.toFixed(2)}</div>
-                                    </div>
-                                  </div>
-
-                                  <div className="bg-blue-50 p-2 rounded-md border border-blue-100">
-                                    <div className="flex">
-                                      <div className="flex-shrink-0 mr-2">
-                                        <DollarSign className="h-5 w-5 text-blue-600" />
-                                      </div>
-                                      <div>
-                                        <p className="text-sm font-medium mb-1 text-slate-800">
-                                          Exact price alert: <strong className="text-blue-700">${trackForm.watch("targetPrice") || 0}</strong>
-                                        </p>
-                                        {trackForm.watch("targetPrice") > 0 ? (
-                                          trackForm.watch("targetPrice") < selectedProduct.price ? (
-                                            <p className="text-xs flex items-center text-slate-600">
-                                              <span className="mr-1">Potential savings:</span>
-                                              <span className="bg-green-100 text-green-700 px-1.5 py-0.5 rounded-full font-medium">
-                                                ${(selectedProduct.price - trackForm.watch("targetPrice")).toFixed(2)} ({Math.round((1 - trackForm.watch("targetPrice")/selectedProduct.price) * 100)}% off)
-                                              </span>
-                                            </p>
-                                          ) : (
-                                            <p className="text-xs text-amber-600">
-                                              Target price is above current price
-                                            </p>
-                                          )
-                                        ) : (
-                                          <p className="text-xs text-orange-600">
-                                            Please enter a target price
-                                          </p>
-                                        )}
-                                      </div>
-                                    </div>
-                                  </div>
-                                </div>
-                              )
+                              </div>
                             ) : (
                               <div className="text-center p-3 text-muted-foreground text-sm">
                                 <div className="mb-2 opacity-70">
