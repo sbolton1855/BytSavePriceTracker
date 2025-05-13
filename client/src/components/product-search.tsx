@@ -424,6 +424,7 @@ export default function ProductSearch({
     // Manually trigger the API call instead of using the mutation to have more control
     // Use different endpoints based on authentication status
     const trackEndpoint = isAuthenticated ? '/api/my/track' : '/api/track';
+    console.log(`Using ${trackEndpoint} endpoint for tracking with data:`, JSON.stringify(trackingData));
     
     fetch(trackEndpoint, {
       method: 'POST',
@@ -474,14 +475,28 @@ export default function ProductSearch({
       setSelectedProduct(null);
 
       // Forcefully invalidate and refresh the product list
-      queryClient.invalidateQueries({ queryKey: ['/api/tracked-products'] });
-      queryClient.resetQueries({ queryKey: ['/api/tracked-products'] });
+      if (isAuthenticated) {
+        queryClient.invalidateQueries({ queryKey: ['/api/my/tracked-products'] });
+        queryClient.resetQueries({ queryKey: ['/api/my/tracked-products'] });
+      } else if (email) {
+        queryClient.invalidateQueries({ queryKey: ['/api/tracked-products', email] });
+        queryClient.resetQueries({ queryKey: ['/api/tracked-products', email] });
+      }
 
       // Force a fetch with a fresh request to update the UI
-      fetch('/api/tracked-products', { credentials: 'include', cache: 'no-store' })
+      const refreshEndpoint = isAuthenticated ? 
+        '/api/my/tracked-products' : 
+        `/api/tracked-products?email=${encodeURIComponent(email.toUpperCase())}`;
+      
+      fetch(refreshEndpoint, { credentials: 'include', cache: 'no-store' })
         .then(res => res.json())
         .then(data => {
-          queryClient.setQueryData(['/api/tracked-products'], data);
+          // Set the appropriate cache key
+          if (isAuthenticated) {
+            queryClient.setQueryData(['/api/my/tracked-products'], data);
+          } else if (email) {
+            queryClient.setQueryData(['/api/tracked-products', email], data);
+          }
           document.dispatchEvent(new CustomEvent('product-tracked'));
 
           // Show confirmation with view option
