@@ -420,7 +420,124 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // Track a new product
+  // Track a product without authentication (email only)
+  app.post('/api/track', async (req: Request, res: Response) => {
+    try {
+      // Log the incoming request data for debugging
+      console.log('Non-auth track request received:', req.body);
+      
+      // Validate request body
+      const result = trackingFormSchema.safeParse(req.body);
+      if (!result.success) {
+        return res.status(400).json({ error: 'Invalid request data', details: result.error.format() });
+      }
+      
+      const { productUrl, targetPrice, email, percentageAlert, percentageThreshold, productId } = result.data;
+      
+      // Email is required for non-authenticated tracking
+      if (!email) {
+        return res.status(400).json({ error: 'Email is required for non-authenticated tracking' });
+      }
+      
+      let product;
+      
+      // If productId is provided, use that to fetch the product directly
+      if (productId) {
+        console.log('Using provided productId:', productId);
+        product = await storage.getProduct(productId);
+        if (!product) {
+          return res.status(404).json({ error: 'Product not found with the provided ID' });
+        }
+      } else {
+        // Otherwise, extract ASIN from product URL
+        console.log('No productId provided, extracting from URL:', productUrl);
+        const extractedAsin = extractAsinFromUrl(productUrl);
+        if (!extractedAsin) {
+          return res.status(400).json({ error: 'Could not extract ASIN from product URL' });
+        }
+        
+        // Check if the product already exists
+        product = await storage.getProductByAsin(extractedAsin);
+        
+        // If not, fetch from Amazon and create it
+        if (!product) {
+          try {
+            console.log('Product not found in database, fetching from Amazon for ASIN:', extractedAsin);
+            const amazonProduct = await getProductInfo(extractedAsin);
+            
+            product = await storage.createProduct({
+              asin: amazonProduct.asin,
+              title: amazonProduct.title,
+              url: amazonProduct.url,
+              imageUrl: amazonProduct.imageUrl,
+              currentPrice: amazonProduct.price,
+              originalPrice: amazonProduct.originalPrice || amazonProduct.price,
+              lowestPrice: amazonProduct.price,
+              highestPrice: amazonProduct.price,
+              lastChecked: new Date()
+            });
+            
+            console.log('Created new product in database:', product);
+            
+            // Add initial price history entry
+            await intelligentlyAddPriceHistory(product.id, product.currentPrice);
+            console.log('Added initial price history for new product');
+          } catch (error) {
+            console.error('Error fetching product from Amazon:', error);
+            return res.status(500).json({ error: 'Failed to fetch product information' });
+          }
+        }
+      }
+      
+      // Check if this email is already tracking this product
+      const existingTracking = await storage.getTrackedProductByUserAndProduct(
+        null, 
+        email.toUpperCase(), // Store email in uppercase to normalize
+        product.id
+      );
+      
+      if (existingTracking) {
+        // Update the existing tracking
+        console.log('Updating existing tracking:', existingTracking.id);
+        
+        const updated = await storage.updateTrackedProduct(existingTracking.id, {
+          targetPrice,
+          percentageAlert,
+          percentageThreshold
+        });
+        
+        return res.status(200).json({
+          message: 'Tracking updated successfully',
+          tracking: updated
+        });
+      }
+      
+      // Create a new tracking
+      console.log('Creating new tracking for product:', product.id);
+      const tracking = await storage.createTrackedProduct({
+        productId: product.id,
+        userId: null, // No user for email-only tracking
+        email: email.toUpperCase(), // Store email in uppercase to normalize
+        targetPrice,
+        percentageAlert,
+        percentageThreshold,
+        createdAt: new Date(),
+        lastNotified: null
+      });
+      
+      console.log('Created new tracking:', tracking);
+      
+      res.status(201).json({
+        message: 'Product tracking created successfully',
+        tracking
+      });
+    } catch (error) {
+      console.error('Error tracking product:', error);
+      res.status(500).json({ error: 'Failed to track product' });
+    }
+  });
+
+  // Track a new product (authenticated)
   app.post('/api/my/track', requireAuth, async (req: Request, res: Response) => {
     try {
       // Log the incoming request data for debugging
