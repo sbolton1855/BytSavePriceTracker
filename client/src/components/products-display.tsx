@@ -20,27 +20,51 @@ const ProductsDisplay: React.FC<ProductsDisplayProps> = ({ email }) => {
   const { user, isAuthenticated } = useAuth();
   const [filter, setFilter] = useState<FilterOption>("all");
   
-  // Fetch tracked products - using authenticated endpoint
+  // Fetch tracked products - adapts to auth status
   const { data, isLoading, isError, error, refetch } = useQuery<TrackedProductWithDetails[]>({
-    queryKey: ['/api/my/tracked-products'],
-    enabled: isAuthenticated && !!user,
+    queryKey: isAuthenticated ? ['/api/my/tracked-products'] : ['/api/tracked-products', email],
+    enabled: isAuthenticated ? true : (!!email && email.length > 0),
     queryFn: async ({ queryKey }) => {
-      console.log("ProductsDisplay - Fetching tracked products for authenticated user");
-      
-      try {
-        // Add timestamp to prevent caching
-        const timestamp = new Date().getTime();
-        const res = await fetch(`${queryKey[0]}?_t=${timestamp}`, {
-          credentials: 'include' // Important for authenticated requests
-        });
+      if (isAuthenticated) {
+        console.log("ProductsDisplay - Fetching tracked products for authenticated user");
         
-        if (!res.ok) throw new Error('Failed to fetch tracked products');
-        const data = await res.json();
-        console.log("ProductsDisplay - data changed:", data);
-        return data;
-      } catch (err) {
-        console.error("Error fetching tracked products:", err);
-        throw err;
+        try {
+          // Add timestamp to prevent caching
+          const timestamp = new Date().getTime();
+          const res = await fetch(`${queryKey[0]}?_t=${timestamp}`, {
+            credentials: 'include' // Important for authenticated requests
+          });
+          
+          if (!res.ok) throw new Error('Failed to fetch tracked products');
+          const data = await res.json();
+          console.log("ProductsDisplay - data changed:", data);
+          return data;
+        } catch (err) {
+          console.error("Error fetching tracked products:", err);
+          throw err;
+        }
+      } else {
+        console.log("ProductsDisplay - Fetching tracked products by email:", email);
+        
+        if (!email || email.length === 0) {
+          console.log("No email provided, returning empty array");
+          return [];
+        }
+        
+        try {
+          // Force email to uppercase to match stored format
+          const upperEmail = email.toUpperCase();
+          // Add timestamp to prevent caching
+          const timestamp = new Date().getTime();
+          const res = await fetch(`/api/tracked-products?email=${encodeURIComponent(upperEmail)}&_t=${timestamp}`);
+          if (!res.ok) throw new Error('Failed to fetch tracked products');
+          const data = await res.json();
+          console.log("ProductsDisplay - data changed:", data);
+          return data;
+        } catch (err) {
+          console.error("Error fetching tracked products:", err);
+          throw err;
+        }
       }
     },
     retry: 1,
@@ -139,10 +163,8 @@ const ProductsDisplay: React.FC<ProductsDisplayProps> = ({ email }) => {
     }
   }, [email, data, filteredProducts, isLoading, isError, error]);
 
-  // If not authenticated or no user, don't render this section at all
-  if (!isAuthenticated || !user) {
-    return null;
-  }
+  // For non-authenticated users, we'll show a version of this section that encourages login
+  // but they can still view tracked products by email
 
   return (
     <section className="py-12 bg-gray-50" id="dashboard">
@@ -151,6 +173,32 @@ const ProductsDisplay: React.FC<ProductsDisplayProps> = ({ email }) => {
           <div>
             <h2 className="text-3xl font-bold text-gray-900">Your Tracked Products</h2>
             <p className="mt-2 text-gray-500">Monitor price changes and manage your tracking list</p>
+            
+            {!isAuthenticated && (
+              <div className="mt-3 p-4 bg-gradient-to-r from-blue-50 to-indigo-50 rounded-lg border border-blue-100">
+                <div className="flex items-center">
+                  <div className="flex-shrink-0 bg-blue-100 rounded-full p-2">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-blue-600">
+                      <path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2" />
+                      <circle cx="9" cy="7" r="4" />
+                      <path d="M22 21v-2a4 4 0 0 0-3-3.87" />
+                      <path d="M16 3.13a4 4 0 0 1 0 7.75" />
+                    </svg>
+                  </div>
+                  <div className="ml-3">
+                    <h3 className="font-medium text-sm text-blue-800">Create an account for additional features</h3>
+                    <p className="text-xs text-blue-600 mt-1">Sign in to get a personalized dashboard, manage multiple products, and get additional price tracking features.</p>
+                    <Button 
+                      variant="link" 
+                      className="p-0 h-auto text-xs text-blue-700 font-medium mt-1"
+                      onClick={() => window.location.href = "/auth"}
+                    >
+                      Sign up or log in →
+                    </Button>
+                  </div>
+                </div>
+              </div>
+            )}
           </div>
           
           <div className="mt-4 md:mt-0 flex items-center">
