@@ -823,36 +823,38 @@ export default function ProductSearch({
                         <div className="flex items-center space-x-3">
                           <div className="flex-shrink-0 text-amber-500">
                             <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                              <path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7A2 2 0 0 1 22 16.92z" />
+                              <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z" />
                             </svg>
                           </div>
                           <div>
-                            <h4 className="font-medium">Login Required</h4>
+                            <h4 className="font-medium">Create an Account for More Features</h4>
                             <p className="text-sm text-muted-foreground mt-1">
-                              You need to login to track prices and receive alerts
+                              For the best experience, login to access your dashboard, manage all your tracked products, and more advanced features.
                             </p>
                           </div>
                         </div>
                         <div className="mt-4">
                           <Button 
-                            className="w-full" 
+                            className="w-full mb-2" 
                             onClick={() => window.location.href = "/auth"}
+                            variant="outline"
                           >
                             <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="mr-2">
                               <path d="M15 3h4a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2h-4"/>
                               <polyline points="10 17 15 12 10 7"/>
                               <line x1="15" y1="12" x2="3" y2="12"/>
                             </svg>
-                            Login to Track Prices
+                            Sign Up or Login for Full Features
                           </Button>
                         </div>
                       </div>
-                    ) : (
-                      <Form {...trackForm}>
-                        <form
-                          onSubmit={trackForm.handleSubmit(onTrackSubmit)}
-                          className="space-y-4"
-                        >
+                    ) : null}
+                    
+                    <Form {...trackForm}>
+                      <form
+                        onSubmit={trackForm.handleSubmit(onTrackSubmit)}
+                        className="space-y-4"
+                      >
                         <div className="flex items-center space-x-3 mb-3">
                           {selectedProduct.imageUrl && (
                             <img
@@ -1222,7 +1224,6 @@ export default function ProductSearch({
                         </Button>
                       </form>
                     </Form>
-                    )}
                   </div>
                 )}
               </div>
