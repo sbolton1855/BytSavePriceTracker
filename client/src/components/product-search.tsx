@@ -193,15 +193,11 @@ export default function ProductSearch({
     mutationFn: async (data: TrackingFormData) => {
       console.log("About to send track request with data:", data);
 
-      // Check authentication first
-      if (!isAuthenticated) {
-        console.error("User not authenticated, redirecting to login");
-        window.location.href = "/auth";
-        throw new Error("Please log in to track products");
-      }
+      // This check is now handled by our endpoint selection logic
+      // We'll use different endpoints based on auth status
 
-      // Use the correct endpoint
-      const endpoint = "/api/my/track";
+      // Use the correct endpoint based on authentication status
+      const endpoint = isAuthenticated ? "/api/my/track" : "/api/track";
       console.log(`Calling endpoint ${endpoint} with data:`, JSON.stringify(data));
 
       // Use the API request utility which handles credentials properly
@@ -354,13 +350,26 @@ export default function ProductSearch({
     if (isAuthenticated && user?.email) {
       trackingData.email = user.email;
       console.log(`Using authenticated user email: ${trackingData.email}`);
-    } else if (!trackingData.email || trackingData.email.trim() === '') {
-      toast({
-        title: "Email required",
-        description: "Please provide an email address for price drop notifications",
-        variant: "destructive",
-      });
-      return;
+    } else {
+      // For non-authenticated users, email is mandatory
+      if (!trackingData.email || trackingData.email.trim() === '') {
+        toast({
+          title: "Email required",
+          description: "Please provide an email address for price drop notifications",
+          variant: "destructive",
+        });
+        return;
+      }
+      
+      // Basic email validation
+      if (!trackingData.email.includes('@') || !trackingData.email.includes('.')) {
+        toast({
+          title: "Invalid email",
+          description: "Please provide a valid email address",
+          variant: "destructive",
+        });
+        return;
+      }
     }
 
     // Log the data being prepared
@@ -439,13 +448,24 @@ export default function ProductSearch({
 
       if (response.status === 401) {
         console.error("Authentication required");
-        toast({
-          title: "Authentication required",
-          description: "Please log in to track products",
-          variant: "destructive",
-        });
-        setTimeout(() => window.location.href = "/auth", 1500);
-        throw new Error("Authentication required");
+        if (trackEndpoint.includes('/api/my/')) {
+          // Only redirect to auth if using the authenticated endpoint
+          toast({
+            title: "Authentication required",
+            description: "Please log in to track products",
+            variant: "destructive",
+          });
+          setTimeout(() => window.location.href = "/auth", 1500);
+          throw new Error("Authentication required");
+        } else {
+          // For non-authenticated endpoint, just show an error
+          toast({
+            title: "Tracking failed",
+            description: "Please make sure you've entered a valid email address",
+            variant: "destructive",
+          });
+          throw new Error("Email validation failed");
+        }
       }
 
       if (!response.ok) {
