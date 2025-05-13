@@ -521,8 +521,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
         targetPrice,
         percentageAlert,
         percentageThreshold,
-        createdAt: new Date(),
-        lastNotified: null
+        createdAt: new Date()
+        // lastNotified will be automatically set to null in the schema
       });
       
       console.log('Created new tracking:', tracking);
