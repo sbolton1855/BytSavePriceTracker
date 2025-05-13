@@ -306,16 +306,21 @@ export default function ProductSearch({
 
   // Track product form submission
   const onTrackSubmit = (data: TrackingFormData) => {
-    // Should never happen since we hide the form, but just in case
-    if (!isAuthenticated) {
-      console.error("User not authenticated, redirecting to login");
-      toast({
-        title: "Authentication required",
-        description: "Please log in to track products",
-        variant: "destructive",
-      });
-      setTimeout(() => window.location.href = "/auth", 500);
-      return;
+    // If user is authenticated, we'll use their account
+    // If not, we'll use the provided email to track the product
+    if (isAuthenticated) {
+      console.log("Tracking product with authenticated user");
+    } else {
+      console.log("Tracking product with email:", data.email);
+      // Validate email
+      if (!data.email || !data.email.includes('@')) {
+        toast({
+          title: "Valid email required",
+          description: "Please provide a valid email address to receive price drop alerts",
+          variant: "destructive",
+        });
+        return;
+      }
     }
 
     // Make sure we have a selected product
@@ -894,6 +899,35 @@ export default function ProductSearch({
                             <p className="text-xs text-muted-foreground">
                               Choose how you want to be notified when the price drops
                             </p>
+                              
+                            {/* Show email field for non-authenticated users */}
+                            {!isAuthenticated && (
+                              <div className="mt-3">
+                                <FormField
+                                  control={trackForm.control}
+                                  name="email"
+                                  render={({ field }) => (
+                                    <FormItem>
+                                      <FormLabel className="text-xs font-medium">Email for price alerts</FormLabel>
+                                      <FormControl>
+                                        <Input
+                                          type="email"
+                                          placeholder="Your Email"
+                                          {...field}
+                                          value={email || field.value}
+                                          onChange={(e) => {
+                                            field.onChange(e);
+                                            handleEmailChange(e);
+                                          }}
+                                          disabled={trackMutation.isPending}
+                                        />
+                                      </FormControl>
+                                      <FormMessage className="text-xs" />
+                                    </FormItem>
+                                  )}
+                                />
+                              </div>
+                            )}
                           </div>
 
                           {/* Hidden field to always set percentageAlert to false */}
