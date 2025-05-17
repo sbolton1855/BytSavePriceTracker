@@ -173,32 +173,6 @@ const ProductsDisplay: React.FC<ProductsDisplayProps> = ({ email }) => {
           <div>
             <h2 className="text-3xl font-bold text-gray-900">Your Tracked Products</h2>
             <p className="mt-2 text-gray-500">Monitor price changes and manage your tracking list</p>
-            
-            {!isAuthenticated && (
-              <div className="mt-3 p-4 bg-gradient-to-r from-blue-50 to-indigo-50 rounded-lg border border-blue-100">
-                <div className="flex items-center">
-                  <div className="flex-shrink-0 bg-blue-100 rounded-full p-2">
-                    <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-blue-600">
-                      <path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2" />
-                      <circle cx="9" cy="7" r="4" />
-                      <path d="M22 21v-2a4 4 0 0 0-3-3.87" />
-                      <path d="M16 3.13a4 4 0 0 1 0 7.75" />
-                    </svg>
-                  </div>
-                  <div className="ml-3">
-                    <h3 className="font-medium text-sm text-blue-800">Create an account for additional features</h3>
-                    <p className="text-xs text-blue-600 mt-1">Sign in to get a personalized dashboard, manage multiple products, and get additional price tracking features.</p>
-                    <Button 
-                      variant="link" 
-                      className="p-0 h-auto text-xs text-blue-700 font-medium mt-1"
-                      onClick={() => window.location.href = "/auth"}
-                    >
-                      Sign up or log in →
-                    </Button>
-                  </div>
-                </div>
-              </div>
-            )}
           </div>
           
           <div className="mt-4 md:mt-0 flex items-center">
