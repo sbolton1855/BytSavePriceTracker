@@ -193,11 +193,15 @@ export default function ProductSearch({
     mutationFn: async (data: TrackingFormData) => {
       console.log("About to send track request with data:", data);
 
-      // This check is now handled by our endpoint selection logic
-      // We'll use different endpoints based on auth status
+      // Check authentication first
+      if (!isAuthenticated) {
+        console.error("User not authenticated, redirecting to login");
+        window.location.href = "/auth";
+        throw new Error("Please log in to track products");
+      }
 
-      // Use the correct endpoint based on authentication status
-      const endpoint = isAuthenticated ? "/api/my/track" : "/api/track";
+      // Use the correct endpoint
+      const endpoint = "/api/my/track";
       console.log(`Calling endpoint ${endpoint} with data:`, JSON.stringify(data));
 
       // Use the API request utility which handles credentials properly
@@ -350,26 +354,13 @@ export default function ProductSearch({
     if (isAuthenticated && user?.email) {
       trackingData.email = user.email;
       console.log(`Using authenticated user email: ${trackingData.email}`);
-    } else {
-      // For non-authenticated users, email is mandatory
-      if (!trackingData.email || trackingData.email.trim() === '') {
-        toast({
-          title: "Email required",
-          description: "Please provide an email address for price drop notifications",
-          variant: "destructive",
-        });
-        return;
-      }
-      
-      // Basic email validation
-      if (!trackingData.email.includes('@') || !trackingData.email.includes('.')) {
-        toast({
-          title: "Invalid email",
-          description: "Please provide a valid email address",
-          variant: "destructive",
-        });
-        return;
-      }
+    } else if (!trackingData.email || trackingData.email.trim() === '') {
+      toast({
+        title: "Email required",
+        description: "Please provide an email address for price drop notifications",
+        variant: "destructive",
+      });
+      return;
     }
 
     // Log the data being prepared
@@ -433,7 +424,6 @@ export default function ProductSearch({
     // Manually trigger the API call instead of using the mutation to have more control
     // Use different endpoints based on authentication status
     const trackEndpoint = isAuthenticated ? '/api/my/track' : '/api/track';
-    console.log(`Using ${trackEndpoint} endpoint for tracking with data:`, JSON.stringify(trackingData));
     
     fetch(trackEndpoint, {
       method: 'POST',
@@ -448,24 +438,13 @@ export default function ProductSearch({
 
       if (response.status === 401) {
         console.error("Authentication required");
-        if (trackEndpoint.includes('/api/my/')) {
-          // Only redirect to auth if using the authenticated endpoint
-          toast({
-            title: "Authentication required",
-            description: "Please log in to track products",
-            variant: "destructive",
-          });
-          setTimeout(() => window.location.href = "/auth", 1500);
-          throw new Error("Authentication required");
-        } else {
-          // For non-authenticated endpoint, just show an error
-          toast({
-            title: "Tracking failed",
-            description: "Please make sure you've entered a valid email address",
-            variant: "destructive",
-          });
-          throw new Error("Email validation failed");
-        }
+        toast({
+          title: "Authentication required",
+          description: "Please log in to track products",
+          variant: "destructive",
+        });
+        setTimeout(() => window.location.href = "/auth", 1500);
+        throw new Error("Authentication required");
       }
 
       if (!response.ok) {
@@ -495,28 +474,14 @@ export default function ProductSearch({
       setSelectedProduct(null);
 
       // Forcefully invalidate and refresh the product list
-      if (isAuthenticated) {
-        queryClient.invalidateQueries({ queryKey: ['/api/my/tracked-products'] });
-        queryClient.resetQueries({ queryKey: ['/api/my/tracked-products'] });
-      } else if (email) {
-        queryClient.invalidateQueries({ queryKey: ['/api/tracked-products', email] });
-        queryClient.resetQueries({ queryKey: ['/api/tracked-products', email] });
-      }
+      queryClient.invalidateQueries({ queryKey: ['/api/tracked-products'] });
+      queryClient.resetQueries({ queryKey: ['/api/tracked-products'] });
 
       // Force a fetch with a fresh request to update the UI
-      const refreshEndpoint = isAuthenticated ? 
-        '/api/my/tracked-products' : 
-        `/api/tracked-products?email=${encodeURIComponent(email.toUpperCase())}`;
-      
-      fetch(refreshEndpoint, { credentials: 'include', cache: 'no-store' })
+      fetch('/api/tracked-products', { credentials: 'include', cache: 'no-store' })
         .then(res => res.json())
         .then(data => {
-          // Set the appropriate cache key
-          if (isAuthenticated) {
-            queryClient.setQueryData(['/api/my/tracked-products'], data);
-          } else if (email) {
-            queryClient.setQueryData(['/api/tracked-products', email], data);
-          }
+          queryClient.setQueryData(['/api/tracked-products'], data);
           document.dispatchEvent(new CustomEvent('product-tracked'));
 
           // Show confirmation with view option
@@ -578,6 +543,10 @@ export default function ProductSearch({
   };
 
   // Set email for both search modes
+  const handleEmailChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    setEmail(e.target.value);
+    trackForm.setValue("email", e.target.value);
+  };
 
   return (
     <div className="w-full max-w-3xl mx-auto">
