@@ -308,15 +308,20 @@ export default function ProductSearch({
   };
 
   // Track product form submission
-  const onTrackSubmit = (data: TrackingFormData) => {
-    // If user is authenticated, we'll use their account
-    // If not, we'll use the provided email to track the product
-    if (isAuthenticated) {
-      console.log("Tracking product with authenticated user");
-    } else {
-      console.log("Tracking product with email:", data.email);
-      // Validate email
-      if (!data.email || !data.email.includes('@')) {
+  const onTrackSubmit = async (data: TrackingFormData) => {
+    try {
+      if (!selectedProduct) {
+        toast({
+          title: "No product selected",
+          description: "Please select a product to track",
+          variant: "destructive",
+        });
+        return;
+      }
+
+      // If user is authenticated, we'll use their account
+      // If not, we'll use the provided email to track the product
+      if (!isAuthenticated && (!data.email || !data.email.includes('@'))) {
         toast({
           title: "Valid email required",
           description: "Please provide a valid email address to receive price drop alerts",
@@ -324,6 +329,50 @@ export default function ProductSearch({
         });
         return;
       }
+
+      const trackingData = {
+        ...data,
+        productId: selectedProduct.id,
+        email: isAuthenticated ? user?.email : data.email
+      };
+
+      console.log("Submitting tracking data:", trackingData);
+
+      const response = await fetch(isAuthenticated ? '/api/my/track' : '/api/track', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        credentials: 'include',
+        body: JSON.stringify(trackingData)
+      });
+
+      if (!response.ok) {
+        throw new Error(await response.text());
+      }
+
+      const result = await response.json();
+      console.log("Track response:", result);
+
+      toast({
+        title: "Success!",
+        description: "Product tracking has been set up",
+      });
+
+      // Reset form and selected product
+      trackForm.reset();
+      setSelectedProduct(null);
+      
+      // Force refresh tracked products
+      queryClient.invalidateQueries({ queryKey: ['/api/tracked-products'] });
+
+    } catch (error) {
+      console.error("Track submission error:", error);
+      toast({
+        title: "Failed to track product",
+        description: error instanceof Error ? error.message : "Something went wrong",
+        variant: "destructive",
+      });
     }
 
     // Make sure we have a selected product
