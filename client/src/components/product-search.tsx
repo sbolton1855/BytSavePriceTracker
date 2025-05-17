@@ -308,8 +308,7 @@ export default function ProductSearch({
   };
 
   // Track product form submission
-  const onTrackSubmit = async (data: TrackingFormData) => {
-    console.log("Starting track submission with data:", data);
+  const onTrackSubmit = (data: TrackingFormData) => {
     // If user is authenticated, we'll use their account
     // If not, we'll use the provided email to track the product
     if (isAuthenticated) {
@@ -503,13 +502,6 @@ export default function ProductSearch({
     })
     .catch(error => {
       console.error("Track product error:", error);
-      console.error("Full error details:", {
-        error,
-        trackingData: data,
-        selectedProduct,
-        isAuthenticated,
-        endpoint: isAuthenticated ? '/api/my/track' : '/api/track'
-      });
       toast({
         title: "Failed to track product",
         description: error.message || "Something went wrong. Please try again.",
