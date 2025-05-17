@@ -312,14 +312,13 @@ export default function ProductSearch({
     try {
       if (!selectedProduct) {
         toast({
-          title: "No product selected",
+          title: "No product selected", 
           description: "Please select a product to track",
           variant: "destructive",
         });
         return;
       }
 
-      // Validate target price
       if (!data.targetPrice || data.targetPrice <= 0) {
         toast({
           title: "Invalid target price",
@@ -339,25 +338,31 @@ export default function ProductSearch({
 
       console.log("Submitting tracking data:", trackingData);
 
-      trackMutation.mutate(trackingData, {
-        onSuccess: () => {
-          toast({
-            title: "Success!",
-            description: "Product tracking has been set up",
-          });
-          trackForm.reset();
-          setSelectedProduct(null);
-          queryClient.invalidateQueries({ queryKey: ['/api/tracked-products'] });
+      const endpoint = isAuthenticated ? '/api/my/track' : '/api/track';
+      const response = await fetch(endpoint, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json'
         },
-        onError: (error) => {
-          console.error("Track submission error:", error);
-          toast({
-            title: "Failed to track product",
-            description: error instanceof Error ? error.message : "Something went wrong",
-            variant: "destructive",
-          });
-        }
+        credentials: 'include',
+        body: JSON.stringify(trackingData)
       });
+
+      if (!response.ok) {
+        throw new Error(await response.text());
+      }
+
+      const result = await response.json();
+      console.log("Track API response:", result);
+
+      toast({
+        title: "Success!",
+        description: "Product tracking has been set up",
+      });
+
+      trackForm.reset();
+      setSelectedProduct(null);
+      queryClient.invalidateQueries({ queryKey: ['/api/tracked-products'] });
 
     } catch (error) {
       console.error("Track submission error:", error);
