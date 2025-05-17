@@ -650,18 +650,32 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
 
       // Create new tracking entry
-      const tracking = await storage.createTrackedProduct({
-        userId,
-        email,
-        productId: product.id,
-        targetPrice,
-        percentageAlert: percentageAlert || false,
-        percentageThreshold: percentageThreshold || null,
-        createdAt: new Date()
-      });
+      try {
+        console.log('Attempting to create tracking with data:', {
+          userId,
+          email,
+          productId: product.id,
+          targetPrice,
+          percentageAlert,
+          percentageThreshold
+        });
+        
+        const tracking = await storage.createTrackedProduct({
+          userId,
+          email: email ? email.toUpperCase() : undefined,
+          productId: product.id,
+          targetPrice,
+          percentageAlert: percentageAlert || false,
+          percentageThreshold: percentageThreshold || null,
+          createdAt: new Date()
+        });
 
-      console.log('Created new tracking:', tracking);
-      res.status(201).json(tracking);
+        console.log('Successfully created tracking:', tracking);
+        res.status(201).json(tracking);
+      } catch (error) {
+        console.error('Failed to create tracking:', error);
+        res.status(500).json({ error: 'Failed to create tracking', details: error instanceof Error ? error.message : 'Unknown error' });
+      }
     } catch (error: any) {
       console.error('Error tracking product:', error);
       res.status(500).json({ error: error.message || 'Failed to track product' });
