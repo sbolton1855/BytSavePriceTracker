@@ -319,8 +319,7 @@ export default function ProductSearch({
         return;
       }
 
-      // If user is authenticated, we'll use their account
-      // If not, we'll use the provided email to track the product
+      // Validate email for non-authenticated users
       if (!isAuthenticated && (!data.email || !data.email.includes('@'))) {
         toast({
           title: "Valid email required",
@@ -330,17 +329,54 @@ export default function ProductSearch({
         return;
       }
 
+      // Validate target price
+      if (!data.targetPrice || data.targetPrice <= 0) {
+        toast({
+          title: "Invalid target price",
+          description: "Please enter a valid target price",
+          variant: "destructive",
+        });
+        return;
+      }
+
       const trackingData = {
-        ...data,
-        productId: selectedProduct.id,
-        email: isAuthenticated ? user?.email : data.email,
         productUrl: selectedProduct.url,
-        targetPrice: data.targetPrice || selectedProduct.currentPrice * 0.9
+        targetPrice: data.targetPrice,
+        email: isAuthenticated ? user?.email : data.email,
+        percentageAlert: false,
+        percentageThreshold: 0
       };
 
       console.log("Submitting tracking data:", trackingData);
 
-      trackMutation.mutate(trackingData);
+      // Make API request directly instead of using mutation
+      const response = await fetch('/api/track', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        credentials: 'include',
+        body: JSON.stringify(trackingData)
+      });
+
+      if (!response.ok) {
+        throw new Error(await response.text());
+      }
+
+      const result = await response.json();
+      console.log("Track API response:", result);
+
+      toast({
+        title: "Success!",
+        description: "Product tracking has been set up",
+      });
+
+      // Reset form and selected product
+      trackForm.reset();
+      setSelectedProduct(null);
+      
+      // Force refresh tracked products
+      queryClient.invalidateQueries({ queryKey: ['/api/tracked-products'] });
 
     } catch (error) {
       console.error("Track submission error:", error);
