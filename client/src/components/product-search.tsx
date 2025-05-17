@@ -333,38 +333,14 @@ export default function ProductSearch({
       const trackingData = {
         ...data,
         productId: selectedProduct.id,
-        email: isAuthenticated ? user?.email : data.email
+        email: isAuthenticated ? user?.email : data.email,
+        productUrl: selectedProduct.url,
+        targetPrice: data.targetPrice || selectedProduct.currentPrice * 0.9
       };
 
       console.log("Submitting tracking data:", trackingData);
 
-      const response = await fetch(isAuthenticated ? '/api/my/track' : '/api/track', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json'
-        },
-        credentials: 'include',
-        body: JSON.stringify(trackingData)
-      });
-
-      if (!response.ok) {
-        throw new Error(await response.text());
-      }
-
-      const result = await response.json();
-      console.log("Track response:", result);
-
-      toast({
-        title: "Success!",
-        description: "Product tracking has been set up",
-      });
-
-      // Reset form and selected product
-      trackForm.reset();
-      setSelectedProduct(null);
-      
-      // Force refresh tracked products
-      queryClient.invalidateQueries({ queryKey: ['/api/tracked-products'] });
+      trackMutation.mutate(trackingData);
 
     } catch (error) {
       console.error("Track submission error:", error);
