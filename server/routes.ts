@@ -651,26 +651,38 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       // Create new tracking entry
       try {
+        // Validate all required fields are present
+        if (!product.id) {
+          console.error('Missing product ID');
+          return res.status(400).json({ error: 'Invalid product data' });
+        }
+
+        if (!targetPrice || targetPrice <= 0) {
+          console.error('Invalid target price:', targetPrice);
+          return res.status(400).json({ error: 'Invalid target price' });
+        }
+
         const trackingData = {
-          userId,
+          userId: userId || null,
           email: email ? email.toUpperCase() : undefined,
           productId: product.id,
           targetPrice,
           percentageAlert: percentageAlert || false,
           percentageThreshold: percentageThreshold || null,
-          createdAt: new Date()
+          createdAt: new Date(),
+          notified: false
         };
         
-        console.log('Attempting to create tracking with validated data:', trackingData);
+        console.log('Creating tracking with data:', trackingData);
         
         const tracking = await storage.createTrackedProduct(trackingData);
 
         if (!tracking) {
-          console.error('Failed to create tracking - no tracking object returned');
+          console.error('Database returned null after tracking creation attempt');
           throw new Error('Failed to create tracking record');
         }
 
-        console.log('Successfully created tracking:', tracking);
+        console.log('Successfully created tracking record:', tracking);
         res.status(201).json({
           success: true,
           tracking,
