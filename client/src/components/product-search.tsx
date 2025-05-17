@@ -542,11 +542,6 @@ export default function ProductSearch({
     }, 100);
   };
 
-  // Set email for both search modes
-  const handleEmailChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    setEmail(e.target.value);
-    trackForm.setValue("email", e.target.value);
-  };
 
   return (
     <div className="w-full max-w-3xl mx-auto">
