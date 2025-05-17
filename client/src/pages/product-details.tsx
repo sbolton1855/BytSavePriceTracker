@@ -193,11 +193,21 @@ export default function ProductDetailsPage() {
       }
     },
     onSuccess: () => {
+      // Create a more descriptive success message
+      const priceFormatted = formatPrice(targetPrice);
+      const productTitle = product.title.substring(0, 40) + (product.title.length > 40 ? '...' : '');
+      
       toast({
-        title: trackedProduct ? "Tracking updated" : "Product tracked",
-        description: trackedProduct
-          ? "Your target price has been updated"
-          : "We'll notify you when the price drops below your target",
+        title: "✅ Price tracking confirmed!",
+        description: (
+          <div className="space-y-2">
+            <p><strong>Product:</strong> {productTitle}</p>
+            <p><strong>Target Price:</strong> {priceFormatted}</p>
+            <p><strong>Email:</strong> {email || user?.email}</p>
+            <p className="text-sm text-muted-foreground">We'll email you when the price drops below your target.</p>
+          </div>
+        ),
+        duration: 7000,
       });
       setShowTrackingForm(false);
       refetchTrackedProduct();
