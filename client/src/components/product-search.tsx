@@ -193,16 +193,14 @@ export default function ProductSearch({
     mutationFn: async (data: TrackingFormData) => {
       console.log("About to send track request with data:", data);
 
-      // Check authentication first
-      if (!isAuthenticated) {
-        console.error("User not authenticated, redirecting to login");
-        window.location.href = "/auth";
-        throw new Error("Please log in to track products");
-      }
-
-      // Use the correct endpoint
-      const endpoint = "/api/my/track";
+      // Choose the correct endpoint based on authentication status
+      const endpoint = isAuthenticated ? "/api/my/track" : "/api/track";
       console.log(`Calling endpoint ${endpoint} with data:`, JSON.stringify(data));
+
+      // Ensure email is included for non-authenticated users
+      if (!isAuthenticated && (!data.email || data.email.trim() === "")) {
+        throw new Error("Email is required for price alerts");
+      }
 
       // Use the API request utility which handles credentials properly
       try {
@@ -216,8 +214,7 @@ export default function ProductSearch({
         // Check if the error is due to authentication
         const errorMessage = error instanceof Error ? error.message : String(error);
         if (errorMessage.includes("401") || errorMessage.includes("Unauthorized")) {
-          window.location.href = "/auth";
-          throw new Error("Please log in to track products");
+          throw new Error("Authentication error. Please try again or log in.");
         }
 
         throw error;
