@@ -81,23 +81,17 @@ async function checkPricesAndNotify(): Promise<void> {
       }
     }
     
-    // Find tracked products that need alerts
-    const needAlerts = await storage.getTrackedProductsNeedingAlerts();
+    // Import and use the enhanced email trigger system
+    const { processPriceAlerts, resetNotificationsForPriceIncreases } = require('./emailTrigger');
     
-    console.log(`Found ${needAlerts.length} products requiring price drop alerts`);
+    // Process notifications for products that dropped below target price
+    const alertsSent = await processPriceAlerts();
+    console.log(`Sent price drop alerts for ${alertsSent} products`);
     
-    // Send notifications for each
-    for (const trackedProduct of needAlerts) {
-      const success = await sendPriceDropAlert(
-        trackedProduct.email,
-        trackedProduct.product,
-        trackedProduct
-      );
-      
-      if (success) {
-        // Mark as notified
-        await storage.updateTrackedProduct(trackedProduct.id, { notified: true });
-      }
+    // Reset notification status for products whose prices went back up
+    const resetsProcessed = await resetNotificationsForPriceIncreases();
+    if (resetsProcessed > 0) {
+      console.log(`Reset notification status for ${resetsProcessed} products with price increases`);
     }
     
     console.log('Price check routine completed');
