@@ -250,7 +250,14 @@ export default function ProductSearch({
         productUrl: selectedProduct.url,
         targetPrice: data.targetPrice,
         email: isAuthenticated ? user?.email : data.email,
+        percentageAlert: data.percentageAlert,
+        percentageThreshold: data.percentageThreshold
       };
+      
+      // If we have a product ID from search results, include it
+      if (selectedProduct.id) {
+        trackingData.productId = selectedProduct.id;
+      }
 
       console.log("Submitting tracking data:", trackingData);
       
@@ -277,10 +284,30 @@ export default function ProductSearch({
       const result = await response.json();
       console.log("API Success:", result);
 
+      // Create a descriptive success message based on alert type
+      let successMessage = '';
+      if (data.percentageAlert) {
+        successMessage = `We'll notify you when ${selectedProduct.title.substring(0, 30)}... drops by ${data.percentageThreshold}%.`;
+      } else {
+        successMessage = `We'll notify you when ${selectedProduct.title.substring(0, 30)}... drops below $${data.targetPrice.toFixed(2)}.`;
+      }
+      
       toast({
-        title: "Success!",
-        description: `Now tracking ${selectedProduct.title.substring(0, 30)}... at $${data.targetPrice}`,
+        title: "✅ Price tracking activated!",
+        description: successMessage,
+        duration: 5000,
       });
+      
+      // Refresh all tracked products endpoints to ensure dashboard updates
+      queryClient.invalidateQueries({ queryKey: ["/api/tracked-products"] });
+      if (isAuthenticated) {
+        queryClient.invalidateQueries({ queryKey: ["/api/my/tracked-products"] });
+      }
+      
+      // Scroll to the dashboard to show the tracked product
+      setTimeout(() => {
+        document.getElementById('dashboard')?.scrollIntoView({ behavior: 'smooth' });
+      }, 800);
     } catch (error) {
       console.error("Track submission error:", error);
       toast({
