@@ -153,7 +153,7 @@ export default function ProductSearch({
 
   // Track product form submission
   const onTrackSubmit = async (data: TrackingFormData) => {
-    console.log("Starting tracking request with data:", data);
+    console.log("🚀 [TRACKING] Starting tracking request with data:", data);
 
     // Show loading toast
     toast({
@@ -164,8 +164,10 @@ export default function ProductSearch({
     try {
       // Get current product details
       const productToTrack = selectedProduct || productData;
+      console.log("🚀 [TRACKING] Product to track:", productToTrack);
       
       if (!productToTrack) {
+        console.error("🚀 [TRACKING ERROR] No product selected or found");
         toast({
           title: "No product selected",
           description: "Please select a product or enter a valid Amazon URL",
@@ -181,10 +183,14 @@ export default function ProductSearch({
         email: isAuthenticated ? user?.email : data.email
       };
 
-      console.log("Submitting tracking data:", trackingData);
+      console.log("🚀 [TRACKING] Submitting tracking data:", trackingData);
+      console.log("🚀 [TRACKING] Target price type:", typeof data.targetPrice);
+      console.log("🚀 [TRACKING] Email being used:", trackingData.email);
 
       // Use consistent endpoint for tracking
       const endpoint = '/api/track';
+      console.log(`🚀 [TRACKING] Sending POST request to ${endpoint}`);
+      
       const response = await fetch(endpoint, {
         method: 'POST',
         headers: {
@@ -194,23 +200,56 @@ export default function ProductSearch({
         body: JSON.stringify(trackingData)
       });
 
+      console.log(`🚀 [TRACKING] Server response status: ${response.status} ${response.statusText}`);
+      
       if (!response.ok) {
         const errorText = await response.text();
+        console.error(`🚀 [TRACKING ERROR] Server returned error: ${errorText}`);
         throw new Error(errorText);
       }
 
       const result = await response.json();
-      console.log("Tracking success:", result);
+      console.log("🚀 [TRACKING] Success response:", result);
+      console.log("🚀 [TRACKING] Result type:", typeof result);
+      console.log("🚀 [TRACKING] Has ID?", result.id ? "Yes" : "No");
+
+      // Force refresh the tracked products data
+      console.log("🚀 [TRACKING] About to invalidate queries and fetch latest data");
+      queryClient.invalidateQueries({ queryKey: ["/api/tracked-products"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/my/tracked-products"] });
+      console.log("🚀 [TRACKING] Queries invalidated");
+      
+      // Directly fetch the latest data (bypass cache)
+      if (data.email) {
+        console.log(`🚀 [TRACKING] Directly fetching latest data for email: ${data.email}`);
+        const refreshUrl = `/api/tracked-products?email=${encodeURIComponent(data.email)}&_t=${Date.now()}`;
+        console.log(`🚀 [TRACKING] Refresh URL: ${refreshUrl}`);
+        try {
+          const refreshResponse = await fetch(refreshUrl, { 
+            credentials: 'include',
+            cache: 'no-store'
+          });
+          console.log(`🚀 [TRACKING] Refresh response status: ${refreshResponse.status}`);
+          const refreshData = await refreshResponse.json();
+          console.log(`🚀 [TRACKING] Refresh data received:`, refreshData);
+          console.log(`🚀 [TRACKING] Items count: ${refreshData.length}`);
+        } catch (refreshError) {
+          console.error(`🚀 [TRACKING] Error refreshing data:`, refreshError);
+        }
+      }
 
       // Dispatch a custom event to notify other components
+      const eventDetail = {
+        product: result,
+        email: data.email || trackForm.getValues("email")
+      };
+      console.log("🚀 [TRACKING] Dispatching custom event with detail:", eventDetail);
+      
       const productTrackEvent = new CustomEvent('product-tracked', {
-        detail: {
-          product: result,
-          email: data.email || trackForm.getValues("email")
-        }
+        detail: eventDetail
       });
       document.dispatchEvent(productTrackEvent);
-      console.log("Dispatched product-tracked event");
+      console.log("🚀 [TRACKING] Dispatched product-tracked event");
 
       // Create success message
       const productTitle = productToTrack.title.length > 30 
