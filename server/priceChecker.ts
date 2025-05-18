@@ -14,8 +14,12 @@ async function updateProductPrice(product: Product): Promise<Product | undefined
     // Fetch latest product info from Amazon API
     const latestInfo = await getProductInfo(product.asin);
     
-    // Intelligently store price in history (only when needed)
-    await intelligentlyAddPriceHistory(product.id, latestInfo.price);
+    // Only store valid prices in history
+    if (typeof latestInfo.price === 'number' && !isNaN(latestInfo.price)) {
+      await intelligentlyAddPriceHistory(product.id, latestInfo.price);
+    } else {
+      console.warn(`Skipping price history update for ${product.asin} - invalid price value`);
+    }
     
     // Update product data
     const updatedProduct = await storage.updateProduct(product.id, {
