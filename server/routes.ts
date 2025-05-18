@@ -435,15 +435,25 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Track a product without authentication (email only)
   app.post('/api/track', async (req: Request, res: Response) => {
     try {
-      // Log the incoming request data for debugging
-      console.log('⚠️ TRACK DEBUG - Request received with body:', JSON.stringify(req.body, null, 2));
-      console.log('⚠️ TRACK DEBUG - Request headers:', JSON.stringify(req.headers, null, 2));
+      // Full debugging for track requests
+      console.log('🚨 TRACK REQUEST RECEIVED 🚨');
+      console.log('Request body:', JSON.stringify(req.body, null, 2));
+      console.log('Content type:', req.headers['content-type']);
+      
+      // Add specific checks for required fields to help diagnose issues
+      const { productUrl, targetPrice, email } = req.body || {};
+      console.log('Field check - productUrl:', productUrl ? 'present' : 'MISSING');
+      console.log('Field check - targetPrice:', targetPrice !== undefined ? targetPrice : 'MISSING');
+      console.log('Field check - email:', email ? email : 'MISSING');
 
       // Validate request body
       const result = trackingFormSchema.safeParse(req.body);
       if (!result.success) {
+        console.log('❌ VALIDATION FAILED:', JSON.stringify(result.error.format(), null, 2));
         return res.status(400).json({ error: 'Invalid request data', details: result.error.format() });
       }
+      
+      console.log('✅ Validation succeeded')
 
       const { productUrl, targetPrice, email, percentageAlert, percentageThreshold, productId } = result.data;
 
