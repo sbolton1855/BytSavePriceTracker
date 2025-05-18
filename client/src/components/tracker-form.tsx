@@ -43,10 +43,12 @@ const TrackerForm: React.FC<TrackerFormProps> = ({ onSuccess }) => {
       return response.json();
     },
     onSuccess: (data) => {
+      // Show a clear confirmation notification
       toast({
-        title: "Product tracking added!",
-        description: "We'll notify you when the price drops below your target.",
+        title: "✅ Product tracking added!",
+        description: "You'll receive an email when the price drops below your target.",
         variant: "default",
+        duration: 6000,
       });
       
       // Reset the form
