@@ -127,11 +127,20 @@ const ProductCard: React.FC<ProductCardProps> = ({ trackedProduct, onRefresh }) 
       
       // Determine which endpoint to use based on whether we have a userId
       const hasUserId = !!trackedProduct.userId;
+      
+      // Make sure we have a valid email for non-authenticated users
+      const email = trackedProduct.email || '';
+      
       let url = hasUserId 
         ? `/api/my/tracked-products/${trackedProduct.id}`
-        : `/api/tracked-products/${trackedProduct.id}?email=${encodeURIComponent(trackedProduct.email)}`;
+        : `/api/tracked-products/${trackedProduct.id}?email=${encodeURIComponent(email)}`;
       
       console.log(`Using delete endpoint: ${url}`);
+      console.log(`Product data for deletion:`, {
+        id: trackedProduct.id,
+        email: email,
+        hasUserId: hasUserId
+      });
       
       // Include credentials to ensure the auth cookie is sent
       const res = await fetch(url, {
