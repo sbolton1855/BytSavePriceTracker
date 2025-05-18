@@ -25,7 +25,10 @@ export default function ProductSearch({
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedProduct, setSelectedProduct] = useState<any>(null);
   const [targetPrice, setTargetPrice] = useState("");
-  const [email, setEmail] = useState("");
+  const [email, setEmail] = useState(() => {
+    // Initialize email from localStorage for consistent tracking
+    return localStorage.getItem("bytsave_user_email") || "";
+  });
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   // Search products query
@@ -95,10 +98,26 @@ export default function ProductSearch({
         duration: 5000,
       });
 
+      // Save email to localStorage for consistency across components
+      if (!user && trackingEmail) {
+        localStorage.setItem("bytsave_user_email", trackingEmail);
+      }
+      
       // Reset form
       setSelectedProduct(null);
       setTargetPrice("");
       setSearchQuery("");
+
+      // Create a custom event for the products display component
+      const trackEvent = new CustomEvent('product-tracked', { 
+        detail: { email: trackingEmail }
+      });
+      document.dispatchEvent(trackEvent);
+
+      // Scroll to the dashboard section
+      setTimeout(() => {
+        document.getElementById('dashboard')?.scrollIntoView({ behavior: 'smooth' });
+      }, 1000);
 
       // Refresh tracked products
       queryClient.invalidateQueries({ queryKey: ["/api/tracked-products"] });

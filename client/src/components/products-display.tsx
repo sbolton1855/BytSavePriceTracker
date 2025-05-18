@@ -112,14 +112,24 @@ const ProductsDisplay: React.FC<ProductsDisplayProps> = ({ email }) => {
       }, 500);
     };
     
-    const handleProductTracked = () => {
-      console.log("Product tracking detected, refetching data");
-      // Force a complete data refresh
+    const handleProductTracked = (event: any) => {
+      console.log("Product tracking detected, refetching data", event.detail);
+      
+      // Update email from the event if provided
+      if (event.detail?.email) {
+        console.log("Updating email from tracked event:", event.detail.email);
+        // Store the email in localStorage for consistency
+        localStorage.setItem("bytsave_user_email", event.detail.email);
+      }
+      
+      // Reset tracked products queries to ensure fresh data
       queryClient.resetQueries({ queryKey: ['/api/tracked-products'] });
+      
+      // Wait a moment for the database to update
       setTimeout(() => {
         console.log("Performing manual refetch after tracking");
         refetch();
-      }, 500);
+      }, 800);
     };
     
     // Add event listeners
