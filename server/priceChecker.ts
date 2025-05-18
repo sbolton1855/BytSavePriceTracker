@@ -6,9 +6,7 @@ import { intelligentlyAddPriceHistory } from './routes';
 
 // Interval for checking prices (in ms)
 // 4 hours in production, shorter for development
-const CHECK_INTERVAL = process.env.NODE_ENV === 'production' 
-  ? 4 * 60 * 60 * 1000 
-  : 5 * 60 * 1000; // 5 minutes for dev
+const CHECK_INTERVAL = 24 * 60 * 60 * 1000; // Check once per day
 
 // Function to update a product's price
 async function updateProductPrice(product: Product): Promise<Product | undefined> {
