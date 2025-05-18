@@ -50,15 +50,21 @@ export default function ProductSearch({
       return;
     }
 
+    // Check email for non-authenticated users
+    if (!user && (!email || email.trim() === "")) {
+      toast({
+        title: "Email Required",
+        description: "Please provide your email to receive price drop alerts",
+        variant: "destructive"
+      });
+      return;
+    }
+
     setIsSubmitting(true);
 
     try {
-      // Make sure we have a valid email - either from logged-in user or from the input field
+      // Use the email from the authenticated user or the input field
       const trackingEmail = user?.email || email;
-      
-      if (!trackingEmail) {
-        throw new Error("Please provide an email address to receive price alerts");
-      }
       
       console.log("Sending tracking request with:", {
         url: selectedProduct.url,
@@ -191,8 +197,9 @@ export default function ProductSearch({
             
             {!user && (
               <div className="space-y-2">
-                <Label>Email for Price Alerts</Label>
+                <Label htmlFor="alert-email">Email for Price Alerts</Label>
                 <Input
+                  id="alert-email"
                   type="email"
                   placeholder="your@email.com"
                   value={email}
