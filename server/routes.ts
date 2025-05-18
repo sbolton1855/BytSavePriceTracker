@@ -643,6 +643,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
               lastChecked: new Date()
             });
             
+            console.log('Created product with fallback data:', product);
+            
             // Create initial price history entry for the fallback product
             await intelligentlyAddPriceHistory(product.id, fallbackPrice);
           }

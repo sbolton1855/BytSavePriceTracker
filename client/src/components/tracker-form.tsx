@@ -39,8 +39,17 @@ const TrackerForm: React.FC<TrackerFormProps> = ({ onSuccess }) => {
   // Set up mutation
   const trackProductMutation = useMutation({
     mutationFn: async (data: TrackingFormData) => {
-      const response = await apiRequest("POST", "/api/track", data);
-      return response.json();
+      try {
+        const response = await apiRequest("POST", "/api/track", data);
+        if (!response.ok) {
+          const errorData = await response.json();
+          throw new Error(errorData.error || "Failed to track product");
+        }
+        return response.json();
+      } catch (error) {
+        console.error("Error tracking product:", error);
+        throw error;
+      }
     },
     onSuccess: (data) => {
       // Show a clear confirmation notification
