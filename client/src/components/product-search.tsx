@@ -202,6 +202,16 @@ export default function ProductSearch({
       const result = await response.json();
       console.log("Tracking success:", result);
 
+      // Dispatch a custom event to notify other components
+      const productTrackEvent = new CustomEvent('product-tracked', {
+        detail: {
+          product: result,
+          email: data.email || trackForm.getValues("email")
+        }
+      });
+      document.dispatchEvent(productTrackEvent);
+      console.log("Dispatched product-tracked event");
+
       // Create success message
       const productTitle = productToTrack.title.length > 30 
         ? productToTrack.title.substring(0, 30) + "..." 
