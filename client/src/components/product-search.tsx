@@ -246,7 +246,8 @@ export default function ProductSearch({
         return;
       }
 
-      const trackingData = {
+      // Create the tracking data with all required fields
+      let trackingData: any = {
         productUrl: selectedProduct.url,
         targetPrice: data.targetPrice,
         email: isAuthenticated ? user?.email : data.email,
