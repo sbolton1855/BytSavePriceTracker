@@ -23,16 +23,16 @@ const Home: React.FC = () => {
     if (emailInput && emailInput.value) {
       const email = emailInput.value;
       setUserEmail(email);
-      
+
       // Save to local storage for persistence
       localStorage.setItem("bytsave_user_email", email);
-      
+
       // Show notification
       toast({
         title: "Product tracking started",
         description: "We'll send an email when the price drops below your target.",
       });
-      
+
       // Scroll to dashboard
       document.getElementById("dashboard")?.scrollIntoView({ behavior: "smooth" });
     }
@@ -42,7 +42,7 @@ const Home: React.FC = () => {
     <>
       <HeroSection />
       <FeaturesSection />
-      
+
       <section id="tracker" className="py-16 bg-slate-50">
         <div className="container">
           <div className="text-center mb-10">
@@ -52,7 +52,7 @@ const Home: React.FC = () => {
               and get notified when they drop.
             </p>
           </div>
-          
+
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
             <div>
               <Card>
@@ -67,7 +67,7 @@ const Home: React.FC = () => {
                 </CardContent>
               </Card>
             </div>
-            
+
             <div>
               <Card>
                 <CardHeader>
@@ -80,17 +80,17 @@ const Home: React.FC = () => {
                   <form
                     onSubmit={(e) => {
                       e.preventDefault();
-                      
+
                       // Get form values
                       const form = e.target as HTMLFormElement;
                       const urlInput = form.elements.namedItem("productUrl") as HTMLInputElement;
                       const priceInput = form.elements.namedItem("targetPrice") as HTMLInputElement;
                       const emailInput = form.elements.namedItem("email") as HTMLInputElement;
-                      
+
                       const productUrl = urlInput.value;
                       const targetPrice = parseFloat(priceInput.value);
                       const email = emailInput.value;
-                      
+
                       if (!productUrl || !targetPrice || !email) {
                         toast({
                           title: "Missing required fields",
@@ -99,7 +99,7 @@ const Home: React.FC = () => {
                         });
                         return;
                       }
-                      
+
                       // Send simple tracking request
                       fetch("/api/track", {
                         method: "POST",
@@ -124,14 +124,14 @@ const Home: React.FC = () => {
                           title: "Product tracked!",
                           description: "We'll notify you when the price drops",
                         });
-                        
+
                         // Set the email for the dashboard
                         setUserEmail(email);
-                        localStorage.setItem("bytsave_user_email", email);
-                        
+                        sessionStorage.setItem("bytsave_user_email", email);
+
                         // Reset form
                         form.reset();
-                        
+
                         // Scroll to dashboard
                         document.getElementById("dashboard")?.scrollIntoView({ behavior: "smooth" });
                       })
@@ -159,7 +159,7 @@ const Home: React.FC = () => {
                         placeholder="https://www.amazon.com/dp/B0123ABCDE"
                       />
                     </div>
-                    
+
                     <div className="space-y-2">
                       <label htmlFor="targetPrice" className="block text-sm font-medium">
                         Target Price ($)
@@ -175,7 +175,7 @@ const Home: React.FC = () => {
                         placeholder="19.99"
                       />
                     </div>
-                    
+
                     <div className="space-y-2">
                       <label htmlFor="email" className="block text-sm font-medium">
                         Email for Notifications
@@ -190,7 +190,7 @@ const Home: React.FC = () => {
                         defaultValue={userEmail}
                       />
                     </div>
-                    
+
                     <button
                       type="submit"
                       className="w-full bg-blue-600 text-white py-2 px-4 rounded-md hover:bg-blue-700 transition"
@@ -204,7 +204,7 @@ const Home: React.FC = () => {
           </div>
         </div>
       </section>
-      
+
       <ProductsDisplay email={userEmail} />
       <NotificationDemo />
     </>
