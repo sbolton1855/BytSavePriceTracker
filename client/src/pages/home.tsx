@@ -40,11 +40,18 @@ const Home: React.FC = () => {
   }, [user]);
 
   // Handle successful tracker form submission
-  const handleTrackerSuccess = () => {
-    // Get the email from the form
-    const emailInput = document.querySelector('input[name="email"]') as HTMLInputElement;
-    if (emailInput && emailInput.value) {
-      const email = emailInput.value;
+  const handleTrackerSuccess = (customEmail?: string) => {
+    // Get the email either from the parameter or try to find it in the form
+    let email = customEmail;
+    
+    if (!email) {
+      const emailInput = document.querySelector('input[name="email"]') as HTMLInputElement;
+      if (emailInput && emailInput.value) {
+        email = emailInput.value;
+      }
+    }
+    
+    if (email) {
       setUserEmail(email);
       
       // Save to local storage for persistence
@@ -55,9 +62,6 @@ const Home: React.FC = () => {
         title: "Product tracking started",
         description: "We'll send an email when the price drops below your target.",
       });
-      
-      // Scroll to dashboard
-      document.getElementById("dashboard")?.scrollIntoView({ behavior: "smooth" });
     }
   };
 
