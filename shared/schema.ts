@@ -147,6 +147,24 @@ export type TrackedProductWithDetails = TrackedProduct & {
 };
 
 // Define relations after all tables have been defined
+// API Error logging table
+export const apiErrors = pgTable("api_errors", {
+  id: serial("id").primaryKey(),
+  asin: varchar("asin", { length: 20 }),
+  errorType: varchar("error_type", { length: 255 }),
+  errorMessage: text("error_message"),
+  createdAt: timestamp("created_at").defaultNow(),
+  resolved: boolean("resolved").default(false)
+});
+
+export const insertApiErrorSchema = createInsertSchema(apiErrors).omit({
+  id: true,
+  createdAt: true
+});
+
+export type InsertApiError = z.infer<typeof insertApiErrorSchema>;
+export type ApiError = typeof apiErrors.$inferSelect;
+
 export const usersRelations = relations(users, ({ many }) => ({
   trackedProducts: many(trackedProducts),
 }));
@@ -172,4 +190,11 @@ export const priceHistoryRelations = relations(priceHistory, ({ one }) => ({
     fields: [priceHistory.productId],
     references: [products.id],
   }),
+}));
+
+export const apiErrorsRelations = relations(apiErrors, ({ one }) => ({
+  product: one(products, {
+    fields: [apiErrors.asin],
+    references: [products.asin],
+  })
 }));
