@@ -368,6 +368,11 @@ async function getProductInfo(asinOrUrl: string): Promise<AmazonProduct> {
       ? lastError.message 
       : 'Unknown error';
     
+    // Import dynamically to avoid circular dependency
+    import('./errorController').then(({ logApiError }) => {
+      logApiError(asin, 'API_FAILURE', `Amazon API failed after ${maxRetries} retries: ${errorMessage}`);
+    });
+    
     throw new Error(`Amazon API failed after ${maxRetries} retries: ${errorMessage}`);
   } catch (error) {
     console.error('Error fetching product from Amazon API:', error);
