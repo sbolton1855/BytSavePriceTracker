@@ -234,8 +234,10 @@ export default function ProductSearch({
 
   // Track product form submission
   const onTrackSubmit = async (data: TrackingFormData) => {
+    console.log("Track button clicked - Starting submission with data:", data);
     try {
       if (!selectedProduct) {
+        console.log("Error: No product selected");
         toast({
           title: "No product selected",
           description: "Please select a product to track",
@@ -250,7 +252,35 @@ export default function ProductSearch({
         email: isAuthenticated ? user?.email : data.email,
       };
 
-      trackMutation.mutate(trackingData);
+      console.log("Submitting tracking data:", trackingData);
+      
+      // Make direct API call for better error visibility
+      const endpoint = isAuthenticated ? '/api/my/track' : '/api/track';
+      console.log("Making API request to:", endpoint);
+      
+      const response = await fetch(endpoint, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify(trackingData)
+      });
+
+      console.log("API Response status:", response.status);
+      
+      if (!response.ok) {
+        const errorText = await response.text();
+        console.error("API Error:", errorText);
+        throw new Error(errorText);
+      }
+
+      const result = await response.json();
+      console.log("API Success:", result);
+
+      toast({
+        title: "Success!",
+        description: `Now tracking ${selectedProduct.title.substring(0, 30)}... at $${data.targetPrice}`,
+      });
     } catch (error) {
       console.error("Track submission error:", error);
       toast({
