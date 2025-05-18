@@ -53,7 +53,155 @@ const Home: React.FC = () => {
             </p>
           </div>
           
-          <ProductSearch onSuccess={handleTrackerSuccess} />
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+            <div>
+              <Card>
+                <CardHeader>
+                  <CardTitle>Search & Track</CardTitle>
+                  <CardDescription>
+                    Search for products by name or ASIN
+                  </CardDescription>
+                </CardHeader>
+                <CardContent>
+                  <ProductSearch onSuccess={handleTrackerSuccess} />
+                </CardContent>
+              </Card>
+            </div>
+            
+            <div>
+              <Card>
+                <CardHeader>
+                  <CardTitle>Quick Track</CardTitle>
+                  <CardDescription>
+                    Directly track an Amazon product URL
+                  </CardDescription>
+                </CardHeader>
+                <CardContent>
+                  <form
+                    onSubmit={(e) => {
+                      e.preventDefault();
+                      
+                      // Get form values
+                      const form = e.target as HTMLFormElement;
+                      const urlInput = form.elements.namedItem("productUrl") as HTMLInputElement;
+                      const priceInput = form.elements.namedItem("targetPrice") as HTMLInputElement;
+                      const emailInput = form.elements.namedItem("email") as HTMLInputElement;
+                      
+                      const productUrl = urlInput.value;
+                      const targetPrice = parseFloat(priceInput.value);
+                      const email = emailInput.value;
+                      
+                      if (!productUrl || !targetPrice || !email) {
+                        toast({
+                          title: "Missing required fields",
+                          description: "Please fill in all fields",
+                          variant: "destructive"
+                        });
+                        return;
+                      }
+                      
+                      // Send simple tracking request
+                      fetch("/api/track", {
+                        method: "POST",
+                        headers: {
+                          "Content-Type": "application/json"
+                        },
+                        body: JSON.stringify({
+                          productUrl,
+                          targetPrice,
+                          email
+                        })
+                      })
+                      .then(response => {
+                        if (!response.ok) {
+                          throw new Error("Failed to track product");
+                        }
+                        return response.json();
+                      })
+                      .then(data => {
+                        console.log("Tracking success:", data);
+                        toast({
+                          title: "Product tracked!",
+                          description: "We'll notify you when the price drops",
+                        });
+                        
+                        // Set the email for the dashboard
+                        setUserEmail(email);
+                        localStorage.setItem("bytsave_user_email", email);
+                        
+                        // Reset form
+                        form.reset();
+                        
+                        // Scroll to dashboard
+                        document.getElementById("dashboard")?.scrollIntoView({ behavior: "smooth" });
+                      })
+                      .catch(error => {
+                        console.error("Tracking error:", error);
+                        toast({
+                          title: "Tracking failed",
+                          description: error.message,
+                          variant: "destructive"
+                        });
+                      });
+                    }}
+                    className="space-y-4"
+                  >
+                    <div className="space-y-2">
+                      <label htmlFor="productUrl" className="block text-sm font-medium">
+                        Amazon Product URL
+                      </label>
+                      <input
+                        id="productUrl"
+                        name="productUrl"
+                        type="url"
+                        required
+                        className="w-full p-2 border rounded-md"
+                        placeholder="https://www.amazon.com/dp/B0123ABCDE"
+                      />
+                    </div>
+                    
+                    <div className="space-y-2">
+                      <label htmlFor="targetPrice" className="block text-sm font-medium">
+                        Target Price ($)
+                      </label>
+                      <input
+                        id="targetPrice"
+                        name="targetPrice"
+                        type="number"
+                        step="0.01"
+                        min="0.01"
+                        required
+                        className="w-full p-2 border rounded-md"
+                        placeholder="19.99"
+                      />
+                    </div>
+                    
+                    <div className="space-y-2">
+                      <label htmlFor="email" className="block text-sm font-medium">
+                        Email for Notifications
+                      </label>
+                      <input
+                        id="email"
+                        name="email"
+                        type="email"
+                        required
+                        className="w-full p-2 border rounded-md"
+                        placeholder="you@example.com"
+                        defaultValue={userEmail}
+                      />
+                    </div>
+                    
+                    <button
+                      type="submit"
+                      className="w-full bg-blue-600 text-white py-2 px-4 rounded-md hover:bg-blue-700 transition"
+                    >
+                      Track Price
+                    </button>
+                  </form>
+                </CardContent>
+              </Card>
+            </div>
+          </div>
         </div>
       </section>
       
