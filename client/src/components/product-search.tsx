@@ -128,7 +128,7 @@ export default function ProductSearch({
 
     setSearchTimeout(timeout);
   };
-  
+
   // Set email for both search modes
   const handleEmailChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     setEmail(e.target.value);
@@ -191,7 +191,7 @@ export default function ProductSearch({
   const trackMutation = useMutation({
     mutationFn: async (data: TrackingFormData) => {
       console.log("💡 MUTATION - trackMutation function called with data:", JSON.stringify(data, null, 2));
-      
+
       const endpoint = isAuthenticated ? "/api/my/track" : "/api/track";
       if (!isAuthenticated && (!data.email || data.email.trim() === "")) {
         throw new Error("Email is required for price alerts");
@@ -213,7 +213,7 @@ export default function ProductSearch({
         });
 
         console.log("💡 MUTATION - Response status:", response.status);
-        
+
         if (!response.ok) {
           const errorText = await response.text();
           console.error("💡 MUTATION - Error response:", errorText);
@@ -254,13 +254,13 @@ export default function ProductSearch({
   // Track product form submission
   const onTrackSubmit = async (data: TrackingFormData) => {
     console.log("🔥 TRACK BUTTON CLICKED - Starting submission with data:", JSON.stringify(data, null, 2));
-    
+
     // Alert user that we're processing the request
     toast({
       title: "Processing tracking request...",
       description: "Setting up price tracking for this product.",
     });
-    
+
     try {
       if (!selectedProduct) {
         console.log("Error: No product selected");
@@ -278,26 +278,26 @@ export default function ProductSearch({
         targetPrice: parseFloat(data.targetPrice.toString()), // Ensure number format
         email: isAuthenticated ? user?.email : data.email
       };
-      
+
       // For TypeScript, create a proper type
       type SimpleTrackingData = {
         productUrl: string;
         targetPrice: number;
         email: string | undefined;
       };
-      
+
       console.log("Submitting simplified tracking data:", JSON.stringify(trackingData, null, 2));
-      
+
       // Use only the non-authenticated endpoint that we know is working
       const endpoint = '/api/track';
       console.log("Making API request to:", endpoint);
-      
+
       // Show clear status to the user
       toast({
         title: "Sending tracking request...",
         description: "Connecting to server, please wait...",
       });
-      
+
       // Make the request directly like the simple form does
       const response = await fetch(endpoint, {
         method: 'POST',
@@ -309,7 +309,7 @@ export default function ProductSearch({
       });
 
       console.log("API Response status:", response.status);
-      
+
       if (!response.ok) {
         const errorText = await response.text();
         console.error("API Error:", errorText);
@@ -327,19 +327,19 @@ export default function ProductSearch({
       } else {
         successMessage = `We'll notify you when ${selectedProduct.title.substring(0, 30)}... drops below $${data.targetPrice.toFixed(2)}.`;
       }
-      
+
       toast({
         title: "✅ Price tracking activated!",
         description: successMessage,
         duration: 5000,
       });
-      
+
       // Refresh all tracked products endpoints to ensure dashboard updates
       queryClient.invalidateQueries({ queryKey: ["/api/tracked-products"] });
       if (isAuthenticated) {
         queryClient.invalidateQueries({ queryKey: ["/api/my/tracked-products"] });
       }
-      
+
       // Scroll to the dashboard to show the tracked product
       setTimeout(() => {
         document.getElementById('dashboard')?.scrollIntoView({ behavior: 'smooth' });
@@ -497,36 +497,36 @@ export default function ProductSearch({
                     )}
                   />
 
-                  {!isAuthenticated ? (
-                    <div className="bg-amber-50 border border-amber-200 rounded-lg p-4 mb-4">
-                      <div className="flex items-center space-x-3">
-                        <div className="flex-shrink-0 text-amber-500">
-                          <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                            <path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7A2 2 0 0 1 22 16.92z" />
-                          </svg>
-                        </div>
-                        <div>
-                          <h4 className="font-medium">Login Required</h4>
-                          <p className="text-sm text-muted-foreground mt-1">
-                            You need to login to track prices and receive alerts
-                          </p>
-                        </div>
-                      </div>
-                      <div className="mt-4">
-                        <Button 
-                          className="w-full" 
-                          onClick={() => window.location.href = "/auth"}
-                        >
-                          <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="mr-2">
-                            <path d="M15 3h4a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2h-4"/>
-                            <polyline points="10 17 15 12 10 7"/>
-                            <line x1="15" y1="12" x2="3" y2="12"/>
-                          </svg>
-                          Login to Track Prices
-                        </Button>
-                      </div>
-                    </div>
-                  ) : null}
+                  {!isAuthenticated && (
+                    <FormField
+                      control={trackForm.control}
+                      name="email"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>Email for Price Alerts</FormLabel>
+                          <FormControl>
+                            <Input
+                              type="email"
+                              placeholder="your@email.com"
+                              {...field}
+                              required
+                            />
+                          </FormControl>
+                          <FormDescription>
+                            Create an account to manage all your tracked products and get more features.
+                            <Button 
+                              variant="link"
+                              className="px-2 h-auto"
+                              onClick={() => window.location.href = "/auth"}
+                            >
+                              Sign up now
+                            </Button>
+                          </FormDescription>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+                  )}
 
                   {isAuthenticated && (
                     <Button
@@ -669,39 +669,38 @@ export default function ProductSearch({
                     <p className="text-sm text-muted-foreground mb-4">
                       We'll notify you when the price drops below your desired price
                     </p>
-                    
+
                     {!isAuthenticated ? (
-                      <div className="bg-amber-50 border border-amber-200 rounded-lg p-4 mb-4">
-                        <div className="flex items-center space-x-3">
-                          <div className="flex-shrink-0 text-amber-500">
-                            <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                              <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z" />
-                            </svg>
-                          </div>
-                          <div>
-                            <h4 className="font-medium">Create an Account for More Features</h4>
-                            <p className="text-sm text-muted-foreground mt-1">
-                              For the best experience, login to access your dashboard, manage all your tracked products, and more advanced features.
-                            </p>
-                          </div>
-                        </div>
-                        <div className="mt-4">
-                          <Button 
-                            className="w-full mb-2" 
-                            onClick={() => window.location.href = "/auth"}
-                            variant="outline"
-                          >
-                            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="mr-2">
-                              <path d="M15 3h4a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2h-4"/>
-                              <polyline points="10 17 15 12 10 7"/>
-                              <line x1="15" y1="12" x2="3" y2="12"/>
-                            </svg>
-                            Sign Up or Login for Full Features
-                          </Button>
-                        </div>
-                      </div>
+                      <FormField
+                        control={trackForm.control}
+                        name="email"
+                        render={({ field }) => (
+                          <FormItem>
+                            <FormLabel>Email for Price Alerts</FormLabel>
+                            <FormControl>
+                              <Input
+                                type="email"
+                                placeholder="your@email.com"
+                                {...field}
+                                required
+                              />
+                            </FormControl>
+                            <FormDescription>
+                              Create an account to manage all your tracked products and get more features.
+                              <Button 
+                                variant="link"
+                                className="px-2 h-auto"
+                                onClick={() => window.location.href = "/auth"}
+                              >
+                                Sign up now
+                              </Button>
+                            </FormDescription>
+                            <FormMessage />
+                          </FormItem>
+                        )}
+                      />
                     ) : null}
-                    
+
                     <Form {...trackForm}>
                       <form
                         onSubmit={trackForm.handleSubmit(onTrackSubmit)}
@@ -746,7 +745,7 @@ export default function ProductSearch({
                             <p className="text-xs text-muted-foreground">
                               Choose how you want to be notified when the price drops
                             </p>
-                              
+
                             {/* Show email field for non-authenticated users */}
                             {!isAuthenticated && (
                               <div className="mt-3">
@@ -779,7 +778,7 @@ export default function ProductSearch({
 
                           {/* Hidden field to always set percentageAlert to false */}
                           <input type="hidden" {...trackForm.register("percentageAlert")} value="false" />
-                          
+
                           <div className="space-y-3">
                             <div className="grid">
                               <div className="border rounded-lg p-3 bg-primary/10 border-primary/30 shadow-sm">
