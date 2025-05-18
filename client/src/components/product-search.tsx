@@ -249,6 +249,15 @@ export default function ProductSearch({
     } else if (email) {
       trackForm.setValue("email", email);
     }
+    
+    // Scroll to the tracking form section
+    setTimeout(() => {
+      // Find the selected product form area
+      const trackingForm = document.getElementById("selected-product-form");
+      if (trackingForm) {
+        trackingForm.scrollIntoView({ behavior: "smooth", block: "start" });
+      }
+    }, 100);
   };
 
   return (
@@ -484,7 +493,7 @@ export default function ProductSearch({
                 )}
 
                 {selectedProduct && (
-                  <div className="mt-6 border-t pt-4">
+                  <div className="mt-6 border-t pt-4" id="selected-product-form">
                     <h3 className="font-medium mb-3">Track Selected Product</h3>
                     <div className="bg-slate-50 p-3 rounded-md mb-4">
                       <div className="flex items-start gap-3">
