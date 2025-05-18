@@ -441,10 +441,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
       console.log('Content type:', req.headers['content-type']);
       
       // Add specific checks for required fields to help diagnose issues
-      const { productUrl, targetPrice, email } = req.body || {};
-      console.log('Field check - productUrl:', productUrl ? 'present' : 'MISSING');
-      console.log('Field check - targetPrice:', targetPrice !== undefined ? targetPrice : 'MISSING');
-      console.log('Field check - email:', email ? email : 'MISSING');
+      if (req.body) {
+        const { productUrl, targetPrice, email } = req.body;
+        console.log('Field check - productUrl:', productUrl ? 'present' : 'MISSING');
+        console.log('Field check - targetPrice:', targetPrice !== undefined ? targetPrice : 'MISSING');
+        console.log('Field check - email:', email ? email : 'MISSING');
+      } else {
+        console.log('REQUEST BODY IS NULL OR UNDEFINED');
+      }
 
       // Validate request body
       const result = trackingFormSchema.safeParse(req.body);
