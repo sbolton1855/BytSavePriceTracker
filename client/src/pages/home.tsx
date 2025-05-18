@@ -55,32 +55,18 @@ const Home: React.FC = () => {
             </p>
           </div>
 
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-            <div>
-              <Card>
-                <CardHeader>
-                  <CardTitle>Search & Track</CardTitle>
-                  <CardDescription>
-                    Search for products by name or ASIN
-                  </CardDescription>
-                </CardHeader>
-                <CardContent>
-                  <ProductSearch onSuccess={handleTrackerSuccess} />
-                </CardContent>
-              </Card>
-            </div>
-
-            <div>
-              <Card>
-                <CardHeader>
-                  <CardTitle>Quick Track</CardTitle>
-                  <CardDescription>
-                    Directly track an Amazon product URL
-                  </CardDescription>
-                </CardHeader>
-                <CardContent>
-                  <form
-                    onSubmit={(e) => {
+          <div className="max-w-4xl mx-auto">
+            <Card>
+              <CardHeader>
+                <CardTitle>Track Amazon Products</CardTitle>
+                <CardDescription>
+                  Search by product name or enter an Amazon URL to start tracking
+                </CardDescription>
+              </CardHeader>
+              <CardContent>
+                <ProductSearch onSuccess={handleTrackerSuccess} />
+              </CardContent>
+            </Card>
                       e.preventDefault();
 
                       // Get form values
