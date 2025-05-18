@@ -11,8 +11,9 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 const Home: React.FC = () => {
   const { user } = useAuth();
   const [userEmail, setUserEmail] = useState<string>(() => {
-    // Use authenticated user's email or get from local storage
-    return user?.email || localStorage.getItem("bytsave_user_email") || "";
+    // Use authenticated user's email or get from session storage
+    const sessionEmail = sessionStorage.getItem("bytsave_user_session");
+    return user?.email || sessionEmail || "";
   });
   const { toast } = useToast();
 
@@ -25,7 +26,8 @@ const Home: React.FC = () => {
       setUserEmail(email);
 
       // Save to local storage for persistence
-      localStorage.setItem("bytsave_user_email", email);
+      // Store in session storage instead of localStorage
+      sessionStorage.setItem("bytsave_user_session", email);
 
       // Show notification
       toast({
