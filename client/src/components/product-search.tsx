@@ -155,16 +155,20 @@ export default function ProductSearch({
   const onTrackSubmit = async (data: TrackingFormData) => {
     console.log("Starting tracking request with data:", data);
 
+    // Show loading toast
     toast({
       title: "Processing tracking request...",
       description: "Setting up price tracking for this product.",
     });
 
     try {
-      if (!selectedProduct) {
+      // Get current product details
+      const productToTrack = selectedProduct || productData;
+      
+      if (!productToTrack) {
         toast({
           title: "No product selected",
-          description: "Please select a product to track",
+          description: "Please select a product or enter a valid Amazon URL",
           variant: "destructive",
         });
         return;
@@ -172,7 +176,7 @@ export default function ProductSearch({
 
       // Create simplified tracking data
       const trackingData = {
-        productUrl: selectedProduct.url,
+        productUrl: productToTrack.url,
         targetPrice: parseFloat(data.targetPrice.toString()),
         email: isAuthenticated ? user?.email : data.email
       };
@@ -199,29 +203,61 @@ export default function ProductSearch({
       console.log("Tracking success:", result);
 
       // Create success message
-      let successMessage = `We'll notify you when ${selectedProduct.title.substring(0, 30)}... drops below $${data.targetPrice.toFixed(2)}.`;
+      const productTitle = productToTrack.title.length > 30 
+        ? productToTrack.title.substring(0, 30) + "..." 
+        : productToTrack.title;
+      
+      let successMessage = `We'll notify you when <strong>${productTitle}</strong> drops below <strong>$${data.targetPrice.toFixed(2)}</strong>.`;
 
+      // We don't need to dismiss the previous toast as a new one will replace it
+      
+      // Show success toast
       toast({
         title: "✅ Price tracking activated!",
         description: successMessage,
-        duration: 5000,
+        duration: 6000,
       });
 
-      // Refresh tracked products data
+      // Force refresh tracked products data - important to show newly added item
       queryClient.invalidateQueries({ queryKey: ["/api/tracked-products"] });
       if (isAuthenticated) {
         queryClient.invalidateQueries({ queryKey: ["/api/my/tracked-products"] });
       }
+      
+      // Also refetch without cache to ensure we get latest data
+      await fetch(`/api/tracked-products?email=${encodeURIComponent(data.email || '')}&_t=${Date.now()}`, {
+        credentials: 'include'
+      });
 
       // Call onSuccess callback if provided
       if (onSuccess) {
         onSuccess();
       }
 
+      // Reset form and selection for a clean state
+      if (searchTab === "name") {
+        setSelectedProduct(null);
+        setSearchQuery("");
+      } else {
+        trackForm.reset({
+          productUrl: "",
+          targetPrice: 0,
+          email: trackForm.getValues("email")
+        });
+      }
+
       // Scroll to the dashboard
       setTimeout(() => {
-        document.getElementById('dashboard')?.scrollIntoView({ behavior: 'smooth' });
-      }, 800);
+        const dashboardElement = document.getElementById('dashboard');
+        if (dashboardElement) {
+          dashboardElement.scrollIntoView({ behavior: 'smooth' });
+          // Highlight the dashboard briefly to draw attention
+          dashboardElement.classList.add('pulse-highlight');
+          setTimeout(() => {
+            dashboardElement.classList.remove('pulse-highlight');
+          }, 2000);
+        }
+      }, 500);
     } catch (error) {
       console.error("Track submission error:", error);
       toast({
