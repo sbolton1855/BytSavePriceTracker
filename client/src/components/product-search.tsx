@@ -234,7 +234,14 @@ export default function ProductSearch({
 
   // Track product form submission
   const onTrackSubmit = async (data: TrackingFormData) => {
-    console.log("Track button clicked - Starting submission with data:", data);
+    console.log("🔥 TRACK BUTTON CLICKED - Starting submission with data:", JSON.stringify(data, null, 2));
+    
+    // Alert user that we're processing the request
+    toast({
+      title: "Processing tracking request...",
+      description: "Setting up price tracking for this product.",
+    });
+    
     try {
       if (!selectedProduct) {
         console.log("Error: No product selected");
