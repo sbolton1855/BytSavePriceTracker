@@ -147,12 +147,21 @@ export default function ProductSearch({
               {searchResults.map((product) => (
                 <div
                   key={product.asin}
-                  className={`border rounded-md p-3 cursor-pointer transition-colors ${
+                  className={`border rounded-md p-3 cursor-pointer transition-all duration-200 ${
                     selectedProduct?.asin === product.asin 
-                      ? "border-primary bg-primary/5" 
-                      : "hover:border-primary/50"
+                      ? "border-primary border-2 bg-primary/5 shadow-md" 
+                      : "hover:border-primary/50 hover:shadow-sm"
                   }`}
-                  onClick={() => setSelectedProduct(product)}
+                  onClick={() => {
+                    setSelectedProduct(product);
+                    // Auto-scroll to target price field after a short delay
+                    setTimeout(() => {
+                      document.getElementById('target-price-section')?.scrollIntoView({ 
+                        behavior: 'smooth',
+                        block: 'center'
+                      });
+                    }, 200);
+                  }}
                 >
                   <div className="flex gap-3">
                     {product.imageUrl && (
@@ -163,9 +172,16 @@ export default function ProductSearch({
                       />
                     )}
                     <div className="flex-1">
-                      <p className="text-sm font-medium line-clamp-2">
-                        {product.title}
-                      </p>
+                      <div className="flex justify-between">
+                        <p className="text-sm font-medium line-clamp-2">
+                          {product.title}
+                        </p>
+                        {selectedProduct?.asin === product.asin && (
+                          <span className="bg-primary text-primary-foreground text-xs px-2 py-1 rounded-full ml-2 whitespace-nowrap">
+                            ✓ Selected
+                          </span>
+                        )}
+                      </div>
                       {product.price && (
                         <p className="text-primary font-semibold mt-1">
                           ${product.price.toFixed(2)}
@@ -181,18 +197,45 @@ export default function ProductSearch({
       </div>
 
       {selectedProduct && (
-        <div className="border-t pt-6">
+        <div className="border-t pt-6 animate-fadeIn" id="target-price-section">
+          {/* Product Summary Card */}
+          <div className="bg-muted/40 p-3 rounded-lg mb-4 border">
+            <div className="flex items-center gap-3">
+              {selectedProduct.imageUrl && (
+                <img 
+                  src={selectedProduct.imageUrl} 
+                  alt={selectedProduct.title} 
+                  className="w-14 h-14 object-contain"
+                />
+              )}
+              <div className="flex-1">
+                <p className="text-sm font-medium line-clamp-1">{selectedProduct.title}</p>
+                <div className="flex items-center gap-2 mt-1">
+                  <span className="text-primary font-bold">
+                    ${selectedProduct.price ? selectedProduct.price.toFixed(2) : "N/A"}
+                  </span>
+                  <span className="text-xs text-muted-foreground">Current Price</span>
+                </div>
+              </div>
+            </div>
+          </div>
+          
           <div className="space-y-4">
             <div className="space-y-2">
-              <Label>Target Price ($)</Label>
+              <Label htmlFor="target-price">Target Price ($)</Label>
               <Input
+                id="target-price"
                 type="number"
                 step="0.01"
                 min="0.01"
                 placeholder="Enter your target price"
                 value={targetPrice}
                 onChange={(e) => setTargetPrice(e.target.value)}
+                className="focus:border-primary focus:ring-primary"
               />
+              <p className="text-xs text-muted-foreground">
+                We'll notify you when the price falls below this amount
+              </p>
             </div>
             
             {!user && (
@@ -205,6 +248,7 @@ export default function ProductSearch({
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
                   required
+                  className="focus:border-primary focus:ring-primary"
                 />
                 <p className="text-xs text-muted-foreground">
                   We'll send you alerts when the price drops below your target
