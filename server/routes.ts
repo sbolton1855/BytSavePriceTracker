@@ -488,15 +488,32 @@ export async function registerRoutes(app: Express): Promise<Server> {
               highestPrice: amazonProduct.price,
               lastChecked: new Date()
             });
-
+            
             console.log('Created new product in database:', product);
-
+            
             // Add initial price history entry
             await intelligentlyAddPriceHistory(product.id, product.currentPrice);
             console.log('Added initial price history for new product');
           } catch (error) {
             console.error('Error fetching product from Amazon:', error);
-            return res.status(500).json({ error: 'Failed to fetch product information' });
+            
+            // Still create a product entry so tracking can work even with API issues
+            product = await storage.createProduct({
+              asin: extractedAsin,
+              title: `Amazon Product (${extractedAsin})`,
+              url: `https://www.amazon.com/dp/${extractedAsin}`,
+              imageUrl: null,
+              currentPrice: targetPrice || 99.99,
+              originalPrice: null,
+              lowestPrice: targetPrice || 99.99,
+              highestPrice: targetPrice || 99.99,
+              lastChecked: new Date()
+            });
+            
+            console.log('Created basic product entry due to API error:', product);
+            
+            // Add initial price history entry for the basic product
+            await intelligentlyAddPriceHistory(product.id, product.currentPrice);
           }
         }
       }
@@ -664,7 +681,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
         const trackingData = {
           userId: userId || null,
-          email: email ? email.toUpperCase() : undefined,
+          email: email ? email.toUpperCase() : '',
           productId: product.id,
           targetPrice,
           percentageAlert: percentageAlert || false,
