@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import HeroSection from "@/components/hero-section";
 import FeaturesSection from "@/components/features-section";
 import ProductSearch from "@/components/product-search";
@@ -16,6 +16,28 @@ const Home: React.FC = () => {
     return user?.email || localStorage.getItem("bytsave_user_email") || "";
   });
   const { toast } = useToast();
+  
+  // Update email when user changes or localStorage changes
+  useEffect(() => {
+    const storedEmail = localStorage.getItem("bytsave_user_email");
+    if (user?.email) {
+      setUserEmail(user.email);
+    } else if (storedEmail && storedEmail !== userEmail) {
+      setUserEmail(storedEmail);
+    }
+    
+    // Handle product tracked events
+    const handleProductTracked = (event: any) => {
+      if (event.detail?.email) {
+        setUserEmail(event.detail.email);
+      }
+    };
+    
+    document.addEventListener('product-tracked', handleProductTracked);
+    return () => {
+      document.removeEventListener('product-tracked', handleProductTracked);
+    };
+  }, [user]);
 
   // Handle successful tracker form submission
   const handleTrackerSuccess = () => {
