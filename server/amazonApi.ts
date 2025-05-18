@@ -306,8 +306,13 @@ async function getProductInfo(asinOrUrl: string): Promise<AmazonProduct> {
         'Authorization': signature.authorization,
         'Host': HOST
       },
-      data: payload
+      data: payload,
+      timeout: 10000 // 10 second timeout
     });
+
+    if (!response.data?.ItemsResult?.Items?.length) {
+      throw new Error('No product data returned from Amazon API');
+    }
 
     // Extract product data from response
     const item = response.data.ItemsResult.Items[0];
