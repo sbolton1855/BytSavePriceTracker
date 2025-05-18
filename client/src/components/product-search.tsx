@@ -262,39 +262,55 @@ export default function ProductSearch({
 
   return (
     <div className="w-full max-w-3xl mx-auto">
-      <Tabs
-        defaultValue={searchTab}
-        value={searchTab}
-        onValueChange={setSearchTab}
-        className="w-full"
-      >
-        <TabsList className="grid w-full grid-cols-2">
-          <TabsTrigger value="url">Track by URL/ASIN</TabsTrigger>
-          <TabsTrigger value="name">Search by Product Name</TabsTrigger>
-        </TabsList>
+      <Card>
+        <CardHeader>
+          <CardTitle>Track Amazon Products</CardTitle>
+          <CardDescription>
+            Find products to track by URL or search by name
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          <div className="space-y-6">
+            {/* Product Search Method Selection */}
+            <div className="flex flex-col space-y-2">
+              <Label>How would you like to find products?</Label>
+              <div className="flex space-x-4 pt-2">
+                <div className="flex items-center space-x-2">
+                  <input 
+                    type="radio" 
+                    id="search-by-url" 
+                    name="search-method" 
+                    checked={searchTab === "url"} 
+                    onChange={() => setSearchTab("url")}
+                    className="h-4 w-4 border-gray-300 text-primary focus:ring-primary"
+                  />
+                  <Label htmlFor="search-by-url" className="cursor-pointer">URL or ASIN</Label>
+                </div>
+                <div className="flex items-center space-x-2">
+                  <input 
+                    type="radio" 
+                    id="search-by-name" 
+                    name="search-method" 
+                    checked={searchTab === "name"} 
+                    onChange={() => setSearchTab("name")}
+                    className="h-4 w-4 border-gray-300 text-primary focus:ring-primary"
+                  />
+                  <Label htmlFor="search-by-name" className="cursor-pointer">Product Name</Label>
+                </div>
+              </div>
+            </div>
 
-        {/* URL/ASIN Search Tab */}
-        <TabsContent value="url">
-          <Card>
-            <CardHeader>
-              <CardTitle>Track Amazon Product</CardTitle>
-              <CardDescription>
-                Enter an Amazon product URL or ASIN to start tracking its price
-              </CardDescription>
-            </CardHeader>
-            <CardContent>
-              <div className="space-y-4">
-                <form
-                  onSubmit={trackForm.handleSubmit(onTrackSubmit)}
-                  className="space-y-4"
-                >
+            {/* Product Search Input */}
+            <div className="border-t pt-5">
+              {searchTab === "url" ? (
+                <div className="space-y-4">
                   <div className="space-y-1">
                     <Label htmlFor="productUrl">
-                      Product URL or ASIN
+                      Enter Amazon Product URL or ASIN
                     </Label>
                     <Input
                       id="productUrl"
-                      placeholder="Amazon URL or ASIN"
+                      placeholder="https://www.amazon.com/dp/B0123456 or B0123456"
                       {...trackForm.register("productUrl")}
                     />
                     {trackForm.formState.errors.productUrl && (
@@ -340,7 +356,102 @@ export default function ProductSearch({
                       </div>
                     </div>
                   )}
+                </div>
+              ) : (
+                <div className="space-y-4">
+                  <div className="space-y-1">
+                    <Label htmlFor="searchQuery">
+                      Search for Products
+                    </Label>
+                    <div className="relative">
+                      <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
+                      <Input
+                        id="searchQuery"
+                        placeholder="Search for products by name..."
+                        className="pl-8"
+                        value={searchQuery}
+                        onChange={(e) => handleSearchInput(e.target.value)}
+                      />
+                    </div>
+                  </div>
 
+                  {isSearching && (
+                    <div className="flex items-center justify-center py-4">
+                      <Loader2 className="h-6 w-6 animate-spin text-primary mr-2" />
+                      <span>Searching for products...</span>
+                    </div>
+                  )}
+
+                  {searchResults && searchResults.length === 0 && searchQuery.length >= 3 && !isSearching && (
+                    <div className="text-center py-4 text-muted-foreground">
+                      No products found for "{searchQuery}"
+                    </div>
+                  )}
+
+                  {searchResults && searchResults.length > 0 && (
+                    <div className="space-y-3">
+                      <h3 className="font-medium text-sm">
+                        Found {searchResults.length} products
+                      </h3>
+                      <div className="max-h-[300px] overflow-y-auto space-y-3 pr-1">
+                        {searchResults.map((product) => (
+                          <div
+                            key={product.asin}
+                            className="border rounded-md overflow-hidden hover:border-primary/50 transition-colors cursor-pointer"
+                            onClick={() => selectProduct(product)}
+                          >
+                            <div className="flex p-3 gap-3">
+                              {product.imageUrl ? (
+                                <img
+                                  src={product.imageUrl}
+                                  alt={product.title}
+                                  className="w-16 h-16 object-contain"
+                                />
+                              ) : (
+                                <div className="w-16 h-16 bg-slate-100 flex items-center justify-center text-muted-foreground text-xs">
+                                  No image
+                                </div>
+                              )}
+                              <div className="flex-1 min-w-0">
+                                <p className="text-sm font-medium line-clamp-2">
+                                  {product.title}
+                                </p>
+                                <div className="flex items-center gap-2 mt-1">
+                                  {product.price && (
+                                    <p className="text-primary font-semibold">
+                                      ${product.price.toFixed(2)}
+                                    </p>
+                                  )}
+                                  <a
+                                    href={product.affiliateUrl}
+                                    className="text-xs text-blue-600 hover:underline inline-flex items-center"
+                                    onClick={(e) => e.stopPropagation()}
+                                    target="_blank"
+                                    rel="noopener noreferrer"
+                                  >
+                                    View <ChevronRight className="h-3 w-3 ml-0.5" />
+                                  </a>
+                                </div>
+                              </div>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                </div>
+              )}
+            </div>
+
+            {/* Selected Product Form Section */}
+            {(productData || selectedProduct) && (
+              <div className="border-t pt-5" id="selected-product-form">
+                <h3 className="font-medium mb-4">Set Your Price Target</h3>
+                
+                <form
+                  onSubmit={trackForm.handleSubmit(onTrackSubmit)}
+                  className="space-y-4"
+                >
                   <div className="space-y-1">
                     <Label htmlFor="targetPrice">
                       Desired Price ($)
@@ -355,6 +466,9 @@ export default function ProductSearch({
                         valueAsNumber: true,
                       })}
                     />
+                    <p className="text-xs text-muted-foreground">
+                      We'll notify you when the price drops to this amount or lower
+                    </p>
                     {trackForm.formState.errors.targetPrice && (
                       <p className="text-sm text-red-500">
                         {trackForm.formState.errors.targetPrice.message}
@@ -385,9 +499,9 @@ export default function ProductSearch({
                   )}
 
                   <Button 
-                    type="submit"
-                    className="w-full" 
-                    disabled={!productData || trackForm.formState.isSubmitting}
+                    type="submit" 
+                    className="w-full"
+                    disabled={trackForm.formState.isSubmitting}
                   >
                     {trackForm.formState.isSubmitting ? (
                       <>
@@ -400,190 +514,10 @@ export default function ProductSearch({
                   </Button>
                 </form>
               </div>
-            </CardContent>
-          </Card>
-        </TabsContent>
-
-        {/* Search by Product Name Tab */}
-        <TabsContent value="name">
-          <Card>
-            <CardHeader>
-              <CardTitle>Search & Track Products</CardTitle>
-              <CardDescription>
-                Search for Amazon products by name
-              </CardDescription>
-            </CardHeader>
-            <CardContent>
-              <div className="space-y-4">
-                <div className="flex items-center">
-                  <div className="relative flex-1">
-                    <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
-                    <Input
-                      placeholder="Search for products..."
-                      className="pl-8"
-                      value={searchQuery}
-                      onChange={(e) => handleSearchInput(e.target.value)}
-                    />
-                  </div>
-                </div>
-
-                {isSearching && (
-                  <div className="flex items-center justify-center py-4">
-                    <Loader2 className="h-6 w-6 animate-spin text-primary mr-2" />
-                    <span>Searching for products...</span>
-                  </div>
-                )}
-
-                {searchResults && searchResults.length === 0 && searchQuery.length >= 3 && !isSearching && (
-                  <div className="text-center py-4 text-muted-foreground">
-                    No products found for "{searchQuery}"
-                  </div>
-                )}
-
-                {searchResults && searchResults.length > 0 && (
-                  <div className="space-y-3">
-                    <h3 className="font-medium text-sm">
-                      Found {searchResults.length} products
-                    </h3>
-                    <div className="space-y-3">
-                      {searchResults.map((product) => (
-                        <div
-                          key={product.asin}
-                          className="border rounded-md overflow-hidden hover:border-primary/50 transition-colors cursor-pointer"
-                          onClick={() => selectProduct(product)}
-                        >
-                          <div className="flex p-3 gap-3">
-                            {product.imageUrl ? (
-                              <img
-                                src={product.imageUrl}
-                                alt={product.title}
-                                className="w-16 h-16 object-contain"
-                              />
-                            ) : (
-                              <div className="w-16 h-16 bg-slate-100 flex items-center justify-center text-muted-foreground text-xs">
-                                No image
-                              </div>
-                            )}
-                            <div className="flex-1 min-w-0">
-                              <p className="text-sm font-medium line-clamp-2">
-                                {product.title}
-                              </p>
-                              <div className="flex items-center gap-2 mt-1">
-                                {product.price && (
-                                  <p className="text-primary font-semibold">
-                                    ${product.price.toFixed(2)}
-                                  </p>
-                                )}
-                                <a
-                                  href={product.affiliateUrl}
-                                  className="text-xs text-blue-600 hover:underline inline-flex items-center"
-                                  onClick={(e) => e.stopPropagation()}
-                                  target="_blank"
-                                  rel="noopener noreferrer"
-                                >
-                                  View <ChevronRight className="h-3 w-3 ml-0.5" />
-                                </a>
-                              </div>
-                            </div>
-                          </div>
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-                )}
-
-                {selectedProduct && (
-                  <div className="mt-6 border-t pt-4" id="selected-product-form">
-                    <h3 className="font-medium mb-3">Track Selected Product</h3>
-                    <div className="bg-slate-50 p-3 rounded-md mb-4">
-                      <div className="flex items-start gap-3">
-                        {selectedProduct.imageUrl && (
-                          <img
-                            src={selectedProduct.imageUrl}
-                            alt={selectedProduct.title}
-                            className="w-16 h-16 object-contain"
-                          />
-                        )}
-                        <div>
-                          <p className="font-medium text-sm">{selectedProduct.title}</p>
-                          {selectedProduct.price && (
-                            <p className="text-primary font-semibold mt-1">
-                              ${selectedProduct.price.toFixed(2)}
-                            </p>
-                          )}
-                        </div>
-                      </div>
-                    </div>
-                    
-                    <form
-                      onSubmit={trackForm.handleSubmit(onTrackSubmit)}
-                      className="space-y-4"
-                    >
-                      <div className="space-y-1">
-                        <Label htmlFor="targetPrice">
-                          Desired Price ($)
-                        </Label>
-                        <Input
-                          id="targetPrice"
-                          type="number"
-                          step="0.01"
-                          min="0.01"
-                          placeholder="Enter your desired price"
-                          {...trackForm.register("targetPrice", {
-                            valueAsNumber: true,
-                          })}
-                        />
-                        {trackForm.formState.errors.targetPrice && (
-                          <p className="text-sm text-red-500">
-                            {trackForm.formState.errors.targetPrice.message}
-                          </p>
-                        )}
-                      </div>
-
-                      {!isAuthenticated && (
-                        <div className="space-y-1">
-                          <Label htmlFor="email">
-                            Email for Notifications
-                          </Label>
-                          <Input
-                            id="email"
-                            type="email"
-                            placeholder="Enter your email"
-                            {...trackForm.register("email")}
-                          />
-                          <p className="text-xs text-muted-foreground">
-                            We'll send you an email when the price drops to your target
-                          </p>
-                          {trackForm.formState.errors.email && (
-                            <p className="text-sm text-red-500">
-                              {trackForm.formState.errors.email.message}
-                            </p>
-                          )}
-                        </div>
-                      )}
-
-                      <Button 
-                        type="submit" 
-                        className="w-full"
-                        disabled={trackForm.formState.isSubmitting}
-                      >
-                        {trackForm.formState.isSubmitting ? (
-                          <>
-                            <Loader2 className="h-4 w-4 animate-spin mr-2" />
-                            Processing...
-                          </>
-                        ) : (
-                          "Track Price"
-                        )}
-                      </Button>
-                    </form>
-                  </div>
-                )}
-              </div>
-            </CardContent>
-          </Card>
-        </TabsContent>
-      </Tabs>
+            )}
+          </div>
+        </CardContent>
+      </Card>
     </div>
   );
 }
