@@ -97,9 +97,15 @@ const TrackerForm: React.FC<TrackerFormProps> = ({ onSuccess }) => {
       description: "Please wait while we set up tracking for this product.",
     });
 
+    // For detailed debugging
+    console.log(`Sending tracking request to /api/track with data:`, JSON.stringify(data, null, 2));
+    
     trackProductMutation.mutate(data, {
       onError: (error) => {
         console.error('Track price error:', error);
+        console.error('Error details:', error instanceof Error ? error.message : "Unknown error");
+        console.error('Error stack:', error instanceof Error ? error.stack : "No stack trace");
+        
         toast({
           title: "Failed to track price",
           description: error instanceof Error ? error.message : "An unexpected error occurred",
@@ -108,7 +114,7 @@ const TrackerForm: React.FC<TrackerFormProps> = ({ onSuccess }) => {
         setIsSubmitting(false);
       },
       onSuccess: (response) => {
-        console.log('Track price success:', response);
+        console.log('Track price success. Response data:', JSON.stringify(response, null, 2));
         toast({
           title: "✅ Price tracking confirmed!",
           description: `We'll notify you when the price drops below $${data.targetPrice}`,
