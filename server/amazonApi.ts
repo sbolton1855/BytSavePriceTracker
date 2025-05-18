@@ -295,24 +295,48 @@ async function getProductInfo(asinOrUrl: string): Promise<AmazonProduct> {
     );
 
     // Make the API request
-    const response = await axios({
-      method: 'post',
-      url: `https://${HOST}${GET_ITEMS_URI}`,
-      headers: {
-        'Content-Type': 'application/json; charset=utf-8',
-        'Content-Encoding': 'amz-1.0',
-        'X-Amz-Target': 'com.amazon.paapi5.v1.ProductAdvertisingAPIv1.GetItems',
-        'X-Amz-Date': signature['x-amz-date'],
-        'Authorization': signature.authorization,
-        'Host': HOST
-      },
-      data: payload,
-      timeout: 10000 // 10 second timeout
-    });
+    // Implement retry logic with exponential backoff
+    const maxRetries = 3;
+    let retryCount = 0;
+    let lastError;
 
-    if (!response.data?.ItemsResult?.Items?.length) {
-      throw new Error('No product data returned from Amazon API');
+    while (retryCount < maxRetries) {
+      try {
+        const response = await axios({
+          method: 'post',
+          url: `https://${HOST}${GET_ITEMS_URI}`,
+          headers: {
+            'Content-Type': 'application/json; charset=utf-8',
+            'Content-Encoding': 'amz-1.0',
+            'X-Amz-Target': 'com.amazon.paapi5.v1.ProductAdvertisingAPIv1.GetItems',
+            'X-Amz-Date': signature['x-amz-date'],
+            'Authorization': signature.authorization,
+            'Host': HOST
+          },
+          data: payload,
+          timeout: 15000 // Increased timeout to 15 seconds
+        });
+
+        if (response.data?.ItemsResult?.Items?.length) {
+          return response;
+        }
+
+        lastError = new Error('No product data in API response');
+        console.log(`Retry ${retryCount + 1}: Empty response from Amazon API`);
+      } catch (error) {
+        lastError = error;
+        console.log(`Retry ${retryCount + 1}: Amazon API request failed:`, error.message);
+      }
+
+      retryCount++;
+      if (retryCount < maxRetries) {
+        // Exponential backoff: 1s, 2s, 4s...
+        await new Promise(resolve => setTimeout(resolve, Math.pow(2, retryCount) * 1000));
+      }
     }
+
+    // If we get here, all retries failed
+    throw new Error(`Amazon API failed after ${maxRetries} retries: ${lastError?.message}`);
 
     // Extract product data from response
     const item = response.data.ItemsResult.Items[0];
