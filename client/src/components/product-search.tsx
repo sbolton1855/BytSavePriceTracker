@@ -117,8 +117,17 @@ export default function ProductSearch({
 
       toast({
         title: "✅ Product tracking added!",
-        description: `We'll notify you when the price drops below $${targetPrice}`,
-        duration: 5000,
+        description: user 
+          ? `We'll notify you when the price drops below $${targetPrice}` 
+          : `We'll email you at ${email} when the price drops below $${targetPrice}. Create an account to track more than 3 products.`,
+        duration: 8000,
+        action: !user ? <Button 
+          onClick={() => window.location.href = '/auth'} 
+          variant="outline" 
+          className="bg-primary text-white hover:bg-primary/90"
+        >
+          Sign Up
+        </Button> : undefined
       });
 
       // Save email to localStorage for consistency across components
