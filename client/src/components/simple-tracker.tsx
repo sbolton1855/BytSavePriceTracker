@@ -72,11 +72,28 @@ export default function SimpleTracker() {
           duration: 8000, // 8 seconds
           variant: "default",
         });
+      } else if (response.status === 403) {
+        // Handle limit reached error
+        const errorData = await response.json();
         
-        // Optional: Scroll to the tracked products section
-        setTimeout(() => {
-          document.getElementById('dashboard')?.scrollIntoView({ behavior: 'smooth' });
-        }, 1000);
+        if (errorData.limitReached) {
+          toast({
+            title: "Tracking Limit Reached",
+            description: "You've reached the limit of 3 tracked products. Please create an account to track more products.",
+            variant: "destructive",
+            duration: 10000,
+            action: <Button 
+              onClick={() => window.location.href = '/auth'} 
+              variant="outline" 
+              className="bg-primary text-white hover:bg-primary/90"
+            >
+              Sign Up/Login
+            </Button>
+          });
+          return;
+        } else {
+          throw new Error(errorData.message || "Failed to track product");
+        }
       } else {
         const errorText = await response.text();
         console.error("Tracking error:", errorText);
@@ -84,6 +101,33 @@ export default function SimpleTracker() {
       }
     } catch (error) {
       console.error("Track error:", error);
+
+      // Check if this is the limit reached error
+      if (error instanceof Response && error.status === 403) {
+        try {
+          const errorData = await error.json();
+          if (errorData.limitReached) {
+            toast({
+              title: "Tracking Limit Reached",
+              description: "You've reached the limit of 3 tracked products. Please create an account to track more products.",
+              variant: "destructive",
+              duration: 10000, // Show longer
+              action: <Button 
+                onClick={() => window.location.href = '/auth'} 
+                variant="outline" 
+                className="bg-primary text-white hover:bg-primary/90"
+              >
+                Sign Up/Login
+              </Button>
+            });
+            return;
+          }
+        } catch (e) {
+          // If we can't parse the error, fall back to the generic handler
+          console.error("Error parsing error data", e);
+        }
+      }
+
       toast({
         title: "Tracking failed",
         description: error instanceof Error ? error.message : "Please try again",
