@@ -266,11 +266,14 @@ export default function ProductSearch({
       const endpoint = isAuthenticated ? '/api/my/track' : '/api/track';
       console.log("Making API request to:", endpoint);
       
+      console.log("⚠️ TRACK DEBUG - Sending request with this data:", JSON.stringify(trackingData, null, 2));
+      
       const response = await fetch(endpoint, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json'
         },
+        credentials: 'include', // This was missing - needed for authenticated requests
         body: JSON.stringify(trackingData)
       });
 
