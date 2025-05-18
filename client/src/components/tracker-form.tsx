@@ -110,6 +110,11 @@ const TrackerForm: React.FC<TrackerFormProps> = ({ onSuccess }) => {
     console.log('Track price button clicked with data:', data);
     setIsSubmitting(true);
     
+    // Store email in session if not authenticated
+    if (!isAuthenticated && data.email) {
+      sessionStorage.setItem("bytsave_user_session", data.email);
+    }
+    
     // Add confirmation toast before tracking
     toast({
       title: "Starting price tracking...",

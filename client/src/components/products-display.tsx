@@ -169,6 +169,23 @@ const ProductsDisplay: React.FC<ProductsDisplayProps> = ({ email }) => {
   return (
     <section className="py-12 bg-gray-50" id="dashboard">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+        {!isAuthenticated && (
+          <div className="mb-6 p-4 bg-amber-50 border border-amber-200 rounded-lg">
+            <div className="flex items-start">
+              <div className="flex-shrink-0">
+                <svg className="h-5 w-5 text-amber-400" viewBox="0 0 20 20" fill="currentColor">
+                  <path fillRule="evenodd" d="M8.485 2.495c.673-1.167 2.357-1.167 3.03 0l6.28 10.875c.673 1.167-.17 2.625-1.516 2.625H3.72c-1.347 0-2.189-1.458-1.515-2.625L8.485 2.495zM10 6a.75.75 0 01.75.75v3.5a.75.75 0 01-1.5 0v-3.5A.75.75 0 0110 6zm0 9a1 1 0 100-2 1 1 0 000 2z" clipRule="evenodd" />
+                </svg>
+              </div>
+              <div className="ml-3">
+                <h3 className="text-sm font-medium text-amber-800">Session-Based Tracking</h3>
+                <div className="mt-2 text-sm text-amber-700">
+                  <p>Your tracked products are only available for this browser session. Create an account to permanently save your tracking list and receive email notifications.</p>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
         <div className="flex flex-col md:flex-row md:items-center md:justify-between mb-8">
           <div>
             <h2 className="text-3xl font-bold text-gray-900">Your Tracked Products</h2>

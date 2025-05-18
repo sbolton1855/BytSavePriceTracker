@@ -38,6 +38,74 @@ const Home: React.FC = () => {
     }
   };
 
+  // Handle quick track form submission
+  const handleQuickTrackSubmit = (e: React.FormEvent<HTMLFormElement>) => {
+    e.preventDefault();
+    
+    // Get form values
+    const form = e.currentTarget;
+    const urlInput = form.elements.namedItem("productUrl") as HTMLInputElement;
+    const priceInput = form.elements.namedItem("targetPrice") as HTMLInputElement;
+    const emailInput = form.elements.namedItem("email") as HTMLInputElement;
+    
+    const productUrl = urlInput.value;
+    const targetPrice = parseFloat(priceInput.value);
+    const email = emailInput.value;
+    
+    if (!productUrl || !targetPrice || !email) {
+      toast({
+        title: "Missing required fields",
+        description: "Please fill in all fields",
+        variant: "destructive"
+      });
+      return;
+    }
+    
+    // Send simple tracking request
+    fetch("/api/track", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json"
+      },
+      body: JSON.stringify({
+        productUrl,
+        targetPrice,
+        email
+      })
+    })
+    .then(response => {
+      if (!response.ok) {
+        throw new Error("Failed to track product");
+      }
+      return response.json();
+    })
+    .then(data => {
+      console.log("Tracking success:", data);
+      toast({
+        title: "Product tracked!",
+        description: "We'll notify you when the price drops",
+      });
+      
+      // Set the email for the dashboard
+      setUserEmail(email);
+      localStorage.setItem("bytsave_user_email", email);
+      
+      // Reset form
+      form.reset();
+      
+      // Scroll to dashboard
+      document.getElementById("dashboard")?.scrollIntoView({ behavior: "smooth" });
+    })
+    .catch(error => {
+      console.error("Tracking error:", error);
+      toast({
+        title: "Tracking failed",
+        description: error.message,
+        variant: "destructive"
+      });
+    });
+  };
+
   return (
     <>
       <HeroSection />
@@ -77,75 +145,7 @@ const Home: React.FC = () => {
                   </CardDescription>
                 </CardHeader>
                 <CardContent>
-                  <form
-                    onSubmit={(e) => {
-                      e.preventDefault();
-                      
-                      // Get form values
-                      const form = e.target as HTMLFormElement;
-                      const urlInput = form.elements.namedItem("productUrl") as HTMLInputElement;
-                      const priceInput = form.elements.namedItem("targetPrice") as HTMLInputElement;
-                      const emailInput = form.elements.namedItem("email") as HTMLInputElement;
-                      
-                      const productUrl = urlInput.value;
-                      const targetPrice = parseFloat(priceInput.value);
-                      const email = emailInput.value;
-                      
-                      if (!productUrl || !targetPrice || !email) {
-                        toast({
-                          title: "Missing required fields",
-                          description: "Please fill in all fields",
-                          variant: "destructive"
-                        });
-                        return;
-                      }
-                      
-                      // Send simple tracking request
-                      fetch("/api/track", {
-                        method: "POST",
-                        headers: {
-                          "Content-Type": "application/json"
-                        },
-                        body: JSON.stringify({
-                          productUrl,
-                          targetPrice,
-                          email
-                        })
-                      })
-                      .then(response => {
-                        if (!response.ok) {
-                          throw new Error("Failed to track product");
-                        }
-                        return response.json();
-                      })
-                      .then(data => {
-                        console.log("Tracking success:", data);
-                        toast({
-                          title: "Product tracked!",
-                          description: "We'll notify you when the price drops",
-                        });
-                        
-                        // Set the email for the dashboard
-                        setUserEmail(email);
-                        localStorage.setItem("bytsave_user_email", email);
-                        
-                        // Reset form
-                        form.reset();
-                        
-                        // Scroll to dashboard
-                        document.getElementById("dashboard")?.scrollIntoView({ behavior: "smooth" });
-                      })
-                      .catch(error => {
-                        console.error("Tracking error:", error);
-                        toast({
-                          title: "Tracking failed",
-                          description: error.message,
-                          variant: "destructive"
-                        });
-                      });
-                    }}
-                    className="space-y-4"
-                  >
+                  <form onSubmit={handleQuickTrackSubmit} className="space-y-4">
                     <div className="space-y-2">
                       <label htmlFor="productUrl" className="block text-sm font-medium">
                         Amazon Product URL
