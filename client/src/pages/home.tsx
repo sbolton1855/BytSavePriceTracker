@@ -11,9 +11,8 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 const Home: React.FC = () => {
   const { user } = useAuth();
   const [userEmail, setUserEmail] = useState<string>(() => {
-    // Use authenticated user's email or get from session storage
-    const sessionEmail = sessionStorage.getItem("bytsave_user_session");
-    return user?.email || sessionEmail || "";
+    // Use authenticated user's email or get from local storage
+    return user?.email || localStorage.getItem("bytsave_user_email") || "";
   });
   const { toast } = useToast();
 
@@ -24,27 +23,94 @@ const Home: React.FC = () => {
     if (emailInput && emailInput.value) {
       const email = emailInput.value;
       setUserEmail(email);
-
+      
       // Save to local storage for persistence
-      // Store in session storage instead of localStorage
-      sessionStorage.setItem("bytsave_user_session", email);
-
+      localStorage.setItem("bytsave_user_email", email);
+      
       // Show notification
       toast({
         title: "Product tracking started",
         description: "We'll send an email when the price drops below your target.",
       });
-
+      
       // Scroll to dashboard
       document.getElementById("dashboard")?.scrollIntoView({ behavior: "smooth" });
     }
+  };
+
+  // Handle quick track form submission
+  const handleQuickTrackSubmit = (e: React.FormEvent<HTMLFormElement>) => {
+    e.preventDefault();
+    
+    // Get form values
+    const form = e.currentTarget;
+    const urlInput = form.elements.namedItem("productUrl") as HTMLInputElement;
+    const priceInput = form.elements.namedItem("targetPrice") as HTMLInputElement;
+    const emailInput = form.elements.namedItem("email") as HTMLInputElement;
+    
+    const productUrl = urlInput.value;
+    const targetPrice = parseFloat(priceInput.value);
+    const email = emailInput.value;
+    
+    if (!productUrl || !targetPrice || !email) {
+      toast({
+        title: "Missing required fields",
+        description: "Please fill in all fields",
+        variant: "destructive"
+      });
+      return;
+    }
+    
+    // Send simple tracking request
+    fetch("/api/track", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json"
+      },
+      body: JSON.stringify({
+        productUrl,
+        targetPrice,
+        email
+      })
+    })
+    .then(response => {
+      if (!response.ok) {
+        throw new Error("Failed to track product");
+      }
+      return response.json();
+    })
+    .then(data => {
+      console.log("Tracking success:", data);
+      toast({
+        title: "Product tracked!",
+        description: "We'll notify you when the price drops",
+      });
+      
+      // Set the email for the dashboard
+      setUserEmail(email);
+      localStorage.setItem("bytsave_user_email", email);
+      
+      // Reset form
+      form.reset();
+      
+      // Scroll to dashboard
+      document.getElementById("dashboard")?.scrollIntoView({ behavior: "smooth" });
+    })
+    .catch(error => {
+      console.error("Tracking error:", error);
+      toast({
+        title: "Tracking failed",
+        description: error.message,
+        variant: "destructive"
+      });
+    });
   };
 
   return (
     <>
       <HeroSection />
       <FeaturesSection />
-
+      
       <section id="tracker" className="py-16 bg-slate-50">
         <div className="container">
           <div className="text-center mb-10">
@@ -54,86 +120,32 @@ const Home: React.FC = () => {
               and get notified when they drop.
             </p>
           </div>
-
-          <div className="max-w-4xl mx-auto">
-            <Card>
-              <CardHeader>
-                <CardTitle>Track Amazon Products</CardTitle>
-                <CardDescription>
-                  Search by product name or enter an Amazon URL to start tracking
-                </CardDescription>
-              </CardHeader>
-              <CardContent>
-                <ProductSearch onSuccess={handleTrackerSuccess} />
-              </CardContent>
-            </Card>
-                      e.preventDefault();
-
-                      // Get form values
-                      const form = e.target as HTMLFormElement;
-                      const urlInput = form.elements.namedItem("productUrl") as HTMLInputElement;
-                      const priceInput = form.elements.namedItem("targetPrice") as HTMLInputElement;
-                      const emailInput = form.elements.namedItem("email") as HTMLInputElement;
-
-                      const productUrl = urlInput.value;
-                      const targetPrice = parseFloat(priceInput.value);
-                      const email = emailInput.value;
-
-                      if (!productUrl || !targetPrice || !email) {
-                        toast({
-                          title: "Missing required fields",
-                          description: "Please fill in all fields",
-                          variant: "destructive"
-                        });
-                        return;
-                      }
-
-                      // Send simple tracking request
-                      fetch("/api/track", {
-                        method: "POST",
-                        headers: {
-                          "Content-Type": "application/json"
-                        },
-                        body: JSON.stringify({
-                          productUrl,
-                          targetPrice,
-                          email
-                        })
-                      })
-                      .then(response => {
-                        if (!response.ok) {
-                          throw new Error("Failed to track product");
-                        }
-                        return response.json();
-                      })
-                      .then(data => {
-                        console.log("Tracking success:", data);
-                        toast({
-                          title: "Product tracked!",
-                          description: "We'll notify you when the price drops",
-                        });
-
-                        // Set the email for the dashboard
-                        setUserEmail(email);
-                        sessionStorage.setItem("bytsave_user_email", email);
-
-                        // Reset form
-                        form.reset();
-
-                        // Scroll to dashboard
-                        document.getElementById("dashboard")?.scrollIntoView({ behavior: "smooth" });
-                      })
-                      .catch(error => {
-                        console.error("Tracking error:", error);
-                        toast({
-                          title: "Tracking failed",
-                          description: error.message,
-                          variant: "destructive"
-                        });
-                      });
-                    }}
-                    className="space-y-4"
-                  >
+          
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+            <div>
+              <Card>
+                <CardHeader>
+                  <CardTitle>Search & Track</CardTitle>
+                  <CardDescription>
+                    Search for products by name or ASIN
+                  </CardDescription>
+                </CardHeader>
+                <CardContent>
+                  <ProductSearch onSuccess={handleTrackerSuccess} />
+                </CardContent>
+              </Card>
+            </div>
+            
+            <div>
+              <Card>
+                <CardHeader>
+                  <CardTitle>Quick Track</CardTitle>
+                  <CardDescription>
+                    Directly track an Amazon product URL
+                  </CardDescription>
+                </CardHeader>
+                <CardContent>
+                  <form onSubmit={handleQuickTrackSubmit} className="space-y-4">
                     <div className="space-y-2">
                       <label htmlFor="productUrl" className="block text-sm font-medium">
                         Amazon Product URL
@@ -147,7 +159,7 @@ const Home: React.FC = () => {
                         placeholder="https://www.amazon.com/dp/B0123ABCDE"
                       />
                     </div>
-
+                    
                     <div className="space-y-2">
                       <label htmlFor="targetPrice" className="block text-sm font-medium">
                         Target Price ($)
@@ -163,7 +175,7 @@ const Home: React.FC = () => {
                         placeholder="19.99"
                       />
                     </div>
-
+                    
                     <div className="space-y-2">
                       <label htmlFor="email" className="block text-sm font-medium">
                         Email for Notifications
@@ -178,7 +190,7 @@ const Home: React.FC = () => {
                         defaultValue={userEmail}
                       />
                     </div>
-
+                    
                     <button
                       type="submit"
                       className="w-full bg-blue-600 text-white py-2 px-4 rounded-md hover:bg-blue-700 transition"
@@ -192,7 +204,7 @@ const Home: React.FC = () => {
           </div>
         </div>
       </section>
-
+      
       <ProductsDisplay email={userEmail} />
       <NotificationDemo />
     </>
