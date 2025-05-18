@@ -25,7 +25,7 @@ async function intelligentlyAddPriceHistory(productId: number, currentPrice: num
   try {
     // Get the most recent price history for this product
     const priceHistory = await storage.getPriceHistoryByProductId(productId);
-    
+
     // If no price history exists, always add the first entry
     if (!priceHistory || priceHistory.length === 0) {
       console.log(`Creating first price history entry for product ${productId} at $${currentPrice}`);
@@ -36,25 +36,25 @@ async function intelligentlyAddPriceHistory(productId: number, currentPrice: num
       });
       return true;
     }
-    
+
     // Sort by timestamp to get the most recent entry
     priceHistory.sort((a, b) => 
       new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime()
     );
-    
+
     const latestEntry = priceHistory[0];
     const latestTimestamp = new Date(latestEntry.timestamp);
     const now = new Date();
     const hoursSinceLastUpdate = (now.getTime() - latestTimestamp.getTime()) / (1000 * 60 * 60);
-    
+
     // Add new entry if price changed or significant time has passed
     const priceChanged = Math.abs(latestEntry.price - currentPrice) > 0.01; // 1 cent threshold
     const significantTimePassed = hoursSinceLastUpdate > 12; // 12 hour threshold
-    
+
     if (priceChanged || significantTimePassed) {
       const reason = priceChanged ? "price changed" : "time threshold exceeded";
       console.log(`Creating new price history entry for product ${productId} at $${currentPrice} (reason: ${reason})`);
-      
+
       await storage.createPriceHistory({
         productId,
         price: currentPrice,
@@ -62,7 +62,7 @@ async function intelligentlyAddPriceHistory(productId: number, currentPrice: num
       });
       return true;
     }
-    
+
     console.log(`Skipping price history entry for product ${productId} ($${currentPrice}) - no significant change`);
     return false;
   } catch (error) {
@@ -83,16 +83,16 @@ export async function registerRoutes(app: Express): Promise<Server> {
   const httpServer = createServer(app);
 
   // API endpoints - prefix with /api
-  
+
   // Get highlighted deals (products with biggest price drops)
   app.get('/api/products/deals', async (req: Request, res: Response) => {
     try {
       // Extract category filter if provided
       const { category } = req.query;
-      
+
       // Get all products
       const products = await storage.getAllProducts();
-      
+
       // Define category-based filters for promotions
       const categoryFilters = {
         beauty: (product: any) => 
@@ -101,12 +101,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
           product.title.toLowerCase().includes("skincare") || 
           product.title.toLowerCase().includes("haircare") ||
           product.title.toLowerCase().includes("fragrance"),
-        
+
         seasonal: (product: any) => {
           // Determine current season
           const now = new Date();
           const month = now.getMonth();
-          
+
           // Spring: March-May (2-4), Summer: June-August (5-7), Fall: Sept-Nov (8-10), Winter: Dec-Feb (11, 0, 1)
           const seasonalKeywords = {
             spring: ["spring", "easter", "gardening", "cleaning", "renewal"],
@@ -114,48 +114,48 @@ export async function registerRoutes(app: Express): Promise<Server> {
             fall: ["fall", "autumn", "halloween", "thanksgiving", "harvest"],
             winter: ["winter", "christmas", "holiday", "snow", "gift"]
           };
-          
+
           let currentSeasonKeywords;
           if (month >= 2 && month <= 4) currentSeasonKeywords = seasonalKeywords.spring;
           else if (month >= 5 && month <= 7) currentSeasonKeywords = seasonalKeywords.summer;
           else if (month >= 8 && month <= 10) currentSeasonKeywords = seasonalKeywords.fall;
           else currentSeasonKeywords = seasonalKeywords.winter;
-          
+
           return currentSeasonKeywords.some(keyword => 
             product.title.toLowerCase().includes(keyword)
           );
         },
-        
+
         events: (product: any) => {
           // Check for event keywords
           const eventKeywords = [
             "prime day", "black friday", "cyber monday", "deal", "promotion", 
             "limited time", "special offer", "sale", "discount", "clearance"
           ];
-          
+
           return eventKeywords.some(keyword => 
             product.title.toLowerCase().includes(keyword)
           );
         }
       };
-      
+
       // Apply category filter if specified
       let filteredProducts = products;
       if (category && typeof category === 'string' && Object.keys(categoryFilters).includes(category)) {
         filteredProducts = products.filter((categoryFilters as any)[category]);
       }
-      
+
       // Calculate price drops and filter products with discounts
       let deals = filteredProducts
         .filter(product => {
           // Ensure we have a valid originalPrice to compare against
           const originalPrice = product.originalPrice !== null ? product.originalPrice : product.highestPrice;
-          
+
           // Avoid null/undefined comparisons
           if (originalPrice === null || originalPrice === undefined) {
             return false;
           }
-          
+
           // Filter out products without a meaningful price difference (at least 5% discount)
           const priceDifference = originalPrice - product.currentPrice;
           const percentDifference = (priceDifference / originalPrice) * 100;
@@ -164,18 +164,18 @@ export async function registerRoutes(app: Express): Promise<Server> {
         .map(product => {
           // Ensure we have a valid originalPrice for calculation
           const originalPrice = product.originalPrice !== null ? product.originalPrice : product.highestPrice;
-          
+
           // Use a safe default if originalPrice is null/undefined
           const safeOriginalPrice = originalPrice ?? product.currentPrice;
-          
+
           // Avoid division by zero
           const discountPercentage = safeOriginalPrice > 0 
             ? ((safeOriginalPrice - product.currentPrice) / safeOriginalPrice) * 100 
             : 0;
-          
+
           // Calculate potential savings
           const savings = safeOriginalPrice - product.currentPrice;
-          
+
           return {
             ...product,
             discountPercentage: Math.round(discountPercentage),
@@ -186,11 +186,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
         })
         // Sort by highest discount percentage first
         .sort((a, b) => b.discountPercentage - a.discountPercentage);
-      
+
       // If we have too few deals for a good display, include some recently added products
       if (deals.length < 5) {
         console.log('Not enough deals found, adding recently added products');
-        
+
         // Get recently added products (that aren't already in the deals list)
         const existingIds = new Set(deals.map(d => d.id));
         const recentProducts = filteredProducts
@@ -207,11 +207,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
             const originalPrice = product.originalPrice !== null ? product.originalPrice : product.highestPrice;
             // Use a safe default if originalPrice is null/undefined
             const safeOriginalPrice = originalPrice ?? product.currentPrice;
-            
+
             const discountPercentage = safeOriginalPrice > 0 
               ? ((safeOriginalPrice - product.currentPrice) / safeOriginalPrice) * 100 
               : 0;
-            
+
             return {
               ...product,
               discountPercentage: Math.round(discountPercentage),
@@ -220,14 +220,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
               isNewAddition: true // Flag to identify recent additions
             };
           });
-        
+
         // Combine the two lists
         deals = [...deals, ...recentProducts];
       }
-      
+
       // Take top deals (use all for category-specific, otherwise limit to 8)
       deals = deals.slice(0, category ? undefined : 8);
-      
+
       res.json(deals);
     } catch (error) {
       console.error('Error fetching deals:', error);
@@ -239,26 +239,26 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.get('/api/search', async (req: Request, res: Response) => {
     try {
       const { q } = req.query;
-      
+
       if (!q || typeof q !== 'string') {
         return res.status(400).json({ error: 'Search query is required' });
       }
-      
+
       const results = await searchProducts(q);
-      
+
       // Format results with affiliate links
       // Format results with affiliate links, also check if product exists in DB to get ID
       const formattedResults = await Promise.all(results.map(async result => {
         // Check if product exists in our database to get its ID
         const existingProduct = await storage.getProductByAsin(result.asin);
-        
+
         return {
           ...result,
           id: existingProduct?.id, // Include ID if product exists in DB
           affiliateUrl: addAffiliateTag(result.url, AFFILIATE_TAG),
         };
       }));
-      
+
       res.json(formattedResults);
     } catch (error) {
       console.error('Search error:', error);
@@ -270,11 +270,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.get('/api/product', async (req: Request, res: Response) => {
     try {
       const { asin, url } = req.query;
-      
+
       if (!asin && !url) {
         return res.status(400).json({ error: 'ASIN or URL is required' });
       }
-      
+
       // Extract ASIN from URL or use provided ASIN
       let productAsin = '';
       if (url && typeof url === 'string') {
@@ -289,34 +289,46 @@ export async function registerRoutes(app: Express): Promise<Server> {
         }
         productAsin = asin;
       }
-      
+
       // Check if product exists in our database first
       let product = await storage.getProductByAsin(productAsin);
-      
+
       if (!product) {
-        // If not found in DB, fetch from Amazon API
-        const amazonProduct = await getProductInfo(productAsin);
-        
-        // Save to our database
-        product = await storage.createProduct({
-          asin: amazonProduct.asin,
-          title: amazonProduct.title,
-          url: amazonProduct.url,
-          imageUrl: amazonProduct.imageUrl,
-          currentPrice: amazonProduct.price,
-          originalPrice: amazonProduct.price, // Initially same as current
-          lowestPrice: amazonProduct.price,
-          highestPrice: amazonProduct.price,
-          lastChecked: new Date()
-        });
+        // If not found in DB, try to fetch from Amazon API
+        try {
+          const amazonProduct = await getProductInfo(productAsin);
+
+          // Save to our database with full info
+          product = await storage.createProduct({
+            asin: amazonProduct.asin,
+            title: amazonProduct.title,
+            url: amazonProduct.url,
+            imageUrl: amazonProduct.imageUrl,
+            currentPrice: amazonProduct.price,
+            originalPrice: amazonProduct.price,
+            lowestPrice: amazonProduct.price,
+            highestPrice: amazonProduct.price,
+            lastChecked: new Date()
+          });
+        } catch (error) {
+          // If API fails, create minimal product entry
+          console.log('Failed to fetch from Amazon API, creating minimal product entry:', error);
+          product = await storage.createProduct({
+            asin: productAsin,
+            title: "Product information pending...",
+            url: url as string,
+            currentPrice: 0,
+            lastChecked: new Date()
+          });
+        }
       }
-      
+
       // Add affiliate url to response
       const response = {
         ...product,
         affiliateUrl: addAffiliateTag(product.url, AFFILIATE_TAG)
       };
-      
+
       res.json(response);
     } catch (error: any) {
       console.error('Product lookup error:', error);
@@ -328,20 +340,20 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.get('/api/products/:id/price-history', async (req: Request, res: Response) => {
     try {
       const productId = parseInt(req.params.id);
-      
+
       if (isNaN(productId)) {
         return res.status(400).json({ error: 'Invalid product ID' });
       }
-      
+
       // Get product details
       const product = await storage.getProduct(productId);
       if (!product) {
         return res.status(404).json({ error: 'Product not found' });
       }
-      
+
       // Get price history
       const priceHistory = await storage.getPriceHistoryByProductId(productId);
-      
+
       // Add affiliate url to response
       const response = {
         product: {
@@ -350,7 +362,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         },
         priceHistory
       };
-      
+
       res.json(response);
     } catch (error) {
       console.error('Error fetching price history:', error);
@@ -362,11 +374,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.get('/api/tracked-products', async (req: Request, res: Response) => {
     try {
       const { email } = req.query;
-      
+
       // Check if email provided as query param
       if (email && typeof email === 'string') {
         const trackedProducts = await storage.getTrackedProductsWithDetailsByEmail(email);
-        
+
         // Add affiliate urls to response
         const response = trackedProducts.map(item => ({
           ...item,
@@ -375,10 +387,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
             affiliateUrl: addAffiliateTag(item.product.url, AFFILIATE_TAG)
           }
         }));
-        
+
         return res.json(response);
       }
-      
+
       // Otherwise attempt to get user's tracked products
       // Return empty array if user is not authenticated
       res.json([]);
@@ -393,13 +405,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       const userId = (req.user as any).id.toString();
       const trackedProducts = await storage.getTrackedProductsByUserId(userId);
-      
+
       // For each tracked product, fetch the product details
       const fullDetails = await Promise.all(
         trackedProducts.map(async (item) => {
           const product = await storage.getProduct(item.productId);
           if (!product) return null;
-          
+
           return {
             ...item,
             product: {
@@ -409,10 +421,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
           };
         })
       );
-      
+
       // Filter out any null entries (products that may have been deleted)
       const response = fullDetails.filter(item => item !== null);
-      
+
       res.json(response);
     } catch (error) {
       console.error('Error fetching user tracked products:', error);
@@ -425,22 +437,22 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       // Log the incoming request data for debugging
       console.log('Non-auth track request received:', req.body);
-      
+
       // Validate request body
       const result = trackingFormSchema.safeParse(req.body);
       if (!result.success) {
         return res.status(400).json({ error: 'Invalid request data', details: result.error.format() });
       }
-      
+
       const { productUrl, targetPrice, email, percentageAlert, percentageThreshold, productId } = result.data;
-      
+
       // Email is required for non-authenticated tracking
       if (!email) {
         return res.status(400).json({ error: 'Email is required for non-authenticated tracking' });
       }
-      
+
       let product;
-      
+
       // If productId is provided, use that to fetch the product directly
       if (productId) {
         console.log('Using provided productId:', productId);
@@ -455,16 +467,16 @@ export async function registerRoutes(app: Express): Promise<Server> {
         if (!extractedAsin) {
           return res.status(400).json({ error: 'Could not extract ASIN from product URL' });
         }
-        
+
         // Check if the product already exists
         product = await storage.getProductByAsin(extractedAsin);
-        
+
         // If not, fetch from Amazon and create it
         if (!product) {
           try {
             console.log('Product not found in database, fetching from Amazon for ASIN:', extractedAsin);
             const amazonProduct = await getProductInfo(extractedAsin);
-            
+
             product = await storage.createProduct({
               asin: amazonProduct.asin,
               title: amazonProduct.title,
@@ -476,9 +488,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
               highestPrice: amazonProduct.price,
               lastChecked: new Date()
             });
-            
+
             console.log('Created new product in database:', product);
-            
+
             // Add initial price history entry
             await intelligentlyAddPriceHistory(product.id, product.currentPrice);
             console.log('Added initial price history for new product');
@@ -488,30 +500,30 @@ export async function registerRoutes(app: Express): Promise<Server> {
           }
         }
       }
-      
+
       // Check if this email is already tracking this product
       const existingTracking = await storage.getTrackedProductByUserAndProduct(
         null, 
         email.toUpperCase(), // Store email in uppercase to normalize
         product.id
       );
-      
+
       if (existingTracking) {
         // Update the existing tracking
         console.log('Updating existing tracking:', existingTracking.id);
-        
+
         const updated = await storage.updateTrackedProduct(existingTracking.id, {
           targetPrice,
           percentageAlert,
           percentageThreshold
         });
-        
+
         return res.status(200).json({
           message: 'Tracking updated successfully',
           tracking: updated
         });
       }
-      
+
       // Create a new tracking
       console.log('Creating new tracking for product:', product.id);
       const tracking = await storage.createTrackedProduct({
@@ -524,9 +536,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
         createdAt: new Date()
         // lastNotified will be automatically set to null in the schema
       });
-      
+
       console.log('Created new tracking:', tracking);
-      
+
       res.status(201).json({
         message: 'Product tracking created successfully',
         tracking
@@ -542,17 +554,17 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       // Log the incoming request data for debugging
       console.log('Track request received:', req.body);
-      
+
       // Validate request body
       const result = trackingFormSchema.safeParse(req.body);
       if (!result.success) {
         return res.status(400).json({ error: 'Invalid request data', details: result.error.format() });
       }
-      
+
       const { productUrl, targetPrice, email, percentageAlert, percentageThreshold, productId } = result.data;
-      
+
       let product;
-      
+
       // If productId is provided, use that to fetch the product directly
       if (productId) {
         console.log('Using provided productId:', productId);
@@ -568,51 +580,63 @@ export async function registerRoutes(app: Express): Promise<Server> {
           return res.status(400).json({ error: 'Invalid Amazon URL or ASIN' });
         }
         const productAsin = extractedAsin;
-        
+
         if (!isValidAsin(productAsin)) {
           return res.status(400).json({ error: 'Invalid ASIN format' });
         }
-        
+
         // Check if product exists in our database
         product = await storage.getProductByAsin(productAsin);
-        
+
         // If product doesn't exist, fetch it from Amazon API and create it
         if (!product) {
-          const amazonProduct = await getProductInfo(productAsin);
-          
-          product = await storage.createProduct({
-            asin: amazonProduct.asin,
-            title: amazonProduct.title,
-            url: amazonProduct.url,
-            imageUrl: amazonProduct.imageUrl,
-            currentPrice: amazonProduct.price,
-            originalPrice: amazonProduct.price, // Initially same as current
-            lowestPrice: amazonProduct.price,
-            highestPrice: amazonProduct.price,
-            lastChecked: new Date()
-          });
-          
-          // Create initial price history entry (always add for new products)
-          await intelligentlyAddPriceHistory(product.id, amazonProduct.price);
+          try {
+            const amazonProduct = await getProductInfo(productAsin);
+
+            product = await storage.createProduct({
+              asin: amazonProduct.asin,
+              title: amazonProduct.title,
+              url: amazonProduct.url,
+              imageUrl: amazonProduct.imageUrl,
+              currentPrice: amazonProduct.price,
+              originalPrice: amazonProduct.price, // Initially same as current
+              lowestPrice: amazonProduct.price,
+              highestPrice: amazonProduct.price,
+              lastChecked: new Date()
+            });
+
+            // Create initial price history entry (always add for new products)
+            await intelligentlyAddPriceHistory(product.id, amazonProduct.price);
+          } catch (error) {
+            // If API fails, create minimal product entry
+            console.log('Failed to fetch from Amazon API, creating minimal product entry:', error);
+            product = await storage.createProduct({
+              asin: productAsin,
+              title: "Product information pending...",
+              url: productUrl,
+              currentPrice: 0,
+              lastChecked: new Date()
+            });
+          }
         }
       }
-      
+
       if (!product) {
         return res.status(500).json({ error: 'Failed to get or create product' });
       }
-      
+
       console.log('Product to track:', product);
-      
+
       // Get user ID from authenticated session
       const userId = (req.user as any).id.toString();
-      
+
       // Check if user is already tracking this product
       const existingTracking = await storage.getTrackedProductByUserAndProduct(
         userId, 
         email || '',
         product.id
       );
-      
+
       if (existingTracking) {
         // Update the existing tracking with new settings
         const updated = await storage.updateTrackedProduct(existingTracking.id, {
@@ -621,23 +645,53 @@ export async function registerRoutes(app: Express): Promise<Server> {
           percentageThreshold: percentageThreshold || null,
           notified: false
         });
-        
+
         return res.json(updated);
       }
-      
+
       // Create new tracking entry
-      const tracking = await storage.createTrackedProduct({
-        userId,
-        email,
-        productId: product.id,
-        targetPrice,
-        percentageAlert: percentageAlert || false,
-        percentageThreshold: percentageThreshold || null,
-        createdAt: new Date()
-      });
-      
-      console.log('Created new tracking:', tracking);
-      res.status(201).json(tracking);
+      try {
+        // Validate all required fields are present
+        if (!product.id) {
+          console.error('Missing product ID');
+          return res.status(400).json({ error: 'Invalid product data' });
+        }
+
+        if (!targetPrice || targetPrice <= 0) {
+          console.error('Invalid target price:', targetPrice);
+          return res.status(400).json({ error: 'Invalid target price' });
+        }
+
+        const trackingData = {
+          userId: userId || null,
+          email: email ? email.toUpperCase() : undefined,
+          productId: product.id,
+          targetPrice,
+          percentageAlert: percentageAlert || false,
+          percentageThreshold: percentageThreshold || null,
+          createdAt: new Date(),
+          notified: false
+        };
+        
+        console.log('Creating tracking with data:', trackingData);
+        
+        const tracking = await storage.createTrackedProduct(trackingData);
+
+        if (!tracking) {
+          console.error('Database returned null after tracking creation attempt');
+          throw new Error('Failed to create tracking record');
+        }
+
+        console.log('Successfully created tracking record:', tracking);
+        res.status(201).json({
+          success: true,
+          tracking,
+          message: 'Price tracking created successfully'
+        });
+      } catch (error) {
+        console.error('Failed to create tracking:', error);
+        res.status(500).json({ error: 'Failed to create tracking', details: error instanceof Error ? error.message : 'Unknown error' });
+      }
     } catch (error: any) {
       console.error('Error tracking product:', error);
       res.status(500).json({ error: error.message || 'Failed to track product' });
@@ -651,23 +705,23 @@ export async function registerRoutes(app: Express): Promise<Server> {
       if (isNaN(id)) {
         return res.status(400).json({ error: 'Invalid ID' });
       }
-      
+
       const trackedProduct = await storage.getTrackedProduct(id);
       if (!trackedProduct) {
         return res.status(404).json({ error: 'Tracked product not found' });
       }
-      
+
       // Ensure user owns this tracking (security check)
       const userId = (req.user as any).id.toString();
       if (trackedProduct.userId !== userId) {
         return res.status(403).json({ error: 'Not authorized to delete this tracked product' });
       }
-      
+
       const success = await storage.deleteTrackedProduct(id);
       if (!success) {
         return res.status(500).json({ error: 'Failed to delete tracked product' });
       }
-      
+
       res.status(204).send();
     } catch (error) {
       console.error('Error deleting tracked product:', error);
@@ -682,30 +736,30 @@ export async function registerRoutes(app: Express): Promise<Server> {
       if (isNaN(id)) {
         return res.status(400).json({ error: 'Invalid ID' });
       }
-      
+
       // Validate the target price
       const { targetPrice } = req.body;
       if (targetPrice === undefined || typeof targetPrice !== 'number' || targetPrice <= 0) {
         return res.status(400).json({ error: 'Valid target price is required' });
       }
-      
+
       const trackedProduct = await storage.getTrackedProduct(id);
       if (!trackedProduct) {
         return res.status(404).json({ error: 'Tracked product not found' });
       }
-      
+
       // Ensure user owns this tracking (security check)
       const userId = (req.user as any).id.toString();
       if (trackedProduct.userId !== userId) {
         return res.status(403).json({ error: 'Not authorized to update this tracked product' });
       }
-      
+
       // Update with new target price and reset notification status
       const updated = await storage.updateTrackedProduct(id, {
         targetPrice,
         notified: false
       });
-      
+
       res.json(updated);
     } catch (error) {
       console.error('Error updating tracked product:', error);
@@ -720,15 +774,15 @@ export async function registerRoutes(app: Express): Promise<Server> {
       if (isNaN(id)) {
         return res.status(400).json({ error: 'Invalid ID' });
       }
-      
+
       const product = await storage.getProduct(id);
       if (!product) {
         return res.status(404).json({ error: 'Product not found' });
       }
-      
+
       // Fetch fresh data from Amazon
       const amazonProduct = await getProductInfo(product.asin);
-      
+
       // Calculate new lowest and highest prices with null checks
       const lowestPrice = product.lowestPrice !== null
         ? Math.min(product.lowestPrice, amazonProduct.price)
@@ -736,7 +790,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const highestPrice = product.highestPrice !== null
         ? Math.max(product.highestPrice, amazonProduct.price)
         : amazonProduct.price;
-      
+
       // Update our product record
       const updated = await storage.updateProduct(id, {
         currentPrice: amazonProduct.price,
@@ -744,16 +798,16 @@ export async function registerRoutes(app: Express): Promise<Server> {
         highestPrice,
         lastChecked: new Date()
       });
-      
+
       // Intelligently add a price history entry (only when needed)
       await intelligentlyAddPriceHistory(id, amazonProduct.price);
-      
+
       // Add affiliate link to response
       const response = {
         ...updated,
         affiliateUrl: addAffiliateTag(updated!.url, AFFILIATE_TAG)
       };
-      
+
       res.json(response);
     } catch (error: any) {
       console.error('Error refreshing price:', error);

@@ -105,8 +105,20 @@ export class DatabaseStorage implements IStorage {
 
   // Tracked product operations
   async createTrackedProduct(insertTrackedProduct: InsertTrackedProduct): Promise<TrackedProduct> {
-    const [trackedProduct] = await db.insert(trackedProducts).values(insertTrackedProduct).returning();
-    return trackedProduct;
+    try {
+      console.log('Creating tracked product with data:', insertTrackedProduct);
+      const [trackedProduct] = await db.insert(trackedProducts).values({
+        ...insertTrackedProduct,
+        email: insertTrackedProduct.email.toUpperCase(),
+        notified: false,
+        createdAt: new Date()
+      }).returning();
+      console.log('Successfully created tracked product:', trackedProduct);
+      return trackedProduct;
+    } catch (error) {
+      console.error('Failed to create tracked product:', error);
+      throw error;
+    }
   }
 
   async getTrackedProduct(id: number): Promise<TrackedProduct | undefined> {
