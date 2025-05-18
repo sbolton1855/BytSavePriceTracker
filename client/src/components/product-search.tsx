@@ -51,7 +51,7 @@ export default function ProductSearch({
   const { toast } = useToast();
   const { user, isAuthenticated } = useAuth();
   const queryClient = useQueryClient();
-  const [searchTab, setSearchTab] = useState<string>("url");
+  const [searchTab, setSearchTab] = useState<string>("name");
   const [selectedProduct, setSelectedProduct] = useState<ProductSearchResult | null>(null);
   const [email, setEmail] = useState<string>(user?.email || "");
   const [searchQuery, setSearchQuery] = useState<string>("");
@@ -278,17 +278,6 @@ export default function ProductSearch({
                 <div className="flex items-center space-x-2">
                   <input 
                     type="radio" 
-                    id="search-by-url" 
-                    name="search-method" 
-                    checked={searchTab === "url"} 
-                    onChange={() => setSearchTab("url")}
-                    className="h-4 w-4 border-gray-300 text-primary focus:ring-primary"
-                  />
-                  <Label htmlFor="search-by-url" className="cursor-pointer">URL or ASIN</Label>
-                </div>
-                <div className="flex items-center space-x-2">
-                  <input 
-                    type="radio" 
                     id="search-by-name" 
                     name="search-method" 
                     checked={searchTab === "name"} 
@@ -296,6 +285,17 @@ export default function ProductSearch({
                     className="h-4 w-4 border-gray-300 text-primary focus:ring-primary"
                   />
                   <Label htmlFor="search-by-name" className="cursor-pointer">Product Name</Label>
+                </div>
+                <div className="flex items-center space-x-2">
+                  <input 
+                    type="radio" 
+                    id="search-by-url" 
+                    name="search-method" 
+                    checked={searchTab === "url"} 
+                    onChange={() => setSearchTab("url")}
+                    className="h-4 w-4 border-gray-300 text-primary focus:ring-primary"
+                  />
+                  <Label htmlFor="search-by-url" className="cursor-pointer">URL or ASIN</Label>
                 </div>
               </div>
             </div>
