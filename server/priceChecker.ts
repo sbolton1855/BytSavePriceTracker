@@ -31,10 +31,19 @@ async function updateProductPrice(product: Product): Promise<Product | undefined
       highestPrice: product.highestPrice ? Math.max(product.highestPrice, latestInfo.price) : latestInfo.price
     });
     
+    console.log(`Successfully updated price for ${product.asin}`);
     return updatedProduct;
   } catch (error) {
     console.error(`Failed to update price for product ${product.asin}:`, error);
-    return undefined;
+    
+    // Even when API fails, update the lastChecked timestamp
+    // This prevents constant retries for problematic products
+    const updatedProduct = await storage.updateProduct(product.id, {
+      lastChecked: new Date()
+    });
+    
+    console.log(`Skipped price update for ${product.asin} - no data returned`);
+    return updatedProduct;
   }
 }
 
