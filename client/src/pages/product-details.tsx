@@ -182,14 +182,52 @@ export default function ProductDetailsPage() {
         }
         return res.json();
       } else {
-        // Create new tracking
-        const endpoint = isAuthenticated ? "/api/my/track" : "/api/track";
-        const res = await apiRequest("POST", endpoint, data);
+        // Create new tracking - use simplified approach like the test form
+        // Create simplified tracking data object
+        type SimpleTrackingData = {
+          productUrl: string;
+          targetPrice: number;
+          email: string | undefined;
+        };
         
-        if (!res.ok) {
-          throw new Error("Failed to track product");
+        const trackingData: SimpleTrackingData = {
+          productUrl: product.url,
+          targetPrice: data.targetPrice,
+          email: isAuthenticated ? user?.email : data.email
+        };
+        
+        console.log("Submitting tracking data from product page:", JSON.stringify(trackingData, null, 2));
+        
+        // Use only the non-authenticated endpoint that we know is working
+        const endpoint = '/api/track';
+        console.log("Making API request to:", endpoint);
+        
+        // Show clear status to the user
+        toast({
+          title: "Sending tracking request...",
+          description: "Connecting to server, please wait...",
+        });
+        
+        // Make the request directly like the simple form does
+        const response = await fetch(endpoint, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json'
+          },
+          credentials: 'include',
+          body: JSON.stringify(trackingData)
+        });
+        
+        console.log("API Response status:", response.status);
+        
+        if (!response.ok) {
+          const errorText = await response.text();
+          console.error("API Error:", errorText);
+          throw new Error(errorText);
         }
-        return res.json();
+        
+        // Return successful response
+        return await response.json();
       }
     },
     onSuccess: () => {
