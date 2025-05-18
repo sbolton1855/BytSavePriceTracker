@@ -436,7 +436,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.post('/api/track', async (req: Request, res: Response) => {
     try {
       // Log the incoming request data for debugging
-      console.log('Non-auth track request received:', req.body);
+      console.log('⚠️ TRACK DEBUG - Request received with body:', JSON.stringify(req.body, null, 2));
+      console.log('⚠️ TRACK DEBUG - Request headers:', JSON.stringify(req.headers, null, 2));
 
       // Validate request body
       const result = trackingFormSchema.safeParse(req.body);
