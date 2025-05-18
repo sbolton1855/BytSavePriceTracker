@@ -53,8 +53,17 @@ export default function SimpleTracker() {
         setUrl("");
         setPrice("");
         
-        // Force refresh tracked products
+        // Store email for consistent tracking across the app
+        localStorage.setItem("bytsave_user_email", email);
+        
+        // Force refresh tracked products (make sure to include the email in the query key)
         queryClient.invalidateQueries({ queryKey: ["/api/tracked-products"] });
+        
+        // Fire custom event to notify other components
+        const trackEvent = new CustomEvent('product-tracked', { 
+          detail: { email: email }
+        });
+        document.dispatchEvent(trackEvent);
         
         // Show success message with longer duration and more visible styling
         toast({
@@ -64,8 +73,10 @@ export default function SimpleTracker() {
           variant: "default",
         });
         
-        // Force refresh tracked products with direct fetch
-        fetch(`/api/tracked-products?email=${encodeURIComponent(email)}&_t=${Date.now()}`);
+        // Optional: Scroll to the tracked products section
+        setTimeout(() => {
+          document.getElementById('dashboard')?.scrollIntoView({ behavior: 'smooth' });
+        }, 1000);
       } else {
         const errorText = await response.text();
         console.error("Tracking error:", errorText);
