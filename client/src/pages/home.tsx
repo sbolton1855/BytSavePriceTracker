@@ -4,6 +4,7 @@ import FeaturesSection from "@/components/features-section";
 import ProductSearch from "@/components/product-search";
 import ProductsDisplay from "@/components/products-display";
 import NotificationDemo from "@/components/notification-demo";
+import SimpleTracker from "@/components/simple-tracker";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/hooks/use-auth";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -123,7 +124,7 @@ const Home: React.FC = () => {
           
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
             {/* Main product search and tracking component */}
-            <div className="max-w-3xl mx-auto">
+            <div>
               <Card>
                 <CardHeader>
                   <CardTitle>Search & Track</CardTitle>
@@ -137,73 +138,25 @@ const Home: React.FC = () => {
               </Card>
             </div>
             
-            {/* Quick track form - commented out but kept for future use if needed 
+            {/* Simple tracker for debugging */}
             <div>
-              <Card>
-                <CardHeader>
-                  <CardTitle>Quick Track</CardTitle>
+              <Card className="bg-white border-2 border-amber-200">
+                <CardHeader className="bg-amber-50">
+                  <CardTitle>Quick Track (Simplified)</CardTitle>
                   <CardDescription>
-                    Directly track an Amazon product URL
+                    Try this direct tracking form if the regular one isn't working
                   </CardDescription>
                 </CardHeader>
                 <CardContent>
-                  <form onSubmit={handleQuickTrackSubmit} className="space-y-4">
-                    <div className="space-y-2">
-                      <label htmlFor="productUrl" className="block text-sm font-medium">
-                        Amazon Product URL
-                      </label>
-                      <input
-                        id="productUrl"
-                        name="productUrl"
-                        type="url"
-                        required
-                        className="w-full p-2 border rounded-md"
-                        placeholder="https://www.amazon.com/dp/B0123ABCDE"
-                      />
-                    </div>
-                    
-                    <div className="space-y-2">
-                      <label htmlFor="targetPrice" className="block text-sm font-medium">
-                        Target Price ($)
-                      </label>
-                      <input
-                        id="targetPrice"
-                        name="targetPrice"
-                        type="number"
-                        step="0.01"
-                        min="0.01"
-                        required
-                        className="w-full p-2 border rounded-md"
-                        placeholder="19.99"
-                      />
-                    </div>
-                    
-                    <div className="space-y-2">
-                      <label htmlFor="email" className="block text-sm font-medium">
-                        Email for Notifications
-                      </label>
-                      <input
-                        id="email"
-                        name="email"
-                        type="email"
-                        required
-                        className="w-full p-2 border rounded-md"
-                        placeholder="you@example.com"
-                        defaultValue={userEmail}
-                      />
-                    </div>
-                    
-                    <button
-                      type="submit"
-                      className="w-full bg-blue-600 text-white py-2 px-4 rounded-md hover:bg-blue-700 transition"
-                    >
-                      Track Price
-                    </button>
-                  </form>
+                  <div className="mt-2">
+                    <p className="text-sm text-amber-700 mb-4">⚠️ This form bypasses the advanced features and directly tracks a product by URL.</p>
+                    {/* Import the SimpleTracker component */}
+                    <SimpleTracker />
+                  </div>
                 </CardContent>
               </Card>
             </div>
-            */}
+            
           </div>
         </div>
       </section>
