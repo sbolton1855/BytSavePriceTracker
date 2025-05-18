@@ -758,7 +758,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // Delete a tracked product
+  // Delete a tracked product for authenticated users
   app.delete('/api/my/tracked-products/:id', requireAuth, async (req: Request, res: Response) => {
     try {
       const id = parseInt(req.params.id);
@@ -783,6 +783,51 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
 
       res.status(204).send();
+    } catch (error) {
+      console.error('Error deleting tracked product:', error);
+      res.status(500).json({ error: 'Server error' });
+    }
+  });
+  
+  // Delete a tracked product by email (non-authenticated)
+  app.delete('/api/tracked-products/:id', async (req: Request, res: Response) => {
+    try {
+      console.log('Received delete request for non-authenticated user');
+      const id = parseInt(req.params.id);
+      if (isNaN(id)) {
+        return res.status(400).json({ error: 'Invalid ID' });
+      }
+      
+      // Email is required for email-based tracking deletion
+      const { email } = req.query;
+      if (!email || typeof email !== 'string') {
+        return res.status(400).json({ error: 'Email is required to delete tracked product' });
+      }
+      
+      console.log(`Attempting to delete tracked product ${id} for email ${email}`);
+      
+      const trackedProduct = await storage.getTrackedProduct(id);
+      if (!trackedProduct) {
+        return res.status(404).json({ error: 'Tracked product not found' });
+      }
+      
+      // Normalize emails for comparison
+      const normalizedEmail = email.toUpperCase();
+      
+      // Check if the email matches the tracked product
+      if (trackedProduct.email !== normalizedEmail) {
+        console.log(`Email mismatch: ${normalizedEmail} vs. ${trackedProduct.email}`);
+        return res.status(403).json({ error: 'Not authorized to delete this tracked product' });
+      }
+      
+      console.log(`Deleting tracked product ${id} for email ${normalizedEmail}`);
+      const success = await storage.deleteTrackedProduct(id);
+      if (!success) {
+        return res.status(500).json({ error: 'Failed to delete tracked product' });
+      }
+      
+      console.log(`Successfully deleted tracked product ${id}`);
+      res.status(200).json({ message: 'Tracked product deleted successfully' });
     } catch (error) {
       console.error('Error deleting tracked product:', error);
       res.status(500).json({ error: 'Server error' });
