@@ -122,7 +122,8 @@ const Home: React.FC = () => {
           </div>
           
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-            <div>
+            {/* Main product search and tracking component */}
+            <div className="max-w-3xl mx-auto">
               <Card>
                 <CardHeader>
                   <CardTitle>Search & Track</CardTitle>
@@ -136,6 +137,7 @@ const Home: React.FC = () => {
               </Card>
             </div>
             
+            {/* Quick track form - commented out but kept for future use if needed 
             <div>
               <Card>
                 <CardHeader>
@@ -201,6 +203,7 @@ const Home: React.FC = () => {
                 </CardContent>
               </Card>
             </div>
+            */}
           </div>
         </div>
       </section>
