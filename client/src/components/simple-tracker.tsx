@@ -56,10 +56,12 @@ export default function SimpleTracker() {
         // Force refresh tracked products
         queryClient.invalidateQueries({ queryKey: ["/api/tracked-products"] });
         
-        // Show success message
+        // Show success message with longer duration and more visible styling
         toast({
-          title: "Product tracked!",
+          title: "✅ Product tracked successfully!",
           description: "You'll receive an email when the price drops below your target.",
+          duration: 8000, // 8 seconds
+          variant: "default",
         });
         
         // Force refresh tracked products with direct fetch

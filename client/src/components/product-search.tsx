@@ -219,11 +219,13 @@ export default function ProductSearch({
         await fetch(`/api/tracked-products?email=${encodeURIComponent(email)}&_t=${Date.now()}`);
       }
       
-      // Success toast
+      // Success toast with prominent styling and longer duration
       toast({
         title: "✅ Product tracked successfully!",
         description: `We'll notify you when ${displayTitle} drops below $${data.targetPrice.toFixed(2)}`,
-        duration: 5000,
+        duration: 8000, // 8 seconds
+        variant: "default",
+        className: "border-2 border-green-500",
       });
 
       // Scroll to dashboard section
