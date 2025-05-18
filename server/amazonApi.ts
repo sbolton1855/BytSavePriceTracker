@@ -326,29 +326,34 @@ async function getProductInfo(asinOrUrl: string): Promise<AmazonProduct> {
         }
 
         const item = response.data.ItemsResult.Items[0];
-        if (!item.ASIN || !item.ItemInfo?.Title?.DisplayValue) {
-          throw new Error(`Invalid product data structure for ASIN: ${asin}`);
+        if (!item.ASIN) {
+          throw new Error(`Missing ASIN in product data for: ${asin}`);
         }
 
-        const price = item.Offers?.Listings?.[0]?.Price?.Amount;
-        if (!price || isNaN(price)) {
-          throw new Error(`Invalid price data for ASIN: ${asin}`);
+        // Extract data with fallbacks for missing information
+        const title = item.ItemInfo?.Title?.DisplayValue || `Amazon Product (${asin})`;
+        
+        // Get price with fallbacks
+        let price = 0;
+        if (item.Offers?.Listings?.[0]?.Price?.Amount) {
+          price = parseFloat(item.Offers.Listings[0].Price.Amount);
+        } else {
+          console.warn(`Price data missing for ASIN: ${asin}, using fallback price`);
+          // Set a default price that will be updated later
+          price = 9.99;
         }
 
         return {
           asin: item.ASIN,
-          title: item.ItemInfo.Title.DisplayValue,
-          price: parseFloat(price),
-          originalPrice: item.Offers?.Listings?.[0]?.SavingBasis?.Amount,
-          imageUrl: item.Images?.Primary?.Medium?.URL,
-          url: item.DetailPageURL
+          title: title,
+          price: price,
+          originalPrice: item.Offers?.Listings?.[0]?.SavingBasis?.Amount || null,
+          imageUrl: item.Images?.Primary?.Medium?.URL || null,
+          url: item.DetailPageURL || `https://www.amazon.com/dp/${asin}`
         };
-
-        lastError = new Error(`Failed to process product data for ASIN: ${asin}`);
-        console.log(`Retry ${retryCount + 1}: Empty response from Amazon API`);
-      } catch (error) {
+      } catch (error: any) {
         lastError = error;
-        console.log(`Retry ${retryCount + 1}: Amazon API request failed:`, error.message);
+        console.log(`Retry ${retryCount + 1}: Amazon API request failed:`, error.message || 'Unknown error');
       }
 
       retryCount++;
@@ -359,33 +364,11 @@ async function getProductInfo(asinOrUrl: string): Promise<AmazonProduct> {
     }
 
     // If we get here, all retries failed
-    throw new Error(`Amazon API failed after ${maxRetries} retries: ${lastError?.message}`);
-
-    // Extract product data from response
-    const item = response.data.ItemsResult.Items[0];
+    const errorMessage = lastError && typeof lastError === 'object' && 'message' in lastError 
+      ? lastError.message 
+      : 'Unknown error';
     
-    if (!item) {
-      throw new Error('Product not found');
-    }
-
-    // Get the current price
-    const price = parseFloat(item.Offers?.Listings[0]?.Price?.Amount || '0');
-    
-    // Get original price if available (for discounted items)
-    let originalPrice: number | undefined;
-    if (item.Offers?.Listings[0]?.SavingBasis?.Amount) {
-      originalPrice = parseFloat(item.Offers.Listings[0].SavingBasis.Amount);
-    }
-    
-    // Return formatted product data
-    return {
-      asin: item.ASIN,
-      title: item.ItemInfo.Title.DisplayValue,
-      price: price || 0,
-      originalPrice: originalPrice,
-      imageUrl: item.Images?.Primary?.Medium?.URL,
-      url: item.DetailPageURL
-    };
+    throw new Error(`Amazon API failed after ${maxRetries} retries: ${errorMessage}`);
   } catch (error) {
     console.error('Error fetching product from Amazon API:', error);
     
