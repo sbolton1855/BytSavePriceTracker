@@ -174,14 +174,26 @@ export default function ProductSearch({
         email: isAuthenticated ? user?.email : data.email
       };
 
-      // Submit tracking request
+      // Show exactly what we're sending
+      console.log("SUBMITTING TRACKING REQUEST:");
+      console.log("- URL: /api/track");
+      console.log("- Method: POST"); 
+      console.log("- Headers:", JSON.stringify({
+        'Content-Type': 'application/json'
+      }));
+      console.log("- Body:", JSON.stringify(trackingData, null, 2));
+      
+      // Submit tracking request with proper headers and credentials
       const response = await fetch('/api/track', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json'
         },
+        credentials: 'include',
         body: JSON.stringify(trackingData)
       });
+      
+      console.log("TRACKING RESPONSE STATUS:", response.status, response.statusText);
 
       if (!response.ok) {
         throw new Error("Failed to track product");
