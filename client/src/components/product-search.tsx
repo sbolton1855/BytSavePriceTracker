@@ -145,67 +145,56 @@ export default function ProductSearch({
     enabled: trackForm.watch("productUrl").length >= 10 && searchTab === "url",
   });
 
-  // Track product form submission
+  // Track product form submission - using simplified approach
   const onTrackSubmit = async (data: TrackingFormData) => {
     try {
-      // Show loading message
+      // Show loading toast
       toast({
         title: "Processing tracking request...",
         description: "Setting up price tracking for this product.",
-        duration: 3000,
       });
 
-      // Determine which product to track
+      // Get the product to track
       const productToTrack = selectedProduct || productData;
       
       if (!productToTrack) {
         toast({
           title: "No product selected",
-          description: "Please enter a valid Amazon URL or select a product from search results",
+          description: "Please select a product or enter a valid Amazon URL",
           variant: "destructive",
         });
         return;
       }
 
-      // Create tracking data
+      // Email either from user auth or form input
+      const email = isAuthenticated ? user?.email : data.email;
+      
+      // Create simplified tracking data - using exact format the server expects
       const trackingData = {
         productUrl: productToTrack.url,
         targetPrice: data.targetPrice,
-        email: isAuthenticated ? user?.email : data.email
+        email: email
       };
 
-      // Show exactly what we're sending
-      console.log("SUBMITTING TRACKING REQUEST:");
-      console.log("- URL: /api/track");
-      console.log("- Method: POST"); 
-      console.log("- Headers:", JSON.stringify({
-        'Content-Type': 'application/json'
-      }));
-      console.log("- Body:", JSON.stringify(trackingData, null, 2));
-      
-      // Submit tracking request with proper headers and credentials
+      // Direct POST with minimal options
       const response = await fetch('/api/track', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json'
         },
-        credentials: 'include',
         body: JSON.stringify(trackingData)
       });
-      
-      console.log("TRACKING RESPONSE STATUS:", response.status, response.statusText);
 
       if (!response.ok) {
-        throw new Error("Failed to track product");
+        const errorText = await response.text();
+        throw new Error(errorText || "Failed to track product");
       }
 
-      // Get response data
+      // Process response
       const result = await response.json();
+      console.log("Track success:", result);
       
-      // Force refresh the tracked products data
-      queryClient.invalidateQueries({ queryKey: ["/api/tracked-products"] });
-      
-      // Reset form
+      // Reset form fields
       if (searchTab === "name") {
         setSelectedProduct(null);
         setSearchQuery("");
@@ -217,24 +206,25 @@ export default function ProductSearch({
         });
       }
 
-      // Get product title for display
+      // Get a shortened product title for display
       const displayTitle = productToTrack.title.length > 30 
         ? productToTrack.title.substring(0, 30) + "..." 
         : productToTrack.title;
       
-      // Show success message
+      // Force refresh the tracked products data immediately
+      queryClient.invalidateQueries({ queryKey: ["/api/tracked-products"] });
+      
+      // Direct fetch to ensure the latest data is displayed
+      if (email) {
+        await fetch(`/api/tracked-products?email=${encodeURIComponent(email)}&_t=${Date.now()}`);
+      }
+      
+      // Success toast
       toast({
-        title: "✅ Price tracking activated!",
+        title: "✅ Product tracked successfully!",
         description: `We'll notify you when ${displayTitle} drops below $${data.targetPrice.toFixed(2)}`,
         duration: 5000,
       });
-
-      // Force refresh tracked products
-      const emailToUse = data.email || "";
-      if (emailToUse) {
-        // Directly fetch latest data
-        await fetch(`/api/tracked-products?email=${encodeURIComponent(emailToUse)}&_t=${Date.now()}`);
-      }
 
       // Scroll to dashboard section
       setTimeout(() => {
