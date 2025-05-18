@@ -374,10 +374,19 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.get('/api/tracked-products', async (req: Request, res: Response) => {
     try {
       const { email } = req.query;
+      
+      console.log('GET /api/tracked-products - Request query:', req.query);
 
       // Check if email provided as query param
       if (email && typeof email === 'string') {
-        const trackedProducts = await storage.getTrackedProductsWithDetailsByEmail(email);
+        console.log(`Fetching tracked products for email: ${email}`);
+        
+        // Uppercase the email to match how we store it
+        const emailUpperCase = email.toUpperCase();
+        console.log(`Using normalized email: ${emailUpperCase}`);
+        
+        const trackedProducts = await storage.getTrackedProductsWithDetailsByEmail(emailUpperCase);
+        console.log(`Found ${trackedProducts.length} tracked products for ${emailUpperCase}`);
 
         // Add affiliate urls to response
         const response = trackedProducts.map(item => ({
@@ -389,6 +398,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
         }));
 
         return res.json(response);
+      } else {
+        console.log('No email provided, returning empty array');
       }
 
       // Otherwise attempt to get user's tracked products
@@ -441,129 +452,17 @@ export async function registerRoutes(app: Express): Promise<Server> {
       console.log('Content type:', req.headers['content-type']);
       console.log('Request headers:', JSON.stringify(req.headers, null, 2));
       
-      // Direct debugging without validation
-      if (req.body) {
-        const { productUrl, targetPrice, email } = req.body;
-        
-        console.log('✅ BYPASSING VALIDATION - Direct values:');
-        console.log(' - productUrl:', productUrl);
-        console.log(' - targetPrice:', targetPrice);
-        console.log(' - email:', email);
-        
-        // Direct tracking with minimal validation
-        if (!productUrl) {
-          return res.status(400).json({ error: 'Product URL is required' });
-        }
-        
-        if (!targetPrice || isNaN(parseFloat(targetPrice.toString()))) {
-          return res.status(400).json({ error: 'Valid target price is required' });
-        }
-        
-        if (!email) {
-          return res.status(400).json({ error: 'Email is required for non-authenticated users' });
-        }
-        
-        try {
-          // Extract ASIN from the URL
-          console.log('Extracting ASIN from URL:', productUrl);
-          const extractedAsin = extractAsinFromUrl(productUrl);
-          
-          if (!extractedAsin) {
-            return res.status(400).json({ error: 'Invalid Amazon URL - could not extract ASIN' });
-          }
-          
-          console.log('Extracted ASIN:', extractedAsin);
-          
-          // Check if product exists in our database
-          let product = await storage.getProductByAsin(extractedAsin);
-          
-          // If not, create a basic product with the provided URL
-          if (!product) {
-            console.log('Product not found in database, creating a basic entry');
-            const targetPriceNumber = parseFloat(targetPrice.toString());
-            
-            product = await storage.createProduct({
-              asin: extractedAsin,
-              title: `Amazon Product (${extractedAsin})`,
-              url: productUrl,
-              imageUrl: null,
-              currentPrice: targetPriceNumber,
-              originalPrice: targetPriceNumber,
-              lowestPrice: targetPriceNumber,
-              highestPrice: targetPriceNumber,
-              lastChecked: new Date()
-            });
-            
-            console.log('Created basic product:', product);
-          }
-          
-          // Create tracking record
-          const userId = req.user ? (req.user as any).id.toString() : null;
-          const emailUpperCase = email.toUpperCase();
-          
-          // Check for existing tracking
-          const existingTracking = await storage.getTrackedProductByUserAndProduct(
-            userId,
-            emailUpperCase,
-            product.id
-          );
-          
-          if (existingTracking) {
-            console.log('Updating existing tracking:', existingTracking);
-            
-            const updated = await storage.updateTrackedProduct(existingTracking.id, {
-              targetPrice: parseFloat(targetPrice.toString()),
-              notified: false
-            });
-            
-            return res.json({
-              success: true,
-              tracking: updated,
-              message: 'Price tracking updated successfully'
-            });
-          }
-          
-          // Create new tracking
-          console.log('Creating new tracking with:', {
-            userId,
-            email: emailUpperCase,
-            productId: product.id,
-            targetPrice: parseFloat(targetPrice.toString())
-          });
-          
-          const tracking = await storage.createTrackedProduct({
-            userId,
-            email: emailUpperCase,
-            productId: product.id,
-            targetPrice: parseFloat(targetPrice.toString()),
-            percentageAlert: false,
-            percentageThreshold: null,
-            createdAt: new Date(),
-            notified: false
-          });
-          
-          console.log('Successfully created tracking:', tracking);
-          
-          return res.status(201).json({
-            success: true,
-            tracking,
-            message: 'Price tracking created successfully'
-          });
-          
-        } catch (err) {
-          console.error('Error in direct tracking process:', err);
-          return res.status(500).json({ error: 'Failed to process tracking request', details: err instanceof Error ? err.message : 'Unknown error' });
-        }
+      // Get the form values for tracking (just for logging)
+      if (!req.body) {
+        console.log('REQUEST BODY IS NULL OR UNDEFINED');
+        return res.status(400).json({ error: 'Request body is missing' });
       }
       
-      // If we get here, continue with the normal validation process
-      const { productUrl, targetPrice, email } = req.body;
-        console.log('Field check - productUrl:', productUrl ? 'present' : 'MISSING');
-        console.log('Field check - targetPrice:', targetPrice !== undefined ? targetPrice : 'MISSING');
-        console.log('Field check - email:', email ? email : 'MISSING');
-      } else {
-        console.log('REQUEST BODY IS NULL OR UNDEFINED');
-      }
+      // Log raw request data for debugging
+      console.log('Raw request data:');
+      console.log('- productUrl:', req.body.productUrl ? 'present' : 'MISSING');
+      console.log('- targetPrice:', req.body.targetPrice !== undefined ? req.body.targetPrice : 'MISSING');
+      console.log('- email:', req.body.email ? req.body.email : 'MISSING');
 
       // Validate request body
       const result = trackingFormSchema.safeParse(req.body);
@@ -572,8 +471,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(400).json({ error: 'Invalid request data', details: result.error.format() });
       }
       
-      console.log('✅ Validation succeeded')
-
+      console.log('✅ Validation succeeded');
+      
+      // Use the validated data
       const { productUrl, targetPrice, email, percentageAlert, percentageThreshold, productId } = result.data;
 
       // Email is required for non-authenticated tracking
