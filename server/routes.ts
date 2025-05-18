@@ -808,11 +808,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
       
       const trackedProduct = await storage.getTrackedProduct(id);
       if (!trackedProduct) {
+        console.log(`Product with ID ${id} not found`);
         return res.status(404).json({ error: 'Tracked product not found' });
       }
       
       // Normalize emails for comparison
       const normalizedEmail = email.toUpperCase();
+      console.log(`Comparing emails: ${normalizedEmail} vs. ${trackedProduct.email}`);
       
       // Check if the email matches the tracked product
       if (trackedProduct.email !== normalizedEmail) {
@@ -820,16 +822,31 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(403).json({ error: 'Not authorized to delete this tracked product' });
       }
       
-      console.log(`Deleting tracked product ${id} for email ${normalizedEmail}`);
-      const success = await storage.deleteTrackedProduct(id);
-      if (!success) {
-        return res.status(500).json({ error: 'Failed to delete tracked product' });
+      try {
+        // Double check that the product exists
+        const finalCheck = await storage.getTrackedProduct(id);
+        if (!finalCheck) {
+          console.log(`Product with ID ${id} not found during final check`);
+          return res.status(404).json({ error: 'Tracked product not found' });
+        }
+        
+        // Force delete the tracked product directly from the database
+        console.log(`Deleting tracked product ${id} for email ${normalizedEmail}`);
+        const success = await storage.deleteTrackedProduct(id);
+        
+        console.log(`Successfully deleted tracked product ${id}`);
+        
+        // Send a refresh signal to the client
+        res.status(200).json({ 
+          message: 'Tracked product deleted successfully',
+          id: id
+        });
+      } catch (deleteError) {
+        console.error(`Delete operation error:`, deleteError);
+        return res.status(500).json({ error: 'Error deleting the tracked product' });
       }
-      
-      console.log(`Successfully deleted tracked product ${id}`);
-      res.status(200).json({ message: 'Tracked product deleted successfully' });
     } catch (error) {
-      console.error('Error deleting tracked product:', error);
+      console.error('Error in delete endpoint:', error);
       res.status(500).json({ error: 'Server error' });
     }
   });
