@@ -190,24 +190,43 @@ export default function ProductSearch({
   // Track mutation
   const trackMutation = useMutation({
     mutationFn: async (data: TrackingFormData) => {
+      console.log("💡 MUTATION - trackMutation function called with data:", JSON.stringify(data, null, 2));
+      
       const endpoint = isAuthenticated ? "/api/my/track" : "/api/track";
       if (!isAuthenticated && (!data.email || data.email.trim() === "")) {
         throw new Error("Email is required for price alerts");
       }
 
-      const response = await fetch(endpoint, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        credentials: "include",
-        body: JSON.stringify(data),
+      // Show a toast notification to indicate the request is being sent
+      toast({
+        title: "Sending tracking request...",
+        description: "Please wait while we set up the tracking",
       });
 
-      if (!response.ok) {
-        const errorText = await response.text();
-        throw new Error(errorText);
-      }
+      try {
+        console.log("💡 MUTATION - Sending request to:", endpoint);
+        const response = await fetch(endpoint, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          credentials: "include",
+          body: JSON.stringify(data),
+        });
 
-      return response.json();
+        console.log("💡 MUTATION - Response status:", response.status);
+        
+        if (!response.ok) {
+          const errorText = await response.text();
+          console.error("💡 MUTATION - Error response:", errorText);
+          throw new Error(errorText);
+        }
+
+        const result = await response.json();
+        console.log("💡 MUTATION - Success response:", JSON.stringify(result, null, 2));
+        return result;
+      } catch (error) {
+        console.error("💡 MUTATION - Fetch error:", error);
+        throw error;
+      }
     },
     onSuccess: () => {
       toast({
