@@ -14,8 +14,13 @@ async function updateProductPrice(product: Product): Promise<Product | undefined
     // Fetch latest product info from Amazon API
     const latestInfo = await getProductInfo(product.asin);
     
-    // Intelligently store price in history (only when needed)
-    await intelligentlyAddPriceHistory(product.id, latestInfo.price);
+    // Only store valid prices in history
+    if (typeof latestInfo.price === 'number' && !isNaN(latestInfo.price) && latestInfo.price > 0) {
+      await intelligentlyAddPriceHistory(product.id, latestInfo.price);
+      console.log(`Price history updated for ${product.asin}: $${latestInfo.price}`);
+    } else {
+      console.warn(`Skipping price history update for ${product.asin} - invalid price value: ${latestInfo.price}`);
+    }
     
     // Update product data
     const updatedProduct = await storage.updateProduct(product.id, {
@@ -71,11 +76,21 @@ async function checkPricesAndNotify(): Promise<void> {
     // Update prices with delays between requests to avoid throttling
     for (const product of productsToUpdate) {
       try {
-        await updateProductPrice(product);
-        // Add delay between API calls to avoid throttling
-        await new Promise(resolve => setTimeout(resolve, 1000));
+        const updated = await updateProductPrice(product);
+        if (updated) {
+          console.log(`Successfully updated price for ${product.asin}`);
+        } else {
+          console.warn(`Skipped price update for ${product.asin} - no data returned`);
+        }
+        // Increased delay between API calls to reduce throttling
+        await new Promise(resolve => setTimeout(resolve, 2000));
       } catch (error) {
         console.error(`Failed to update price for product ${product.asin}:`, error);
+        // Skip remaining retries for this product if we hit API limits
+        if (error.message?.includes('API request quota exceeded')) {
+          console.warn('API quota exceeded, pausing price updates');
+          break;
+        }
       }
     }
     

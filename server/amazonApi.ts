@@ -295,19 +295,71 @@ async function getProductInfo(asinOrUrl: string): Promise<AmazonProduct> {
     );
 
     // Make the API request
-    const response = await axios({
-      method: 'post',
-      url: `https://${HOST}${GET_ITEMS_URI}`,
-      headers: {
-        'Content-Type': 'application/json; charset=utf-8',
-        'Content-Encoding': 'amz-1.0',
-        'X-Amz-Target': 'com.amazon.paapi5.v1.ProductAdvertisingAPIv1.GetItems',
-        'X-Amz-Date': signature['x-amz-date'],
-        'Authorization': signature.authorization,
-        'Host': HOST
-      },
-      data: payload
-    });
+    // Implement retry logic with exponential backoff
+    const maxRetries = 3;
+    let retryCount = 0;
+    let lastError;
+
+    while (retryCount < maxRetries) {
+      try {
+        const response = await axios({
+          method: 'post',
+          url: `https://${HOST}${GET_ITEMS_URI}`,
+          headers: {
+            'Content-Type': 'application/json; charset=utf-8',
+            'Content-Encoding': 'amz-1.0',
+            'X-Amz-Target': 'com.amazon.paapi5.v1.ProductAdvertisingAPIv1.GetItems',
+            'X-Amz-Date': signature['x-amz-date'],
+            'Authorization': signature.authorization,
+            'Host': HOST
+          },
+          data: payload,
+          timeout: 15000 // Increased timeout to 15 seconds
+        });
+
+        if (!response.data) {
+          throw new Error('Empty response from Amazon API');
+        }
+
+        if (!response.data.ItemsResult?.Items?.length) {
+          throw new Error(`No product data found for ASIN: ${asin}`);
+        }
+
+        const item = response.data.ItemsResult.Items[0];
+        if (!item.ASIN || !item.ItemInfo?.Title?.DisplayValue) {
+          throw new Error(`Invalid product data structure for ASIN: ${asin}`);
+        }
+
+        const price = item.Offers?.Listings?.[0]?.Price?.Amount;
+        if (!price || isNaN(price)) {
+          throw new Error(`Invalid price data for ASIN: ${asin}`);
+        }
+
+        return {
+          asin: item.ASIN,
+          title: item.ItemInfo.Title.DisplayValue,
+          price: parseFloat(price),
+          originalPrice: item.Offers?.Listings?.[0]?.SavingBasis?.Amount,
+          imageUrl: item.Images?.Primary?.Medium?.URL,
+          url: item.DetailPageURL
+        };
+
+        lastError = new Error(`Failed to process product data for ASIN: ${asin}`);
+        console.log(`Retry ${retryCount + 1}: Empty response from Amazon API`);
+      } catch (error) {
+        lastError = error;
+        console.log(`Retry ${retryCount + 1}: Amazon API request failed:`, error.message);
+      }
+
+      retryCount++;
+      if (retryCount < maxRetries) {
+        // Exponential backoff: 1s, 2s, 4s...
+        await new Promise(resolve => setTimeout(resolve, Math.pow(2, retryCount) * 1000));
+      }
+    }
+
+    // If we get here, all retries failed
+    throw new Error(`Amazon API failed after ${maxRetries} retries: ${lastError?.message}`);
 
     // Extract product data from response
     const item = response.data.ItemsResult.Items[0];
