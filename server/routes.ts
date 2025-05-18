@@ -627,13 +627,24 @@ export async function registerRoutes(app: Express): Promise<Server> {
           } catch (error) {
             // If API fails, create minimal product entry
             console.log('Failed to fetch from Amazon API, creating minimal product entry:', error);
+            
+            // Use the target price as a fallback for price fields
+            const fallbackPrice = targetPrice > 0 ? targetPrice : 99.99;
+            
             product = await storage.createProduct({
               asin: productAsin,
-              title: "Product information pending...",
-              url: productUrl,
-              currentPrice: 0,
+              title: `Amazon Product (${productAsin})`,
+              url: productUrl || `https://www.amazon.com/dp/${productAsin}`,
+              imageUrl: null,
+              currentPrice: fallbackPrice,
+              originalPrice: fallbackPrice,
+              lowestPrice: fallbackPrice,
+              highestPrice: fallbackPrice,
               lastChecked: new Date()
             });
+            
+            // Create initial price history entry for the fallback product
+            await intelligentlyAddPriceHistory(product.id, fallbackPrice);
           }
         }
       }
