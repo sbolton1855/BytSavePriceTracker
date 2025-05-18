@@ -154,6 +154,10 @@ export default function ProductSearch({
         description: "Setting up price tracking for this product.",
       });
 
+      console.log("Form data:", data);
+      console.log("Selected product:", selectedProduct);
+      console.log("Product data from URL:", productData);
+
       // Get the product to track
       const productToTrack = selectedProduct || productData;
       
@@ -169,12 +173,25 @@ export default function ProductSearch({
       // Email either from user auth or form input
       const email = isAuthenticated ? user?.email : data.email;
       
+      if (!email) {
+        toast({
+          title: "Email required",
+          description: "Please provide an email address for price alerts",
+          variant: "destructive",
+        });
+        return;
+      }
+      
+      console.log("Using email:", email);
+      
       // Create simplified tracking data - using exact format the server expects
       const trackingData = {
         productUrl: productToTrack.url,
-        targetPrice: data.targetPrice,
+        targetPrice: parseFloat(data.targetPrice.toString()),
         email: email
       };
+      
+      console.log("Sending tracking data:", trackingData);
 
       // Direct POST with minimal options
       const response = await fetch('/api/track', {
