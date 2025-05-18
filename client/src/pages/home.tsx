@@ -183,7 +183,8 @@ const Home: React.FC = () => {
         </div>
       </section>
       
-      <ProductsDisplay email={userEmail} />
+      {/* Only show ProductsDisplay for authenticated users */}
+      {user && <ProductsDisplay email={userEmail} />}
       <NotificationDemo />
     </>
   );

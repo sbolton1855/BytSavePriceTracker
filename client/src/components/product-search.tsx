@@ -85,6 +85,29 @@ export default function ProductSearch({
         })
       });
 
+      if (response.status === 403) {
+        // Handle limit reached error
+        const errorData = await response.json();
+        
+        if (errorData.limitReached) {
+          toast({
+            title: "Tracking Limit Reached",
+            description: "You've reached the limit of 3 tracked products. Please create an account to track more products.",
+            variant: "destructive",
+            duration: 10000,
+            action: <Button 
+              onClick={() => window.location.href = '/auth'} 
+              variant="outline" 
+              className="bg-primary text-white hover:bg-primary/90"
+            >
+              Sign Up/Login
+            </Button>
+          });
+          setIsSubmitting(false);
+          return;
+        }
+      }
+      
       if (!response.ok) {
         const errorText = await response.text();
         throw new Error(errorText);
@@ -127,6 +150,34 @@ export default function ProductSearch({
       }
     } catch (error) {
       console.error("Error tracking product:", error);
+      
+      // Check if this is the limit reached error
+      if (error instanceof Error && error.message.includes('403')) {
+        try {
+          // Try to parse the error response to get the limitReached flag
+          const errorData = JSON.parse(error.message.substring(error.message.indexOf('{')));
+          if (errorData.limitReached) {
+            toast({
+              title: "Tracking Limit Reached",
+              description: "You've reached the limit of 3 tracked products. Please create an account to track more products.",
+              variant: "destructive",
+              duration: 10000, // Show longer
+              action: <Button 
+                onClick={() => window.location.href = '/auth'} 
+                variant="outline" 
+                className="bg-primary text-white hover:bg-primary/90"
+              >
+                Sign Up/Login
+              </Button>
+            });
+            return;
+          }
+        } catch (e) {
+          // If we can't parse the error, fall back to the generic handler
+          console.error("Error parsing error message", e);
+        }
+      }
+      
       toast({
         title: "Failed to track product",
         description: error instanceof Error ? error.message : "An unexpected error occurred",

@@ -480,6 +480,20 @@ export async function registerRoutes(app: Express): Promise<Server> {
       if (!email) {
         return res.status(400).json({ error: 'Email is required for non-authenticated tracking' });
       }
+      
+      // For non-authenticated users, check if they've reached the limit of 3 tracked products
+      if (!req.user) {
+        const upperEmail = email.toUpperCase();
+        const existingTrackedProducts = await storage.getTrackedProductsByEmail(upperEmail);
+        
+        if (existingTrackedProducts.length >= 3) {
+          return res.status(403).json({ 
+            error: 'Limit reached', 
+            message: 'You have reached the maximum of 3 tracked products as a guest. Please create an account to track more products.',
+            limitReached: true 
+          });
+        }
+      }
 
       let product;
 
