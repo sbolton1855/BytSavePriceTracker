@@ -39,12 +39,31 @@ const TrackerForm: React.FC<TrackerFormProps> = ({ onSuccess }) => {
   // Set up mutation
   const trackProductMutation = useMutation({
     mutationFn: async (data: TrackingFormData) => {
+      console.log("DEBUG - Starting track request with data:", JSON.stringify(data));
       try {
-        const response = await apiRequest("POST", "/api/track", data);
+        // Enhanced error logging
+        const response = await fetch("/api/track", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(data),
+          credentials: "include"
+        });
+        
+        console.log("DEBUG - Track request status:", response.status);
+        
         if (!response.ok) {
-          const errorData = await response.json();
-          throw new Error(errorData.error || "Failed to track product");
+          const errorText = await response.text();
+          console.error("Track request failed with status:", response.status);
+          console.error("Error response:", errorText);
+          
+          try {
+            const errorData = JSON.parse(errorText);
+            throw new Error(errorData.error || "Failed to track product");
+          } catch (parseError) {
+            throw new Error(`Server error (${response.status}): ${errorText || "Unknown error"}`);
+          }
         }
+        
         return response.json();
       } catch (error) {
         console.error("Error tracking product:", error);
