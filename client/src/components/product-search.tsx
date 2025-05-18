@@ -272,34 +272,39 @@ export default function ProductSearch({
         return;
       }
 
-      // Create the tracking data with all required fields
-      let trackingData: any = {
+      // Create simplified tracking data - matches the working implementation
+      const trackingData = {
         productUrl: selectedProduct.url,
-        targetPrice: data.targetPrice,
-        email: isAuthenticated ? user?.email : data.email,
-        percentageAlert: data.percentageAlert,
-        percentageThreshold: data.percentageThreshold
+        targetPrice: parseFloat(data.targetPrice.toString()), // Ensure number format
+        email: isAuthenticated ? user?.email : data.email
       };
       
-      // If we have a product ID from search results, include it
-      if (selectedProduct.id) {
-        trackingData.productId = selectedProduct.id;
-      }
-
-      console.log("Submitting tracking data:", trackingData);
+      // For TypeScript, create a proper type
+      type SimpleTrackingData = {
+        productUrl: string;
+        targetPrice: number;
+        email: string | undefined;
+      };
       
-      // Make direct API call for better error visibility
-      const endpoint = isAuthenticated ? '/api/my/track' : '/api/track';
+      console.log("Submitting simplified tracking data:", JSON.stringify(trackingData, null, 2));
+      
+      // Use only the non-authenticated endpoint that we know is working
+      const endpoint = '/api/track';
       console.log("Making API request to:", endpoint);
       
-      console.log("⚠️ TRACK DEBUG - Sending request with this data:", JSON.stringify(trackingData, null, 2));
+      // Show clear status to the user
+      toast({
+        title: "Sending tracking request...",
+        description: "Connecting to server, please wait...",
+      });
       
+      // Make the request directly like the simple form does
       const response = await fetch(endpoint, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json'
         },
-        credentials: 'include', // This was missing - needed for authenticated requests
+        credentials: 'include',
         body: JSON.stringify(trackingData)
       });
 
@@ -311,6 +316,7 @@ export default function ProductSearch({
         throw new Error(errorText);
       }
 
+      // Process successful response
       const result = await response.json();
       console.log("API Success:", result);
 
