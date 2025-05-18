@@ -70,8 +70,38 @@ const TrackerForm: React.FC<TrackerFormProps> = ({ onSuccess }) => {
 
   // Form submission handler
   const onSubmit = (data: TrackingFormData) => {
+    console.log('Track price button clicked with data:', data);
     setIsSubmitting(true);
-    trackProductMutation.mutate(data);
+    
+    // Add confirmation toast before tracking
+    toast({
+      title: "Starting price tracking...",
+      description: "Please wait while we set up tracking for this product.",
+    });
+
+    trackProductMutation.mutate(data, {
+      onError: (error) => {
+        console.error('Track price error:', error);
+        toast({
+          title: "Failed to track price",
+          description: error instanceof Error ? error.message : "An unexpected error occurred",
+          variant: "destructive",
+        });
+        setIsSubmitting(false);
+      },
+      onSuccess: (response) => {
+        console.log('Track price success:', response);
+        toast({
+          title: "✅ Price tracking confirmed!",
+          description: `We'll notify you when the price drops below $${data.targetPrice}`,
+          duration: 5000,
+        });
+        setIsSubmitting(false);
+        if (onSuccess) {
+          onSuccess();
+        }
+      }
+    });
   };
 
   return (
