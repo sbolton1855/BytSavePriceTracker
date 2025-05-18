@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useForm } from "react-hook-form";
 import { z } from "zod";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -16,12 +16,6 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
-import {
-  Tabs,
-  TabsContent,
-  TabsList,
-  TabsTrigger,
-} from "@/components/ui/tabs";
 import {
   TrackingFormData,
   trackingFormSchema,
@@ -153,164 +147,97 @@ export default function ProductSearch({
 
   // Track product form submission
   const onTrackSubmit = async (data: TrackingFormData) => {
-    console.log("🚀 [TRACKING] Starting tracking request with data:", data);
-
-    // Show loading toast
-    toast({
-      title: "Processing tracking request...",
-      description: "Setting up price tracking for this product.",
-    });
-
     try {
-      // Get current product details
+      // Show loading message
+      toast({
+        title: "Processing tracking request...",
+        description: "Setting up price tracking for this product.",
+        duration: 3000,
+      });
+
+      // Determine which product to track
       const productToTrack = selectedProduct || productData;
-      console.log("🚀 [TRACKING] Product to track:", productToTrack);
       
       if (!productToTrack) {
-        console.error("🚀 [TRACKING ERROR] No product selected or found");
         toast({
           title: "No product selected",
-          description: "Please select a product or enter a valid Amazon URL",
+          description: "Please enter a valid Amazon URL or select a product from search results",
           variant: "destructive",
         });
         return;
       }
 
-      // Create simplified tracking data
+      // Create tracking data
       const trackingData = {
         productUrl: productToTrack.url,
-        targetPrice: parseFloat(data.targetPrice.toString()),
+        targetPrice: data.targetPrice,
         email: isAuthenticated ? user?.email : data.email
       };
 
-      console.log("🚀 [TRACKING] Submitting tracking data:", trackingData);
-      console.log("🚀 [TRACKING] Target price type:", typeof data.targetPrice);
-      console.log("🚀 [TRACKING] Email being used:", trackingData.email);
-
-      // Use consistent endpoint for tracking
-      const endpoint = '/api/track';
-      console.log(`🚀 [TRACKING] Sending POST request to ${endpoint}`);
-      
-      const response = await fetch(endpoint, {
+      // Submit tracking request
+      const response = await fetch('/api/track', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json'
         },
-        credentials: 'include',
         body: JSON.stringify(trackingData)
       });
 
-      console.log(`🚀 [TRACKING] Server response status: ${response.status} ${response.statusText}`);
-      
       if (!response.ok) {
-        const errorText = await response.text();
-        console.error(`🚀 [TRACKING ERROR] Server returned error: ${errorText}`);
-        throw new Error(errorText);
+        throw new Error("Failed to track product");
       }
 
+      // Get response data
       const result = await response.json();
-      console.log("🚀 [TRACKING] Success response:", result);
-      console.log("🚀 [TRACKING] Result type:", typeof result);
-      console.log("🚀 [TRACKING] Has ID?", result.id ? "Yes" : "No");
-
+      
       // Force refresh the tracked products data
-      console.log("🚀 [TRACKING] About to invalidate queries and fetch latest data");
       queryClient.invalidateQueries({ queryKey: ["/api/tracked-products"] });
-      queryClient.invalidateQueries({ queryKey: ["/api/my/tracked-products"] });
-      console.log("🚀 [TRACKING] Queries invalidated");
       
-      // Directly fetch the latest data (bypass cache)
-      if (data.email) {
-        console.log(`🚀 [TRACKING] Directly fetching latest data for email: ${data.email}`);
-        const refreshUrl = `/api/tracked-products?email=${encodeURIComponent(data.email)}&_t=${Date.now()}`;
-        console.log(`🚀 [TRACKING] Refresh URL: ${refreshUrl}`);
-        try {
-          const refreshResponse = await fetch(refreshUrl, { 
-            credentials: 'include',
-            cache: 'no-store'
-          });
-          console.log(`🚀 [TRACKING] Refresh response status: ${refreshResponse.status}`);
-          const refreshData = await refreshResponse.json();
-          console.log(`🚀 [TRACKING] Refresh data received:`, refreshData);
-          console.log(`🚀 [TRACKING] Items count: ${refreshData.length}`);
-        } catch (refreshError) {
-          console.error(`🚀 [TRACKING] Error refreshing data:`, refreshError);
-        }
-      }
-
-      // Dispatch a custom event to notify other components
-      const eventDetail = {
-        product: result,
-        email: data.email || trackForm.getValues("email")
-      };
-      console.log("🚀 [TRACKING] Dispatching custom event with detail:", eventDetail);
-      
-      const productTrackEvent = new CustomEvent('product-tracked', {
-        detail: eventDetail
-      });
-      document.dispatchEvent(productTrackEvent);
-      console.log("🚀 [TRACKING] Dispatched product-tracked event");
-
-      // Create success message
-      const productTitle = productToTrack.title.length > 30 
-        ? productToTrack.title.substring(0, 30) + "..." 
-        : productToTrack.title;
-      
-      let successMessage = `We'll notify you when <strong>${productTitle}</strong> drops below <strong>$${data.targetPrice.toFixed(2)}</strong>.`;
-
-      // We don't need to dismiss the previous toast as a new one will replace it
-      
-      // Show success toast
-      toast({
-        title: "✅ Price tracking activated!",
-        description: successMessage,
-        duration: 6000,
-      });
-
-      // Force refresh tracked products data - important to show newly added item
-      queryClient.invalidateQueries({ queryKey: ["/api/tracked-products"] });
-      if (isAuthenticated) {
-        queryClient.invalidateQueries({ queryKey: ["/api/my/tracked-products"] });
-      }
-      
-      // Also refetch without cache to ensure we get latest data
-      await fetch(`/api/tracked-products?email=${encodeURIComponent(data.email || '')}&_t=${Date.now()}`, {
-        credentials: 'include'
-      });
-
-      // Call onSuccess callback if provided
-      if (onSuccess) {
-        onSuccess();
-      }
-
-      // Reset form and selection for a clean state
+      // Reset form
       if (searchTab === "name") {
         setSelectedProduct(null);
         setSearchQuery("");
       } else {
-        trackForm.reset({
+        trackForm.reset({ 
           productUrl: "",
           targetPrice: 0,
-          email: trackForm.getValues("email")
+          email: data.email
         });
       }
 
-      // Scroll to the dashboard
-      setTimeout(() => {
-        const dashboardElement = document.getElementById('dashboard');
-        if (dashboardElement) {
-          dashboardElement.scrollIntoView({ behavior: 'smooth' });
-          // Highlight the dashboard briefly to draw attention
-          dashboardElement.classList.add('pulse-highlight');
-          setTimeout(() => {
-            dashboardElement.classList.remove('pulse-highlight');
-          }, 2000);
-        }
-      }, 500);
-    } catch (error) {
-      console.error("Track submission error:", error);
+      // Get product title for display
+      const displayTitle = productToTrack.title.length > 30 
+        ? productToTrack.title.substring(0, 30) + "..." 
+        : productToTrack.title;
+      
+      // Show success message
       toast({
-        title: "Failed to track product",
+        title: "✅ Price tracking activated!",
+        description: `We'll notify you when ${displayTitle} drops below $${data.targetPrice.toFixed(2)}`,
+        duration: 5000,
+      });
+
+      // Force refresh tracked products
+      const emailToUse = data.email || "";
+      if (emailToUse) {
+        // Directly fetch latest data
+        await fetch(`/api/tracked-products?email=${encodeURIComponent(emailToUse)}&_t=${Date.now()}`);
+      }
+
+      // Scroll to dashboard section
+      setTimeout(() => {
+        document.getElementById('dashboard')?.scrollIntoView({ behavior: 'smooth' });
+      }, 500);
+      
+      // Call success callback if provided
+      if (onSuccess) {
+        onSuccess();
+      }
+      
+    } catch (error) {
+      console.error("Failed to track product:", error);
+      toast({
+        title: "Error tracking product",
         description: error instanceof Error ? error.message : "Something went wrong",
         variant: "destructive",
       });
