@@ -155,7 +155,7 @@ export default function ProductSearch({
       queryClient.invalidateQueries({ queryKey: ["/api/tracked-products"] });
 
       if (onSuccess) {
-        onSuccess();
+        onSuccess(trackingEmail);
       }
     } catch (error) {
       console.error("Error tracking product:", error);
@@ -322,6 +322,7 @@ export default function ProductSearch({
                 <Label htmlFor="alert-email">Email for Price Alerts</Label>
                 <Input
                   id="alert-email"
+                  name="email" 
                   type="email"
                   placeholder="your@email.com"
                   value={email}
