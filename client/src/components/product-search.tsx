@@ -312,17 +312,8 @@ export default function ProductSearch({
     try {
       if (!selectedProduct) {
         toast({
-          title: "No product selected", 
+          title: "No product selected",
           description: "Please select a product to track",
-          variant: "destructive",
-        });
-        return;
-      }
-
-      if (!data.targetPrice || data.targetPrice <= 0) {
-        toast({
-          title: "Invalid target price",
-          description: "Please enter a valid target price",
           variant: "destructive",
         });
         return;
@@ -332,13 +323,13 @@ export default function ProductSearch({
         productUrl: selectedProduct.url,
         targetPrice: data.targetPrice,
         email: isAuthenticated ? user?.email : data.email,
-        percentageAlert: false,
-        percentageThreshold: 0
       };
 
-      console.log("Submitting tracking data:", trackingData);
-
       const endpoint = isAuthenticated ? '/api/my/track' : '/api/track';
+      
+      console.log("Submitting to endpoint:", endpoint);
+      console.log("With data:", trackingData);
+
       const response = await fetch(endpoint, {
         method: 'POST',
         headers: {
@@ -349,20 +340,23 @@ export default function ProductSearch({
       });
 
       if (!response.ok) {
-        throw new Error(await response.text());
+        const errorText = await response.text();
+        console.error("Server error:", errorText);
+        throw new Error(errorText);
       }
 
       const result = await response.json();
-      console.log("Track API response:", result);
+      console.log("Track API success:", result);
 
       toast({
         title: "Success!",
-        description: "Product tracking has been set up",
+        description: `Now tracking ${selectedProduct.title.substring(0, 30)}...`,
       });
 
+      // Reset everything
       trackForm.reset();
       setSelectedProduct(null);
-      queryClient.invalidateQueries({ queryKey: ['/api/tracked-products'] });
+      await queryClient.invalidateQueries({ queryKey: ['/api/tracked-products'] });
 
     } catch (error) {
       console.error("Track submission error:", error);
@@ -373,188 +367,7 @@ export default function ProductSearch({
       });
     }
 
-    // Make sure we have a selected product
-    if (!selectedProduct) {
-      toast({
-        title: "Product required",
-        description: "Please select a product to track",
-        variant: "destructive",
-      });
-      return;
-    }
-
-    // Create a copy of the data to avoid mutating the original form data
-    const trackingData = { ...data };
-
-    // For percentage-based alerts, calculate the target price if we have a current price
-    if (trackingData.percentageAlert && selectedProduct?.price && trackingData.percentageThreshold) {
-      const calculatedPrice = selectedProduct.price * (1 - trackingData.percentageThreshold / 100);
-      // Round to 2 decimal places
-      trackingData.targetPrice = Math.round(calculatedPrice * 100) / 100;
-      console.log(`Calculated target price: $${trackingData.targetPrice} based on ${trackingData.percentageThreshold}% off $${selectedProduct.price}`);
-    }
-
-    // Always ensure we use the user's email if they're authenticated
-    if (isAuthenticated && user?.email) {
-      trackingData.email = user.email;
-      console.log(`Using authenticated user email: ${trackingData.email}`);
-    } else if (!trackingData.email || trackingData.email.trim() === '') {
-      toast({
-        title: "Email required",
-        description: "Please provide an email address for price drop notifications",
-        variant: "destructive",
-      });
-      return;
-    }
-
-    // Log the data being prepared
-    console.log("Preparing tracking data:", trackingData);
-
-    if (trackingData.percentageAlert && (!trackingData.percentageThreshold || trackingData.percentageThreshold <= 0)) {
-      toast({
-        title: "Percentage required",
-        description: "Please select a percentage for the price drop alert",
-        variant: "destructive",
-      });
-      return;
-    }
-
-    if (!trackingData.percentageAlert && (!trackingData.targetPrice || trackingData.targetPrice <= 0)) {
-      toast({
-        title: "Target price required",
-        description: "Please enter a target price for the alert",
-        variant: "destructive",
-      });
-      return;
-    }
-
-    // Make sure productId is set from the selected product
-    if (selectedProduct.id) {
-      trackingData.productId = selectedProduct.id;
-      console.log(`Using product ID: ${trackingData.productId}`);
-
-      // Double-check that other required fields are set
-      if (!trackingData.targetPrice) {
-        console.error("Missing targetPrice before submission");
-        toast({
-          title: "Missing price target",
-          description: "Please set a target price for the alert",
-          variant: "destructive",
-        });
-        return;
-      }
-
-      // All validations passed, show pending toast
-      toast({
-        title: "Setting up price tracking...",
-        description: "Adding product to your tracked items",
-      });
-
-    } else {
-      console.log(`No product ID available, will use URL: ${trackingData.productUrl}`);
-      if (!trackingData.productUrl) {
-        toast({
-          title: "Missing product information",
-          description: "Please select a product first",
-          variant: "destructive",
-        });
-        return;
-      }
-    }
-
-    // Submit the tracking request with full details
-    console.log("Submitting tracking request with validated data:", JSON.stringify(trackingData));
-
-    // Manually trigger the API call instead of using the mutation to have more control
-    // Use different endpoints based on authentication status
-    const trackEndpoint = isAuthenticated ? '/api/my/track' : '/api/track';
-    
-    fetch(trackEndpoint, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json'
-      },
-      credentials: 'include',
-      body: JSON.stringify(trackingData)
-    })
-    .then(response => {
-      console.log("Track API response status:", response.status);
-
-      if (response.status === 401) {
-        console.error("Authentication required");
-        toast({
-          title: "Authentication required",
-          description: "Please log in to track products",
-          variant: "destructive",
-        });
-        setTimeout(() => window.location.href = "/auth", 1500);
-        throw new Error("Authentication required");
-      }
-
-      if (!response.ok) {
-        return response.text().then(text => {
-          console.error("Track API error:", text);
-          throw new Error(text || "Failed to track product");
-        });
-      }
-
-      return response.json();
-    })
-    .then(result => {
-      console.log("Track API success:", result);
-
-      // Show success toast
-      toast({
-        title: "✅ Product tracking set up!",
-        description: trackingData.percentageAlert ? 
-          `We'll notify you when ${selectedProduct?.title?.substring(0, 25)}... drops by ${trackingData.percentageThreshold}%.` :
-          `We'll notify you when ${selectedProduct?.title?.substring(0, 25)}... drops below $${trackingData.targetPrice.toFixed(2)}.`,
-        duration: 5000,
-      });
-
-      // Reset forms
-      trackForm.reset();
-      searchForm.reset();
-      setSelectedProduct(null);
-
-      // Forcefully invalidate and refresh the product list
-      queryClient.invalidateQueries({ queryKey: ['/api/tracked-products'] });
-      queryClient.resetQueries({ queryKey: ['/api/tracked-products'] });
-
-      // Force a fetch with a fresh request to update the UI
-      fetch('/api/tracked-products', { credentials: 'include', cache: 'no-store' })
-        .then(res => res.json())
-        .then(data => {
-          queryClient.setQueryData(['/api/tracked-products'], data);
-          document.dispatchEvent(new CustomEvent('product-tracked'));
-
-          // Show confirmation with view option
-          toast({
-            title: "Product Added to Dashboard",
-            description: "Your tracked product has been added to your dashboard",
-            action: (
-              <Button 
-                onClick={() => document.getElementById('dashboard')?.scrollIntoView({ behavior: "smooth" })}
-                variant="outline"
-                size="sm"
-              >
-                View My Products
-              </Button>
-            ),
-          });
-
-          // Call success callback if provided
-          if (onSuccess) onSuccess();
-        });
-    })
-    .catch(error => {
-      console.error("Track product error:", error);
-      toast({
-        title: "Failed to track product",
-        description: error.message || "Something went wrong. Please try again.",
-        variant: "destructive",
-      });
-    });
+    // Removed duplicate submission code - using onTrackSubmit above
   };
 
   // Set product URL and email when a search result is selected
