@@ -415,11 +415,33 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.get('/api/my/tracked-products', requireAuth, async (req: Request, res: Response) => {
     try {
       const userId = (req.user as any).id.toString();
-      const trackedProducts = await storage.getTrackedProductsByUserId(userId);
+      const userEmail = (req.user as any).email.toUpperCase();
+      console.log(`Fetching tracked products for user ${userId} with email ${userEmail}`);
+      
+      // Get products by userId
+      const userIdProducts = await storage.getTrackedProductsByUserId(userId);
+      console.log(`Found ${userIdProducts.length} products by userId`);
+      
+      // Also get products by email (for products tracked before login)
+      const emailProducts = await storage.getTrackedProductsByEmail(userEmail);
+      console.log(`Found ${emailProducts.length} products by email`);
+      
+      // Combine both lists, ensuring no duplicates
+      let allTrackedProducts = [...userIdProducts];
+      
+      // Add email products that aren't already in the user ID products
+      const existingProductIds = new Set(userIdProducts.map(p => p.productId));
+      for (const emailProduct of emailProducts) {
+        if (!existingProductIds.has(emailProduct.productId)) {
+          allTrackedProducts.push(emailProduct);
+        }
+      }
+      
+      console.log(`Combined total: ${allTrackedProducts.length} tracked products`);
 
       // For each tracked product, fetch the product details
       const fullDetails = await Promise.all(
-        trackedProducts.map(async (item) => {
+        allTrackedProducts.map(async (item) => {
           const product = await storage.getProduct(item.productId);
           if (!product) return null;
 
@@ -435,6 +457,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       // Filter out any null entries (products that may have been deleted)
       const response = fullDetails.filter(item => item !== null);
+      console.log(`Returning ${response.length} tracked products with details`);
 
       res.json(response);
     } catch (error) {
