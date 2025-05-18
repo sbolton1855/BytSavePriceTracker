@@ -58,6 +58,11 @@ const Navbar: React.FC = () => {
                 FAQ
               </div>
             </Link>
+            <Link href="/admin/api-monitor">
+              <div className={`text-gray-600 hover:text-primary-500 px-3 py-2 rounded-md text-sm font-medium cursor-pointer ${location === "/admin/api-monitor" ? "text-primary-500" : ""}`}>
+                Analytics
+              </div>
+            </Link>
             {isLoading ? (
               <Button className="ml-3" variant="ghost" disabled>
                 <Loader2 className="mr-2 h-4 w-4 animate-spin" />
