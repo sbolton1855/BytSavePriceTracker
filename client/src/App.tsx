@@ -18,6 +18,7 @@ import FAQ from "@/pages/faq";
 import Deals from "@/pages/deals";
 import NotFound from "@/pages/not-found";
 import ApiMonitor from "@/pages/api-monitor";
+import TestTracking from "@/pages/test-tracking";
 
 function Router() {
   return (
@@ -30,6 +31,9 @@ function Router() {
       </ProtectedRoute>
       <Route path="/admin/api-monitor">
         <ApiMonitor />
+      </Route>
+      <Route path="/test-tracking">
+        <TestTracking />
       </Route>
       <Route path="/how-it-works">
         <HowItWorks />
