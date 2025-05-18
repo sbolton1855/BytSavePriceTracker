@@ -25,6 +25,7 @@ export default function ProductSearch({
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedProduct, setSelectedProduct] = useState<any>(null);
   const [targetPrice, setTargetPrice] = useState("");
+  const [email, setEmail] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   // Search products query
@@ -52,13 +53,26 @@ export default function ProductSearch({
     setIsSubmitting(true);
 
     try {
+      // Make sure we have a valid email - either from logged-in user or from the input field
+      const trackingEmail = user?.email || email;
+      
+      if (!trackingEmail) {
+        throw new Error("Please provide an email address to receive price alerts");
+      }
+      
+      console.log("Sending tracking request with:", {
+        url: selectedProduct.url,
+        price: parseFloat(targetPrice),
+        email: trackingEmail
+      });
+      
       const response = await fetch("/api/track", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           productUrl: selectedProduct.url,
           targetPrice: parseFloat(targetPrice),
-          email: user?.email || sessionStorage.getItem("bytsave_user_session")
+          email: trackingEmail
         })
       });
 
@@ -174,11 +188,27 @@ export default function ProductSearch({
                 onChange={(e) => setTargetPrice(e.target.value)}
               />
             </div>
+            
+            {!user && (
+              <div className="space-y-2">
+                <Label>Email for Price Alerts</Label>
+                <Input
+                  type="email"
+                  placeholder="your@email.com"
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                  required
+                />
+                <p className="text-xs text-muted-foreground">
+                  We'll send you alerts when the price drops below your target
+                </p>
+              </div>
+            )}
 
             <Button 
               onClick={handleTrackSubmit}
               className="w-full"
-              disabled={isSubmitting}
+              disabled={isSubmitting || (!user && !email)}
             >
               {isSubmitting ? (
                 <>
