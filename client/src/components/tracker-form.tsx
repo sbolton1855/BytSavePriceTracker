@@ -15,7 +15,7 @@ import { Button } from "@/components/ui/button";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/hooks/use-auth";
 import { trackingFormSchema, type TrackingFormData } from "@shared/schema";
-import { apiRequest } from "@/lib/queryClient";
+import { apiRequest, queryClient } from "@/lib/queryClient";
 
 interface TrackerFormProps {
   onSuccess?: () => void;
@@ -39,9 +39,10 @@ const TrackerForm: React.FC<TrackerFormProps> = ({ onSuccess }) => {
   // Set up mutation
   const trackProductMutation = useMutation({
     mutationFn: async (data: TrackingFormData) => {
-      return apiRequest("POST", "/api/track", data);
+      const response = await apiRequest("POST", "/api/track", data);
+      return response.json();
     },
-    onSuccess: () => {
+    onSuccess: (data) => {
       toast({
         title: "Product tracking added!",
         description: "We'll notify you when the price drops below your target.",
@@ -54,6 +55,12 @@ const TrackerForm: React.FC<TrackerFormProps> = ({ onSuccess }) => {
       // Call onSuccess callback if provided
       if (onSuccess) {
         onSuccess();
+      }
+      
+      // Force refresh tracked products list
+      queryClient.invalidateQueries({ queryKey: ['/api/tracked-products'] });
+      if (user) {
+        queryClient.invalidateQueries({ queryKey: ['/api/my/tracked-products'] });
       }
       
       setIsSubmitting(false);
