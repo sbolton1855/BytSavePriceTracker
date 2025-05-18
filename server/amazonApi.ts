@@ -318,7 +318,15 @@ async function getProductInfo(asinOrUrl: string): Promise<AmazonProduct> {
         });
 
         if (response.data?.ItemsResult?.Items?.length) {
-          return response;
+          const item = response.data.ItemsResult.Items[0];
+          return {
+            asin: item.ASIN,
+            title: item.ItemInfo.Title.DisplayValue,
+            price: item.Offers?.Listings?.[0]?.Price?.Amount || 0,
+            originalPrice: item.Offers?.Listings?.[0]?.SavingBasis?.Amount,
+            imageUrl: item.Images?.Primary?.Medium?.URL,
+            url: item.DetailPageURL
+          };
         }
 
         lastError = new Error('No product data in API response');

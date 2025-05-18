@@ -15,10 +15,11 @@ async function updateProductPrice(product: Product): Promise<Product | undefined
     const latestInfo = await getProductInfo(product.asin);
     
     // Only store valid prices in history
-    if (typeof latestInfo.price === 'number' && !isNaN(latestInfo.price)) {
+    if (typeof latestInfo.price === 'number' && !isNaN(latestInfo.price) && latestInfo.price > 0) {
       await intelligentlyAddPriceHistory(product.id, latestInfo.price);
+      console.log(`Price history updated for ${product.asin}: $${latestInfo.price}`);
     } else {
-      console.warn(`Skipping price history update for ${product.asin} - invalid price value`);
+      console.warn(`Skipping price history update for ${product.asin} - invalid price value: ${latestInfo.price}`);
     }
     
     // Update product data
