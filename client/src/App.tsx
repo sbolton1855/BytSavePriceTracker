@@ -28,9 +28,9 @@ function Router() {
       <ProtectedRoute path="/dashboard">
         <Dashboard />
       </ProtectedRoute>
-      <ProtectedRoute path="/admin/api-monitor">
+      <Route path="/admin/api-monitor">
         <ApiMonitor />
-      </ProtectedRoute>
+      </Route>
       <Route path="/how-it-works">
         <HowItWorks />
       </Route>
