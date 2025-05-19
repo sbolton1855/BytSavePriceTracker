@@ -32,7 +32,7 @@ export default function HighlightedDeals() {
     refetchOnWindowFocus: false,
   });
 
-  // Process deals to calculate discount percentages
+  // Process deals to calculate discount percentages and rotate them for variety
   useEffect(() => {
     if (data && Array.isArray(data)) {
       // We don't need to recalculate discount percentage as it's already included in the API response
@@ -53,8 +53,50 @@ export default function HighlightedDeals() {
       // Sort by discount percentage (already sorted from API, but just in case)
       processedDeals.sort((a, b) => b.discountPercentage - a.discountPercentage);
       
-      // Take top 6 deals (increased from 4 to show more discovered products)
-      setDeals(processedDeals.slice(0, 6));
+      // Take all deals with any discount
+      const dealsWithDiscount = processedDeals.filter(deal => deal.discountPercentage > 0);
+      
+      // For non-authenticated users, randomly shuffle the deals for variety
+      // Use sessionStorage to ensure the same order during a single session
+      let selectedDeals: HighlightedDeal[] = [];
+      
+      // Use sessionStorage to keep the same shuffled order in a session
+      const sessionShuffleKey = 'bytsave-deals-shuffle-seed';
+      let shuffleSeed = sessionStorage.getItem(sessionShuffleKey);
+      
+      if (!shuffleSeed) {
+        // Generate a new random seed
+        shuffleSeed = Math.random().toString();
+        sessionStorage.setItem(sessionShuffleKey, shuffleSeed);
+      }
+      
+      // Use the seed to create a deterministic but random-looking shuffle
+      const shuffledDeals = [...dealsWithDiscount].sort((a, b) => {
+        // Create a deterministic hash from the product ID and the session seed
+        const hashA = (a.id * parseFloat(shuffleSeed!)) % 1;
+        const hashB = (b.id * parseFloat(shuffleSeed!)) % 1;
+        return hashA - hashB;
+      });
+      
+      // Take 6 deals from the shuffled array, or all if less than 6
+      selectedDeals = shuffledDeals.slice(0, 6);
+      
+      // If we don't have enough deals with discounts, add some regular deals to fill the slots
+      if (selectedDeals.length < 6) {
+        const regularDeals = processedDeals
+          .filter(deal => deal.discountPercentage === 0 || deal.discountPercentage === null)
+          .sort((a, b) => {
+            // Create a deterministic hash for regular products too
+            const hashA = ((a.id + 1000) * parseFloat(shuffleSeed!)) % 1;
+            const hashB = ((b.id + 1000) * parseFloat(shuffleSeed!)) % 1;
+            return hashA - hashB;
+          })
+          .slice(0, 6 - selectedDeals.length);
+          
+        selectedDeals = [...selectedDeals, ...regularDeals];
+      }
+      
+      setDeals(selectedDeals);
     }
   }, [data]);
 
