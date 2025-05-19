@@ -277,6 +277,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
       // Take top deals (use all for category-specific, otherwise limit to 8)
       deals = deals.slice(0, category ? undefined : 8);
 
+      // Disable caching to prevent 304 responses
+      res.set('Cache-Control', 'no-store, no-cache, must-revalidate, private');
+      res.set('Expires', '0');
+      res.set('Pragma', 'no-cache');
+      
       res.json(deals);
     } catch (error) {
       console.error('Error fetching deals:', error);
