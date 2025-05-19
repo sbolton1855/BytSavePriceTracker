@@ -141,8 +141,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.set('Expires', '0');
       res.set('Pragma', 'no-cache');
       
-      // Extract category filter if provided
-      const { category } = req.query;
+      // Extract category filter and rotation index if provided
+      const { category, rotate } = req.query;
+      
+      // Use the rotation parameter to provide different product sets
+      const rotationIndex = parseInt(rotate as string) || 0;
 
       // Get all products
       const products = await storage.getAllProducts();
@@ -286,6 +289,33 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.set('Cache-Control', 'no-store, no-cache, must-revalidate, private');
       res.set('Expires', '0');
       res.set('Pragma', 'no-cache');
+      
+      // Get all products and sort them by ID to ensure consistent order before rotation
+      const allDeals = [...deals].sort((a, b) => a.id - b.id);
+      
+      // Force different selections based on rotation parameter
+      if (allDeals.length > 8) {
+        // Create different subsets based on the rotation index
+        // We'll divide the products into groups and rotate through them
+        const totalProducts = allDeals.length;
+        const groupSize = Math.min(8, Math.ceil(totalProducts / 4));
+        
+        // Create a rotation pattern based on the rotation index
+        const startIndex = (rotationIndex * groupSize) % totalProducts;
+        
+        // Take a slice of products starting from the computed index
+        deals = [
+          ...allDeals.slice(startIndex),
+          ...allDeals.slice(0, startIndex)
+        ].slice(0, 8);
+        
+        // Additional randomization within the selected group
+        deals = deals.sort(() => Math.random() - 0.5);
+      }
+      
+      // Log what products we're sending to verify they change
+      console.log(`Sending ${deals.length} deals, rotation index: ${rotationIndex}`);
+      console.log(`Product IDs: ${deals.map(d => d.id).join(', ')}`);
       
       res.json(deals);
     } catch (error) {

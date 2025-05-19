@@ -22,13 +22,19 @@ export default function HighlightedDeals() {
   const { data, isLoading, isError, refetch } = useQuery({
     queryKey: ["/api/products/deals", refreshKey],
     queryFn: async () => {
-      // Add cache-busting parameter to avoid 304 responses
+      // Add rotation parameter and timestamp to ensure different products
       const timestamp = Date.now();
-      const res = await fetch(`/api/products/deals?t=${timestamp}`);
+      const rotation = refreshKey % 10; // Create 10 different product sets
+      const res = await fetch(`/api/products/deals?t=${timestamp}&rotate=${rotation}`);
+      
       if (!res.ok) {
         throw new Error("Failed to fetch deals");
       }
-      return res.json();
+      
+      const data = await res.json();
+      console.log(`Received ${data.length} products, rotation: ${rotation}`, 
+                 data.map((p: any) => p.id));
+      return data;
     },
     // Disable caching for fresh data
     staleTime: 0,
