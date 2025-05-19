@@ -232,8 +232,27 @@ const HeroSection: React.FC = () => {
                 </Button>
               </div>
               
-              {/* Product Teasers */}
-              <ProductTeasers />
+              {/* Feature highlights */}
+              <div className="space-y-3">
+                <div className="flex items-center">
+                  <div className="h-6 w-6 rounded-full bg-primary-50 flex items-center justify-center mr-2">
+                    <Check className="h-4 w-4 text-primary-500" />
+                  </div>
+                  <span className="text-sm text-gray-600">Email notifications when prices drop</span>
+                </div>
+                <div className="flex items-center">
+                  <div className="h-6 w-6 rounded-full bg-primary-50 flex items-center justify-center mr-2">
+                    <Check className="h-4 w-4 text-primary-500" />
+                  </div>
+                  <span className="text-sm text-gray-600">Track multiple products at once</span>
+                </div>
+                <div className="flex items-center">
+                  <div className="h-6 w-6 rounded-full bg-primary-50 flex items-center justify-center mr-2">
+                    <Check className="h-4 w-4 text-primary-500" />
+                  </div>
+                  <span className="text-sm text-gray-600">Price history charts and analytics</span>
+                </div>
+              </div>
             </div>
           </div>
           <div className="relative">
