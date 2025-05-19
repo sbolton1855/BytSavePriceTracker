@@ -270,7 +270,7 @@ const ProductCard: React.FC<ProductCardProps> = ({ trackedProduct, onRefresh }) 
             href={product.affiliateUrl || product.url} 
             target="_blank" 
             rel="noopener noreferrer"
-            className="text-primary-500 hover:text-primary-600 text-sm font-medium"
+            className="bg-amber-100 hover:bg-amber-200 text-amber-800 px-3 py-1.5 rounded-md text-sm font-medium flex items-center transition-colors border border-amber-200"
           >
             View on Amazon 
             <svg 
@@ -283,7 +283,7 @@ const ProductCard: React.FC<ProductCardProps> = ({ trackedProduct, onRefresh }) 
               strokeWidth="2" 
               strokeLinecap="round" 
               strokeLinejoin="round" 
-              className="ml-1 inline"
+              className="ml-1.5"
             >
               <path d="M7 7h10v10" />
               <path d="M7 17 17 7" />
