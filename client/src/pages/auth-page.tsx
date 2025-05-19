@@ -15,7 +15,7 @@ import { Loader2 } from "lucide-react";
 
 export default function AuthPage() {
   const { user, isLoading } = useAuth();
-  const [activeTab, setActiveTab] = useState<"login" | "register" | "reset">("login");
+  const [activeTab, setActiveTab] = useState<string>("login");
   const [isSubmitting, setIsSubmitting] = useState(false);
   
   // Redirect if user is already logged in
@@ -76,7 +76,7 @@ export default function AuthPage() {
             </CardDescription>
           </CardHeader>
           
-          <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as "login" | "register")} className="w-full">
+          <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v)} className="w-full">
             <TabsList className="grid w-full grid-cols-3">
               <TabsTrigger value="login">Login</TabsTrigger>
               <TabsTrigger value="register">Register</TabsTrigger>
@@ -155,7 +155,7 @@ function LoginForm({
 }: { 
   isSubmitting: boolean;
   setIsSubmitting: (value: boolean) => void;
-  setActiveTab: (tab: "login" | "register") => void;
+  setActiveTab: (tab: string) => void;
 }) {
   const { login } = useAuth();
   const [showPassword, setShowPassword] = useState(false);
@@ -294,6 +294,217 @@ function LoginForm({
 }
 
 // Register Form
+// Password Reset Form
+function PasswordResetForm({ 
+  isSubmitting, 
+  setIsSubmitting,
+  setActiveTab
+}: { 
+  isSubmitting: boolean;
+  setIsSubmitting: (value: boolean) => void;
+  setActiveTab: (tab: string) => void;
+}) {
+  const [showPassword, setShowPassword] = useState(false);
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
+  const [resetSuccess, setResetSuccess] = useState(false);
+  
+  // Create a schema for the password reset form
+  const resetPasswordSchema = z.object({
+    email: z.string().email("Please enter a valid email address"),
+    password: z.string()
+      .min(6, "Password must be at least 6 characters long"),
+    passwordConfirm: z.string()
+  }).refine(data => data.password === data.passwordConfirm, {
+    message: "Passwords do not match",
+    path: ["passwordConfirm"]
+  });
+  
+  const form = useForm<z.infer<typeof resetPasswordSchema>>({
+    resolver: zodResolver(resetPasswordSchema),
+    defaultValues: {
+      email: "",
+      password: "",
+      passwordConfirm: "",
+    },
+    mode: "onChange",
+  });
+  
+  async function onSubmit(values: z.infer<typeof resetPasswordSchema>) {
+    try {
+      setIsSubmitting(true);
+      
+      const response = await fetch('/api/reset-password', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          email: values.email,
+          password: values.password,
+        }),
+      });
+      
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.message || "Password reset failed");
+      }
+      
+      setResetSuccess(true);
+      
+      // Automatically switch to login tab after successful reset
+      setTimeout(() => {
+        setActiveTab("login");
+      }, 3000);
+      
+    } catch (error: any) {
+      console.error("Password reset error:", error);
+      
+      if (error.message?.includes("User not found")) {
+        form.setError("email", {
+          type: "manual",
+          message: "No account found with this email address"
+        });
+      } else {
+        form.setError("root", {
+          type: "manual",
+          message: error.message || "Password reset failed. Please try again."
+        });
+      }
+    } finally {
+      setIsSubmitting(false);
+    }
+  }
+  
+  const togglePasswordVisibility = () => {
+    setShowPassword(!showPassword);
+  };
+  
+  const toggleConfirmPasswordVisibility = () => {
+    setShowConfirmPassword(!showConfirmPassword);
+  };
+  
+  if (resetSuccess) {
+    return (
+      <div className="space-y-4 px-6 py-6 text-center">
+        <div className="text-green-500 flex flex-col items-center justify-center">
+          <svg xmlns="http://www.w3.org/2000/svg" className="h-12 w-12 mb-2" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+            <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"></path>
+            <polyline points="22 4 12 14.01 9 11.01"></polyline>
+          </svg>
+          <h3 className="text-xl font-medium">Password Reset Successful!</h3>
+        </div>
+        <p>Your password has been reset successfully.</p>
+        <p className="text-sm text-muted-foreground">Redirecting to login...</p>
+      </div>
+    );
+  }
+  
+  return (
+    <Form {...form}>
+      <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4 px-6 py-2">
+        {form.formState.errors.root && (
+          <div className="text-sm text-destructive mb-2 p-2 border border-destructive/20 bg-destructive/10 rounded">
+            {form.formState.errors.root.message}
+          </div>
+        )}
+        
+        <FormField
+          control={form.control}
+          name="email"
+          render={({ field }) => (
+            <FormItem>
+              <FormLabel>Email <span className="text-destructive">*</span></FormLabel>
+              <FormControl>
+                <Input placeholder="you@example.com" {...field} />
+              </FormControl>
+              <FormDescription className="text-xs">
+                Enter the email address associated with your account
+              </FormDescription>
+              <FormMessage />
+            </FormItem>
+          )}
+        />
+        
+        <FormField
+          control={form.control}
+          name="password"
+          render={({ field }) => (
+            <FormItem>
+              <FormLabel>New Password <span className="text-destructive">*</span></FormLabel>
+              <div className="relative">
+                <FormControl>
+                  <Input 
+                    type={showPassword ? "text" : "password"} 
+                    placeholder="••••••••" 
+                    {...field} 
+                  />
+                </FormControl>
+                <Button 
+                  type="button"
+                  variant="ghost" 
+                  size="icon"
+                  className="absolute right-2 top-1/2 -translate-y-1/2 h-8 w-8"
+                  onClick={togglePasswordVisibility}
+                >
+                  {showPassword ? 
+                    <EyeOff className="h-4 w-4 text-muted-foreground" /> : 
+                    <Eye className="h-4 w-4 text-muted-foreground" />}
+                </Button>
+              </div>
+              <FormDescription className="text-xs">
+                Must have at least 6 characters
+              </FormDescription>
+              <FormMessage />
+            </FormItem>
+          )}
+        />
+        
+        <FormField
+          control={form.control}
+          name="passwordConfirm"
+          render={({ field }) => (
+            <FormItem>
+              <FormLabel>Confirm New Password <span className="text-destructive">*</span></FormLabel>
+              <div className="relative">
+                <FormControl>
+                  <Input 
+                    type={showConfirmPassword ? "text" : "password"} 
+                    placeholder="••••••••" 
+                    {...field} 
+                  />
+                </FormControl>
+                <Button 
+                  type="button"
+                  variant="ghost" 
+                  size="icon"
+                  className="absolute right-2 top-1/2 -translate-y-1/2 h-8 w-8"
+                  onClick={toggleConfirmPasswordVisibility}
+                >
+                  {showConfirmPassword ? 
+                    <EyeOff className="h-4 w-4 text-muted-foreground" /> : 
+                    <Eye className="h-4 w-4 text-muted-foreground" />}
+                </Button>
+              </div>
+              <FormMessage />
+            </FormItem>
+          )}
+        />
+        
+        <Button type="submit" className="w-full" disabled={isSubmitting}>
+          {isSubmitting ? (
+            <>
+              <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+              Resetting Password...
+            </>
+          ) : (
+            "Reset Password"
+          )}
+        </Button>
+      </form>
+    </Form>
+  );
+}
+
 function RegisterForm({ 
   isSubmitting, 
   setIsSubmitting,
@@ -301,7 +512,7 @@ function RegisterForm({
 }: { 
   isSubmitting: boolean;
   setIsSubmitting: (value: boolean) => void;
-  setActiveTab: (tab: "login" | "register") => void;
+  setActiveTab: (tab: string) => void;
 }) {
   const { register } = useAuth();
   const [showPassword, setShowPassword] = useState(false);
