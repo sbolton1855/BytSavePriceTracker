@@ -136,6 +136,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Get highlighted deals (products with biggest price drops)
   app.get('/api/products/deals', async (req: Request, res: Response) => {
     try {
+      // Disable caching immediately at the beginning of the route handler
+      res.set('Cache-Control', 'no-store, no-cache, must-revalidate, private');
+      res.set('Expires', '0');
+      res.set('Pragma', 'no-cache');
+      
       // Extract category filter if provided
       const { category } = req.query;
 

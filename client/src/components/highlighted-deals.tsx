@@ -56,32 +56,45 @@ export default function HighlightedDeals() {
         };
       });
       
-      // Generate a new random seed to shuffle deals differently each time
-      const shuffleSeed = Math.random().toString();
+      // Add extra randomization using refreshKey in the sort
+      // This helps produce different results each time
+      const shuffleAmount = refreshKey % 4 + 1; // 1-4 based on refreshKey
       
       // Get all deals with any discount
       const dealsWithDiscount = processedDeals.filter(deal => deal.discountPercentage > 0);
       
-      // Shuffle deals randomly for variety
-      const shuffledDeals = [...dealsWithDiscount].sort(() => Math.random() - 0.5);
+      // Apply multiple shuffling passes for better randomization
+      let shuffledDeals = [...dealsWithDiscount];
+      for (let i = 0; i < shuffleAmount; i++) {
+        shuffledDeals = shuffledDeals.sort(() => Math.random() - 0.5);
+      }
       
-      // Take top shuffled deals
-      let selectedDeals = shuffledDeals.slice(0, 6);
+      // Take a variable number of top deals based on refreshKey
+      const dealsCount = Math.min(6, Math.max(3, shuffledDeals.length));
+      let selectedDeals = shuffledDeals.slice(0, dealsCount);
       
       // If we need more deals, add regular products
       if (selectedDeals.length < 6) {
-        // Get non-discounted deals and shuffle them
-        const regularDeals = processedDeals
-          .filter(deal => deal.discountPercentage === 0 || deal.discountPercentage === null)
-          .sort(() => Math.random() - 0.5)
-          .slice(0, 6 - selectedDeals.length);
-          
+        // Get non-discounted deals and shuffle them with multiple passes
+        let regularDeals = processedDeals
+          .filter(deal => deal.discountPercentage === 0 || deal.discountPercentage === null);
+        
+        // Multiple shuffle passes
+        for (let i = 0; i < shuffleAmount; i++) {
+          regularDeals = regularDeals.sort(() => Math.random() - 0.5);
+        }
+        
+        // Take what we need to fill the grid
+        regularDeals = regularDeals.slice(0, 6 - selectedDeals.length);
         selectedDeals = [...selectedDeals, ...regularDeals];
       }
       
+      // One final shuffle to mix discounted and regular products
+      selectedDeals = selectedDeals.sort(() => Math.random() - 0.5);
+      
       setDeals(selectedDeals);
     }
-  }, [data]);
+  }, [data, refreshKey]);
 
   if (isLoading) {
     return (
