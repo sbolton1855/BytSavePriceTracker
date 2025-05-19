@@ -84,6 +84,55 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   // API endpoints - prefix with /api
 
+  // Get personalized product teasers
+  app.get('/api/products/teasers', async (req: Request, res: Response) => {
+    try {
+      // Get user ID if authenticated
+      const userId = (req.user as any)?.id;
+      let teasers = [];
+
+      if (userId) {
+        // For logged in users, get personalized suggestions
+        const userTrackedProducts = await storage.getTrackedProductsByUserId(userId);
+        const categories = new Set(userTrackedProducts.map(tp => 
+          tp.product?.title.split(' ').slice(0, 2).join(' ').toLowerCase()
+        ));
+
+        // Get products in similar categories
+        const allProducts = await storage.getAllProducts();
+        teasers = allProducts
+          .filter(p => 
+            categories.size === 0 || // If no tracked products, don't filter
+            [...categories].some(c => p.title.toLowerCase().includes(c))
+          )
+          .sort(() => Math.random() - 0.5) // Randomize
+          .slice(0, 3);
+      } else {
+        // For visitors, get top deals
+        const deals = await storage.getAllProducts();
+        teasers = deals
+          .filter(p => p.originalPrice && p.originalPrice > p.currentPrice)
+          .sort((a, b) => {
+            const discountA = (a.originalPrice! - a.currentPrice) / a.originalPrice!;
+            const discountB = (b.originalPrice! - b.currentPrice) / b.originalPrice!;
+            return discountB - discountA;
+          })
+          .slice(0, 3);
+      }
+
+      // Add affiliate links
+      const response = teasers.map(product => ({
+        ...product,
+        affiliateUrl: addAffiliateTag(product.url, AFFILIATE_TAG)
+      }));
+
+      res.json(response);
+    } catch (error) {
+      console.error('Error fetching teasers:', error);
+      res.status(500).json({ error: 'Failed to fetch teasers' });
+    }
+  });
+
   // Get highlighted deals (products with biggest price drops)
   app.get('/api/products/deals', async (req: Request, res: Response) => {
     try {
