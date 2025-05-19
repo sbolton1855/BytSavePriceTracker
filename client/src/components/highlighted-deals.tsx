@@ -16,10 +16,11 @@ type HighlightedDeal = Product & {
 
 export default function HighlightedDeals() {
   const [deals, setDeals] = useState<HighlightedDeal[]>([]);
+  const [refreshKey, setRefreshKey] = useState<number>(0); // Add a refresh key to force re-rendering
   
   // Fetch the top deals from the API
-  const { data, isLoading, isError } = useQuery({
-    queryKey: ["/api/products/deals"],
+  const { data, isLoading, isError, refetch } = useQuery({
+    queryKey: ["/api/products/deals", refreshKey], // Add refreshKey to force refetch
     queryFn: async () => {
       const res = await fetch("/api/products/deals");
       if (!res.ok) {
@@ -31,6 +32,11 @@ export default function HighlightedDeals() {
     staleTime: 5 * 60 * 1000, // 5 minutes
     refetchOnWindowFocus: false,
   });
+  
+  // Function to manually refresh deals
+  const refreshDeals = () => {
+    setRefreshKey(prev => prev + 1); // Increment refresh key to trigger re-render
+  };
 
   // Process deals to calculate discount percentages and rotate them for variety
   useEffect(() => {
@@ -60,15 +66,8 @@ export default function HighlightedDeals() {
       // Use sessionStorage to ensure the same order during a single session
       let selectedDeals: HighlightedDeal[] = [];
       
-      // Use sessionStorage to keep the same shuffled order in a session
-      const sessionShuffleKey = 'bytsave-deals-shuffle-seed';
-      let shuffleSeed = sessionStorage.getItem(sessionShuffleKey);
-      
-      if (!shuffleSeed) {
-        // Generate a new random seed
-        shuffleSeed = Math.random().toString();
-        sessionStorage.setItem(sessionShuffleKey, shuffleSeed);
-      }
+      // Generate a new random seed each time to get different deals
+      const shuffleSeed = Math.random().toString();
       
       // Use the seed to create a deterministic but random-looking shuffle
       const shuffledDeals = [...dealsWithDiscount].sort((a, b) => {
@@ -153,8 +152,24 @@ export default function HighlightedDeals() {
   }
 
   return (
-    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-      {deals.map((deal) => (
+    <div>
+      <div className="flex justify-between items-center mb-4">
+        <h2 className="text-2xl font-bold">Price Drop Dashboard</h2>
+        <button 
+          onClick={refreshDeals} 
+          className="flex items-center gap-2 px-3 py-1.5 rounded-md bg-amber-100 border border-amber-300 text-amber-800 hover:bg-amber-200 transition-colors"
+        >
+          <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+            <path d="M21 12a9 9 0 0 0-9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"></path>
+            <path d="M3 3v5h5"></path>
+            <path d="M3 12a9 9 0 0 0 9 9 9.75 9.75 0 0 0 6.74-2.74L21 16"></path>
+            <path d="M16 21h5v-5"></path>
+          </svg>
+          Refresh Deals
+        </button>
+      </div>
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+        {deals.map((deal) => (
         <Card key={deal.id} className="overflow-hidden flex flex-col h-full hover:shadow-lg transition-shadow">
           <div className="aspect-video bg-slate-50 flex items-center justify-center relative overflow-hidden">
             {deal.imageUrl ? (
