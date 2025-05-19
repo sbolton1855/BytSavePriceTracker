@@ -407,6 +407,59 @@ export function configureAuth(app: Express) {
     });
   });
   
+  // Reset password route
+  app.post('/api/reset-password', async (req, res) => {
+    try {
+      const { email, password } = req.body;
+      
+      if (!email || !password) {
+        return res.status(400).json({ 
+          message: 'Email and password are required',
+          errors: {
+            email: !email ? { _errors: ["Email is required"] } : undefined,
+            password: !password ? { _errors: ["Password is required"] } : undefined
+          }
+        });
+      }
+      
+      // Find the user
+      const user = await storage.getUserByEmail(email);
+      if (!user) {
+        return res.status(404).json({ message: 'User not found' });
+      }
+      
+      // Hash the new password
+      const hashedPassword = await hashPassword(password);
+      
+      // Update the user's password
+      const [updatedUser] = await db.update(users)
+        .set({
+          password: hashedPassword,
+          updatedAt: new Date()
+        })
+        .where(eq(users.id, user.id))
+        .returning();
+      
+      // Log the user in
+      req.login(dbUserToExpressUser(updatedUser), (err) => {
+        if (err) {
+          console.error('Login after password reset error:', err);
+          return res.status(500).json({ message: 'Error during login after password reset' });
+        }
+        
+        // Return user data without password
+        const { password, ...userWithoutPassword } = updatedUser;
+        res.status(200).json({ 
+          user: userWithoutPassword, 
+          message: 'Password reset successfully. You are now logged in.' 
+        });
+      });
+    } catch (error) {
+      console.error('Password reset error:', error);
+      res.status(500).json({ message: 'Password reset failed due to server error' });
+    }
+  });
+
   // Register route
   app.post('/api/register', async (req, res) => {
     try {
