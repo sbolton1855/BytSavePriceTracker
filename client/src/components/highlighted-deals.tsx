@@ -23,8 +23,8 @@ export default function HighlightedDeals() {
     queryKey: ["/api/products/deals", refreshKey],
     queryFn: async () => {
       // Add cache-busting parameter to avoid 304 responses
-      const timestamp = new Date().getTime();
-      const res = await fetch(`/api/products/deals?_=${timestamp}`);
+      const timestamp = Date.now();
+      const res = await fetch(`/api/products/deals?t=${timestamp}`);
       if (!res.ok) {
         throw new Error("Failed to fetch deals");
       }
