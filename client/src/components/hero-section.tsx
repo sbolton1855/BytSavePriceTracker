@@ -213,22 +213,27 @@ const HeroSection: React.FC = () => {
             <p className="mt-3 text-base text-gray-500 sm:mt-5 sm:text-lg md:mt-5 md:text-xl">
               BytSave monitors Amazon product prices for you. Set your target price and get notified when it's time to buy.
             </p>
-            <div className="mt-8 sm:mt-10 flex flex-col sm:flex-row gap-3">
-              <Button 
-                size="lg" 
-                className="w-full sm:w-auto"
-                onClick={() => scrollToSection('tracker')}
-              >
-                Track a product
-              </Button>
-              <Button 
-                size="lg" 
-                variant="outline" 
-                className="w-full sm:w-auto"
-                onClick={() => scrollToSection('how-it-works')}
-              >
-                How it works
-              </Button>
+            <div className="mt-8 sm:mt-10 space-y-6">
+              <div className="flex flex-col sm:flex-row gap-3">
+                <Button 
+                  size="lg" 
+                  className="w-full sm:w-auto"
+                  onClick={() => scrollToSection('tracker')}
+                >
+                  Track a product
+                </Button>
+                <Button 
+                  size="lg" 
+                  variant="outline" 
+                  className="w-full sm:w-auto"
+                  onClick={() => scrollToSection('how-it-works')}
+                >
+                  How it works
+                </Button>
+              </div>
+              
+              {/* Product Teasers */}
+              <ProductTeasers />
             </div>
           </div>
           <div className="relative">
