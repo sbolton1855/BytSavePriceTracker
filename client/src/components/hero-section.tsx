@@ -213,22 +213,46 @@ const HeroSection: React.FC = () => {
             <p className="mt-3 text-base text-gray-500 sm:mt-5 sm:text-lg md:mt-5 md:text-xl">
               BytSave monitors Amazon product prices for you. Set your target price and get notified when it's time to buy.
             </p>
-            <div className="mt-8 sm:mt-10 flex flex-col sm:flex-row gap-3">
-              <Button 
-                size="lg" 
-                className="w-full sm:w-auto"
-                onClick={() => scrollToSection('tracker')}
-              >
-                Track a product
-              </Button>
-              <Button 
-                size="lg" 
-                variant="outline" 
-                className="w-full sm:w-auto"
-                onClick={() => scrollToSection('how-it-works')}
-              >
-                How it works
-              </Button>
+            <div className="mt-8 sm:mt-10 space-y-6">
+              <div className="flex flex-col sm:flex-row gap-3">
+                <Button 
+                  size="lg" 
+                  className="w-full sm:w-auto"
+                  onClick={() => scrollToSection('tracker')}
+                >
+                  Track a product
+                </Button>
+                <Button 
+                  size="lg" 
+                  variant="outline" 
+                  className="w-full sm:w-auto"
+                  onClick={() => scrollToSection('how-it-works')}
+                >
+                  How it works
+                </Button>
+              </div>
+              
+              {/* Feature highlights */}
+              <div className="space-y-3">
+                <div className="flex items-center">
+                  <div className="h-6 w-6 rounded-full bg-primary-50 flex items-center justify-center mr-2">
+                    <Check className="h-4 w-4 text-primary-500" />
+                  </div>
+                  <span className="text-sm text-gray-600">Email notifications when prices drop</span>
+                </div>
+                <div className="flex items-center">
+                  <div className="h-6 w-6 rounded-full bg-primary-50 flex items-center justify-center mr-2">
+                    <Check className="h-4 w-4 text-primary-500" />
+                  </div>
+                  <span className="text-sm text-gray-600">Track multiple products at once</span>
+                </div>
+                <div className="flex items-center">
+                  <div className="h-6 w-6 rounded-full bg-primary-50 flex items-center justify-center mr-2">
+                    <Check className="h-4 w-4 text-primary-500" />
+                  </div>
+                  <span className="text-sm text-gray-600">Price history charts and analytics</span>
+                </div>
+              </div>
             </div>
           </div>
           <div className="relative">
