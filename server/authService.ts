@@ -40,10 +40,32 @@ async function hashPassword(password: string): Promise<string> {
 }
 
 async function comparePasswords(supplied: string, stored: string): Promise<boolean> {
-  const [hashed, salt] = stored.split('.');
-  const hashedBuf = Buffer.from(hashed, 'hex');
-  const suppliedBuf = (await scryptAsync(supplied, salt, 64)) as Buffer;
-  return timingSafeEqual(hashedBuf, suppliedBuf);
+  try {
+    // Check if stored password has the correct format (hash.salt)
+    if (!stored || !stored.includes('.')) {
+      console.error('Invalid stored password format');
+      return false;
+    }
+    
+    const [hashed, salt] = stored.split('.');
+    
+    if (!hashed || !salt) {
+      console.error('Missing hash or salt components');
+      return false;
+    }
+    
+    // Convert hash to buffer
+    const hashedBuf = Buffer.from(hashed, 'hex');
+    
+    // Hash the supplied password with the same salt
+    const suppliedBuf = (await scryptAsync(supplied, salt, 64)) as Buffer;
+    
+    // Compare the two buffers
+    return timingSafeEqual(hashedBuf, suppliedBuf);
+  } catch (error) {
+    console.error('Error in password comparison:', error);
+    return false; // Return false on any error
+  }
 }
 
 // Helper function to convert DB user to Express.User
