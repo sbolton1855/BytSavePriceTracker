@@ -15,7 +15,7 @@ import { Loader2 } from "lucide-react";
 
 export default function AuthPage() {
   const { user, isLoading } = useAuth();
-  const [activeTab, setActiveTab] = useState<"login" | "register">("login");
+  const [activeTab, setActiveTab] = useState<"login" | "register" | "reset">("login");
   const [isSubmitting, setIsSubmitting] = useState(false);
   
   // Redirect if user is already logged in
@@ -77,9 +77,10 @@ export default function AuthPage() {
           </CardHeader>
           
           <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as "login" | "register")} className="w-full">
-            <TabsList className="grid w-full grid-cols-2">
+            <TabsList className="grid w-full grid-cols-3">
               <TabsTrigger value="login">Login</TabsTrigger>
               <TabsTrigger value="register">Register</TabsTrigger>
+              <TabsTrigger value="reset">Reset Password</TabsTrigger>
             </TabsList>
             
             <TabsContent value="login">
@@ -92,6 +93,14 @@ export default function AuthPage() {
             
             <TabsContent value="register">
               <RegisterForm 
+                setIsSubmitting={setIsSubmitting} 
+                isSubmitting={isSubmitting}
+                setActiveTab={setActiveTab}
+              />
+            </TabsContent>
+            
+            <TabsContent value="reset">
+              <PasswordResetForm 
                 setIsSubmitting={setIsSubmitting} 
                 isSubmitting={isSubmitting}
                 setActiveTab={setActiveTab}
