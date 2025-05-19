@@ -109,10 +109,21 @@ export function configureAuth(app: Express) {
         }
         
         // Verify password
-        const isValidPassword = await comparePasswords(password, user.password);
+        console.log(`Attempting to verify password for user: ${email}`);
         
-        if (!isValidPassword) {
-          return done(null, false, { message: 'Invalid email or password' });
+        try {
+          const isValidPassword = await comparePasswords(password, user.password);
+          
+          if (!isValidPassword) {
+            console.log(`Password verification failed for user: ${email}`);
+            return done(null, false, { message: 'Invalid email or password' });
+          }
+          
+          console.log(`Password verified successfully for user: ${email}`);
+        } catch (error) {
+          console.error(`Error verifying password: ${error instanceof Error ? error.message : 'unknown error'}`);
+          console.error(`Password structure in DB: ${user.password ? "exists" : "missing"}`);
+          return done(null, false, { message: 'Error during password verification' });
         }
         
         return done(null, dbUserToExpressUser(user));
@@ -491,21 +502,27 @@ export function configureAuth(app: Express) {
       // Proceed with authentication
       passport.authenticate('local', (err: any, user: Express.User | false, info: { message?: string }) => {
         if (err) {
+          console.error('Authentication error:', err);
           return next(err);
         }
         
         if (!user) {
+          console.error('Authentication failed - no user returned. Info:', info);
           return res.status(401).json({ 
             message: 'Incorrect password. Please try again or use password reset.',
             passwordIncorrect: true
           });
         }
         
+        console.log('User authenticated successfully:', user.email);
+        
         req.login(user, (err) => {
           if (err) {
+            console.error('Session login error:', err);
             return next(err);
           }
           
+          console.log('User login session created successfully');
           return res.json(user);
         });
       })(req, res, next);
