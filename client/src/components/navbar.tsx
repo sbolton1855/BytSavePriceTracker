@@ -50,9 +50,6 @@ const Navbar: React.FC = () => {
                 How It Works
               </div>
             </Link>
-            <div className="text-gray-600 px-3 py-2 rounded-md text-sm font-medium">
-                Amazon Deals
-              </div>
             <Link href="/faq">
               <div className={`text-gray-600 hover:text-primary-500 px-3 py-2 rounded-md text-sm font-medium cursor-pointer ${location === "/faq" ? "text-primary-500" : ""}`}>
                 FAQ

@@ -8,6 +8,7 @@ export const priceHistory = pgTable("price_history", {
 	productId: integer("product_id").notNull(),
 	price: doublePrecision().notNull(),
 	timestamp: timestamp({ mode: 'string' }).notNull(),
+	metadata: jsonb("metadata"),
 });
 
 export const products = pgTable("products", {

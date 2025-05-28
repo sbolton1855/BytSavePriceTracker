@@ -1,0 +1,4 @@
+-- Add price_dropped column to products table
+ALTER TABLE products ADD COLUMN price_dropped BOOLEAN DEFAULT false;
+ALTER TABLE products ADD COLUMN created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP NOT NULL;
+ALTER TABLE products ADD COLUMN updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP NOT NULL; 

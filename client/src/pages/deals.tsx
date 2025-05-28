@@ -34,7 +34,7 @@ export default function DealsPage() {
       title: "Amazon Beauty Deals",
       description: "Top beauty products with the biggest savings",
       products: [],
-      loading: true,
+      loading: false,
       error: null
     },
     seasonal: {
@@ -42,7 +42,7 @@ export default function DealsPage() {
       title: "Seasonal Sale",
       description: "Limited-time seasonal promotions from Amazon",
       products: [],
-      loading: true,
+      loading: false,
       error: null
     },
     events: {
@@ -50,7 +50,7 @@ export default function DealsPage() {
       title: "Amazon Events",
       description: "Special deals from current Amazon promotional events",
       products: [],
-      loading: true,
+      loading: false,
       error: null
     }
   });
@@ -86,13 +86,22 @@ export default function DealsPage() {
         }
         
         const dealsData = await response.json();
+        console.log(`Received ${dealsData.length} deals for category ${categoryId}`);
         
-        // Update state with the products
+        // Deduplicate products based on ASIN
+        const uniqueDeals = dealsData.reduce((acc: any[], deal: any) => {
+          if (!acc.find((d: any) => d.asin === deal.asin)) {
+            acc.push(deal);
+          }
+          return acc;
+        }, []);
+        
+        // Update state with the unique products
         setPromotions(prev => ({
           ...prev,
           [categoryId]: {
             ...prev[categoryId],
-            products: dealsData,
+            products: uniqueDeals,
             loading: false
           }
         }));
@@ -109,50 +118,11 @@ export default function DealsPage() {
       }
     };
 
-    // Only fetch if we don't already have products and aren't currently loading
-    if (promotions[activeCategory].products.length === 0 && !promotions[activeCategory].loading) {
+    // Fetch whenever active category changes or we don't have products yet
+    if (promotions[activeCategory].products.length === 0) {
       fetchPromotionProducts(activeCategory);
     }
-  }, [activeCategory, promotions]);
-
-  // Initial load when component mounts
-  useEffect(() => {
-    // Fetch the initial active category
-    if (promotions[activeCategory].products.length === 0 && !promotions[activeCategory].error) {
-      const fetchInitialData = async () => {
-        try {
-          const response = await fetch(`/api/products/deals?category=${activeCategory}`);
-          
-          if (!response.ok) {
-            throw new Error('Failed to fetch deals');
-          }
-          
-          const dealsData = await response.json();
-          
-          setPromotions(prev => ({
-            ...prev,
-            [activeCategory]: {
-              ...prev[activeCategory],
-              products: dealsData,
-              loading: false
-            }
-          }));
-        } catch (error) {
-          console.error(`Error fetching initial ${activeCategory} promotions:`, error);
-          setPromotions(prev => ({
-            ...prev,
-            [activeCategory]: {
-              ...prev[activeCategory],
-              loading: false,
-              error: 'Failed to load initial promotions. Please try again later.'
-            }
-          }));
-        }
-      };
-      
-      fetchInitialData();
-    }
-  }, []);
+  }, [activeCategory]);
 
   return (
     <>
@@ -209,12 +179,12 @@ export default function DealsPage() {
                   {promotions[categoryId].products.length > 0 ? (
                     promotions[categoryId].products.map(product => (
                       <Card key={product.id} className="overflow-hidden flex flex-col h-full">
-                        <div className="overflow-hidden h-48 flex items-center justify-center bg-gray-100">
+                        <div className="overflow-hidden h-36 flex items-center justify-center bg-gray-100">
                           {product.imageUrl ? (
                             <img 
                               src={product.imageUrl} 
                               alt={product.title} 
-                              className="object-contain h-full w-full"
+                              className="object-contain h-32 w-auto max-w-full p-2"
                             />
                           ) : (
                             <div className="flex items-center justify-center h-full w-full bg-gray-200">

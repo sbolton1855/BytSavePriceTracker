@@ -15,7 +15,6 @@ import HowItWorks from "@/pages/how-it-works";
 import AuthPage from "@/pages/auth-page";
 import ProductDetails from "@/pages/product-details";
 import FAQ from "@/pages/faq";
-import Deals from "@/pages/deals";
 import NotFound from "@/pages/not-found";
 import ApiMonitor from "@/pages/api-monitor";
 import TestTracking from "@/pages/test-tracking";
@@ -46,9 +45,6 @@ function Router() {
       </Route>
       <Route path="/faq">
         <FAQ />
-      </Route>
-      <Route path="/deals">
-        <Deals />
       </Route>
       <Route>
         <NotFound />

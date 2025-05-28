@@ -11,6 +11,9 @@ import {
   priceHistory,
   type PriceHistory,
   type InsertPriceHistory,
+  apiErrors,
+  type ApiError,
+  type InsertApiError
 } from "@shared/schema";
 import { db } from "./db";
 import { eq, and, or } from "drizzle-orm";
@@ -44,12 +47,23 @@ export interface IStorage {
   // Price history operations
   createPriceHistory(priceHistory: InsertPriceHistory): Promise<PriceHistory>;
   getPriceHistoryByProductId(productId: number): Promise<PriceHistory[]>;
+
+  // Product cleanup operations
+  removePriceHistory(productId: number): Promise<void>;
+  removeTrackedProductsByProductId(productId: number): Promise<void>;
+  removeProduct(productId: number): Promise<void>;
+
+  // API error operations
+  createApiError(error: InsertApiError): Promise<ApiError>;
+  updateApiError(id: number, update: Partial<ApiError>): Promise<void>;
+  getAllApiErrors(): Promise<ApiError[]>;
+  getUnresolvedApiErrors(): Promise<ApiError[]>;
 }
 
 export class DatabaseStorage implements IStorage {
   // User operations
   async getUser(id: string): Promise<User | undefined> {
-    const [user] = await db.select().from(users).where(eq(users.id, id));
+    const [user] = await db.select().from(users).where(eq(users.id, parseInt(id, 10)));
     return user;
   }
 
@@ -110,8 +124,7 @@ export class DatabaseStorage implements IStorage {
       const [trackedProduct] = await db.insert(trackedProducts).values({
         ...insertTrackedProduct,
         email: insertTrackedProduct.email.toUpperCase(),
-        notified: false,
-        createdAt: new Date()
+        notified: false
       }).returning();
       console.log('Successfully created tracked product:', trackedProduct);
       return trackedProduct;
@@ -176,7 +189,7 @@ export class DatabaseStorage implements IStorage {
   async updateTrackedProduct(id: number, updates: Partial<TrackedProduct>): Promise<TrackedProduct | undefined> {
     const [trackedProduct] = await db
       .update(trackedProducts)
-      .set({ ...updates, updatedAt: new Date() })
+      .set(updates)
       .where(eq(trackedProducts.id, id))
       .returning();
     return trackedProduct;
@@ -185,9 +198,9 @@ export class DatabaseStorage implements IStorage {
   async deleteTrackedProduct(id: number): Promise<boolean> {
     try {
       console.log(`Attempting to delete tracked product with ID: ${id}`);
-      const result = await db.delete(trackedProducts).where(eq(trackedProducts.id, id));
+      const result = await db.delete(trackedProducts).where(eq(trackedProducts.id, id)).returning();
       console.log(`Delete result:`, result);
-      return result.count > 0;
+      return result.length > 0;
     } catch (error) {
       console.error(`Error deleting tracked product ${id}:`, error);
       throw error;
@@ -234,6 +247,37 @@ export class DatabaseStorage implements IStorage {
       .from(priceHistory)
       .where(eq(priceHistory.productId, productId))
       .orderBy(priceHistory.timestamp);
+  }
+
+  // Product cleanup operations
+  async removePriceHistory(productId: number): Promise<void> {
+    await db.delete(priceHistory).where(eq(priceHistory.productId, productId));
+  }
+
+  async removeTrackedProductsByProductId(productId: number): Promise<void> {
+    await db.delete(trackedProducts).where(eq(trackedProducts.productId, productId));
+  }
+
+  async removeProduct(productId: number): Promise<void> {
+    await db.delete(products).where(eq(products.id, productId));
+  }
+
+  // API error operations
+  async createApiError(error: InsertApiError): Promise<ApiError> {
+    const [apiError] = await db.insert(apiErrors).values(error).returning();
+    return apiError;
+  }
+
+  async updateApiError(id: number, update: Partial<ApiError>): Promise<void> {
+    await db.update(apiErrors).set(update).where(eq(apiErrors.id, id));
+  }
+
+  async getAllApiErrors(): Promise<ApiError[]> {
+    return await db.select().from(apiErrors);
+  }
+
+  async getUnresolvedApiErrors(): Promise<ApiError[]> {
+    return await db.select().from(apiErrors).where(eq(apiErrors.resolved, false));
   }
 }
 
