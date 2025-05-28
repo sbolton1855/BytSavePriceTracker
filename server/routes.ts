@@ -5,7 +5,7 @@ import { getProductInfo, searchProducts, extractAsinFromUrl, isValidAsin, addAff
 import { startPriceChecker } from "./priceChecker";
 import { requireAuth, configureAuth } from "./authService";
 import { z } from "zod";
-import { trackingFormSchema } from "@shared/schema";
+import { trackingFormSchema, type Product } from "@shared/schema";
 
 const AFFILIATE_TAG = process.env.AMAZON_PARTNER_TAG || 'bytsave-20';
 
@@ -49,16 +49,24 @@ async function intelligentlyAddPriceHistory(productId: number, currentPrice: num
 
     // Add new entry if price changed or significant time has passed
     const priceChanged = Math.abs(latestEntry.price - currentPrice) > 0.01; // 1 cent threshold
-    const significantTimePassed = hoursSinceLastUpdate > 12; // 12 hour threshold
+    const significantTimePassed = hoursSinceLastUpdate > 6; // 6 hour threshold (reduced from 12)
 
     if (priceChanged || significantTimePassed) {
       const reason = priceChanged ? "price changed" : "time threshold exceeded";
       console.log(`Creating new price history entry for product ${productId} at $${currentPrice} (reason: ${reason})`);
 
+      // Store additional metadata about the price change
+      const priceChangeData = priceChanged ? {
+        previousPrice: latestEntry.price,
+        priceChange: currentPrice - latestEntry.price,
+        percentageChange: ((currentPrice - latestEntry.price) / latestEntry.price) * 100
+      } : null;
+
       await storage.createPriceHistory({
         productId,
         price: currentPrice,
-        timestamp: new Date()
+        timestamp: new Date(),
+        metadata: priceChangeData
       });
       return true;
     }
@@ -72,6 +80,76 @@ async function intelligentlyAddPriceHistory(productId: number, currentPrice: num
 }
 
 export { intelligentlyAddPriceHistory };
+
+// Define category-based filters for promotions
+const categoryFilters = {
+  beauty: (product: Product) => {
+    const keywords = [
+      'beauty', 'makeup', 'skincare', 'haircare', 'fragrance',
+      'cosmetic', 'moisturizer', 'serum', 'shampoo', 'conditioner',
+      'lotion', 'cream', 'facial', 'hair', 'perfume', 'cologne'
+    ];
+    const title = product.title.toLowerCase();
+    return keywords.some(keyword => title.includes(keyword));
+  },
+
+  seasonal: (product: Product) => {
+    // Determine current season
+    const now = new Date();
+    const month = now.getMonth();
+
+    // Spring: March-May (2-4), Summer: June-August (5-7), 
+    // Fall: Sept-Nov (8-10), Winter: Dec-Feb (11, 0, 1)
+    const seasonalKeywords = {
+      spring: [
+        'spring', 'easter', 'gardening', 'cleaning', 'renewal',
+        'garden', 'planting', 'mothers day', 'spring cleaning',
+        'outdoor', 'patio'
+      ],
+      summer: [
+        'summer', 'beach', 'pool', 'vacation', 'outdoors',
+        'bbq', 'grill', 'camping', 'picnic', 'swimming',
+        'sunscreen', 'sandals', 'shorts', 'cooler'
+      ],
+      fall: [
+        'fall', 'autumn', 'halloween', 'thanksgiving', 'harvest',
+        'school', 'backpack', 'notebook', 'sweater', 'jacket',
+        'boots', 'pumpkin', 'decorations'
+      ],
+      winter: [
+        'winter', 'christmas', 'holiday', 'snow', 'gift',
+        'santa', 'decoration', 'lights', 'ornament', 'stocking',
+        'sweater', 'coat', 'gloves', 'scarf', 'new year'
+      ]
+    };
+
+    let currentSeasonKeywords;
+    if (month >= 2 && month <= 4) currentSeasonKeywords = seasonalKeywords.spring;
+    else if (month >= 5 && month <= 7) currentSeasonKeywords = seasonalKeywords.summer;
+    else if (month >= 8 && month <= 10) currentSeasonKeywords = seasonalKeywords.fall;
+    else currentSeasonKeywords = seasonalKeywords.winter;
+
+    const title = product.title.toLowerCase();
+    return currentSeasonKeywords.some(keyword => title.includes(keyword));
+  },
+
+  events: (product: Product) => {
+    // Check for event keywords
+    const eventKeywords = [
+      'prime day', 'black friday', 'cyber monday', 'lightning deal',
+      'deal of the day', 'todays deals', 'limited time', 'special offer',
+      'flash sale', 'clearance', 'promotion', 'discount', 'save',
+      'price drop', 'markdown', 'reduced', 'sale', 'offer'
+    ];
+
+    const title = product.title.toLowerCase();
+    
+    // Check title and significant discounts
+    return eventKeywords.some(keyword => title.includes(keyword)) || 
+      (product.originalPrice && 
+       ((product.originalPrice - product.currentPrice) / product.originalPrice >= 0.2));
+  }
+};
 
 export async function registerRoutes(app: Express): Promise<Server> {
   // Setup authentication
@@ -93,9 +171,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       if (userId) {
         // For logged in users, get personalized suggestions
-        const userTrackedProducts = await storage.getTrackedProductsByUserId(userId);
+        const userTrackedProducts = await storage.getTrackedProductsWithDetailsByEmail((req.user as any)?.email);
         const categories = new Set(userTrackedProducts.map(tp => 
-          tp.product?.title.split(' ').slice(0, 2).join(' ').toLowerCase()
+          tp.product.title.split(' ').slice(0, 2).join(' ').toLowerCase()
         ));
 
         // Get products in similar categories
@@ -103,7 +181,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         teasers = allProducts
           .filter(p => 
             categories.size === 0 || // If no tracked products, don't filter
-            [...categories].some(c => p.title.toLowerCase().includes(c))
+            Array.from(categories).some(c => p.title.toLowerCase().includes(c))
           )
           .sort(() => Math.random() - 0.5) // Randomize
           .slice(0, 3);
@@ -136,70 +214,32 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Get highlighted deals (products with biggest price drops)
   app.get('/api/products/deals', async (req: Request, res: Response) => {
     try {
-      // Disable caching immediately at the beginning of the route handler
-      res.set('Cache-Control', 'no-store, no-cache, must-revalidate, private');
-      res.set('Expires', '0');
-      res.set('Pragma', 'no-cache');
+      // Get query parameters
+      const { category, rotate, t: timestamp } = req.query;
       
-      // Extract category filter and rotation index if provided
-      const { category, rotate } = req.query;
-      
-      // Use the rotation parameter to provide different product sets
-      const rotationIndex = parseInt(rotate as string) || 0;
-
-      // Get all products
+      // Get all products from storage
       const products = await storage.getAllProducts();
+      
+      // Filter out products that haven't been checked in the last 48 hours
+      const freshProducts = products.filter(product => {
+        const lastChecked = new Date(product.lastChecked);
+        const now = new Date();
+        const hoursSinceLastCheck = (now.getTime() - lastChecked.getTime()) / (1000 * 60 * 60);
+        return hoursSinceLastCheck <= 48;
+      });
 
-      // Define category-based filters for promotions
-      const categoryFilters = {
-        beauty: (product: any) => 
-          product.title.toLowerCase().includes("beauty") || 
-          product.title.toLowerCase().includes("makeup") || 
-          product.title.toLowerCase().includes("skincare") || 
-          product.title.toLowerCase().includes("haircare") ||
-          product.title.toLowerCase().includes("fragrance"),
+      // Sort products by last checked time (most recently checked first)
+      const sortedProducts = freshProducts.sort((a, b) => 
+        new Date(b.lastChecked).getTime() - new Date(a.lastChecked).getTime()
+      );
 
-        seasonal: (product: any) => {
-          // Determine current season
-          const now = new Date();
-          const month = now.getMonth();
-
-          // Spring: March-May (2-4), Summer: June-August (5-7), Fall: Sept-Nov (8-10), Winter: Dec-Feb (11, 0, 1)
-          const seasonalKeywords = {
-            spring: ["spring", "easter", "gardening", "cleaning", "renewal"],
-            summer: ["summer", "beach", "pool", "vacation", "outdoors", "bbq", "grill"],
-            fall: ["fall", "autumn", "halloween", "thanksgiving", "harvest"],
-            winter: ["winter", "christmas", "holiday", "snow", "gift"]
-          };
-
-          let currentSeasonKeywords;
-          if (month >= 2 && month <= 4) currentSeasonKeywords = seasonalKeywords.spring;
-          else if (month >= 5 && month <= 7) currentSeasonKeywords = seasonalKeywords.summer;
-          else if (month >= 8 && month <= 10) currentSeasonKeywords = seasonalKeywords.fall;
-          else currentSeasonKeywords = seasonalKeywords.winter;
-
-          return currentSeasonKeywords.some(keyword => 
-            product.title.toLowerCase().includes(keyword)
-          );
-        },
-
-        events: (product: any) => {
-          // Check for event keywords
-          const eventKeywords = [
-            "prime day", "black friday", "cyber monday", "deal", "promotion", 
-            "limited time", "special offer", "sale", "discount", "clearance"
-          ];
-
-          return eventKeywords.some(keyword => 
-            product.title.toLowerCase().includes(keyword)
-          );
-        }
-      };
+      // Take the most recent 100 products to work with
+      const recentProducts = sortedProducts.slice(0, 100);
 
       // Apply category filter if specified
-      let filteredProducts = products;
+      let filteredProducts = recentProducts;
       if (category && typeof category === 'string' && Object.keys(categoryFilters).includes(category)) {
-        filteredProducts = products.filter((categoryFilters as any)[category]);
+        filteredProducts = recentProducts.filter((categoryFilters as any)[category]);
       }
 
       // Calculate price drops and filter products with discounts
@@ -244,80 +284,26 @@ export async function registerRoutes(app: Express): Promise<Server> {
         // Sort by highest discount percentage first
         .sort((a, b) => b.discountPercentage - a.discountPercentage);
 
-      // If we have too few deals for a good display, include some recently added products
-      if (deals.length < 5) {
-        console.log('Not enough deals found, adding recently added products');
+      // Use rotation parameter to get different subsets
+      const rotationIndex = parseInt(rotate as string) || 0;
+      const dealsPerRotation = 6;
+      const totalRotations = Math.ceil(deals.length / dealsPerRotation);
+      
+      // Ensure rotation index wraps around
+      const effectiveRotation = rotationIndex % totalRotations;
+      
+      // Get the subset for this rotation
+      const startIndex = effectiveRotation * dealsPerRotation;
+      const rotatedDeals = deals.slice(startIndex, startIndex + dealsPerRotation);
 
-        // Get recently added products (that aren't already in the deals list)
-        const existingIds = new Set(deals.map(d => d.id));
-        const recentProducts = filteredProducts
-          .filter(p => !existingIds.has(p.id))
-          .sort((a, b) => {
-            // Sort by lastChecked date (newest first)
-            const aDate = a.lastChecked ? new Date(a.lastChecked).getTime() : 0;
-            const bDate = b.lastChecked ? new Date(b.lastChecked).getTime() : 0;
-            return bDate - aDate;
-          })
-          .slice(0, 5) // Take up to 5 recent products
-          .map(product => {
-            // Format them like deals
-            const originalPrice = product.originalPrice !== null ? product.originalPrice : product.highestPrice;
-            // Use a safe default if originalPrice is null/undefined
-            const safeOriginalPrice = originalPrice ?? product.currentPrice;
-
-            const discountPercentage = safeOriginalPrice > 0 
-              ? ((safeOriginalPrice - product.currentPrice) / safeOriginalPrice) * 100 
-              : 0;
-
-            return {
-              ...product,
-              discountPercentage: Math.round(discountPercentage),
-              savings: Math.round((safeOriginalPrice - product.currentPrice) * 100) / 100,
-              affiliateUrl: addAffiliateTag(product.url, AFFILIATE_TAG),
-              isNewAddition: true // Flag to identify recent additions
-            };
-          });
-
-        // Combine the two lists
-        deals = [...deals, ...recentProducts];
+      // If we don't have enough deals in this rotation, add some from the beginning
+      if (rotatedDeals.length < dealsPerRotation) {
+        const remaining = deals.slice(0, dealsPerRotation - rotatedDeals.length);
+        rotatedDeals.push(...remaining);
       }
 
-      // Take top deals (use all for category-specific, otherwise limit to 8)
-      deals = deals.slice(0, category ? undefined : 8);
-
-      // Disable caching to prevent 304 responses
-      res.set('Cache-Control', 'no-store, no-cache, must-revalidate, private');
-      res.set('Expires', '0');
-      res.set('Pragma', 'no-cache');
-      
-      // Get all products and sort them by ID to ensure consistent order before rotation
-      const allDeals = [...deals].sort((a, b) => a.id - b.id);
-      
-      // Force different selections based on rotation parameter
-      if (allDeals.length > 8) {
-        // Create different subsets based on the rotation index
-        // We'll divide the products into groups and rotate through them
-        const totalProducts = allDeals.length;
-        const groupSize = Math.min(8, Math.ceil(totalProducts / 4));
-        
-        // Create a rotation pattern based on the rotation index
-        const startIndex = (rotationIndex * groupSize) % totalProducts;
-        
-        // Take a slice of products starting from the computed index
-        deals = [
-          ...allDeals.slice(startIndex),
-          ...allDeals.slice(0, startIndex)
-        ].slice(0, 8);
-        
-        // Additional randomization within the selected group
-        deals = deals.sort(() => Math.random() - 0.5);
-      }
-      
-      // Log what products we're sending to verify they change
-      console.log(`Sending ${deals.length} deals, rotation index: ${rotationIndex}`);
-      console.log(`Product IDs: ${deals.map(d => d.id).join(', ')}`);
-      
-      res.json(deals);
+      // Send response
+      res.json(rotatedDeals);
     } catch (error) {
       console.error('Error fetching deals:', error);
       res.status(500).json({ error: 'Failed to fetch deals' });
@@ -1028,37 +1014,83 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(404).json({ error: 'Product not found' });
       }
 
+      console.log(`Manual price refresh requested for product ${id} (${product.asin})`);
+      console.log(`Current price: $${product.currentPrice}, Original: $${product.originalPrice}`);
+
       // Fetch fresh data from Amazon
       const amazonProduct = await getProductInfo(product.asin);
+
+      // Validate the received price
+      if (!amazonProduct.price || isNaN(amazonProduct.price) || amazonProduct.price <= 0) {
+        console.error(`Invalid price received from Amazon for ${product.asin}:`, amazonProduct);
+        return res.status(500).json({ error: 'Received invalid price from Amazon' });
+      }
+
+      console.log(`Received new price data for ${product.asin}:`, {
+        currentPrice: amazonProduct.price,
+        originalPrice: amazonProduct.originalPrice,
+        oldPrice: product.currentPrice,
+        oldOriginal: product.originalPrice
+      });
 
       // Calculate new lowest and highest prices with null checks
       const lowestPrice = product.lowestPrice !== null
         ? Math.min(product.lowestPrice, amazonProduct.price)
         : amazonProduct.price;
       const highestPrice = product.highestPrice !== null
-        ? Math.max(product.highestPrice, amazonProduct.price)
-        : amazonProduct.price;
+        ? Math.max(product.highestPrice, amazonProduct.price, amazonProduct.originalPrice || 0)
+        : Math.max(amazonProduct.price, amazonProduct.originalPrice || 0);
+
+      // Determine if there's a significant price change
+      const priceChanged = Math.abs(product.currentPrice - amazonProduct.price) > 0.01;
+      
+      if (priceChanged) {
+        console.log(`Price change detected for ${product.asin}: $${product.currentPrice} -> $${amazonProduct.price}`);
+      } else {
+        console.log(`No significant price change for ${product.asin}`);
+      }
 
       // Update our product record
       const updated = await storage.updateProduct(id, {
         currentPrice: amazonProduct.price,
+        originalPrice: amazonProduct.originalPrice || product.originalPrice,
         lowestPrice,
         highestPrice,
         lastChecked: new Date()
       });
 
       // Intelligently add a price history entry (only when needed)
-      await intelligentlyAddPriceHistory(id, amazonProduct.price);
+      const historyAdded = await intelligentlyAddPriceHistory(id, amazonProduct.price);
+      console.log(`Price history ${historyAdded ? 'updated' : 'unchanged'} for ${product.asin}`);
 
       // Add affiliate link to response
       const response = {
         ...updated,
-        affiliateUrl: addAffiliateTag(updated!.url, AFFILIATE_TAG)
+        affiliateUrl: addAffiliateTag(updated!.url, AFFILIATE_TAG),
+        priceChanged,
+        historyAdded
       };
+
+      console.log(`Successfully refreshed price for ${product.asin}:`, {
+        oldPrice: product.currentPrice,
+        newPrice: amazonProduct.price,
+        priceChanged,
+        historyAdded
+      });
 
       res.json(response);
     } catch (error: any) {
       console.error('Error refreshing price:', error);
+      
+      // Log additional error details if available
+      if (error instanceof Error) {
+        console.error('Error details:', {
+          message: error.message,
+          stack: error.stack,
+          name: error.name
+        });
+      }
+      
       res.status(500).json({ error: error.message || 'Failed to refresh price' });
     }
   });

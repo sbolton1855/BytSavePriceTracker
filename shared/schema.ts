@@ -41,7 +41,7 @@ export type UpsertUser = typeof users.$inferInsert;
 
 export const products = pgTable("products", {
   id: serial("id").primaryKey(),
-  asin: text("asin").notNull(),
+  asin: varchar("asin", { length: 10 }).notNull(),
   title: text("title").notNull(),
   url: text("url").notNull(),
   imageUrl: text("image_url"),
@@ -50,6 +50,9 @@ export const products = pgTable("products", {
   lastChecked: timestamp("last_checked").notNull(),
   lowestPrice: doublePrecision("lowest_price"),
   highestPrice: doublePrecision("highest_price"),
+  priceDropped: boolean("price_dropped").default(false),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull()
 });
 
 export const insertProductSchema = createInsertSchema(products).omit({
@@ -78,6 +81,7 @@ export const priceHistory = pgTable("price_history", {
   productId: integer("product_id").notNull(),
   price: doublePrecision("price").notNull(),
   timestamp: timestamp("timestamp").notNull(),
+  metadata: jsonb("metadata"),
 });
 
 export const insertPriceHistorySchema = createInsertSchema(priceHistory).omit({

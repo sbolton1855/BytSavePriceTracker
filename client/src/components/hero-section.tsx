@@ -21,10 +21,35 @@ interface ProductDeal {
 
 // Real-time dashboard with actual price drop alerts
 const PriceTrackerDashboard: React.FC = () => {
+  // Add refresh key state and timestamp for rotation
+  const [refreshKey, setRefreshKey] = useState(0);
+  const [lastRefreshTime, setLastRefreshTime] = useState(Date.now());
+  
   // Get real price drop deals from the backend
   const { data: deals, isLoading, refetch } = useQuery<ProductDeal[]>({
-    queryKey: ["/api/products/deals"],
-    staleTime: 5 * 60 * 1000, // 5 minutes
+    queryKey: ["/api/products/deals", refreshKey, lastRefreshTime],
+    queryFn: async () => {
+      console.log(`Fetching deals with refreshKey: ${refreshKey}`);
+      const timestamp = Date.now();
+      const rotation = Math.floor(timestamp / 1000) % 20; // Create 20 different product sets
+      console.log(`Making request with timestamp: ${timestamp}, rotation: ${rotation}`);
+      
+      const response = await fetch(`/api/products/deals?t=${timestamp}&rotate=${rotation}`);
+      if (!response.ok) {
+        throw new Error('Failed to fetch deals');
+      }
+      const data = await response.json();
+      console.log('Received deals:', data.map((d: ProductDeal) => ({ 
+        id: d.id, 
+        title: d.title.substring(0, 30) + '...', 
+        price: d.currentPrice,
+        discount: d.originalPrice ? Math.round(((d.originalPrice - d.currentPrice) / d.originalPrice) * 100) : 0
+      })));
+      return data;
+    },
+    staleTime: 0, // Don't cache the data
+    gcTime: 0,
+    refetchOnWindowFocus: false,
   });
 
   // Format price with two decimal places
@@ -45,18 +70,38 @@ const PriceTrackerDashboard: React.FC = () => {
   // Update time display
   const [lastUpdated, setLastUpdated] = useState<string>("Just now");
   
+  // Update selected deals when deals change
   useEffect(() => {
     if (deals && deals.length > 0) {
-      // Get deals with original prices that show a price drop
+      console.log('Processing deals for display:', deals.length, 'deals available');
+      
+      // First, get all deals with price drops
       const dealsWithPrices = deals.filter((deal: ProductDeal) => 
         deal.originalPrice && deal.originalPrice > deal.currentPrice
       );
       
+      console.log('Deals with price drops:', dealsWithPrices.length);
+      
+      // Create a random seed based on refreshKey and timestamp
+      const randomSeed = refreshKey + Math.floor(lastRefreshTime / 1000);
+      const shuffle = (array: ProductDeal[]) => {
+        // Use the random seed for consistent but different shuffling
+        const shuffled = [...array];
+        for (let i = shuffled.length - 1; i > 0; i--) {
+          const j = Math.floor((Math.sin(i + randomSeed) + 1) * i);
+          [shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]];
+        }
+        return shuffled;
+      };
+      
       if (dealsWithPrices.length === 0) {
-        // If no price drops, just take first few deals
-        setSelectedDeals(deals.slice(0, Math.min(3, deals.length)));
+        // If no price drops, shuffle all deals and take random ones
+        const shuffledDeals = shuffle(deals);
+        const selectedRandomDeals = shuffledDeals.slice(0, Math.min(3, deals.length));
+        console.log('No price drops, using random deals:', selectedRandomDeals.map(d => d.id));
+        setSelectedDeals(selectedRandomDeals);
       } else {
-        // Sort by highest discount percentage and take top 3
+        // Sort by discount percentage
         const sorted = [...dealsWithPrices].sort((a, b) => {
           const aOriginal = a.originalPrice || a.currentPrice;
           const bOriginal = b.originalPrice || b.currentPrice;
@@ -64,18 +109,46 @@ const PriceTrackerDashboard: React.FC = () => {
           const discountB = ((bOriginal - b.currentPrice) / bOriginal);
           return discountB - discountA;
         });
-        setSelectedDeals(sorted.slice(0, Math.min(3, sorted.length)));
+        
+        // Take top 8 deals and randomly select 3 from them
+        const topDeals = sorted.slice(0, Math.min(8, sorted.length));
+        const shuffledTopDeals = shuffle(topDeals);
+        const selectedTopDeals = shuffledTopDeals.slice(0, Math.min(3, shuffledTopDeals.length));
+        
+        console.log('Selected random top deals with discounts:', selectedTopDeals.map(d => ({
+          id: d.id,
+          title: d.title.substring(0, 30) + '...',
+          discount: calculateDiscount(d.originalPrice!, d.currentPrice)
+        })));
+        
+        setSelectedDeals(selectedTopDeals);
       }
     }
-  }, [deals]);
+  }, [deals, refreshKey, lastRefreshTime]); // Include all dependencies
 
-  // Handle manual refresh
+  // Update the handleRefresh function
   const handleRefresh = async () => {
+    console.log('Refresh clicked, current refreshKey:', refreshKey);
     setIsRefreshing(true);
-    await refetch();
+    
+    // Update both refresh key and timestamp to ensure new rotation
+    setRefreshKey(prev => prev + 1);
+    setLastRefreshTime(Date.now());
+    
+    const result = await refetch();
+    console.log('Refetch completed, new data:', result.data?.length, 'deals');
     setLastUpdated("Just now");
     setIsRefreshing(false);
   };
+
+  // Auto-refresh every 5 minutes
+  useEffect(() => {
+    const interval = setInterval(() => {
+      handleRefresh();
+    }, 5 * 60 * 1000);
+    
+    return () => clearInterval(interval);
+  }, []);
 
   if (isLoading) {
     return (
@@ -116,20 +189,6 @@ const PriceTrackerDashboard: React.FC = () => {
             <span className="sr-only">Refresh</span>
           </button>
         </div>
-        {false && (  // Change false to a condition if needed
-          <div className="grid grid-cols-2 gap-4 mb-4">
-            <div className="bg-blue-50 p-3 rounded-lg">
-              <h4 className="text-sm font-medium text-blue-800 mb-1">Products Tracked</h4>
-              <p className="text-2xl font-bold text-blue-600">{deals?.length || 0}</p>
-            </div>
-            <div className="bg-green-50 p-3 rounded-lg">
-              <h4 className="text-sm font-medium text-green-800 mb-1">Price Drops</h4>
-              <p className="text-2xl font-bold text-green-600">
-                {deals?.filter((d: ProductDeal) => d.originalPrice && d.originalPrice > d.currentPrice).length || 0}
-              </p>
-            </div>
-          </div>
-        )} 
         <div className="mb-4">
           <h4 className="text-sm font-medium text-gray-700 mb-2">Latest Price Alerts</h4>
           <div className="space-y-3 max-h-[300px] overflow-y-auto">
