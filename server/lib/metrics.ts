@@ -13,6 +13,7 @@ interface MetricCounts {
   cacheMisses: number;
   errors: number;
   priceDrops: number;
+  rateLimited: number;
 }
 
 interface PriceDrop {
@@ -31,7 +32,8 @@ class Metrics {
     cacheHits: 0,
     cacheMisses: 0,
     errors: 0,
-    priceDrops: 0
+    priceDrops: 0,
+    rateLimited: 0
   };
 
   private priceDropHistory: PriceDrop[] = [];
@@ -49,6 +51,14 @@ class Metrics {
 
   incrementCacheMisses() {
     this.counts.cacheMisses++;
+  }
+
+  incrementErrors() {
+    this.counts.errors++;
+  }
+
+  incrementRateLimited() {
+    this.counts.rateLimited++;
   }
 
   // Get basic metrics
@@ -136,7 +146,8 @@ class Metrics {
       cacheHits: 0,
       cacheMisses: 0,
       errors: 0,
-      priceDrops: 0
+      priceDrops: 0,
+      rateLimited: 0
     };
     this.priceDropHistory = [];
     this.errorLogs = [];
