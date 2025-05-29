@@ -3,17 +3,17 @@ import { logApiError } from '../errorController';
 import { metrics } from './metrics';
 import { AmazonErrorHandler } from './amazonErrorHandler';
 
-// Create a limiter that allows 1 request per second
-const apiLimiter = pLimit(1);
+// Create a limiter that allows 2 requests per second (increased from 1)
+const apiLimiter = pLimit(2);
 
 // Maximum retries and delays
-const MAX_RETRIES = 5;  // Increased from 3
-const BASE_DELAY = 2000;  // 2 seconds
-const MAX_DELAY = 30000;  // 30 seconds
+const MAX_RETRIES = 3;
+const BASE_DELAY = 1000;  // 1 second (reduced from 2)
+const MAX_DELAY = 10000;  // 10 seconds (reduced from 30)
 
 // Circuit breaker configuration
-const FAILURE_THRESHOLD = 5;  // Number of failures before opening circuit
-const RESET_TIMEOUT = 60000;  // 1 minute timeout before attempting to close circuit
+const FAILURE_THRESHOLD = 10;  // Increased from 5
+const RESET_TIMEOUT = 30000;  // 30 seconds (reduced from 60)
 
 // Circuit breaker state
 let failures = 0;
@@ -28,19 +28,25 @@ const sleep = (ms: number) => {
 
 // Check if circuit breaker should be reset
 function shouldResetCircuit(): boolean {
-  if (circuitOpen && Date.now() - lastFailureTime >= RESET_TIMEOUT) {
-    failures = 0;
+  if (!circuitOpen) return false;
+  
+  const now = Date.now();
+  if (now - lastFailureTime >= RESET_TIMEOUT) {
+    console.log('Resetting circuit breaker');
     circuitOpen = false;
+    failures = 0;
     return true;
   }
   return false;
 }
 
-// Update circuit breaker state on failure
+// Record a failure and potentially open the circuit
 function recordFailure() {
   failures++;
   lastFailureTime = Date.now();
+  
   if (failures >= FAILURE_THRESHOLD) {
+    console.log(`Circuit breaker opened after ${failures} failures`);
     circuitOpen = true;
   }
 }
@@ -109,32 +115,27 @@ export async function withRateLimit<T>(
 }
 
 /**
- * Executes multiple rate-limited operations in parallel, with throttling
- * @param operations Array of operations to execute
- * @param context Context for error logging
+ * Executes multiple operations with rate limiting, returning successful results
+ * @param operations Array of async operations to execute
+ * @param context Optional context for error logging
  */
 export async function batchWithRateLimit<T>(
   operations: Array<() => Promise<T>>,
   context: { operation: string }
 ): Promise<T[]> {
-  type SettledResult = PromiseSettledResult<Awaited<T> | null>;
+  const results: T[] = [];
   
-  // Execute operations in parallel, but rate-limited
-  const results = await Promise.allSettled(
-    operations.map(op => 
-      withRateLimit(op, context)
-        .catch(error => {
-          console.error('Batch operation failed:', error);
-          metrics.incrementErrors();
-          return null;
-        })
-    )
-  );
-
-  // Filter out failed operations and extract values
-  return results
-    .filter((result): result is PromiseFulfilledResult<Awaited<T>> => 
-      result.status === 'fulfilled' && result.value !== null
-    )
-    .map(result => result.value);
+  for (const operation of operations) {
+    try {
+      const result = await withRateLimit(operation, context);
+      if (result !== null) {
+        results.push(result);
+      }
+    } catch (error) {
+      console.error('Batch operation failed:', error);
+      // Continue with next operation
+    }
+  }
+  
+  return results;
 } 
