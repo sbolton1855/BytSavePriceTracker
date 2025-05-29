@@ -319,9 +319,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(400).json({ error: 'Search query is required' });
       }
 
-      // Use the corrected Amazon API implementation
-      const { searchProductsFixed } = await import('./lib/amazonApiFixed');
-      const amazonItems = await searchProductsFixed(q);
+      // Use the official Amazon SDK implementation
+      const { searchProductsWithSDK } = await import('./lib/amazonApiSDK');
+      const amazonItems = await searchProductsWithSDK(q);
       
       // Transform Amazon response to our format and add affiliate links
       const formattedResults = await Promise.all(amazonItems.map(async (item: any) => {
