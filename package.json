@@ -52,6 +52,7 @@
     "@types/passport-google-oauth20": "^2.0.16",
     "@types/passport-twitter": "^1.0.40",
     "@types/react-helmet": "^6.1.11",
+    "amazon-paapi": "^1.0.7",
     "axios": "^1.9.0",
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
@@ -73,6 +74,7 @@
     "node-fetch": "^3.3.2",
     "nodemailer": "^7.0.3",
     "openid-client": "^6.5.0",
+    "paapi5-nodejs-sdk": "^1.1.0",
     "passport": "^0.7.0",
     "passport-facebook": "^3.0.0",
     "passport-google-oauth20": "^2.0.0",
@@ -107,7 +109,7 @@
     "@types/express-session": "^1.18.1",
     "@types/jest": "^29.5.14",
     "@types/lru-cache": "^7.10.9",
-    "@types/node": "20.16.11",
+    "@types/node": "^20.17.52",
     "@types/p-limit": "^2.1.0",
     "@types/passport": "^1.0.17",
     "@types/passport-local": "^1.0.38",
@@ -127,10 +129,14 @@
     "ts-jest": "^29.3.4",
     "ts-node": "^10.9.2",
     "tsx": "^4.19.1",
-    "typescript": "5.6.3",
+    "typescript": "^5.8.3",
     "vite": "^5.4.14"
   },
   "optionalDependencies": {
     "bufferutil": "^4.0.8"
-  }
+  },
+  "main": "jest.config.js",
+  "keywords": [],
+  "author": "",
+  "description": ""
 }
