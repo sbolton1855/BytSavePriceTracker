@@ -1,5 +1,6 @@
 import type { Express, Request, Response } from "express";
 import { createServer, type Server } from "http";
+import crypto from "crypto";
 import { storage } from "./storage";
 import { getProductInfo, searchProducts, extractAsinFromUrl, isValidAsin, addAffiliateTag } from "./amazonApi";
 import { startPriceChecker } from "./priceChecker";
@@ -319,103 +320,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(400).json({ error: 'Search query is required' });
       }
 
-      // Direct Amazon search implementation matching your working curl command
-      const ACCESS_KEY = process.env.AMAZON_ACCESS_KEY;
-      const SECRET_KEY = process.env.AMAZON_SECRET_KEY;
-      const PARTNER_TAG = process.env.AMAZON_PARTNER_TAG;
-
-      if (!ACCESS_KEY || !SECRET_KEY || !PARTNER_TAG) {
-        throw new Error('Amazon API credentials not configured');
-      }
-
-      // Create AWS signature exactly like your working curl command
-      function getSignatureKey(key: string, dateStamp: string, regionName: string, serviceName: string) {
-        const kDate = crypto.createHmac('sha256', 'AWS4' + key).update(dateStamp).digest();
-        const kRegion = crypto.createHmac('sha256', kDate).update(regionName).digest();
-        const kService = crypto.createHmac('sha256', kRegion).update(serviceName).digest();
-        const kSigning = crypto.createHmac('sha256', kService).update('aws4_request').digest();
-        return kSigning;
-      }
-
-      const payload = JSON.stringify({
-        Keywords: q,
-        PartnerTag: PARTNER_TAG,
-        PartnerType: 'Associates',
-        Marketplace: 'www.amazon.com',
-        SearchIndex: 'All',
-        Resources: [
-          'Images.Primary.Medium',
-          'ItemInfo.Title',
-          'Offers.Listings.Price'
-        ]
-      });
-
-      const now = new Date();
-      const timestamp = now.toISOString().replace(/[:-]|\.\d{3}/g, '');
-      const dateStamp = timestamp.split('T')[0];
-      
-      const algorithm = 'AWS4-HMAC-SHA256';
-      const service = 'ProductAdvertisingAPI';
-      const region = 'us-east-1';
-      const host = 'webservices.amazon.com';
-      const uri = '/paapi5/searchitems';
-      const target = 'com.amazon.paapi5.v1.ProductAdvertisingAPIv1.SearchItems';
-
-      const canonicalHeaders = 
-        'content-encoding:amz-1.0\n' +
-        'host:' + host + '\n' +
-        'x-amz-date:' + timestamp + '\n' +
-        'x-amz-target:' + target + '\n';
-
-      const signedHeaders = 'content-encoding;host;x-amz-date;x-amz-target';
-      const payloadHash = crypto.createHash('sha256').update(payload).digest('hex');
-
-      const canonicalRequest = 
-        'POST\n' +
-        uri + '\n' +
-        '\n' +
-        canonicalHeaders + '\n' +
-        signedHeaders + '\n' +
-        payloadHash;
-
-      const credentialScope = dateStamp + '/' + region + '/' + service + '/aws4_request';
-      const stringToSign = 
-        algorithm + '\n' +
-        timestamp + '\n' +
-        credentialScope + '\n' +
-        crypto.createHash('sha256').update(canonicalRequest).digest('hex');
-
-      const signingKey = getSignatureKey(SECRET_KEY, dateStamp, region, service);
-      const signature = crypto.createHmac('sha256', signingKey).update(stringToSign).digest('hex');
-
-      const authorization = algorithm + ' ' +
-        'Credential=' + ACCESS_KEY + '/' + credentialScope + ', ' +
-        'SignedHeaders=' + signedHeaders + ', ' +
-        'Signature=' + signature;
-
-      const searchResponse = await fetch('https://webservices.amazon.com/paapi5/searchitems', {
-        method: 'POST',
-        headers: {
-          'Host': 'webservices.amazon.com',
-          'Accept': 'application/json, text/javascript',
-          'Accept-Language': 'en-US',
-          'Content-Type': 'application/json; charset=UTF-8',
-          'X-Amz-Date': timestamp,
-          'X-Amz-Target': target,
-          'Content-Encoding': 'amz-1.0',
-          'Authorization': authorization
-        },
-        body: payload
-      });
-
-      if (!searchResponse.ok) {
-        const errorText = await searchResponse.text();
-        console.log('Amazon Search Error:', errorText);
-        throw new Error('Amazon search failed');
-      }
-
-      const searchData = await searchResponse.json();
-      const amazonItems = searchData?.SearchResult?.Items || [];
+      // Use the existing working search function from amazonApi
+      const amazonItems = await searchProducts(q);
       
       // Transform Amazon response to our format and add affiliate links
       const formattedResults = await Promise.all(amazonItems.map(async (item: any) => {
