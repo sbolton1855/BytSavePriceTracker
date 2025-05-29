@@ -29,7 +29,7 @@ const sleep = (ms: number) => {
 // Check if circuit breaker should be reset
 function shouldResetCircuit(): boolean {
   if (!circuitOpen) return false;
-  
+
   const now = Date.now();
   if (now - lastFailureTime >= RESET_TIMEOUT) {
     console.log('Resetting circuit breaker');
@@ -44,7 +44,7 @@ function shouldResetCircuit(): boolean {
 function recordFailure() {
   failures++;
   lastFailureTime = Date.now();
-  
+
   if (failures >= FAILURE_THRESHOLD) {
     console.log(`Circuit breaker opened after ${failures} failures`);
     circuitOpen = true;
@@ -60,13 +60,14 @@ export async function withRateLimit<T>(
   fn: () => Promise<T>,
   context: { asin?: string; operation: string }
 ): Promise<T> {
+  //Temporarily disable the circuit breaker
   // Check circuit breaker
-  if (circuitOpen && !shouldResetCircuit()) {
-    throw new Error('Circuit breaker is open - too many recent failures');
-  }
+  // if (circuitOpen && !shouldResetCircuit()) {
+  //   throw new Error('Circuit breaker is open - too many recent failures');
+  // }
 
   let lastError: Error | null = null;
-  
+
   for (let attempt = 1; attempt <= MAX_RETRIES; attempt++) {
     try {
       metrics.incrementApiHits();
@@ -75,12 +76,12 @@ export async function withRateLimit<T>(
     } catch (error) {
       metrics.incrementRateLimited();
       lastError = error instanceof Error ? error : new Error('Unknown error');
-      
+
       // Check if error is retryable
       if (!AmazonErrorHandler.isRetryable(error)) {
         throw lastError;
       }
-      
+
       // Log the retry attempt
       console.warn(`API request failed (attempt ${attempt}/${MAX_RETRIES}):`, {
         error: lastError.message,
@@ -124,7 +125,7 @@ export async function batchWithRateLimit<T>(
   context: { operation: string }
 ): Promise<T[]> {
   const results: T[] = [];
-  
+
   for (const operation of operations) {
     try {
       const result = await withRateLimit(operation, context);
@@ -136,6 +137,6 @@ export async function batchWithRateLimit<T>(
       // Continue with next operation
     }
   }
-  
+
   return results;
-} 
+}
