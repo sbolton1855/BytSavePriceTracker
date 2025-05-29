@@ -5,6 +5,7 @@ import type { ApiErrorType } from './errorController';
 import { withRateLimit, batchWithRateLimit } from './lib/rateLimiter';
 import { cache } from './lib/cache';
 import { metrics } from './lib/metrics';
+import { AmazonErrorHandler } from './lib/amazonErrorHandler';
 
 // Amazon API configuration
 const PARTNER_TAG = process.env.AMAZON_PARTNER_TAG || 'bytsave-20';
@@ -148,31 +149,49 @@ async function getDetailedProductInfo(asins: string[]): Promise<any[]> {
 
   // Fetch uncached products
   const operations = uncachedAsins.map(asin => async () => {
-    const payload = {
-      ItemIds: [asin],
-      PartnerTag: PARTNER_TAG,
-      PartnerType: 'Associates',
-      Marketplace: MARKETPLACE,
-      Resources: [
-        'Images.Primary.Medium',
-        'ItemInfo.Title',
-        'Offers.Listings.Price',
-        'Offers.Listings.SavingBasis',
-        'Offers.Listings.MerchantInfo',
-        'Offers.Listings.Condition',
-        'Offers.Listings.Promotions'
-      ]
-    };
+    try {
+      const payload = {
+        ItemIds: [asin],
+        PartnerTag: PARTNER_TAG,
+        PartnerType: 'Associates',
+        Marketplace: MARKETPLACE,
+        Resources: [
+          'Images.Primary.Medium',
+          'ItemInfo.Title',
+          'Offers.Listings.Price',
+          'Offers.Listings.SavingBasis',
+          'Offers.Listings.MerchantInfo',
+          'Offers.Listings.Condition',
+          'Offers.Listings.Promotions'
+        ]
+      };
 
-    const response = await fetchSignedAmazonRequest('/paapi5/getitems', payload);
-    const item = response.ItemsResult?.Items?.[0];
+      const response = await fetchSignedAmazonRequest('/paapi5/getitems', payload);
+      const item = response.ItemsResult?.Items?.[0];
 
-    if (!item?.Offers?.Listings?.length) {
-      console.warn("ASIN returned no offers", { asin });
+      if (!item?.Offers?.Listings?.length) {
+        await AmazonErrorHandler.handleError(
+          new Error(`No offers found for ASIN: ${asin}`),
+          asin
+        );
+        return null;
+      }
+
+      // Validate price data
+      const listing = item.Offers.Listings[0];
+      if (!listing.Price?.Amount || isNaN(listing.Price.Amount) || listing.Price.Amount <= 0) {
+        await AmazonErrorHandler.handleError(
+          new Error(`Invalid price data received for ASIN: ${asin}`),
+          asin
+        );
+        return null;
+      }
+
+      return item;
+    } catch (error) {
+      await AmazonErrorHandler.handleError(error, asin);
       return null;
     }
-
-    return item;
   });
 
   const fetchedProducts = await batchWithRateLimit(operations, { operation: 'GetItems' });
@@ -189,6 +208,12 @@ async function getDetailedProductInfo(asins: string[]): Promise<any[]> {
         url: product.DetailPageURL,
         couponDetected: product.Offers?.Listings?.[0]?.Promotions?.length > 0
       };
+
+      // Additional price validation
+      if (mappedProduct.price && (!mappedProduct.originalPrice || mappedProduct.originalPrice < mappedProduct.price)) {
+        mappedProduct.originalPrice = mappedProduct.price;
+      }
+
       cache.setProduct(product.ASIN, mappedProduct);
 
       // Check for price drops
@@ -210,7 +235,7 @@ async function getDetailedProductInfo(asins: string[]): Promise<any[]> {
     }
   });
 
-  return [...cachedProducts, ...fetchedProducts];
+  return [...cachedProducts, ...fetchedProducts.filter(Boolean)];
 }
 
 // Main function to get product information from Amazon API
@@ -226,21 +251,18 @@ async function getProductInfo(asinOrUrl: string): Promise<AmazonProduct> {
     asin = extractedAsin;
   }
 
-  // Special debug logging for YumEarth product
-  const isYumEarth = asin === 'B08PX626SG';
-  if (isYumEarth) {
-    console.log('DEBUG: Fetching YumEarth product info...');
-  }
-
   // Validate ASIN format
   if (!isValidAsin(asin)) {
-    throw new Error('Invalid ASIN format. ASIN should be a 10-character alphanumeric code');
+    await AmazonErrorHandler.handleError(
+      new Error(`Invalid ASIN format: ${asin}`),
+      asin
+    );
   }
 
   try {
     // Check cache first
     const cachedProduct = cache.getProduct(asin);
-    if (cachedProduct && !isYumEarth) {
+    if (cachedProduct) {
       return cachedProduct;
     }
 
@@ -248,105 +270,23 @@ async function getProductInfo(asinOrUrl: string): Promise<AmazonProduct> {
     const items = await getDetailedProductInfo([asin]);
     
     if (!items.length) {
-      throw new Error(`No product data found for ASIN: ${asin}`);
+      await AmazonErrorHandler.handleError(
+        new Error(`No product data found for ASIN: ${asin}`),
+        asin
+      );
     }
 
     const item = items[0];
-    if (!item.ASIN) {
-      throw new Error(`Missing ASIN in product data for: ${asin}`);
+    if (!item) {
+      await AmazonErrorHandler.handleError(
+        new Error(`Failed to fetch product data for ASIN: ${asin}`),
+        asin
+      );
     }
 
-    // Extract data with fallbacks for missing information
-    const title = item.ItemInfo?.Title?.DisplayValue || `Amazon Product (${asin})`;
-    
-    // Enhanced price extraction logic
-    let currentPrice = 0;
-    let originalPrice: number | undefined = undefined;
-    let couponDetected = false;
-    
-    if (item.Offers?.Listings?.length > 0) {
-      const listing = item.Offers.Listings[0];
-      
-      if (isYumEarth) {
-        console.log('DEBUG: YumEarth listing data:', JSON.stringify(listing, null, 2));
-      }
-      
-      // Get current price
-      if (listing.Price?.Amount) {
-        currentPrice = parseFloat(listing.Price.Amount);
-        if (isYumEarth) {
-          console.log('DEBUG: YumEarth current price from Price.Amount:', currentPrice);
-          
-          // Log warning if price seems incorrect (hardcoded check for YumEarth product)
-          if (asin === 'B08PX626SG' && Math.abs(currentPrice - 9.99) > 0.01) {
-            console.warn(`WARNING: API price ($${currentPrice}) differs from known price ($9.99) for YumEarth product`);
-            await logApiError(asin, 'PRICE_MISMATCH' as ApiErrorType, `API price ($${currentPrice}) differs from known price ($9.99)`);
-          }
-        }
-      }
-      
-      // Get original/list price
-      if (listing.SavingBasis?.Amount) {
-        originalPrice = parseFloat(listing.SavingBasis.Amount);
-        if (isYumEarth) {
-          console.log('DEBUG: YumEarth original price from SavingBasis:', originalPrice);
-        }
-      }
-
-      // Check for coupons/promotions
-      couponDetected = listing.Promotions?.length > 0;
-      
-      // For YumEarth product, use known prices
-      if (asin === 'B08PX626SG') {
-        currentPrice = 9.99;
-        originalPrice = 12.99;
-        if (isYumEarth) {
-          console.log('DEBUG: Using known prices for YumEarth product:', { currentPrice, originalPrice });
-        }
-      }
-      
-      // Log all price data found
-      if (isYumEarth) {
-        console.log('DEBUG: YumEarth final price data:', {
-          currentPrice,
-          originalPrice,
-          priceAmount: listing.Price?.Amount,
-          savingBasis: listing.SavingBasis?.Amount,
-          displayAmount: listing.Price?.DisplayAmount,
-          couponDetected
-        });
-      }
-    }
-
-    const product = {
-      asin: item.ASIN,
-      title: title,
-      price: currentPrice,
-      originalPrice: originalPrice,
-      imageUrl: item.Images?.Primary?.Medium?.URL || null,
-      url: item.DetailPageURL || `https://www.amazon.com/dp/${asin}`,
-      couponDetected
-    };
-
-    // Cache the product
-    if (!isYumEarth) {
-      cache.setProduct(asin, product);
-    }
-
-    // Check for price drops
-    if (cache.hasPriceDrop(asin, currentPrice)) {
-      await logApiError(asin, 'PRICE_DROP', `Price dropped from ${cache.getPriceHistory(asin).slice(-1)[0].price} to ${currentPrice}`);
-    }
-
-    return product;
+    return item;
   } catch (error) {
-    console.error('Error fetching product from Amazon API:', error);
-    
-    if (error instanceof Error) {
-      throw new Error('Failed to fetch product information from Amazon: ' + error.message);
-    }
-    
-    throw new Error('Failed to fetch product information from Amazon: Unknown error');
+    return await AmazonErrorHandler.handleError(error, asin);
   }
 }
 
