@@ -1,0 +1,76 @@
+  % Total    % Received % Xferd  Average Speed   Time    Time     Time  Current
+                                 Dload  Upload   Total   Spent    Left  Speed
+  0     0    0     0    0     0      0      0 --:--:-- --:--:-- --:--:--     0* Host webservices.amazon.com:443 was resolved.
+* IPv6: (none)
+* IPv4: 13.217.9.14
+*   Trying 13.217.9.14:443...
+* ALPN: curl offers h2,http/1.1
+} [5 bytes data]
+* TLSv1.3 (OUT), TLS handshake, Client hello (1):
+} [512 bytes data]
+*  CAfile: /usr/lib/ssl/certs/ca-certificates.crt
+*  CApath: /usr/lib/ssl/certs
+{ [5 bytes data]
+* TLSv1.3 (IN), TLS handshake, Server hello (2):
+{ [122 bytes data]
+* TLSv1.3 (IN), TLS handshake, Encrypted Extensions (8):
+{ [25 bytes data]
+* TLSv1.3 (IN), TLS handshake, Certificate (11):
+{ [5087 bytes data]
+* TLSv1.3 (IN), TLS handshake, CERT verify (15):
+{ [264 bytes data]
+* TLSv1.3 (IN), TLS handshake, Finished (20):
+{ [36 bytes data]
+* TLSv1.3 (OUT), TLS change cipher, Change cipher spec (1):
+} [1 bytes data]
+* TLSv1.3 (OUT), TLS handshake, Finished (20):
+} [36 bytes data]
+* SSL connection using TLSv1.3 / TLS_AES_128_GCM_SHA256 / x25519 / RSASSA-PSS
+* ALPN: server accepted http/1.1
+* Server certificate:
+*  subject: CN=webservices.amazon.com
+*  start date: Nov  8 00:00:00 2024 GMT
+*  expire date: Nov  3 23:59:59 2025 GMT
+*  subjectAltName: host "webservices.amazon.com" matched cert's "webservices.amazon.com"
+*  issuer: C=US; O=Amazon; CN=Amazon RSA 2048 M01
+*  SSL certificate verify ok.
+*   Certificate level 0: Public key type RSA (2048/112 Bits/secBits), signed using sha256WithRSAEncryption
+*   Certificate level 1: Public key type RSA (2048/112 Bits/secBits), signed using sha256WithRSAEncryption
+*   Certificate level 2: Public key type RSA (2048/112 Bits/secBits), signed using sha256WithRSAEncryption
+* Connected to webservices.amazon.com (13.217.9.14) port 443
+* using HTTP/1.x
+  0     0    0     0    0     0      0      0 --:--:-- --:--:-- --:--:--     0} [5 bytes data]
+> POST /paapi5/searchitems HTTP/1.1
+> Host: webservices.amazon.com
+> User-Agent: curl/8.11.1
+> Accept: application/json, text/javascript
+> Accept-Language: en-US
+> Content-Type: application/json; charset=UTF-8
+> X-Amz-Date: 20250529T034154Z
+> X-Amz-Target: com.amazon.paapi5.v1.ProductAdvertisingAPIv1.SearchItems
+> Content-Encoding: amz-1.0
+> Authorization: AWS4-HMAC-SHA256 Credential=AKIAJ5FQA5U7RIAD6M4Q/20250529/us-east-1/ProductAdvertisingAPI/aws4_request SignedHeaders=content-encoding;host;x-amz-date;x-amz-target Signature=518390161887bea8a6ee17ac6952706bc93124aa8b3bd65a67298241ae092caa
+> Content-Length: 219
+> 
+} [219 bytes data]
+* upload completely sent off: 219 bytes
+{ [5 bytes data]
+* TLSv1.3 (IN), TLS handshake, Newsession Ticket (4):
+{ [57 bytes data]
+* TLSv1.3 (IN), TLS handshake, Newsession Ticket (4):
+{ [57 bytes data]
+< HTTP/1.1 401 Unauthorized
+< Server: Server
+< Date: Thu, 29 May 2025 04:07:35 GMT
+< Content-Type: application/json
+< Content-Length: 321
+< Connection: keep-alive
+< x-amz-rid: 8CE8RTVJQQ99BP4368K7
+< x-amzn-RequestId: 3b66278d-76e9-4f80-bb25-a0dd71ecd44e
+< Vary: Content-Type,Accept-Encoding,User-Agent
+< Strict-Transport-Security: max-age=47474747; includeSubDomains; preload
+< 
+{ [321 bytes data]
+100   540  100   321  100   219   1383    943 --:--:-- --:--:-- --:--:--  2327
+* Connection #0 to host webservices.amazon.com left intact
+{"__type":"com.amazon.paapi5#InvalidSignatureException","Errors":[{"Code":"InvalidSignature","Message":"The request has not been correctly signed. If you are using an AWS SDK, requests are signed for you automatically; otherwise, go to https://webservices.amazon.com/paapi5/documentation/sending-request.html#signing."}]}
