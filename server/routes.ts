@@ -319,18 +319,30 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(400).json({ error: 'Search query is required' });
       }
 
-      const results = await searchProducts(q);
-
-      // Format results with affiliate links
-      // Format results with affiliate links, also check if product exists in DB to get ID
-      const formattedResults = await Promise.all(results.map(async result => {
+      // Use the corrected Amazon API implementation
+      const { searchProductsFixed } = await import('./lib/amazonApiFixed');
+      const amazonItems = await searchProductsFixed(q);
+      
+      // Transform Amazon response to our format and add affiliate links
+      const formattedResults = await Promise.all(amazonItems.map(async (item: any) => {
+        const asin = item.ASIN;
+        const title = item.ItemInfo?.Title?.DisplayValue || 'Unknown Title';
+        const imageUrl = item.Images?.Primary?.Medium?.URL || '';
+        const priceAmount = item.Offers?.Listings?.[0]?.Price?.Amount || 0;
+        const price = typeof priceAmount === 'number' ? priceAmount / 100 : 0; // Convert cents to dollars
+        const url = `https://www.amazon.com/dp/${asin}?tag=${AFFILIATE_TAG}&linkCode=ogi&th=1&psc=1`;
+        
         // Check if product exists in our database to get its ID
-        const existingProduct = await storage.getProductByAsin(result.asin);
+        const existingProduct = await storage.getProductByAsin(asin);
 
         return {
-          ...result,
+          asin,
+          title,
+          imageUrl,
+          price,
+          url,
           id: existingProduct?.id, // Include ID if product exists in DB
-          affiliateUrl: addAffiliateTag(result.url, AFFILIATE_TAG),
+          affiliateUrl: url,
         };
       }));
 
