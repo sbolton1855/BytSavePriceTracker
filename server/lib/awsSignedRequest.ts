@@ -22,12 +22,12 @@ function signRequest(
   
   // Step 1: Create canonical request
   const canonicalHeaders = 
-    'content-type:application/json; charset=utf-8\n' +
+    'content-encoding:amz-1.0\n' +
     'host:' + HOST + '\n' +
     'x-amz-date:' + timestamp + '\n' +
     `x-amz-target:${target}\n`;
     
-  const signedHeaders = 'content-type;host;x-amz-date;x-amz-target';
+  const signedHeaders = 'content-encoding;host;x-amz-date;x-amz-target';
   
   const payloadHash = crypto
     .createHash('sha256')
