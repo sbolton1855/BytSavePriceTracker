@@ -1,16 +1,49 @@
 import pLimit from 'p-limit';
 import { logApiError } from '../errorController';
 import { metrics } from './metrics';
+import { AmazonErrorHandler } from './amazonErrorHandler';
 
 // Create a limiter that allows 1 request per second
 const apiLimiter = pLimit(1);
 
-// Maximum retries for failed requests
-const MAX_RETRIES = 3;
-const RETRY_DELAY = 2000; // 2 seconds
+// Maximum retries and delays
+const MAX_RETRIES = 5;  // Increased from 3
+const BASE_DELAY = 2000;  // 2 seconds
+const MAX_DELAY = 30000;  // 30 seconds
 
-// Sleep utility
-const sleep = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
+// Circuit breaker configuration
+const FAILURE_THRESHOLD = 5;  // Number of failures before opening circuit
+const RESET_TIMEOUT = 60000;  // 1 minute timeout before attempting to close circuit
+
+// Circuit breaker state
+let failures = 0;
+let lastFailureTime = 0;
+let circuitOpen = false;
+
+// Sleep utility with jitter
+const sleep = (ms: number) => {
+  const jitter = Math.random() * 0.3 * ms;  // Add up to 30% jitter
+  return new Promise(resolve => setTimeout(resolve, ms + jitter));
+};
+
+// Check if circuit breaker should be reset
+function shouldResetCircuit(): boolean {
+  if (circuitOpen && Date.now() - lastFailureTime >= RESET_TIMEOUT) {
+    failures = 0;
+    circuitOpen = false;
+    return true;
+  }
+  return false;
+}
+
+// Update circuit breaker state on failure
+function recordFailure() {
+  failures++;
+  lastFailureTime = Date.now();
+  if (failures >= FAILURE_THRESHOLD) {
+    circuitOpen = true;
+  }
+}
 
 /**
  * Wraps an async function with retry logic and rate limiting
@@ -21,6 +54,11 @@ export async function withRateLimit<T>(
   fn: () => Promise<T>,
   context: { asin?: string; operation: string }
 ): Promise<T> {
+  // Check circuit breaker
+  if (circuitOpen && !shouldResetCircuit()) {
+    throw new Error('Circuit breaker is open - too many recent failures');
+  }
+
   let lastError: Error | null = null;
   
   for (let attempt = 1; attempt <= MAX_RETRIES; attempt++) {
@@ -31,6 +69,11 @@ export async function withRateLimit<T>(
     } catch (error) {
       metrics.incrementRateLimited();
       lastError = error instanceof Error ? error : new Error('Unknown error');
+      
+      // Check if error is retryable
+      if (!AmazonErrorHandler.isRetryable(error)) {
+        throw lastError;
+      }
       
       // Log the retry attempt
       console.warn(`API request failed (attempt ${attempt}/${MAX_RETRIES}):`, {
@@ -45,15 +88,23 @@ export async function withRateLimit<T>(
           'RATE_LIMIT',
           `Failed after ${MAX_RETRIES} attempts: ${lastError.message}`
         );
+        recordFailure();
       }
 
+      // Calculate exponential backoff with max delay
+      const delay = Math.min(
+        BASE_DELAY * Math.pow(2, attempt - 1),
+        MAX_DELAY
+      );
+
       // Wait before retrying
-      await sleep(RETRY_DELAY * attempt);
+      await sleep(delay);
     }
   }
 
   // If we get here, all retries failed
   metrics.incrementErrors();
+  recordFailure();
   throw lastError || new Error('Rate limited operation failed');
 }
 
