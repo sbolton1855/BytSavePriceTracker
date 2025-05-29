@@ -18,17 +18,16 @@ function signRequest(
   uri: string,
   target: string
 ): { authorization: string; 'x-amz-date': string } {
-  const date = timestamp.split('T')[0];
+  const date = timestamp.split('T')[0].replace(/-/g, '');
   
   // Step 1: Create canonical request
   const canonicalHeaders = 
-    'content-encoding:amz-1.0\n' +
     'content-type:application/json; charset=utf-8\n' +
     'host:' + HOST + '\n' +
     'x-amz-date:' + timestamp + '\n' +
     `x-amz-target:${target}\n`;
     
-  const signedHeaders = 'content-encoding;content-type;host;x-amz-date;x-amz-target';
+  const signedHeaders = 'content-type;host;x-amz-date;x-amz-target';
   
   const payloadHash = crypto
     .createHash('sha256')
@@ -122,29 +121,40 @@ export async function fetchSignedAmazonRequest(uri: string, payload: any): Promi
       url: `https://${HOST}${uri}`,
       headers: {
         'Content-Type': 'application/json; charset=utf-8',
-        'Content-Encoding': 'amz-1.0',
         'X-Amz-Target': target,
         'X-Amz-Date': signature['x-amz-date'],
         'Authorization': signature.authorization,
         'Host': HOST
       },
       data: stringifiedPayload,
-      timeout: 15000
+      timeout: 30000 // Increased timeout to 30 seconds
     });
 
     return response.data;
   } catch (error) {
     if (axios.isAxiosError(error) && error.response) {
-      console.log('Amazon API Error Response:', {
+      const errorData = error.response.data;
+      console.error('Amazon API Error Response:', {
         status: error.response.status,
         statusText: error.response.statusText,
-        data: error.response.data,
-        headers: error.response.headers
+        data: errorData,
+        headers: error.response.headers,
+        requestId: error.response.headers['x-amz-requestid']
       });
-      const errorMessage = error.response.data?.Errors?.[0]?.Message || 'Error communicating with Amazon API';
+      
+      // Check for specific error types
+      if (error.response.status === 429) {
+        throw new Error('Rate limit exceeded. Please try again in a few seconds.');
+      } else if (error.response.status === 403) {
+        throw new Error('Authentication failed. Please check your Amazon API credentials.');
+      }
+      
+      const errorMessage = errorData?.Errors?.[0]?.Message || 
+                          errorData?.message || 
+                          'Error communicating with Amazon API';
       throw new Error(errorMessage);
     }
-    console.log('Amazon API Network Error:', error.message);
-    throw new Error('Error communicating with Amazon API');
+    console.error('Amazon API Network Error:', error.message);
+    throw new Error('Network error while communicating with Amazon API. Please try again.');
   }
 } 

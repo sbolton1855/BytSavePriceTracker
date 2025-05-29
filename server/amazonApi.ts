@@ -55,13 +55,52 @@ type AmazonProduct = z.infer<typeof amazonProductSchema>;
 const amazonSearchResultSchema = z.object({
   asin: z.string(),
   title: z.string(),
-  price: z.number().optional(),
+  price: z.number(),
+  originalPrice: z.number().optional(),
   imageUrl: z.string().optional(),
   url: z.string(),
   couponDetected: z.boolean().optional(),
 });
 
 type AmazonSearchResult = z.infer<typeof amazonSearchResultSchema>;
+
+interface AmazonSearchItem {
+  ASIN: string;
+  ItemInfo: {
+    Title: {
+      DisplayValue: string;
+    };
+  };
+  Offers?: {
+    Listings?: Array<{
+      Price?: {
+        Amount: number;
+      };
+      SavingBasis?: {
+        Amount: number;
+      };
+      Promotions?: Array<any>;
+    }>;
+  };
+  Images?: {
+    Primary?: {
+      Small?: {
+        URL: string;
+      };
+    };
+  };
+  DetailPageURL: string;
+}
+
+interface MappedSearchItem {
+  asin: string;
+  title: string;
+  price: number | undefined;
+  originalPrice: number | undefined;
+  imageUrl: string | undefined;
+  url: string;
+  couponDetected: boolean;
+}
 
 // Function to search products by keyword
 async function searchProducts(
@@ -83,40 +122,98 @@ async function searchProducts(
         'Images.Primary.Small',
         'ItemInfo.Title',
         'Offers.Listings.Price',
-        'Offers.Listings.Promotions'
+        'Offers.Listings.Promotions',
+        'Offers.Listings.SavingBasis',
+        'DetailPageURL'
       ],
       ItemCount: limit,
       ItemPage: page,
       SearchIndex: 'All'
     };
 
+    // First attempt to get search results
     const response = await withRateLimit(
       () => fetchSignedAmazonRequest('/paapi5/searchitems', payload),
       { operation: 'SearchItems' }
     );
 
-    const items = response.SearchResult?.Items || [];
+    const items = (response.SearchResult?.Items || []) as AmazonSearchItem[];
     const totalPages = Math.ceil((response.SearchResult?.TotalResultCount || 0) / limit);
     
     if (!items.length) {
       return { items: [], totalPages: 0 };
     }
 
-    // Get detailed price information for each item
-    const asins = items.map((item: any) => item.ASIN);
-    const detailedItems = await getDetailedProductInfo(asins);
-
-    // Map Amazon API response to our schema
-    const mappedItems = detailedItems.map((item: any) => ({
+    // Map the initial search results
+    const mappedItems: MappedSearchItem[] = items.map((item: AmazonSearchItem) => ({
       asin: item.ASIN,
       title: item.ItemInfo.Title.DisplayValue,
       price: item.Offers?.Listings?.[0]?.Price?.Amount,
+      originalPrice: item.Offers?.Listings?.[0]?.SavingBasis?.Amount,
       imageUrl: item.Images?.Primary?.Small?.URL,
       url: item.DetailPageURL,
-      couponDetected: item.Offers?.Listings?.[0]?.Promotions?.length > 0
+      couponDetected: Boolean(item.Offers?.Listings?.[0]?.Promotions?.length)
     }));
 
-    return { items: mappedItems, totalPages };
+    // For items without price, try to get detailed info
+    const itemsNeedingDetails = mappedItems.filter(item => !item.price);
+    if (itemsNeedingDetails.length > 0) {
+      console.log(`Fetching detailed info for ${itemsNeedingDetails.length} items without prices`);
+      
+      const detailedItems = await getDetailedProductInfo(
+        itemsNeedingDetails.map(item => item.asin)
+      );
+
+      // Update items with detailed info
+      for (const detailedItem of detailedItems) {
+        if (!detailedItem) continue;
+        
+        const index = mappedItems.findIndex(item => item.asin === detailedItem.ASIN);
+        if (index !== -1) {
+          const price = detailedItem.Offers?.Listings?.[0]?.Price?.Amount;
+          if (price) {
+            mappedItems[index] = {
+              ...mappedItems[index],
+              price,
+              originalPrice: detailedItem.Offers?.Listings?.[0]?.SavingBasis?.Amount || price,
+              couponDetected: Boolean(detailedItem.Offers?.Listings?.[0]?.Promotions?.length)
+            };
+          }
+        }
+      }
+    }
+
+    // Filter out items without prices and ensure all required fields
+    const validItems = mappedItems
+      .filter((item): item is MappedSearchItem & { price: number } => {
+        return typeof item.price === 'number' && 
+               item.price > 0 &&
+               typeof item.title === 'string' &&
+               typeof item.asin === 'string' &&
+               typeof item.url === 'string';
+      })
+      .map(item => {
+        const result: AmazonSearchResult = {
+          asin: item.asin,
+          title: item.title,
+          price: item.price,
+          url: item.url,
+          originalPrice: item.originalPrice || item.price,
+          imageUrl: item.imageUrl,
+          couponDetected: item.couponDetected
+        };
+        return result;
+      });
+
+    // Cache the results
+    for (const item of validItems) {
+      cache.setProduct(item.asin, item);
+    }
+
+    return { 
+      items: validItems,
+      totalPages: Math.ceil((validItems.length / items.length) * totalPages)
+    };
   } catch (error) {
     console.error('Error searching products from Amazon API:', error);
     
