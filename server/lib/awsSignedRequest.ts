@@ -135,9 +135,16 @@ export async function fetchSignedAmazonRequest(uri: string, payload: any): Promi
     return response.data;
   } catch (error) {
     if (axios.isAxiosError(error) && error.response) {
+      console.log('Amazon API Error Response:', {
+        status: error.response.status,
+        statusText: error.response.statusText,
+        data: error.response.data,
+        headers: error.response.headers
+      });
       const errorMessage = error.response.data?.Errors?.[0]?.Message || 'Error communicating with Amazon API';
       throw new Error(errorMessage);
     }
-    throw error;
+    console.log('Amazon API Network Error:', error.message);
+    throw new Error('Error communicating with Amazon API');
   }
 } 
