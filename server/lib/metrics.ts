@@ -57,6 +57,10 @@ class Metrics {
     this.counts.rateLimited++;
   }
 
+  incrementErrors() {
+    this.counts.errors++;
+  }
+
   // Get basic metrics
   getMetrics(): MetricCounts {
     return { ...this.counts };
