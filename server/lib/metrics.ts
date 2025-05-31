@@ -53,10 +53,6 @@ class Metrics {
     this.counts.cacheMisses++;
   }
 
-  incrementErrors() {
-    this.counts.errors++;
-  }
-
   incrementRateLimited() {
     this.counts.rateLimited++;
   }

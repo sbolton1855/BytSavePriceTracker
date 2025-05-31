@@ -1,4 +1,4 @@
-import LRU from 'lru-cache';
+import { LRUCache } from 'lru-cache';
 import type { AmazonProduct } from '../amazonApi';
 
 // Cache configuration
@@ -9,8 +9,8 @@ const CACHE_OPTIONS = {
 };
 
 // Create separate caches for different types of data
-const productCache = new LRU<string, AmazonProduct>(CACHE_OPTIONS);
-const priceHistoryCache = new LRU<string, PriceHistoryEntry[]>(CACHE_OPTIONS);
+const productCache = new LRUCache<string, AmazonProduct>(CACHE_OPTIONS);
+const priceHistoryCache = new LRUCache<string, PriceHistoryEntry[]>(CACHE_OPTIONS);
 
 // Interface for price history entries
 interface PriceHistoryEntry {

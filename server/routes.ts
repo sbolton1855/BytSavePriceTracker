@@ -1,6 +1,5 @@
 import type { Express, Request, Response } from "express";
 import { createServer, type Server } from "http";
-import crypto from "crypto";
 import { storage } from "./storage";
 import { getProductInfo, searchProducts, extractAsinFromUrl, isValidAsin, addAffiliateTag } from "./amazonApi";
 import { startPriceChecker } from "./priceChecker";
@@ -320,29 +319,18 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(400).json({ error: 'Search query is required' });
       }
 
-      // Use the existing working search function from amazonApi
-      const amazonItems = await searchProducts(q);
-      
-      // Transform Amazon response to our format and add affiliate links
-      const formattedResults = await Promise.all(amazonItems.map(async (item: any) => {
-        const asin = item.ASIN;
-        const title = item.ItemInfo?.Title?.DisplayValue || 'Unknown Title';
-        const imageUrl = item.Images?.Primary?.Medium?.URL || '';
-        const priceAmount = item.Offers?.Listings?.[0]?.Price?.Amount || 0;
-        const price = typeof priceAmount === 'number' ? priceAmount / 100 : 0; // Convert cents to dollars
-        const url = `https://www.amazon.com/dp/${asin}?tag=${AFFILIATE_TAG}&linkCode=ogi&th=1&psc=1`;
-        
+      const results = await searchProducts(q);
+
+      // Format results with affiliate links
+      // Format results with affiliate links, also check if product exists in DB to get ID
+      const formattedResults = await Promise.all(results.map(async result => {
         // Check if product exists in our database to get its ID
-        const existingProduct = await storage.getProductByAsin(asin);
+        const existingProduct = await storage.getProductByAsin(result.asin);
 
         return {
-          asin,
-          title,
-          imageUrl,
-          price,
-          url,
+          ...result,
           id: existingProduct?.id, // Include ID if product exists in DB
-          affiliateUrl: url,
+          affiliateUrl: addAffiliateTag(result.url, AFFILIATE_TAG),
         };
       }));
 
