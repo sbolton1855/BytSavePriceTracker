@@ -205,7 +205,7 @@ export default function ProductSearch({
           <div className="relative">
             <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
             <Input
-              placeholder="Search for products by name (min 3 characters)..."
+              placeholder="Search for products by name..."
               className="pl-8"
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
@@ -217,13 +217,6 @@ export default function ProductSearch({
           <div className="flex items-center justify-center py-4">
             <Loader2 className="h-6 w-6 animate-spin text-primary mr-2" />
             <span>Searching...</span>
-          </div>
-        )}
-
-        {searchQuery.length >= 3 && !isSearching && searchResults && searchResults.length === 0 && (
-          <div className="text-center py-4 text-gray-500">
-            <p>No products found for "{searchQuery}"</p>
-            <p className="text-sm">Try different keywords or check the spelling</p>
           </div>
         )}
 
