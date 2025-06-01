@@ -23,12 +23,11 @@ function signRequest(
   // Step 1: Create canonical request
   const canonicalHeaders = 
     'content-encoding:amz-1.0\n' +
-    'content-type:application/json; charset=utf-8\n' +
     'host:' + HOST + '\n' +
     'x-amz-date:' + timestamp + '\n' +
     `x-amz-target:${target}\n`;
     
-  const signedHeaders = 'content-encoding;content-type;host;x-amz-date;x-amz-target';
+  const signedHeaders = 'content-encoding;host;x-amz-date;x-amz-target';
   
   const payloadHash = crypto
     .createHash('sha256')
@@ -121,8 +120,9 @@ export async function fetchSignedAmazonRequest(uri: string, payload: any): Promi
       method: 'post',
       url: `https://${HOST}${uri}`,
       headers: {
-        'Content-Type': 'application/json; charset=utf-8',
+        'Accept': 'application/json, text/javascript',
         'Content-Encoding': 'amz-1.0',
+        'Content-Type': 'application/json',
         'X-Amz-Target': target,
         'X-Amz-Date': signature['x-amz-date'],
         'Authorization': signature.authorization,
@@ -135,6 +135,11 @@ export async function fetchSignedAmazonRequest(uri: string, payload: any): Promi
     return response.data;
   } catch (error) {
     if (axios.isAxiosError(error) && error.response) {
+      console.error('Amazon API Error:', {
+        status: error.response.status,
+        data: error.response.data,
+        headers: error.response.headers
+      });
       const errorMessage = error.response.data?.Errors?.[0]?.Message || 'Error communicating with Amazon API';
       throw new Error(errorMessage);
     }
