@@ -10,10 +10,23 @@ app.use(express.urlencoded({ extended: false }));
 // Configure authentication with OAuth providers
 configureAuth(app);
 
+// Enhanced logging middleware for debugging API failures
 app.use((req, res, next) => {
   const start = Date.now();
   const path = req.path;
   let capturedJsonResponse: Record<string, any> | undefined = undefined;
+  let capturedError: any = undefined;
+
+  // Log incoming API requests
+  if (path.startsWith("/api")) {
+    console.log(`\n🌐 [REQUEST] ${req.method} ${path}`);
+    if (Object.keys(req.query).length > 0) {
+      console.log("[REQUEST] Query params:", req.query);
+    }
+    if (req.method === "POST" || req.method === "PUT" || req.method === "PATCH") {
+      console.log("[REQUEST] Body:", JSON.stringify(req.body, null, 2));
+    }
+  }
 
   const originalResJson = res.json;
   res.json = function (bodyJson, ...args) {
@@ -21,19 +34,32 @@ app.use((req, res, next) => {
     return originalResJson.apply(res, [bodyJson, ...args]);
   };
 
+  // Capture errors
+  const originalResStatus = res.status;
+  res.status = function (code) {
+    if (code >= 400) {
+      console.error(`[RESPONSE] Error status ${code} for ${req.method} ${path}`);
+    }
+    return originalResStatus.apply(res, [code]);
+  };
+
   res.on("finish", () => {
     const duration = Date.now() - start;
     if (path.startsWith("/api")) {
-      let logLine = `${req.method} ${path} ${res.statusCode} in ${duration}ms`;
-      if (capturedJsonResponse) {
-        logLine += ` :: ${JSON.stringify(capturedJsonResponse)}`;
+      let logLine = `[RESPONSE] ${req.method} ${path} ${res.statusCode} in ${duration}ms`;
+      
+      // Add error details for failed requests
+      if (res.statusCode >= 400) {
+        console.error(`❌ ${logLine}`);
+        if (capturedJsonResponse) {
+          console.error("[RESPONSE] Error details:", JSON.stringify(capturedJsonResponse, null, 2));
+        }
+      } else {
+        console.log(`✅ ${logLine}`);
+        if (capturedJsonResponse && process.env.LOG_LEVEL === 'debug') {
+          console.log("[RESPONSE] Success data:", JSON.stringify(capturedJsonResponse, null, 2).slice(0, 200) + "...");
+        }
       }
-
-      if (logLine.length > 80) {
-        logLine = logLine.slice(0, 79) + "…";
-      }
-
-      log(logLine);
     }
   });
 

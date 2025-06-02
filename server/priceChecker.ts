@@ -1,6 +1,6 @@
 import { storage } from './storage';
 import { sendPriceDropAlert } from './emailService';
-import { getProductInfo, searchProducts } from './amazonApi';
+import { getProductInfoSafe, searchProducts } from './amazonApi';
 import type { Product } from '@shared/schema';
 import { intelligentlyAddPriceHistory } from './routes';
 
@@ -8,14 +8,38 @@ import { intelligentlyAddPriceHistory } from './routes';
 // 1 hour in production, shorter for development
 const CHECK_INTERVAL = 1 * 60 * 60 * 1000; // Check every hour
 
+// Track API failures to prevent spamming
+let consecutiveApiFailures = 0;
+const MAX_CONSECUTIVE_FAILURES = 5;
+
 // Function to update a product's price
 async function updateProductPrice(product: Product): Promise<Product | undefined> {
   try {
+    // Skip if we've had too many consecutive failures
+    if (consecutiveApiFailures >= MAX_CONSECUTIVE_FAILURES) {
+      console.warn(`Skipping price update for ${product.asin} - API appears to be down`);
+      return await storage.updateProduct(product.id, {
+        lastChecked: new Date()
+      });
+    }
+
     console.log(`Attempting to update price for product ${product.asin} (${product.title})`);
     console.log(`Current stored price: $${product.currentPrice}, Original: $${product.originalPrice}`);
     
     // Fetch latest product info from Amazon API
-    const latestInfo = await getProductInfo(product.asin);
+    const latestInfo = await getProductInfoSafe(product.asin);
+    
+    // If no valid data returned, update lastChecked and return
+    if (!latestInfo) {
+      consecutiveApiFailures++;
+      console.warn(`No valid data returned for ${product.asin}, skipping update (failure ${consecutiveApiFailures}/${MAX_CONSECUTIVE_FAILURES})`);
+      return await storage.updateProduct(product.id, {
+        lastChecked: new Date()
+      });
+    }
+    
+    // Reset failure counter on success
+    consecutiveApiFailures = 0;
     
     // Log the received price information
     console.log(`Received new price data for ${product.asin}:`, {
@@ -287,10 +311,10 @@ async function discoverNewProducts(): Promise<void> {
       // Search for products - increased limit for more products
       console.log(`Searching for: ${term}`);
       const searchLimit = process.env.NODE_ENV === 'production' ? 10 : 5;
-      const results = await searchProducts(term, searchLimit);
+      const results = await searchProducts(term);
       
       // Add each product to database if not exists
-      for (const result of results) {
+      for (const result of results.items) {
         try {
           if (!result.price) {
             console.log(`Skipping product without price: ${result.title}`);

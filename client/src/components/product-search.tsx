@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/hooks/use-auth";
@@ -6,6 +6,8 @@ import { Loader2, Search, ChevronRight } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import React from "react";
+
 import {
   Card,
   CardContent,
@@ -13,18 +15,30 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
+import { useDebounce } from 'use-debounce';
+
+interface SearchProduct {
+  asin: string;
+  title: string;
+  price: number | null;
+  imageUrl?: string;
+  url: string;
+  couponDetected?: boolean;
+}
 
 export default function ProductSearch({
   onSuccess
 }: {
-  onSuccess?: () => void
+  onSuccess?: (email: string) => void
 }) {
   const { toast } = useToast();
   const { user } = useAuth();
   const queryClient = useQueryClient();
   const [searchQuery, setSearchQuery] = useState("");
+  const [debouncedQuery] = useDebounce(searchQuery, 500); // 500ms debounce
   const [selectedProduct, setSelectedProduct] = useState<any>(null);
   const [targetPrice, setTargetPrice] = useState("");
+  const [targetPriceError, setTargetPriceError] = useState("");
   const [email, setEmail] = useState(() => {
     // Initialize email from localStorage for consistent tracking
     return localStorage.getItem("bytsave_user_email") || "";
@@ -32,22 +46,32 @@ export default function ProductSearch({
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   // Search products query
-  const { data: searchResults, isLoading: isSearching } = useQuery({
-    queryKey: ["/api/search", searchQuery],
+  const { data: searchResults, isLoading: isSearching } = useQuery<SearchProduct[]>({
+    queryKey: ["/api/search", debouncedQuery],
     queryFn: async () => {
-      if (!searchQuery || searchQuery.length < 3) return [];
-      const res = await fetch(`/api/search?q=${encodeURIComponent(searchQuery)}`);
-      if (!res.ok) throw new Error("Search failed");
-      return res.json();
+      if (!debouncedQuery || debouncedQuery.length < 3) return [];
+      const res = await fetch(`/api/search?q=${encodeURIComponent(debouncedQuery)}`);
+      if (!res.ok) {
+        const error = await res.text();
+        throw new Error(error || "Search failed");
+      }
+      const data = await res.json();
+      return data.items || [];
     },
-    enabled: searchQuery.length >= 3
+    enabled: debouncedQuery.length >= 3
   });
 
+  useEffect(() => {
+    if (selectedProduct?.price) {
+      setTargetPrice(String(selectedProduct.price));
+    }
+  }, [selectedProduct]);
+
   const handleTrackSubmit = async () => {
-    if (!selectedProduct || !targetPrice) {
+    if (!selectedProduct || !targetPrice || isNaN(+targetPrice) || +targetPrice <= 0) {
       toast({
-        title: "Missing information",
-        description: "Please select a product and set a target price",
+        title: "Invalid Target Price",
+        description: "Enter a valid number greater than 0",
         variant: "destructive"
       });
       return;
@@ -309,12 +333,30 @@ export default function ProductSearch({
                 min="0.01"
                 placeholder="Enter your target price"
                 value={targetPrice}
-                onChange={(e) => setTargetPrice(e.target.value)}
-                className="focus:border-primary focus:ring-primary"
+                onChange={(e) => {
+                  const value = e.target.value;
+                  setTargetPrice(value);
+                  
+                  // Validate the input
+                  if (!value) {
+                    setTargetPriceError("Please enter a target price");
+                  } else if (parseFloat(value) <= 0) {
+                    setTargetPriceError("Price must be greater than 0");
+                  } else if (selectedProduct && parseFloat(value) >= selectedProduct.price) {
+                    setTargetPriceError("Target price should be lower than current price");
+                  } else {
+                    setTargetPriceError("");
+                  }
+                }}
+                className={`focus:border-primary focus:ring-primary ${targetPriceError ? 'border-red-500' : ''}`}
               />
-              <p className="text-xs text-muted-foreground">
-                We'll notify you when the price falls below this amount
-              </p>
+              {targetPriceError ? (
+                <p className="text-xs text-red-500">{targetPriceError}</p>
+              ) : (
+                <p className="text-xs text-muted-foreground">
+                  We'll notify you when the price falls below this amount
+                </p>
+              )}
             </div>
             
             {!user && (

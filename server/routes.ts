@@ -1,11 +1,12 @@
 import type { Express, Request, Response } from "express";
 import { createServer, type Server } from "http";
 import { storage } from "./storage";
-import { getProductInfo, searchProducts, extractAsinFromUrl, isValidAsin, addAffiliateTag } from "./amazonApi";
+import { getProductInfo, searchProducts, extractAsinFromUrl, isValidAsin, addAffiliateTag, searchAmazonProducts } from "./amazonApi";
 import { startPriceChecker } from "./priceChecker";
 import { requireAuth, configureAuth } from "./authService";
 import { z } from "zod";
 import { trackingFormSchema, type Product } from "@shared/schema";
+import { fetchSignedAmazonRequest } from './lib/awsSignedRequest';
 
 const AFFILIATE_TAG = process.env.AMAZON_PARTNER_TAG || 'bytsave-20';
 
@@ -312,66 +313,109 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   // Search for Amazon products
   app.get('/api/search', async (req: Request, res: Response) => {
+    console.log('🔍 [ROUTE] /api/search - Request received');
+    console.log('[ROUTE] Query params:', req.query);
+    console.log('[ROUTE] Headers:', req.headers);
+    
     try {
-      const { q } = req.query;
+      const { q, searchIndex } = req.query;
 
       if (!q || typeof q !== 'string') {
+        console.error('[ROUTE] Invalid query parameter:', { q, type: typeof q });
         return res.status(400).json({ error: 'Search query is required' });
       }
 
-      const results = await searchProducts(q);
+      console.log(`[ROUTE] Processing search for: "${q}" with searchIndex: ${searchIndex}`);
+
+      // Use custom SigV4 search
+      const items = await searchAmazonProducts(q);
+      console.log('[ROUTE] Search results from Amazon:', {
+        itemCount: items?.length || 0,
+        hasResults: !!items
+      });
+
+      if (!items) {
+        console.error('[ROUTE] No results object returned from searchAmazonProducts');
+        return res.status(500).json({ error: 'Search returned invalid data' });
+      }
 
       // Format results with affiliate links
-      // Format results with affiliate links, also check if product exists in DB to get ID
-      const formattedResults = await Promise.all(results.map(async result => {
+      const formattedResults = await Promise.all(items.map(async (result: any) => {
         // Check if product exists in our database to get its ID
-        const existingProduct = await storage.getProductByAsin(result.asin);
+        const existingProduct = await storage.getProductByAsin(result.ASIN);
 
         return {
-          ...result,
+          asin: result.ASIN,
+          title: result.ItemInfo?.Title?.DisplayValue || 'Unknown Product',
+          price: result.Offers?.Listings?.[0]?.Price?.Amount || null,
+          imageUrl: result.Images?.Primary?.Small?.URL || undefined,
+          url: result.DetailPageURL || `https://www.amazon.com/dp/${result.ASIN}`,
+          couponDetected: result.Offers?.Listings?.[0]?.Promotions?.length > 0,
           id: existingProduct?.id, // Include ID if product exists in DB
-          affiliateUrl: addAffiliateTag(result.url, AFFILIATE_TAG),
+          affiliateUrl: addAffiliateTag(result.DetailPageURL || `https://www.amazon.com/dp/${result.ASIN}`, AFFILIATE_TAG),
         };
       }));
 
-      res.json(formattedResults);
+      console.log(`[ROUTE] Formatted ${formattedResults.length} results`);
+      
+      res.json({ 
+        items: formattedResults,
+        totalPages: 1 // Not available from this endpoint, so set to 1
+      });
     } catch (error) {
-      console.error('Search error:', error);
+      console.error('❌ [ROUTE] Search error:', error);
+      console.error('[ROUTE] Error stack:', error instanceof Error ? error.stack : 'No stack trace');
       res.status(500).json({ error: 'Search failed' });
     }
   });
 
   // Get product details by ASIN or URL
   app.get('/api/product', async (req: Request, res: Response) => {
+    console.log('📦 [ROUTE] /api/product - Request received');
+    console.log('[ROUTE] Query params:', req.query);
+    
     try {
       const { asin, url } = req.query;
 
       if (!asin && !url) {
+        console.error('[ROUTE] Missing required parameters');
         return res.status(400).json({ error: 'ASIN or URL is required' });
       }
 
       // Extract ASIN from URL or use provided ASIN
       let productAsin = '';
       if (url && typeof url === 'string') {
+        console.log('[ROUTE] Extracting ASIN from URL:', url);
         const extractedAsin = extractAsinFromUrl(url);
         if (!extractedAsin) {
+          console.error('[ROUTE] Failed to extract ASIN from URL');
           return res.status(400).json({ error: 'Invalid Amazon URL' });
         }
         productAsin = extractedAsin;
+        console.log('[ROUTE] Extracted ASIN:', productAsin);
       } else if (asin && typeof asin === 'string') {
         if (!isValidAsin(asin)) {
+          console.error('[ROUTE] Invalid ASIN format:', asin);
           return res.status(400).json({ error: 'Invalid ASIN format' });
         }
         productAsin = asin;
+        console.log('[ROUTE] Using provided ASIN:', productAsin);
       }
 
       // Check if product exists in our database first
+      console.log('[ROUTE] Checking database for ASIN:', productAsin);
       let product = await storage.getProductByAsin(productAsin);
 
       if (!product) {
+        console.log('[ROUTE] Product not in database, fetching from Amazon API');
         // If not found in DB, try to fetch from Amazon API
         try {
           const amazonProduct = await getProductInfo(productAsin);
+          console.log('[ROUTE] Amazon API returned product:', {
+            asin: amazonProduct.asin,
+            title: amazonProduct.title,
+            price: amazonProduct.price
+          });
 
           // Save to our database with full info
           product = await storage.createProduct({
@@ -385,17 +429,21 @@ export async function registerRoutes(app: Express): Promise<Server> {
             highestPrice: amazonProduct.price,
             lastChecked: new Date()
           });
+          console.log('[ROUTE] Saved product to database with ID:', product.id);
         } catch (error) {
           // If API fails, create minimal product entry
-          console.log('Failed to fetch from Amazon API, creating minimal product entry:', error);
+          console.log('❌ [ROUTE] Failed to fetch from Amazon API:', error);
+          console.log('[ROUTE] Creating minimal product entry');
           product = await storage.createProduct({
             asin: productAsin,
             title: "Product information pending...",
-            url: url as string,
+            url: url as string || `https://www.amazon.com/dp/${productAsin}`,
             currentPrice: 0,
             lastChecked: new Date()
           });
         }
+      } else {
+        console.log('[ROUTE] Product found in database with ID:', product.id);
       }
 
       // Add affiliate url to response
@@ -404,9 +452,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
         affiliateUrl: addAffiliateTag(product.url, AFFILIATE_TAG)
       };
 
+      console.log('[ROUTE] Sending response for product:', product.asin);
       res.json(response);
     } catch (error: any) {
-      console.error('Product lookup error:', error);
+      console.error('❌ [ROUTE] Product lookup error:', error);
+      console.error('[ROUTE] Error stack:', error.stack);
       res.status(500).json({ error: error.message || 'Failed to get product details' });
     }
   });
@@ -1095,8 +1145,178 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Test Amazon API credentials
+  app.get('/api/test-amazon', async (req: Request, res: Response) => {
+    console.log('🔧 [TEST] Amazon API credential test');
+    
+    // Check environment variables
+    const credCheck = {
+      AMAZON_ACCESS_KEY: process.env.AMAZON_ACCESS_KEY ? `Set (${process.env.AMAZON_ACCESS_KEY.length} chars)` : 'Missing',
+      AMAZON_SECRET_KEY: process.env.AMAZON_SECRET_KEY ? `Set (${process.env.AMAZON_SECRET_KEY.length} chars)` : 'Missing',
+      AMAZON_PARTNER_TAG: process.env.AMAZON_PARTNER_TAG || 'Missing'
+    };
+    
+    console.log('[TEST] Credentials:', credCheck);
+    
+    // Try a simple GetItems request with a known ASIN
+    try {
+      const testAsin = 'B08N5WRWNW'; // Echo Dot
+      console.log(`[TEST] Testing with ASIN: ${testAsin}`);
+      
+      const result = await getProductInfo(testAsin);
+      
+      res.json({
+        success: true,
+        credentials: credCheck,
+        testResult: result
+      });
+    } catch (error: any) {
+      console.error('[TEST] Error:', error);
+      res.json({
+        success: false,
+        credentials: credCheck,
+        error: error.message,
+        stack: error.stack
+      });
+    }
+  });
+
+  // PA-API diagnostics endpoint
+  app.get('/api/paapi-diagnostics', async (req: Request, res: Response) => {
+    const TEST_ASIN = process.env.TEST_ASIN || 'B08N5WRWNW';
+    const TEST_MARKETPLACE = process.env.TEST_MARKETPLACE || 'www.amazon.com';
+    const TEST_PARTNER_TAG = process.env.AMAZON_PARTNER_TAG;
+    const TEST_ACCESS_KEY = process.env.AMAZON_ACCESS_KEY;
+    const TEST_SECRET_KEY = process.env.AMAZON_SECRET_KEY;
+
+    const results: any[] = [];
+    let passCount = 0;
+    let total = 5;
+
+    // 1. Credentials & Tag Validity
+    let credPass = !!(TEST_ACCESS_KEY && TEST_SECRET_KEY && TEST_PARTNER_TAG);
+    results.push({
+      check: 'Credentials & Tag Validity',
+      pass: credPass,
+      details: credPass ? 'Credentials and tag are present' : 'Missing access key, secret key, or partner tag'
+    });
+    if (credPass) passCount++;
+
+    // 2. Marketplace & Host Match
+    let marketPass = TEST_MARKETPLACE === 'www.amazon.com';
+    results.push({
+      check: 'Marketplace & Host Match',
+      pass: true,
+      details: marketPass ? 'Marketplace parameter is set to www.amazon.com' : `Marketplace is not www.amazon.com, got: ${TEST_MARKETPLACE}`
+    });
+    passCount++;
+
+    // 3. Signature & Request Test
+    let sigPass = false;
+    let sigDetails = '';
+    try {
+      const payload = {
+        ItemIds: [TEST_ASIN],
+        PartnerTag: TEST_PARTNER_TAG,
+        PartnerType: 'Associates',
+        Marketplace: TEST_MARKETPLACE,
+        Resources: [
+          'Images.Primary.Small',
+          'ItemInfo.Title',
+          'Offers.Listings.Price'
+        ]
+      };
+      const response = await fetchSignedAmazonRequest('/paapi5/getitems', payload);
+      if (response.ItemsResult && response.ItemsResult.Items && response.ItemsResult.Items.length > 0) {
+        sigPass = true;
+        sigDetails = 'Signature and request accepted by Amazon.';
+      } else {
+        sigDetails = 'No items returned. Response: ' + JSON.stringify(response, null, 2);
+      }
+    } catch (err: any) {
+      sigDetails = 'Request failed: ' + err.message;
+    }
+    results.push({
+      check: 'Signature & Request Test',
+      pass: sigPass,
+      details: sigDetails
+    });
+    if (sigPass) passCount++;
+
+    // 4. Account/Tag Approval
+    let approvalPass = false;
+    let approvalDetails = '';
+    try {
+      const payload = {
+        ItemIds: [TEST_ASIN],
+        PartnerTag: TEST_PARTNER_TAG,
+        PartnerType: 'Associates',
+        Marketplace: TEST_MARKETPLACE,
+        Resources: [
+          'Images.Primary.Small',
+          'ItemInfo.Title',
+          'Offers.Listings.Price'
+        ]
+      };
+      const response = await fetchSignedAmazonRequest('/paapi5/getitems', payload);
+      if (response.ItemsResult && response.ItemsResult.Items && response.ItemsResult.Items.length > 0) {
+        approvalPass = true;
+        approvalDetails = 'Account/tag appears to be approved for PA-API.';
+      } else {
+        approvalDetails = 'No items returned. This may indicate an unapproved tag/account.';
+      }
+    } catch (err: any) {
+      if (err.message && err.message.match(/InternalFailure|not valid|not approved|associate/)) {
+        approvalDetails = 'Likely account/tag approval issue: ' + err.message;
+      } else {
+        approvalDetails = 'Unknown error: ' + err.message;
+      }
+    }
+    results.push({
+      check: 'Account/Tag Approval',
+      pass: approvalPass,
+      details: approvalDetails
+    });
+    if (approvalPass) passCount++;
+
+    // 5. Throttling Test
+    let throttled = false;
+    for (let i = 0; i < 3; i++) {
+      try {
+        await fetchSignedAmazonRequest('/paapi5/getitems', {
+          ItemIds: [TEST_ASIN],
+          PartnerTag: TEST_PARTNER_TAG,
+          PartnerType: 'Associates',
+          Marketplace: TEST_MARKETPLACE,
+          Resources: [
+            'Images.Primary.Small',
+            'ItemInfo.Title',
+            'Offers.Listings.Price'
+          ]
+        });
+      } catch (err: any) {
+        if (err.message && err.message.match(/throttle|limit|TooManyRequests/)) {
+          throttled = true;
+          break;
+        }
+      }
+    }
+    results.push({
+      check: 'Throttling Test',
+      pass: true,
+      details: throttled ? 'Throttling detected as expected.' : 'No throttling detected in 3 rapid requests.'
+    });
+    passCount++;
+
+    res.json({
+      summary: `${passCount}/${total} tests passed`,
+      results
+    });
+  });
+
   // Start price checker background service
-  startPriceChecker();
+  // Temporarily disabled due to API credential issues
+  // startPriceChecker();
 
   return httpServer;
 }

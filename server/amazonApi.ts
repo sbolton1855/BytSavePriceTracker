@@ -1,3 +1,6 @@
+// @ts-ignore
+// const { Paapi } = require('paapi5-nodejs-sdk');
+
 import { z } from 'zod';
 import { fetchSignedAmazonRequest } from './lib/awsSignedRequest';
 import { logApiError } from './errorController';
@@ -5,10 +8,38 @@ import type { ApiErrorType } from './errorController';
 import { withRateLimit, batchWithRateLimit } from './lib/rateLimiter';
 import { cache } from './lib/cache';
 import { metrics } from './lib/metrics';
+import axios from 'axios';
+import * as crypto from 'crypto';
 
 // Amazon API configuration
 const PARTNER_TAG = process.env.AMAZON_PARTNER_TAG || 'bytsave-20';
 const MARKETPLACE = 'www.amazon.com';
+
+let paapiInstance: any = null;
+async function getPaapi() {
+  if (!paapiInstance) {
+    const paapiModule = await import('paapi5-nodejs-sdk');
+    const { DefaultApi, ApiClient } = paapiModule.default;
+
+    if (typeof DefaultApi !== 'function' || typeof ApiClient !== 'function') {
+      throw new Error('Could not load DefaultApi or ApiClient from paapi5-nodejs-sdk');
+    }
+
+    // Instantiate ApiClient and set credentials directly on the instance
+    const apiClient = new ApiClient();
+    apiClient.basePath = 'https://webservices.amazon.com/paapi5';
+    apiClient.accessKey = process.env.AMAZON_ACCESS_KEY!;
+    apiClient.secretKey = process.env.AMAZON_SECRET_KEY!;
+    apiClient.region = 'us-east-1'; // or your region
+
+    // partnerTag is usually passed in the request, not on the client, but you can set it if needed
+    // apiClient.partnerTag = process.env.AMAZON_PARTNER_TAG || 'bytsave-20';
+
+    // Instantiate DefaultApi with the configured ApiClient
+    paapiInstance = new DefaultApi(apiClient);
+  }
+  return paapiInstance;
+}
 
 // This URL parsing utility helps extract ASINs from Amazon URLs
 function extractAsinFromUrl(url: string): string | null {
@@ -62,71 +93,6 @@ const amazonSearchResultSchema = z.object({
 
 type AmazonSearchResult = z.infer<typeof amazonSearchResultSchema>;
 
-// Function to search products by keyword
-async function searchProducts(
-  keyword: string,
-  limit: number = 10,
-  page: number = 1
-): Promise<{ items: AmazonSearchResult[]; totalPages: number }> {
-  if (!keyword || keyword.trim().length < 3) {
-    throw new Error('Search term must be at least 3 characters long');
-  }
-
-  try {
-    const payload = {
-      Keywords: keyword,
-      PartnerTag: PARTNER_TAG,
-      PartnerType: 'Associates',
-      Marketplace: MARKETPLACE,
-      Resources: [
-        'Images.Primary.Small',
-        'ItemInfo.Title',
-        'Offers.Listings.Price',
-        'Offers.Listings.Promotions'
-      ],
-      ItemCount: limit,
-      ItemPage: page,
-      SearchIndex: 'All'
-    };
-
-    const response = await withRateLimit(
-      () => fetchSignedAmazonRequest('/paapi5/searchitems', payload),
-      { operation: 'SearchItems' }
-    );
-
-    const items = response.SearchResult?.Items || [];
-    const totalPages = Math.ceil((response.SearchResult?.TotalResultCount || 0) / limit);
-    
-    if (!items.length) {
-      return { items: [], totalPages: 0 };
-    }
-
-    // Get detailed price information for each item
-    const asins = items.map((item: any) => item.ASIN);
-    const detailedItems = await getDetailedProductInfo(asins);
-
-    // Map Amazon API response to our schema
-    const mappedItems = detailedItems.map((item: any) => ({
-      asin: item.ASIN,
-      title: item.ItemInfo.Title.DisplayValue,
-      price: item.Offers?.Listings?.[0]?.Price?.Amount,
-      imageUrl: item.Images?.Primary?.Small?.URL,
-      url: item.DetailPageURL,
-      couponDetected: item.Offers?.Listings?.[0]?.Promotions?.length > 0
-    }));
-
-    return { items: mappedItems, totalPages };
-  } catch (error) {
-    console.error('Error searching products from Amazon API:', error);
-    
-    if (error instanceof Error) {
-      throw new Error('Failed to search products from Amazon: ' + error.message);
-    }
-    
-    throw new Error('Failed to search products from Amazon: Unknown error');
-  }
-}
-
 // Function to get detailed product information for multiple ASINs
 async function getDetailedProductInfo(asins: string[]): Promise<any[]> {
   // Check cache first
@@ -146,13 +112,11 @@ async function getDetailedProductInfo(asins: string[]): Promise<any[]> {
     return cachedProducts;
   }
 
-  // Fetch uncached products
-  const operations = uncachedAsins.map(asin => async () => {
-    const payload = {
-      ItemIds: [asin],
-      PartnerTag: PARTNER_TAG,
-      PartnerType: 'Associates',
-      Marketplace: MARKETPLACE,
+  // Fetch uncached products using paapi5-nodejs-sdk
+  let fetchedProducts: any[] = [];
+  try {
+    const paapi = await getPaapi();
+    const response = await paapi.getItems(uncachedAsins, {
       Resources: [
         'Images.Primary.Medium',
         'ItemInfo.Title',
@@ -162,27 +126,18 @@ async function getDetailedProductInfo(asins: string[]): Promise<any[]> {
         'Offers.Listings.Condition',
         'Offers.Listings.Promotions'
       ]
-    };
-
-    const response = await fetchSignedAmazonRequest('/paapi5/getitems', payload);
-    const item = response.ItemsResult?.Items?.[0];
-
-    if (!item?.Offers?.Listings?.length) {
-      console.warn("ASIN returned no offers", { asin });
-      return null;
-    }
-
-    return item;
-  });
-
-  const fetchedProducts = await batchWithRateLimit(operations, { operation: 'GetItems' });
+    });
+    fetchedProducts = response.ItemsResult?.Items || [];
+  } catch (err) {
+    console.error('PAAPI5 getItems error:', err);
+  }
   
   // Cache the fetched products
   fetchedProducts.forEach(product => {
     if (product) {
       const mappedProduct = {
         asin: product.ASIN,
-        title: product.ItemInfo.Title.DisplayValue,
+        title: product.ItemInfo?.Title?.DisplayValue,
         price: product.Offers?.Listings?.[0]?.Price?.Amount,
         originalPrice: product.Offers?.Listings?.[0]?.SavingBasis?.Amount,
         imageUrl: product.Images?.Primary?.Medium?.URL,
@@ -244,16 +199,23 @@ async function getProductInfo(asinOrUrl: string): Promise<AmazonProduct> {
       return cachedProduct;
     }
 
-    // Get detailed product information
-    const items = await getDetailedProductInfo([asin]);
+    // Use paapi5-nodejs-sdk
+    const paapi = await getPaapi();
+    const response = await paapi.getItems([asin], {
+      Resources: [
+        'Images.Primary.Medium',
+        'ItemInfo.Title',
+        'Offers.Listings.Price',
+        'Offers.Listings.SavingBasis',
+        'Offers.Listings.MerchantInfo',
+        'Offers.Listings.Condition',
+        'Offers.Listings.Promotions'
+      ]
+    });
+    const item = response.ItemsResult?.Items?.[0];
     
-    if (!items.length) {
+    if (!item) {
       throw new Error(`No product data found for ASIN: ${asin}`);
-    }
-
-    const item = items[0];
-    if (!item.ASIN) {
-      throw new Error(`Missing ASIN in product data for: ${asin}`);
     }
 
     // Extract data with fallbacks for missing information
@@ -340,13 +302,8 @@ async function getProductInfo(asinOrUrl: string): Promise<AmazonProduct> {
 
     return product;
   } catch (error) {
-    console.error('Error fetching product from Amazon API:', error);
-    
-    if (error instanceof Error) {
-      throw new Error('Failed to fetch product information from Amazon: ' + error.message);
-    }
-    
-    throw new Error('Failed to fetch product information from Amazon: Unknown error');
+    console.error('Error fetching product from PAAPI5:', error);
+    throw new Error('Failed to fetch product information from Amazon: ' + (error instanceof Error ? error.message : 'Unknown error'));
   }
 }
 
@@ -360,9 +317,132 @@ function addAffiliateTag(url: string, tag: string = PARTNER_TAG): string {
   return `${url}${separator}tag=${tag}`;
 }
 
+export async function getProductInfoSafe(asin: string) {
+  try {
+    const data = await getProductInfo(asin);
+    if (!data || !data.asin) {
+      console.warn(`❌ ASIN ${asin} returned no valid product data.`);
+      return null;
+    }
+    return data;
+  } catch (error) {
+    console.error(`🚫 Failed to fetch ASIN ${asin}: ${error instanceof Error ? error.message : 'Unknown error'}`);
+    return null;
+  }
+}
+
+export async function searchProducts(query: string, searchIndex?: string): Promise<{ items: AmazonSearchResult[]; totalPages: number }> {
+  console.log('[DEBUG] About to call paapi.searchItems');
+  try {
+    const paapi = await getPaapi();
+    const response = await paapi.searchItems({
+      Keywords: query || 'MISSING_KEYWORDS',
+      SearchIndex: searchIndex || 'HealthPersonalCare',
+      Resources: [
+        'Images.Primary.Small',
+        'ItemInfo.Title',
+        'Offers.Listings.Price'
+      ]
+    });
+    console.log('[DEBUG] paapi.searchItems response:', response);
+    const items = response.SearchResult?.Items || [];
+    const totalPages = Math.ceil((response.SearchResult?.TotalResultCount || 0) / 10);
+    const mappedItems: AmazonSearchResult[] = items.map((item: any) => ({
+      asin: item.ASIN,
+      title: item.ItemInfo?.Title?.DisplayValue || 'Unknown Product',
+      price: item.Offers?.Listings?.[0]?.Price?.Amount || null,
+      imageUrl: item.Images?.Primary?.Small?.URL || undefined,
+      url: item.DetailPageURL || `https://www.amazon.com/dp/${item.ASIN}`,
+      couponDetected: item.Offers?.Listings?.[0]?.Promotions?.length > 0
+    }));
+    return { items: mappedItems, totalPages };
+  } catch (err) {
+    console.error('[PAAPI5] searchProducts error:', err);
+    return { items: [], totalPages: 0 };
+  }
+}
+
+// --- Custom SigV4 Amazon PA-API Search (user's code, with date logic preserved) ---
+const accessKey = process.env.AMAZON_ACCESS_KEY!;
+const secretKey = process.env.AMAZON_SECRET_KEY!;
+const partnerTag = process.env.AMAZON_PARTNER_TAG!;
+const host = 'webservices.amazon.com';
+const region = 'us-east-1';
+const path = '/paapi5/searchitems';
+const service = 'ProductAdvertisingAPI';
+
+export async function searchAmazonProducts(keyword: string) {
+  const payload = {
+    Keywords: keyword,
+    Marketplace: 'www.amazon.com',
+    PartnerTag: partnerTag,
+    PartnerType: 'Associates',
+    SearchIndex: 'All',
+    Resources: ['Images.Primary.Small', 'ItemInfo.Title', 'Offers.Listings.Price']
+  };
+
+  const payloadJson = JSON.stringify(payload);
+  const payloadHash = crypto.createHash('sha256').update(payloadJson, 'utf8').digest('hex');
+  // --- Keep the user's date code logic ---
+  const amzDate = new Date().toISOString().replace(/[:-]|\.\d{3}/g, '');
+
+  const headersToSign: Record<string, string> = {
+    'content-encoding': 'amz-1.0',
+    'content-type': 'application/json; charset=utf-8',
+    'host': host,
+    'x-amz-date': amzDate,
+    'x-amz-target': 'com.amazon.paapi5.v1.ProductAdvertisingAPIv1.SearchItems',
+  };
+
+  const sortedHeaderNames = Object.keys(headersToSign).sort();
+  const canonicalHeaders = sortedHeaderNames.map(name => `${name}:${headersToSign[name]}`).join('\n') + '\n';
+  const signedHeaders = sortedHeaderNames.join(';');
+
+  const canonicalRequest = [
+    'POST',
+    path,
+    '',
+    canonicalHeaders,
+    signedHeaders,
+    payloadHash
+  ].join('\n');
+
+  const dateStamp = amzDate.slice(0, 8);
+  const credentialScope = `${dateStamp}/${region}/${service}/aws4_request`;
+  const canonicalRequestHash = crypto.createHash('sha256').update(canonicalRequest).digest('hex');
+  const stringToSign = [
+    'AWS4-HMAC-SHA256',
+    amzDate,
+    credentialScope,
+    canonicalRequestHash
+  ].join('\n');
+
+  function getSignatureKey(key: string, dateStamp: string, regionName: string, serviceName: string) {
+    const kDate = crypto.createHmac('sha256', 'AWS4' + key).update(dateStamp).digest();
+    const kRegion = crypto.createHmac('sha256', kDate).update(regionName).digest();
+    const kService = crypto.createHmac('sha256', kRegion).update(serviceName).digest();
+    return crypto.createHmac('sha256', kService).update('aws4_request').digest();
+  }
+
+  const signingKey = getSignatureKey(secretKey, dateStamp, region, service);
+  const signature = crypto.createHmac('sha256', signingKey).update(stringToSign).digest('hex');
+
+  headersToSign['Authorization'] =
+    `AWS4-HMAC-SHA256 Credential=${accessKey}/${credentialScope}, SignedHeaders=${signedHeaders}, Signature=${signature}`;
+
+  const { data } = await axios({
+    method: 'POST',
+    url: `https://${host}${path}`,
+    headers: headersToSign,
+    data: payloadJson,
+    transformRequest: [(data) => data]
+  });
+
+  return data.SearchResult?.Items || [];
+}
+
 export {
   getProductInfo,
-  searchProducts,
   extractAsinFromUrl,
   isValidAsin,
   addAffiliateTag,
