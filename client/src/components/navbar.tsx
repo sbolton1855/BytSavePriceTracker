@@ -2,15 +2,16 @@ import { Link, useLocation } from "wouter";
 import { Button } from "@/components/ui/button";
 import { useAuth } from "@/hooks/use-auth";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { 
+import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuLabel,
   DropdownMenuSeparator,
-  DropdownMenuTrigger
+  DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { Loader2 } from "lucide-react";
+import BytSaveLogo from "@/assets/BytSaveLogo.png";
 
 const Navbar: React.FC = () => {
   const [location] = useLocation();
@@ -23,29 +24,43 @@ const Navbar: React.FC = () => {
           <div className="flex items-center">
             <Link href="/">
               <div className="flex-shrink-0 flex items-center cursor-pointer">
-                <img src="/attached_assets/ChatGPT Image Jun 3, 2025, 07_43_07 PM.png" alt="BytSave Logo" className="h-8 w-auto mr-2" />
-                <span className="text-2xl font-semibold text-gray-800">Byt<span className="text-primary-500">Save</span></span>
+                <img
+                  src={BytSaveLogo}
+                  alt="BytSave Logo"
+                  className="h-8 w-auto mr-2"
+                />
+                <span className="text-2xl font-semibold text-gray-800">
+                  Byt<span className="text-primary-500">Save</span>
+                </span>
               </div>
             </Link>
           </div>
           <div className="flex items-center">
             <Link href="/">
-              <div className={`text-gray-600 hover:text-primary-500 px-3 py-2 rounded-md text-sm font-medium cursor-pointer ${location === "/" ? "text-primary-500" : ""}`}>
+              <div
+                className={`text-gray-600 hover:text-primary-500 px-3 py-2 rounded-md text-sm font-medium cursor-pointer ${location === "/" ? "text-primary-500" : ""}`}
+              >
                 Home
               </div>
             </Link>
             <Link href="/dashboard">
-              <div className={`text-gray-600 hover:text-primary-500 px-3 py-2 rounded-md text-sm font-medium cursor-pointer ${location === "/dashboard" ? "text-primary-500" : ""}`}>
+              <div
+                className={`text-gray-600 hover:text-primary-500 px-3 py-2 rounded-md text-sm font-medium cursor-pointer ${location === "/dashboard" ? "text-primary-500" : ""}`}
+              >
                 Dashboard
               </div>
             </Link>
             <Link href="/how-it-works">
-              <div className={`text-gray-600 hover:text-primary-500 px-3 py-2 rounded-md text-sm font-medium cursor-pointer ${location === "/how-it-works" ? "text-primary-500" : ""}`}>
+              <div
+                className={`text-gray-600 hover:text-primary-500 px-3 py-2 rounded-md text-sm font-medium cursor-pointer ${location === "/how-it-works" ? "text-primary-500" : ""}`}
+              >
                 How It Works
               </div>
             </Link>
             <Link href="/faq">
-              <div className={`text-gray-600 hover:text-primary-500 px-3 py-2 rounded-md text-sm font-medium cursor-pointer ${location === "/faq" ? "text-primary-500" : ""}`}>
+              <div
+                className={`text-gray-600 hover:text-primary-500 px-3 py-2 rounded-md text-sm font-medium cursor-pointer ${location === "/faq" ? "text-primary-500" : ""}`}
+              >
                 FAQ
               </div>
             </Link>
@@ -74,7 +89,13 @@ const Navbar: React.FC = () => {
                 <DropdownMenuTrigger className="ml-3 focus:outline-none">
                   <Avatar className="h-8 w-8">
                     {user && user.profileImageUrl && (
-                      <AvatarImage src={user.profileImageUrl} alt={(user && (user.firstName || user.email) || "User") as string} />
+                      <AvatarImage
+                        src={user.profileImageUrl}
+                        alt={
+                          ((user && (user.firstName || user.email)) ||
+                            "User") as string
+                        }
+                      />
                     )}
                     <AvatarFallback>
                       {user && user.email ? user.email[0].toUpperCase() : "U"}
@@ -94,9 +115,7 @@ const Navbar: React.FC = () => {
               </DropdownMenu>
             ) : (
               <Link href="/auth">
-                <Button className="ml-3">
-                  Sign In
-                </Button>
+                <Button className="ml-3">Sign In</Button>
               </Link>
             )}
           </div>
