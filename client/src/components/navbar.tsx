@@ -23,13 +23,7 @@ const Navbar: React.FC = () => {
           <div className="flex items-center">
             <Link href="/">
               <div className="flex-shrink-0 flex items-center cursor-pointer">
-                <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-primary-500 mr-2">
-                  <path d="M4 7v6a4 4 0 0 0 4 4h10a2 2 0 0 0 2-2v-6a4 4 0 0 0-4-4H6a2 2 0 0 0-2 2Z"/>
-                  <path d="M5 11h4"/>
-                  <path d="M8 8v6"/>
-                  <path d="M9 12a3 3 0 0 0 3 3h5l2-2v-6"/>
-                  <path d="M19 10h-5a2 2 0 0 0-2 2"/>
-                </svg>
+                <img src="/attached_assets/ChatGPT Image Jun 3, 2025, 07_43_07 PM.png" alt="BytSave Logo" className="h-8 w-auto mr-2" />
                 <span className="text-2xl font-semibold text-gray-800">Byt<span className="text-primary-500">Save</span></span>
               </div>
             </Link>
@@ -55,13 +49,13 @@ const Navbar: React.FC = () => {
                 FAQ
               </div>
             </Link>
-            <Link href="/admin/api-monitor">
+            {/* <Link href="/admin/api-monitor">
               <div className={`text-gray-600 hover:text-primary-500 px-3 py-2 rounded-md text-sm font-medium cursor-pointer ${location === "/admin/api-monitor" ? "text-primary-500" : ""}`}>
                 Analytics
               </div>
-            </Link>
+            </Link> */}
             {/* Diagnostics Button */}
-            <a
+            {/* <a
               href="/api/paapi-diagnostics"
               target="_blank"
               rel="noopener noreferrer"
@@ -69,7 +63,7 @@ const Navbar: React.FC = () => {
               style={{ display: 'inline-block' }}
             >
               Diagnostics
-            </a>
+            </a> */}
             {isLoading ? (
               <Button className="ml-3" variant="ghost" disabled>
                 <Loader2 className="mr-2 h-4 w-4 animate-spin" />
