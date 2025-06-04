@@ -27,7 +27,7 @@ const Navbar: React.FC = () => {
                 <img
                   src={BytSaveLogo}
                   alt="BytSave Logo"
-                  className="h-8 w-auto mr-2"
+                  className="h-14 w-auto mr-2"
                 />
                 <span className="text-2xl font-semibold text-gray-800">
                   Byt<span className="text-primary-500">Save</span>
