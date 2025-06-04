@@ -23,7 +23,7 @@ const Navbar: React.FC = () => {
           <div className="flex items-center">
             <Link href="/">
               <div className="flex-shrink-0 flex items-center cursor-pointer">
-                <img src="/attached_assets/ChatGPT Image Jun 3, 2025, 07_43_07 PM.png" alt="BytSave Logo" className="h-8 w-auto mr-2" />
+                <img src="/src/assets/bytsave-logo.png" alt="BytSave Logo" className="h-8 w-auto mr-2" />
                 <span className="text-2xl font-semibold text-gray-800">Byt<span className="text-primary-500">Save</span></span>
               </div>
             </Link>
