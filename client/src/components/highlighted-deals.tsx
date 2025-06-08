@@ -1,11 +1,12 @@
 import { useState, useEffect } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
-import { Skeleton } from "@/components/ui/skeleton";
+import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "./ui/card";
+import { Badge } from "./ui/badge";
+import { Button } from "./ui/button";
+import { Skeleton } from "./ui/skeleton";
 import { ArrowRight, ArrowDownRight, Loader2, RefreshCw } from "lucide-react";
-import { Product } from "@shared/schema";
+import { Product } from "../../../shared/schema";
+
 
 type HighlightedDeal = Product & {
   discountPercentage: number;
@@ -42,6 +43,8 @@ export default function HighlightedDeals() {
     refetchOnWindowFocus: false,
   });
   
+  console.log("Deals data from React Query:", data);
+  
   // Function to manually refresh deals
   const refreshDeals = () => {
     setRefreshKey(prev => prev + 1);
@@ -62,12 +65,14 @@ export default function HighlightedDeals() {
         };
       });
       
+      console.log("[Deals] processedDeals.length:", processedDeals.length, processedDeals.map(d => d.id || d.asin));
       // Add extra randomization using refreshKey in the sort
       // This helps produce different results each time
       const shuffleAmount = refreshKey % 4 + 1; // 1-4 based on refreshKey
       
       // Get all deals with any discount
       const dealsWithDiscount = processedDeals.filter(deal => deal.discountPercentage > 0);
+      console.log("[Deals] dealsWithDiscount.length:", dealsWithDiscount.length, dealsWithDiscount.map(d => d.id || d.asin));
       
       // Apply multiple shuffling passes for better randomization
       let shuffledDeals = [...dealsWithDiscount];
@@ -84,12 +89,11 @@ export default function HighlightedDeals() {
         // Get non-discounted deals and shuffle them with multiple passes
         let regularDeals = processedDeals
           .filter(deal => deal.discountPercentage === 0 || deal.discountPercentage === null);
-        
+        console.log("[Deals] regularDeals.length:", regularDeals.length, regularDeals.map(d => d.id || d.asin));
         // Multiple shuffle passes
         for (let i = 0; i < shuffleAmount; i++) {
           regularDeals = regularDeals.sort(() => Math.random() - 0.5);
         }
-        
         // Take what we need to fill the grid
         regularDeals = regularDeals.slice(0, 6 - selectedDeals.length);
         selectedDeals = [...selectedDeals, ...regularDeals];

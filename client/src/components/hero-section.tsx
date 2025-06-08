@@ -1,8 +1,9 @@
-import { Button } from "@/components/ui/button";
+import { Button } from "./ui/button";
 import { useQuery } from "@tanstack/react-query";
-import { Skeleton } from "@/components/ui/skeleton";
+import { Skeleton } from "./ui/skeleton";
 import { useEffect, useState } from "react";
 import { Check, TrendingDown, RefreshCw } from "lucide-react";
+import LiveDealsPreview from "@/components/LiveDealsPreview";
 
 // Type definition for product deals
 interface ProductDeal {
@@ -27,25 +28,31 @@ const PriceTrackerDashboard: React.FC = () => {
   
   // Get real price drop deals from the backend
   const { data: deals, isLoading, refetch } = useQuery<ProductDeal[]>({
-    queryKey: ["/api/products/deals", refreshKey, lastRefreshTime],
+    queryKey: ["/api/amazon/deals", refreshKey, lastRefreshTime],
     queryFn: async () => {
-      console.log(`Fetching deals with refreshKey: ${refreshKey}`);
+      console.log(`Fetching Amazon deals with refreshKey: ${refreshKey}`);
       const timestamp = Date.now();
-      const rotation = Math.floor(timestamp / 1000) % 20; // Create 20 different product sets
-      console.log(`Making request with timestamp: ${timestamp}, rotation: ${rotation}`);
-      
-      const response = await fetch(`/api/products/deals?t=${timestamp}&rotate=${rotation}`);
+      const response = await fetch(`/api/amazon/deals?t=${timestamp}`);
       if (!response.ok) {
         throw new Error('Failed to fetch deals');
       }
-      const data = await response.json();
-      console.log('Received deals:', data.map((d: ProductDeal) => ({ 
-        id: d.id, 
-        title: d.title.substring(0, 30) + '...', 
-        price: d.currentPrice,
-        discount: d.originalPrice ? Math.round(((d.originalPrice - d.currentPrice) / d.originalPrice) * 100) : 0
-      })));
-      return data;
+      const result = await response.json();
+      // result.deals is the array
+      const mappedDeals = result.deals.map((d: any, idx: number) => ({
+        asin: d.asin,
+        title: d.title,
+        url: d.url,
+        imageUrl: d.imageUrl,
+        currentPrice: d.price,
+        originalPrice: d.msrp,
+        lowestPrice: d.price, // Not available, use price
+        highestPrice: d.msrp, // Not available, use msrp
+        lastChecked: '', // Not available
+        affiliateUrl: d.url,
+        id: d.asin || idx // Use asin or fallback to index
+      }));
+      console.log('Received Amazon deals:', mappedDeals);
+      return mappedDeals;
     },
     staleTime: 0, // Don't cache the data
     gcTime: 0,
@@ -316,7 +323,9 @@ const HeroSection: React.FC = () => {
           </div>
           <div className="relative">
             <PriceTrackerDashboard />
-            
+            <div className="mt-6">
+              <LiveDealsPreview />
+            </div>
             <div className="absolute -bottom-6 -left-6 bg-white rounded-lg shadow-lg p-4 max-w-xs hidden md:block">
               <div className="flex items-center">
                 <div className="bg-green-500 text-white p-2 rounded-full mr-3">

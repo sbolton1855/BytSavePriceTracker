@@ -7,8 +7,12 @@ import { requireAuth, configureAuth } from "./authService";
 import { z } from "zod";
 import { trackingFormSchema, type Product } from "@shared/schema";
 import { fetchSignedAmazonRequest } from './lib/awsSignedRequest';
+import amazonRouter from './routes/amazon';
 
 const AFFILIATE_TAG = process.env.AMAZON_PARTNER_TAG || 'bytsave-20';
+
+console.log('Hi Sean! Here are the logs to verify router setup:');
+console.log(">>> [DEBUG] server/routes.ts loaded");
 
 /**
  * Helper function that intelligently adds price history entries only when needed
@@ -1317,6 +1321,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Start price checker background service
   // Temporarily disabled due to API credential issues
   // startPriceChecker();
+
+  app.use('/api', amazonRouter);
+  console.log(">>> [DEBUG] Registered amazonRouter at /api");
 
   return httpServer;
 }

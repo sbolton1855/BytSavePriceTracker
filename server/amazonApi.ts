@@ -11,6 +11,83 @@ import { metrics } from './lib/metrics';
 import axios from 'axios';
 import * as crypto from 'crypto';
 
+// Import getAmazonProductByASIN for use in product detail functions
+export async function getAmazonProductByASIN(asin: string) {
+  const payload = {
+    ItemIds: [asin],
+    Marketplace: 'www.amazon.com',
+    PartnerTag: partnerTag,
+    PartnerType: 'Associates',
+    Resources: [
+      'Images.Primary.Medium',
+      'ItemInfo.Title',
+      'Offers.Listings.Price',
+      'Offers.Listings.SavingBasis',
+      'Offers.Listings.MerchantInfo',
+      'Offers.Listings.Condition',
+      'Offers.Listings.Promotions'
+    ]
+  };
+
+  const payloadJson = JSON.stringify(payload);
+  const payloadHash = crypto.createHash('sha256').update(payloadJson, 'utf8').digest('hex');
+  const amzDate = new Date().toISOString().replace(/[:-]|\.\d{3}/g, '');
+
+  const headersToSign: Record<string, string> = {
+    'content-encoding': 'amz-1.0',
+    'content-type': 'application/json; charset=utf-8',
+    'host': host,
+    'x-amz-date': amzDate,
+    'x-amz-target': 'com.amazon.paapi5.v1.ProductAdvertisingAPIv1.GetItems',
+  };
+
+  const sortedHeaderNames = Object.keys(headersToSign).sort();
+  const canonicalHeaders = sortedHeaderNames.map(name => `${name}:${headersToSign[name]}`).join('\n') + '\n';
+  const signedHeaders = sortedHeaderNames.join(';');
+
+  const canonicalRequest = [
+    'POST',
+    '/paapi5/getitems',
+    '',
+    canonicalHeaders,
+    signedHeaders,
+    payloadHash
+  ].join('\n');
+
+  const dateStamp = amzDate.slice(0, 8);
+  const credentialScope = `${dateStamp}/${region}/${service}/aws4_request`;
+  const canonicalRequestHash = crypto.createHash('sha256').update(canonicalRequest).digest('hex');
+  const stringToSign = [
+    'AWS4-HMAC-SHA256',
+    amzDate,
+    credentialScope,
+    canonicalRequestHash
+  ].join('\n');
+
+  function getSignatureKey(key: string, dateStamp: string, regionName: string, serviceName: string) {
+    const kDate = crypto.createHmac('sha256', 'AWS4' + key).update(dateStamp).digest();
+    const kRegion = crypto.createHmac('sha256', kDate).update(regionName).digest();
+    const kService = crypto.createHmac('sha256', kRegion).update(serviceName).digest();
+    return crypto.createHmac('sha256', kService).update('aws4_request').digest();
+  }
+
+  const signingKey = getSignatureKey(secretKey, dateStamp, region, service);
+  const signature = crypto.createHmac('sha256', signingKey).update(stringToSign).digest('hex');
+
+  headersToSign['Authorization'] =
+    `AWS4-HMAC-SHA256 Credential=${accessKey}/${credentialScope}, SignedHeaders=${signedHeaders}, Signature=${signature}`;
+
+  const { data } = await axios({
+    method: 'POST',
+    url: `https://${host}/paapi5/getitems`,
+    headers: headersToSign,
+    data: payloadJson,
+    transformRequest: [(data) => data]
+  });
+
+  return data.ItemsResult?.Items?.[0] || null;
+}
+
 // Amazon API configuration
 const PARTNER_TAG = process.env.AMAZON_PARTNER_TAG || 'bytsave-20';
 const MARKETPLACE = 'www.amazon.com';
@@ -112,58 +189,45 @@ async function getDetailedProductInfo(asins: string[]): Promise<any[]> {
     return cachedProducts;
   }
 
-  // Fetch uncached products using paapi5-nodejs-sdk
+  // Fetch uncached products using custom SigV4 method
   let fetchedProducts: any[] = [];
-  try {
-    const paapi = await getPaapi();
-    const response = await paapi.getItems(uncachedAsins, {
-      Resources: [
-        'Images.Primary.Medium',
-        'ItemInfo.Title',
-        'Offers.Listings.Price',
-        'Offers.Listings.SavingBasis',
-        'Offers.Listings.MerchantInfo',
-        'Offers.Listings.Condition',
-        'Offers.Listings.Promotions'
-      ]
-    });
-    fetchedProducts = response.ItemsResult?.Items || [];
-  } catch (err) {
-    console.error('PAAPI5 getItems error:', err);
-  }
-  
-  // Cache the fetched products
-  fetchedProducts.forEach(product => {
-    if (product) {
-      const mappedProduct = {
-        asin: product.ASIN,
-        title: product.ItemInfo?.Title?.DisplayValue,
-        price: product.Offers?.Listings?.[0]?.Price?.Amount,
-        originalPrice: product.Offers?.Listings?.[0]?.SavingBasis?.Amount,
-        imageUrl: product.Images?.Primary?.Medium?.URL,
-        url: product.DetailPageURL,
-        couponDetected: product.Offers?.Listings?.[0]?.Promotions?.length > 0
-      };
-      cache.setProduct(product.ASIN, mappedProduct);
-
-      // Check for price drops
-      const oldPrice = cache.getPriceHistory(product.ASIN).slice(-1)[0]?.price;
-      const newPrice = mappedProduct.price;
-      
-      if (oldPrice && newPrice && newPrice < oldPrice) {
-        const dropPercent = ((oldPrice - newPrice) / oldPrice) * 100;
-        metrics.recordPriceDrop({
+  for (const asin of uncachedAsins) {
+    try {
+      const product = await getAmazonProductByASIN(asin);
+      if (product) {
+        const mappedProduct = {
           asin: product.ASIN,
-          title: mappedProduct.title,
-          oldPrice,
-          newPrice,
-          dropPercent,
-          timestamp: new Date(),
-          couponApplied: mappedProduct.couponDetected
-        });
+          title: product.ItemInfo?.Title?.DisplayValue,
+          price: product.Offers?.Listings?.[0]?.Price?.Amount,
+          originalPrice: product.Offers?.Listings?.[0]?.SavingBasis?.Amount,
+          imageUrl: product.Images?.Primary?.Medium?.URL,
+          url: product.DetailPageURL,
+          couponDetected: product.Offers?.Listings?.[0]?.Promotions?.length > 0
+        };
+        cache.setProduct(product.ASIN, mappedProduct);
+
+        // Check for price drops
+        const oldPrice = cache.getPriceHistory(product.ASIN).slice(-1)[0]?.price;
+        const newPrice = mappedProduct.price;
+        
+        if (oldPrice && newPrice && newPrice < oldPrice) {
+          const dropPercent = ((oldPrice - newPrice) / oldPrice) * 100;
+          metrics.recordPriceDrop({
+            asin: product.ASIN,
+            title: mappedProduct.title,
+            oldPrice,
+            newPrice,
+            dropPercent,
+            timestamp: new Date(),
+            couponApplied: mappedProduct.couponDetected
+          });
+        }
+        fetchedProducts.push(mappedProduct);
       }
+    } catch (err) {
+      console.error('Custom getAmazonProductByASIN error:', err);
     }
-  });
+  }
 
   return [...cachedProducts, ...fetchedProducts];
 }
@@ -199,21 +263,8 @@ async function getProductInfo(asinOrUrl: string): Promise<AmazonProduct> {
       return cachedProduct;
     }
 
-    // Use paapi5-nodejs-sdk
-    const paapi = await getPaapi();
-    const response = await paapi.getItems([asin], {
-      Resources: [
-        'Images.Primary.Medium',
-        'ItemInfo.Title',
-        'Offers.Listings.Price',
-        'Offers.Listings.SavingBasis',
-        'Offers.Listings.MerchantInfo',
-        'Offers.Listings.Condition',
-        'Offers.Listings.Promotions'
-      ]
-    });
-    const item = response.ItemsResult?.Items?.[0];
-    
+    // Use custom SigV4 method
+    const item = await getAmazonProductByASIN(asin);
     if (!item) {
       throw new Error(`No product data found for ASIN: ${asin}`);
     }
@@ -302,7 +353,7 @@ async function getProductInfo(asinOrUrl: string): Promise<AmazonProduct> {
 
     return product;
   } catch (error) {
-    console.error('Error fetching product from PAAPI5:', error);
+    console.error('Error fetching product from custom SigV4:', error);
     throw new Error('Failed to fetch product information from Amazon: ' + (error instanceof Error ? error.message : 'Unknown error'));
   }
 }

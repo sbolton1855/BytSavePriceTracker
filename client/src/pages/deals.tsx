@@ -1,8 +1,8 @@
 import React, { useState, useEffect } from "react";
 import { Helmet } from "react-helmet";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "../components/ui/tabs";
+import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "../components/ui/card";
+import { Button } from "../components/ui/button";
 import { Loader2 } from "lucide-react";
 
 type ProductDeal = {
@@ -27,6 +27,7 @@ type CategoryPromotion = {
 };
 
 export default function DealsPage() {
+  console.log('[DealsPage] Component mounted');
   const [activeCategory, setActiveCategory] = useState<string>("beauty");
   const [promotions, setPromotions] = useState<Record<string, CategoryPromotion>>({
     beauty: {
@@ -66,6 +67,7 @@ export default function DealsPage() {
 
   // Load product data for the active category
   useEffect(() => {
+    console.log('[DealsPage] useEffect triggered. promotions:', promotions);
     const fetchPromotionProducts = async (categoryId: string) => {
       try {
         // Update loading state for this category
@@ -123,6 +125,16 @@ export default function DealsPage() {
       fetchPromotionProducts(activeCategory);
     }
   }, [activeCategory]);
+
+  if (promotions[activeCategory].loading) {
+    console.log('[DealsPage] Loading state');
+  }
+
+  if (promotions[activeCategory].error || promotions[activeCategory].products.length === 0) {
+    console.log('[DealsPage] Error or empty state. isError:', promotions[activeCategory].error, 'promotions:', promotions);
+  }
+
+  console.log('[DealsPage] Render. promotions:', promotions);
 
   return (
     <>

@@ -1,7 +1,7 @@
 import { Link, useLocation } from "wouter";
-import { Button } from "@/components/ui/button";
+import { Button } from "./ui/button";
 import { useAuth } from "@/hooks/use-auth";
-import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { Avatar, AvatarFallback, AvatarImage } from "./ui/avatar";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -9,7 +9,7 @@ import {
   DropdownMenuLabel,
   DropdownMenuSeparator,
   DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu";
+} from "./ui/dropdown-menu";
 import { Loader2 } from "lucide-react";
 import BytSaveLogo from "@/assets/BytSaveLogo.png";
 
@@ -27,9 +27,10 @@ const Navbar: React.FC = () => {
                 <img
                   src={BytSaveLogo}
                   alt="BytSave Logo"
-                  className="h-14 w-auto mr-2"
+                  style={{ height: '125px' }} // Use inline style for specific height
+                  className="w-auto mr-0"
                 />
-                <span className="text-2xl font-semibold text-gray-800">
+                <span className="text-4xl font-semibold text-gray-800">
                   Byt<span className="text-primary-500">Save</span>
                 </span>
               </div>
