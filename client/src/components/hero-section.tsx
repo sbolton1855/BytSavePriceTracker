@@ -262,6 +262,9 @@ const PriceTrackerDashboard: React.FC = () => {
   );
 };
 
+// Export PriceTrackerDashboard for use in other components
+export { PriceTrackerDashboard };
+
 const HeroSection: React.FC = () => {
   return (
     <div className="relative">

@@ -13,7 +13,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Search, Target, Bell, ChevronDown, ChevronUp } from "lucide-react";
-import LiveDealsPreview from "@/components/LiveDealsPreview";
+import DashboardToggle from "@/components/DashboardToggle";
 
 const Home: React.FC = () => {
   const { user } = useAuth();
@@ -231,9 +231,9 @@ const Home: React.FC = () => {
               )}
             </div>
 
-            {/* Right Side: Live Deals Preview */}
+            {/* Right Side: Dashboard Toggle */}
             <div className="relative">
-              <LiveDealsPreview />
+              <DashboardToggle />
             </div>
           </div>
         </div>
