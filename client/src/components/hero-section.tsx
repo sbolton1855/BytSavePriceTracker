@@ -263,84 +263,24 @@ const PriceTrackerDashboard: React.FC = () => {
 };
 
 const HeroSection: React.FC = () => {
-  const scrollToSection = (id: string) => {
-    document.getElementById(id)?.scrollIntoView({ behavior: "smooth" });
-  };
-
   return (
-    <section className="relative bg-white overflow-hidden">
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-        <div className="relative py-12 sm:py-16 lg:py-20 grid lg:grid-cols-2 gap-8 items-center">
-          <div>
-            <h1 className="text-4xl font-bold text-gray-900 sm:text-5xl md:text-6xl">
-              <span className="block">Track Amazon prices.</span>
-              <span className="block text-primary-500">Save money automatically.</span>
-            </h1>
-            <p className="mt-3 text-base text-gray-500 sm:mt-5 sm:text-lg md:mt-5 md:text-xl">
-              BytSave monitors Amazon product prices for you. Set your target price and get notified when it's time to buy.
-            </p>
-            <div className="mt-8 sm:mt-10 space-y-6">
-              <div className="flex flex-col sm:flex-row gap-3">
-                <Button 
-                  size="lg" 
-                  className="w-full sm:w-auto"
-                  onClick={() => scrollToSection('tracker')}
-                >
-                  Track a product
-                </Button>
-                <Button 
-                  size="lg" 
-                  variant="outline" 
-                  className="w-full sm:w-auto"
-                  onClick={() => scrollToSection('how-it-works')}
-                >
-                  How it works
-                </Button>
-              </div>
-              
-              {/* Feature highlights */}
-              <div className="space-y-3">
-                <div className="flex items-center">
-                  <div className="h-6 w-6 rounded-full bg-primary-50 flex items-center justify-center mr-2">
-                    <Check className="h-4 w-4 text-primary-500" />
-                  </div>
-                  <span className="text-sm text-gray-600">Email notifications when prices drop</span>
-                </div>
-                <div className="flex items-center">
-                  <div className="h-6 w-6 rounded-full bg-primary-50 flex items-center justify-center mr-2">
-                    <Check className="h-4 w-4 text-primary-500" />
-                  </div>
-                  <span className="text-sm text-gray-600">Track multiple products at once</span>
-                </div>
-                <div className="flex items-center">
-                  <div className="h-6 w-6 rounded-full bg-primary-50 flex items-center justify-center mr-2">
-                    <Check className="h-4 w-4 text-primary-500" />
-                  </div>
-                  <span className="text-sm text-gray-600">Price history charts and analytics</span>
-                </div>
-              </div>
-            </div>
+    <div className="relative">
+      <PriceTrackerDashboard />
+      <div className="mt-6">
+        <LiveDealsPreview />
+      </div>
+      <div className="absolute -bottom-6 -left-6 bg-white rounded-lg shadow-lg p-4 max-w-xs hidden md:block">
+        <div className="flex items-center">
+          <div className="bg-green-500 text-white p-2 rounded-full mr-3">
+            <Check className="h-4 w-4" />
           </div>
-          <div className="relative">
-            <PriceTrackerDashboard />
-            <div className="mt-6">
-              <LiveDealsPreview />
-            </div>
-            <div className="absolute -bottom-6 -left-6 bg-white rounded-lg shadow-lg p-4 max-w-xs hidden md:block">
-              <div className="flex items-center">
-                <div className="bg-green-500 text-white p-2 rounded-full mr-3">
-                  <Check className="h-4 w-4" />
-                </div>
-                <div>
-                  <p className="text-sm font-semibold text-gray-800">Real-time Price Alerts</p>
-                  <p className="text-xs text-gray-500">Get notified when prices drop</p>
-                </div>
-              </div>
-            </div>
+          <div>
+            <p className="text-sm font-semibold text-gray-800">Real-time Price Alerts</p>
+            <p className="text-xs text-gray-500">Get notified when prices drop</p>
           </div>
         </div>
       </div>
-    </section>
+    </div>
   );
 };
 

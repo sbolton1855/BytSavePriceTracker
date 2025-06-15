@@ -1,3 +1,4 @@
+
 import { useState, useEffect } from "react";
 import HeroSection from "@/components/hero-section";
 import FeaturesSection from "@/components/features-section";
@@ -8,6 +9,10 @@ import SimpleTracker from "@/components/simple-tracker";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/hooks/use-auth";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Search, Target, Bell, ChevronDown, ChevronUp } from "lucide-react";
 
 const Home: React.FC = () => {
   const { user } = useAuth();
@@ -16,6 +21,7 @@ const Home: React.FC = () => {
     return user?.email || localStorage.getItem("bytsave_user_email") || "";
   });
   const { toast } = useToast();
+  const [showQuickTrack, setShowQuickTrack] = useState(false);
 
   // Update email when user changes or localStorage changes
   useEffect(() => {
@@ -119,6 +125,7 @@ const Home: React.FC = () => {
 
       // Reset form
       form.reset();
+      setShowQuickTrack(false);
 
       // Scroll to dashboard
       document.getElementById("dashboard")?.scrollIntoView({ behavior: "smooth" });
@@ -135,198 +142,187 @@ const Home: React.FC = () => {
 
   return (
     <>
-      {/* Quick Search & Track Section at the top */}
-      <section className="bg-gradient-to-r from-blue-50 to-indigo-50 py-8 border-b">
-        <div className="container max-w-4xl mx-auto px-4">
-          <div className="text-center mb-6">
-            <h2 className="text-2xl font-bold text-gray-900 mb-2">Search & Track</h2>
-            <p className="text-gray-600">Track Amazon products by name and get notified when prices drop</p>
-          </div>
-          
-          <Card className="bg-white/80 backdrop-blur-sm border-0 shadow-lg">
-            <CardContent className="p-6">
-              <ProductSearch onSuccess={handleTrackerSuccess} />
-            </CardContent>
-          </Card>
-        </div>
-      </section>
+      {/* Above-the-Fold Hero Section */}
+      <section className="relative bg-gradient-to-br from-blue-50 via-white to-indigo-50 py-16 lg:py-24">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+          <div className="grid lg:grid-cols-2 gap-12 items-center">
+            {/* Left Side: Headline, tagline, search input */}
+            <div className="space-y-8">
+              <div className="space-y-4">
+                <h1 className="text-4xl lg:text-6xl font-bold text-gray-900 leading-tight">
+                  Track Amazon Prices
+                </h1>
+                <p className="text-xl text-gray-600 leading-relaxed">
+                  Enter a product name or link to set alerts for price drops.
+                </p>
+              </div>
 
-      <HeroSection />
-      <FeaturesSection />
-
-      <section id="tracker" className="py-16 bg-slate-50">
-        <div className="container">
-          <div className="text-center mb-10">
-            <h2 className="text-3xl font-bold mb-4">Track Amazon Prices</h2>
-            <p className="text-lg text-slate-600 max-w-2xl mx-auto">
-              Enter an Amazon product URL or search by name to start tracking prices
-              and get notified when they drop.
-            </p>
-          </div>
-
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-            {/* Main product search and tracking component */}
-            <div>
-              <Card>
-                <CardHeader>
-                  <CardTitle>Search & Track</CardTitle>
-                  <CardDescription>
-                    Track Amazon products by name
-                  </CardDescription>
-                  {/* TEST ME: Simple test product search */}
-                  {/* <TestProductSearch /> */}
-                </CardHeader>
-                <CardContent>
-                  <ProductSearch onSuccess={handleTrackerSuccess} />
-                </CardContent>
-              </Card>
-            </div>
-
-            {/* Simple tracker for debugging */}
-            <div>
-              <Card className="bg-white border-2 border-amber-200">
-                <CardHeader className="bg-amber-50">
-                  <CardTitle>Quick Track (Simplified)</CardTitle>
-                  <CardDescription>
-                    Try this direct tracking form if the regular one isn't working
-                  </CardDescription>
-                </CardHeader>
-                <CardContent>
-                  <div className="mt-2">
-                    <p className="text-sm text-amber-700 mb-4">⚠️ This form bypasses the advanced features and directly tracks a product by URL.</p>
-                    {/* Import the SimpleTracker component */}
-                    <SimpleTracker />
+              {/* Main Search Box */}
+              <Card className="bg-white/90 backdrop-blur-sm shadow-xl border-0">
+                <CardContent className="p-6">
+                  <div className="space-y-4">
+                    <Label className="text-lg font-medium text-gray-800">Search by Product Name</Label>
+                    <ProductSearch onSuccess={handleTrackerSuccess} />
                   </div>
                 </CardContent>
               </Card>
+
+              {/* Quick Track Toggle */}
+              <div className="text-center">
+                <button
+                  onClick={() => setShowQuickTrack(!showQuickTrack)}
+                  className="inline-flex items-center text-primary-600 hover:text-primary-700 font-medium transition-colors"
+                >
+                  Want to paste a link instead? Click to expand
+                  {showQuickTrack ? (
+                    <ChevronUp className="ml-2 h-4 w-4" />
+                  ) : (
+                    <ChevronDown className="ml-2 h-4 w-4" />
+                  )}
+                </button>
+              </div>
+
+              {/* Collapsible Quick Track */}
+              {showQuickTrack && (
+                <Card className="bg-amber-50 border-amber-200 animate-fadeIn">
+                  <CardContent className="p-6">
+                    <form onSubmit={handleQuickTrackSubmit} className="space-y-4">
+                      <div className="space-y-2">
+                        <Label htmlFor="productUrl">Product URL</Label>
+                        <Input
+                          id="productUrl"
+                          name="productUrl"
+                          placeholder="https://amazon.com/dp/..."
+                          required
+                        />
+                      </div>
+                      <div className="grid grid-cols-2 gap-4">
+                        <div className="space-y-2">
+                          <Label htmlFor="targetPrice">Target Price ($)</Label>
+                          <Input
+                            id="targetPrice"
+                            name="targetPrice"
+                            type="number"
+                            step="0.01"
+                            placeholder="25.99"
+                            required
+                          />
+                        </div>
+                        <div className="space-y-2">
+                          <Label htmlFor="email">Email</Label>
+                          <Input
+                            id="email"
+                            name="email"
+                            type="email"
+                            placeholder="your@email.com"
+                            value={userEmail}
+                            onChange={(e) => setUserEmail(e.target.value)}
+                            required
+                          />
+                        </div>
+                      </div>
+                      <Button type="submit" className="w-full">
+                        Track Price Drop
+                      </Button>
+                    </form>
+                  </CardContent>
+                </Card>
+              )}
             </div>
 
+            {/* Right Side: Illustration/Visual */}
+            <div className="relative">
+              <HeroSection />
+            </div>
           </div>
         </div>
       </section>
 
-      {/* Only show ProductsDisplay for authenticated users */}
-      {user && <ProductsDisplay email={userEmail} />}
+      {/* How It Works Section - Visual and Trust-Building */}
+      <section className="py-20 bg-white" id="how-it-works">
+        <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8">
+          <div className="text-center mb-16">
+            <h2 className="text-3xl lg:text-4xl font-bold text-gray-900 mb-4">
+              How It Works
+            </h2>
+            <p className="text-xl text-gray-600 max-w-3xl mx-auto">
+              Simple, automated price tracking that saves you money
+            </p>
+          </div>
+
+          {/* 3-Column Benefit Section */}
+          <div className="grid md:grid-cols-3 gap-8 lg:gap-12">
+            <div className="text-center group">
+              <div className="w-16 h-16 bg-primary-100 rounded-full flex items-center justify-center mx-auto mb-6 group-hover:bg-primary-200 transition-colors">
+                <Search className="h-8 w-8 text-primary-600" />
+              </div>
+              <h3 className="text-xl font-semibold text-gray-900 mb-3">
+                Search or paste a product
+              </h3>
+              <p className="text-gray-600 leading-relaxed">
+                Enter a product name to search Amazon, or paste any Amazon product URL directly.
+              </p>
+            </div>
+
+            <div className="text-center group">
+              <div className="w-16 h-16 bg-primary-100 rounded-full flex items-center justify-center mx-auto mb-6 group-hover:bg-primary-200 transition-colors">
+                <Target className="h-8 w-8 text-primary-600" />
+              </div>
+              <h3 className="text-xl font-semibold text-gray-900 mb-3">
+                Set your target price
+              </h3>
+              <p className="text-gray-600 leading-relaxed">
+                Choose the price you want to pay. We'll monitor the product and wait for the perfect moment.
+              </p>
+            </div>
+
+            <div className="text-center group">
+              <div className="w-16 h-16 bg-primary-100 rounded-full flex items-center justify-center mx-auto mb-6 group-hover:bg-primary-200 transition-colors">
+                <Bell className="h-8 w-8 text-primary-600" />
+              </div>
+              <h3 className="text-xl font-semibold text-gray-900 mb-3">
+                Get notified when it drops
+              </h3>
+              <p className="text-gray-600 leading-relaxed">
+                Receive instant email alerts when your target price is reached. Never miss a deal again.
+              </p>
+            </div>
+          </div>
+
+          {/* Trusted by section placeholder */}
+          <div className="text-center mt-16 pt-12 border-t border-gray-200">
+            <p className="text-gray-500 text-sm mb-4">Trusted by thousands of smart shoppers</p>
+            <div className="flex justify-center items-center space-x-8 opacity-60">
+              <div className="h-8 w-24 bg-gray-200 rounded"></div>
+              <div className="h-8 w-20 bg-gray-200 rounded"></div>
+              <div className="h-8 w-28 bg-gray-200 rounded"></div>
+              <div className="h-8 w-16 bg-gray-200 rounded"></div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      {/* Price Drop Dashboard - Moved down and styled as feed */}
+      {userEmail && (
+        <section id="dashboard" className="py-20 bg-gray-50">
+          <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8">
+            <div className="text-center mb-12">
+              <h2 className="text-3xl font-bold text-gray-900 mb-4">
+                Your Active Price Watches
+              </h2>
+              <p className="text-lg text-gray-600">
+                Track your products and see price history
+              </p>
+            </div>
+            <ProductsDisplay email={userEmail} />
+          </div>
+        </section>
+      )}
+
+      <FeaturesSection />
       <NotificationDemo />
     </>
   );
 };
-
-function TestProductSearch() {
-  const [query, setQuery] = useState('');
-  const [searchIndex, setSearchIndex] = useState('HealthPersonalCare');
-  const [results, setResults] = useState<any[]>([]);
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-
-  const categories = [
-    { value: 'HealthPersonalCare', label: 'Health & Personal Care' },
-    { value: 'Electronics', label: 'Electronics' },
-    { value: 'ToysAndGames', label: 'Toys & Games' },
-    { value: 'Beauty', label: 'Beauty' },
-    { value: 'Grocery', label: 'Grocery' },
-    { value: 'HomeGarden', label: 'Home & Garden' },
-    { value: 'Books', label: 'Books' },
-    { value: 'Fashion', label: 'Fashion' },
-    { value: 'Automotive', label: 'Automotive' },
-    { value: 'SportsAndOutdoors', label: 'Sports & Outdoors' },
-    { value: 'PetSupplies', label: 'Pet Supplies' },
-    { value: 'OfficeProducts', label: 'Office Products' },
-  ];
-
-  const handleTestSearch = async () => {
-    setLoading(true);
-    setError(null);
-    setResults([]);
-    try {
-      const res = await fetch(`/api/search?q=${encodeURIComponent(query)}&searchIndex=${encodeURIComponent(searchIndex)}`);
-      const data = await res.json();
-      if (data.items) {
-        setResults(data.items);
-      } else {
-        setError('No results found.');
-      }
-    } catch (err) {
-      setError('Test search failed. See console for details.');
-      // eslint-disable-next-line no-console
-      console.error('Test search failed:', err);
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  return (
-    <div style={{ margin: '12px 0', padding: '8px', background: '#f3f4f6', borderRadius: '6px' }}>
-      <strong>TEST ME:</strong> <span>Test Product Search</span>
-      <div style={{ marginTop: 8, display: 'flex', gap: 8 }}>
-        <input
-          type="text"
-          placeholder="Enter product name or ASIN"
-          value={query}
-          onChange={e => setQuery(e.target.value)}
-          style={{ flex: 2, padding: '4px 8px', border: '1px solid #ccc', borderRadius: 4 }}
-          onKeyDown={e => { if (e.key === 'Enter') handleTestSearch(); }}
-        />
-        <select
-          value={searchIndex}
-          onChange={e => setSearchIndex(e.target.value)}
-          style={{ flex: 1, padding: '4px 8px', border: '1px solid #ccc', borderRadius: 4 }}
-        >
-          {categories.map(cat => (
-            <option key={cat.value} value={cat.value}>{cat.label}</option>
-          ))}
-        </select>
-        <button
-          style={{ padding: '4px 10px', background: '#2563eb', color: 'white', border: 'none', borderRadius: '4px', cursor: 'pointer' }}
-          onClick={handleTestSearch}
-          disabled={loading || !query.trim()}
-        >
-          {loading ? 'Searching...' : 'Test Search'}
-        </button>
-      </div>
-      <div style={{ fontSize: 13, color: '#2563eb', marginTop: 4 }}>
-        Category: <b>{categories.find(cat => cat.value === searchIndex)?.label}</b>
-      </div>
-      {error && <div style={{ color: 'red', marginTop: 8 }}>{error}</div>}
-      <div style={{ marginTop: 12 }}>
-        {loading && (
-          <div style={{ color: '#2563eb', fontWeight: 500, padding: 12 }}>Searching...</div>
-        )}
-        {!loading && results.length > 0 && (
-          <div style={{
-            border: '1px solid #d1d5db',
-            background: '#fff',
-            borderRadius: 8,
-            padding: 12,
-            maxHeight: 320,
-            overflowY: 'auto',
-            boxShadow: '0 2px 8px rgba(0,0,0,0.04)'
-          }}>
-            <div style={{ fontWeight: 600, marginBottom: 8, color: '#2563eb' }}>Results</div>
-            {results.map((item, idx) => (
-              <div key={item.asin || idx} style={{ display: 'flex', alignItems: 'center', gap: 12, borderBottom: '1px solid #f3f4f6', padding: '8px 0' }}>
-                {item.imageUrl && (
-                  <img src={item.imageUrl} alt={item.title} style={{ width: 48, height: 48, objectFit: 'contain', borderRadius: 4, background: '#f9fafb', border: '1px solid #eee' }} />
-                )}
-                <div style={{ flex: 1 }}>
-                  <div style={{ fontWeight: 500 }}>{item.title}</div>
-                  <div style={{ fontSize: 13, color: '#666' }}>ASIN: {item.asin}</div>
-                  {item.price !== undefined && item.price !== null && (
-                    <div style={{ fontSize: 13, color: '#059669', fontWeight: 500 }}>
-                      ${item.price.toFixed(2)}
-                    </div>
-                  )}
-                </div>
-              </div>
-            ))}
-          </div>
-        )}
-        {!loading && !error && results.length === 0 && (
-          <div style={{ color: '#888', fontSize: 14, marginTop: 8 }}>No results yet. Enter a product and search.</div>
-        )}
-      </div>
-    </div>
-  );
-}
 
 export default Home;
