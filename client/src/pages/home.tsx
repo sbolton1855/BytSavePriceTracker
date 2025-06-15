@@ -16,7 +16,7 @@ const Home: React.FC = () => {
     return user?.email || localStorage.getItem("bytsave_user_email") || "";
   });
   const { toast } = useToast();
-  
+
   // Update email when user changes or localStorage changes
   useEffect(() => {
     const storedEmail = localStorage.getItem("bytsave_user_email");
@@ -25,14 +25,14 @@ const Home: React.FC = () => {
     } else if (storedEmail && storedEmail !== userEmail) {
       setUserEmail(storedEmail);
     }
-    
+
     // Handle product tracked events
     const handleProductTracked = (event: any) => {
       if (event.detail?.email) {
         setUserEmail(event.detail.email);
       }
     };
-    
+
     document.addEventListener('product-tracked', handleProductTracked);
     return () => {
       document.removeEventListener('product-tracked', handleProductTracked);
@@ -43,20 +43,20 @@ const Home: React.FC = () => {
   const handleTrackerSuccess = (customEmail?: string) => {
     // Get the email either from the parameter or try to find it in the form
     let email = customEmail;
-    
+
     if (!email) {
       const emailInput = document.querySelector('input[name="email"]') as HTMLInputElement;
       if (emailInput && emailInput.value) {
         email = emailInput.value;
       }
     }
-    
+
     if (email) {
       setUserEmail(email);
-      
+
       // Save to local storage for persistence
       localStorage.setItem("bytsave_user_email", email);
-      
+
       // Show notification
       toast({
         title: "Product tracking started",
@@ -68,17 +68,17 @@ const Home: React.FC = () => {
   // Handle quick track form submission
   const handleQuickTrackSubmit = (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
-    
+
     // Get form values
     const form = e.currentTarget;
     const urlInput = form.elements.namedItem("productUrl") as HTMLInputElement;
     const priceInput = form.elements.namedItem("targetPrice") as HTMLInputElement;
     const emailInput = form.elements.namedItem("email") as HTMLInputElement;
-    
+
     const productUrl = urlInput.value;
     const targetPrice = parseFloat(priceInput.value);
     const email = emailInput.value;
-    
+
     if (!productUrl || !targetPrice || !email) {
       toast({
         title: "Missing required fields",
@@ -87,7 +87,7 @@ const Home: React.FC = () => {
       });
       return;
     }
-    
+
     // Send simple tracking request
     fetch("/api/track", {
       method: "POST",
@@ -112,14 +112,14 @@ const Home: React.FC = () => {
         title: "Product tracked!",
         description: "We'll notify you when the price drops",
       });
-      
+
       // Set the email for the dashboard
       setUserEmail(email);
       localStorage.setItem("bytsave_user_email", email);
-      
+
       // Reset form
       form.reset();
-      
+
       // Scroll to dashboard
       document.getElementById("dashboard")?.scrollIntoView({ behavior: "smooth" });
     })
@@ -137,7 +137,7 @@ const Home: React.FC = () => {
     <>
       <HeroSection />
       <FeaturesSection />
-      
+
       <section id="tracker" className="py-16 bg-slate-50">
         <div className="container">
           <div className="text-center mb-10">
@@ -147,7 +147,7 @@ const Home: React.FC = () => {
               and get notified when they drop.
             </p>
           </div>
-          
+
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
             {/* Main product search and tracking component */}
             <div>
@@ -158,14 +158,14 @@ const Home: React.FC = () => {
                     Search for products by name or ASIN
                   </CardDescription>
                   {/* TEST ME: Simple test product search */}
-                  <TestProductSearch />
+                  {/* <TestProductSearch /> */}
                 </CardHeader>
                 <CardContent>
                   <ProductSearch onSuccess={handleTrackerSuccess} />
                 </CardContent>
               </Card>
             </div>
-            
+
             {/* Simple tracker for debugging */}
             <div>
               <Card className="bg-white border-2 border-amber-200">
@@ -184,11 +184,11 @@ const Home: React.FC = () => {
                 </CardContent>
               </Card>
             </div>
-            
+
           </div>
         </div>
       </section>
-      
+
       {/* Only show ProductsDisplay for authenticated users */}
       {user && <ProductsDisplay email={userEmail} />}
       <NotificationDemo />
