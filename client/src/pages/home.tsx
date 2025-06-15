@@ -145,9 +145,9 @@ const Home: React.FC = () => {
       {/* Above-the-Fold Hero Section */}
       <section className="relative bg-gradient-to-br from-blue-50 via-white to-indigo-50 py-16 lg:py-24">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="grid lg:grid-cols-2 gap-12 items-center min-h-[600px]">
+          <div className="grid lg:grid-cols-2 gap-12 items-start lg:items-center">
             {/* Left Side: Headline, tagline, search input */}
-            <div className="space-y-8 flex flex-col justify-center h-full">
+            <div className="space-y-8">
               <div className="space-y-4">
                 <h1 className="text-4xl lg:text-6xl font-bold text-gray-900 leading-tight">
                   Track Amazon Prices
@@ -231,7 +231,7 @@ const Home: React.FC = () => {
             </div>
 
             {/* Right Side: Illustration/Visual */}
-            <div className="relative flex items-center justify-center h-full">
+            <div className="relative">
               <HeroSection />
             </div>
           </div>
