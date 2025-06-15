@@ -135,6 +135,22 @@ const Home: React.FC = () => {
 
   return (
     <>
+      {/* Quick Search & Track Section at the top */}
+      <section className="bg-gradient-to-r from-blue-50 to-indigo-50 py-8 border-b">
+        <div className="container max-w-4xl mx-auto px-4">
+          <div className="text-center mb-6">
+            <h2 className="text-2xl font-bold text-gray-900 mb-2">Search & Track</h2>
+            <p className="text-gray-600">Track Amazon products by name and get notified when prices drop</p>
+          </div>
+          
+          <Card className="bg-white/80 backdrop-blur-sm border-0 shadow-lg">
+            <CardContent className="p-6">
+              <ProductSearch onSuccess={handleTrackerSuccess} />
+            </CardContent>
+          </Card>
+        </div>
+      </section>
+
       <HeroSection />
       <FeaturesSection />
 
