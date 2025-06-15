@@ -289,16 +289,7 @@ const Home: React.FC = () => {
             </div>
           </div>
 
-          {/* Trusted by section placeholder */}
-          <div className="text-center mt-16 pt-12 border-t border-gray-200">
-            <p className="text-gray-500 text-sm mb-4">Trusted by thousands of smart shoppers</p>
-            <div className="flex justify-center items-center space-x-8 opacity-60">
-              <div className="h-8 w-24 bg-gray-200 rounded"></div>
-              <div className="h-8 w-20 bg-gray-200 rounded"></div>
-              <div className="h-8 w-28 bg-gray-200 rounded"></div>
-              <div className="h-8 w-16 bg-gray-200 rounded"></div>
-            </div>
-          </div>
+          
         </div>
       </section>
 
