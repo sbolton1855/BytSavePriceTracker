@@ -144,7 +144,7 @@ const Home: React.FC = () => {
     <>
       {/* Above-the-Fold Hero Section */}
       <section className="relative bg-gradient-to-br from-blue-50 via-white to-indigo-50 py-16 lg:py-24">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+        <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="grid lg:grid-cols-2 gap-12 items-start lg:items-center">
             {/* Left Side: Headline, tagline, search input */}
             <div className="space-y-8">
