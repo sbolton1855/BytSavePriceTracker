@@ -155,7 +155,7 @@ const Home: React.FC = () => {
                 <CardHeader>
                   <CardTitle>Search & Track</CardTitle>
                   <CardDescription>
-                    Search for products by name or ASIN
+                    Track Amazon products by name
                   </CardDescription>
                   {/* TEST ME: Simple test product search */}
                   {/* <TestProductSearch /> */}

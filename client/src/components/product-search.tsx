@@ -92,13 +92,13 @@ export default function ProductSearch({
     try {
       // Use the email from the authenticated user or the input field
       const trackingEmail = user?.email || email;
-      
+
       console.log("Sending tracking request with:", {
         url: selectedProduct.url,
         price: parseFloat(targetPrice),
         email: trackingEmail
       });
-      
+
       const response = await fetch("/api/track", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -112,7 +112,7 @@ export default function ProductSearch({
       if (response.status === 403) {
         // Handle limit reached error
         const errorData = await response.json();
-        
+
         if (errorData.limitReached) {
           toast({
             title: "Tracking Limit Reached",
@@ -131,7 +131,7 @@ export default function ProductSearch({
           return;
         }
       }
-      
+
       if (!response.ok) {
         const errorText = await response.text();
         throw new Error(errorText);
@@ -158,7 +158,7 @@ export default function ProductSearch({
       if (!user && trackingEmail) {
         localStorage.setItem("bytsave_user_email", trackingEmail);
       }
-      
+
       // Reset form
       setSelectedProduct(null);
       setTargetPrice("");
@@ -183,7 +183,7 @@ export default function ProductSearch({
       }
     } catch (error) {
       console.error("Error tracking product:", error);
-      
+
       // Check if this is the limit reached error
       if (error instanceof Error && error.message.includes('403')) {
         try {
@@ -210,7 +210,7 @@ export default function ProductSearch({
           console.error("Error parsing error message", e);
         }
       }
-      
+
       toast({
         title: "Failed to track product",
         description: error instanceof Error ? error.message : "An unexpected error occurred",
@@ -322,7 +322,7 @@ export default function ProductSearch({
               </div>
             </div>
           </div>
-          
+
           <div className="space-y-4">
             <div className="space-y-2">
               <Label htmlFor="target-price">Target Price ($)</Label>
@@ -336,7 +336,7 @@ export default function ProductSearch({
                 onChange={(e) => {
                   const value = e.target.value;
                   setTargetPrice(value);
-                  
+
                   // Validate the input
                   if (!value) {
                     setTargetPriceError("Please enter a target price");
@@ -358,7 +358,7 @@ export default function ProductSearch({
                 </p>
               )}
             </div>
-            
+
             {!user && (
               <div className="space-y-2">
                 <Label htmlFor="alert-email">Email for Price Alerts</Label>
