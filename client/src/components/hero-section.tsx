@@ -198,81 +198,55 @@ const PriceTrackerDashboard: React.FC = () => {
         </div>
         <div className="mb-4">
           <h4 className="text-sm font-medium text-gray-700 mb-2">Latest Price Alerts</h4>
-          <div className="max-h-[300px] overflow-y-auto border border-gray-200 rounded-md">
+          <div className="space-y-3 max-h-[300px] overflow-y-auto">
             {selectedDeals.length > 0 ? (
-              <table className="w-full text-xs">
-                <thead className="bg-gray-50 sticky top-0">
-                  <tr>
-                    <th className="px-2 py-2 text-left font-medium text-gray-700">Product</th>
-                    <th className="px-2 py-2 text-left font-medium text-gray-700">Price</th>
-                    <th className="px-2 py-2 text-left font-medium text-gray-700">Discount</th>
-                    <th className="px-2 py-2 text-left font-medium text-gray-700">Action</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-gray-100">
-                  {selectedDeals.map((deal, index) => (
-                    <tr 
-                      key={deal.id || `deal-${index}`}
-                      className="hover:bg-gray-50 transition-colors"
-                    >
-                      <td className="px-2 py-2">
-                        <div className="flex items-center space-x-2">
-                          <div className="w-8 h-8 min-w-[32px] bg-gray-100 rounded overflow-hidden flex items-center justify-center">
-                            {deal.imageUrl ? (
-                              <img 
-                                src={deal.imageUrl} 
-                                alt={deal.title} 
-                                className="w-full h-full object-contain"
-                              />
-                            ) : (
-                              <span className="text-xs text-gray-400">img</span>
-                            )}
-                          </div>
-                          <div className="min-w-0 flex-1">
-                            <p className="font-medium text-gray-800 truncate max-w-[150px]" title={deal.title}>
-                              {deal.title}
-                            </p>
-                          </div>
-                        </div>
-                      </td>
-                      <td className="px-2 py-2">
-                        <div className="flex flex-col">
-                          <span className="font-bold text-green-600">
-                            {formatPrice(deal.currentPrice)}
+              selectedDeals.map((deal, index) => (
+                <a 
+                  key={deal.id || `deal-${index}`}
+                  href={deal.affiliateUrl || deal.url} 
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="flex items-center p-2 bg-gray-50 rounded-md border border-gray-200 hover:bg-gray-100 transition-colors cursor-pointer"
+                >
+                  <div className="w-12 h-12 min-w-[48px] bg-gray-100 rounded-md overflow-hidden mr-3 flex items-center justify-center">
+                    {deal.imageUrl ? (
+                      <img 
+                        src={deal.imageUrl} 
+                        alt={deal.title} 
+                        className="w-full h-full object-contain"
+                      />
+                    ) : (
+                      <div className="w-full h-full bg-gray-200 flex items-center justify-center">
+                        <span className="text-xs text-gray-500">No img</span>
+                      </div>
+                    )}
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <p className="text-xs font-medium text-gray-800 truncate">{deal.title}</p>
+                    <div className="flex items-center flex-wrap gap-1">
+                      <span className="text-xs font-bold text-green-600">
+                        {formatPrice(deal.currentPrice)}
+                      </span>
+                      {deal.originalPrice && deal.originalPrice > deal.currentPrice && (
+                        <>
+                          <span className="text-xs text-gray-500 line-through">
+                            {formatPrice(deal.originalPrice)}
                           </span>
-                          {deal.originalPrice && deal.originalPrice > deal.currentPrice && (
-                            <span className="text-gray-500 line-through text-xs">
-                              {formatPrice(deal.originalPrice)}
-                            </span>
-                          )}
-                        </div>
-                      </td>
-                      <td className="px-2 py-2">
-                        {deal.originalPrice && deal.originalPrice > deal.currentPrice ? (
-                          <span className="bg-green-100 text-green-800 px-1.5 py-0.5 rounded-full flex items-center w-fit">
+                          <span className="text-xs bg-green-100 text-green-800 px-1.5 py-0.5 rounded-full flex items-center">
                             <TrendingDown className="h-3 w-3 mr-0.5" />
                             {calculateDiscount(deal.originalPrice, deal.currentPrice)}%
                           </span>
-                        ) : (
-                          <span className="text-gray-400">-</span>
-                        )}
-                      </td>
-                      <td className="px-2 py-2">
-                        <a
-                          href={deal.affiliateUrl || deal.url}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          className="text-blue-600 hover:text-blue-800 font-medium"
-                        >
-                          View
-                        </a>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
+                        </>
+                      )}
+                    </div>
+                    <div className="mt-1">
+                      <span className="text-xs text-blue-600">View on Amazon →</span>
+                    </div>
+                  </div>
+                </a>
+              ))
             ) : (
-              <div className="p-3 bg-gray-50 text-sm text-gray-500 text-center">
+              <div className="p-3 bg-gray-50 rounded-md text-sm text-gray-500 text-center">
                 No price alerts found
               </div>
             )}
