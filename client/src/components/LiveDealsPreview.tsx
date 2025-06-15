@@ -98,15 +98,6 @@ export default function LiveDealsPreview() {
         })}
       </ul>
       <p className="text-[10px] text-muted-foreground mt-4">Powered by Amazon Product API</p>
-      {/* Debug: Show currently displayed deal titles */}
-      <div className="mt-2 p-2 bg-yellow-50 border border-yellow-200 rounded text-xs">
-        <strong>Debug: Displaying {deals.length} deals:</strong>
-        <ul>
-          {deals.slice(0, 4).map((deal, idx) => (
-            <li key={idx}>{deal.title || '(No title)'}</li>
-          ))}
-        </ul>
-      </div>
     </div>
   );
 } 
