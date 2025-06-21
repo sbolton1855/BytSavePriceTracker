@@ -99,6 +99,12 @@ async function updateProductPrice(product: Product): Promise<Product | undefined
       const historyAdded = await intelligentlyAddPriceHistory(product.id, latestInfo.price);
       console.log(`Price history ${historyAdded ? 'updated' : 'unchanged'} for ${product.asin}`);
       
+      // Debug: Log current time vs last checked
+      const now = new Date();
+      const lastChecked = new Date(product.lastChecked);
+      const hoursSinceLastCheck = (now.getTime() - lastChecked.getTime()) / (1000 * 60 * 60);
+      console.log(`DEBUG: Product ${product.asin} - Hours since last check: ${hoursSinceLastCheck.toFixed(2)}, Should force history: ${hoursSinceLastCheck > 6}`);
+      
       // Calculate new lowest and highest prices
       const newLowestPrice = product.lowestPrice 
         ? Math.min(product.lowestPrice, latestInfo.price)
