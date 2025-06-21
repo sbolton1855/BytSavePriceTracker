@@ -2,7 +2,7 @@ import type { Express, Request, Response } from "express";
 import { createServer, type Server } from "http";
 import { storage } from "./storage";
 import { getProductInfo, searchProducts, extractAsinFromUrl, isValidAsin, addAffiliateTag, searchAmazonProducts } from "./amazonApi";
-import { startPriceChecker } from "./priceChecker";
+import { startPriceChecker, checkPricesAndNotify } from "./priceChecker";
 import { requireAuth, configureAuth } from "./authService";
 import { z } from "zod";
 import { trackingFormSchema, type Product } from "@shared/schema";
@@ -1319,8 +1319,20 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Start price checker background service
-  // Temporarily disabled due to API credential issues
-  // startPriceChecker();
+  console.log("Starting price checker background service...");
+  startPriceChecker();
+
+  // Manual price check endpoint for debugging
+  app.post('/api/debug/run-price-check-manual', async (req: Request, res: Response) => {
+    try {
+      console.log('Running manual price check...');
+      await checkPricesAndNotify();
+      res.json({ success: true, message: 'Price check completed' });
+    } catch (error) {
+      console.error('Manual price check failed:', error);
+      res.status(500).json({ success: false, error: error instanceof Error ? error.message : 'Unknown error' });
+    }
+  });
 
   app.use('/api', amazonRouter);
   console.log(">>> [DEBUG] Registered amazonRouter at /api");
