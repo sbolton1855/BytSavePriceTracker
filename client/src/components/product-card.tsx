@@ -79,16 +79,15 @@ const ProductCard: React.FC<ProductCardProps> = ({ trackedProduct, onRefresh }) 
     mutationFn: async (targetPrice: number) => {
       return apiRequest("PATCH", `/api/tracked-products/${trackedProduct.id}`, { targetPrice });
     },
-    onSuccess: (updatedData) => {
-      // Force a re-render by invalidating and refetching the query
-      queryClient.invalidateQueries({ queryKey: ['/api/tracked-products'] });
-      queryClient.refetchQueries({ queryKey: ['/api/tracked-products'] });
-      
+    onSuccess: (updatedTrackedProduct) => {
+      console.log('Target price update response:', updatedTrackedProduct);
       toast({
         title: "Target price updated",
         description: "We'll notify you when the price drops below your new target.",
       });
       setShowEditDialog(false);
+      setNewTargetPrice(updatedTrackedProduct.targetPrice.toString());
+      queryClient.invalidateQueries({ queryKey: ['/api/tracked-products'] });
       onRefresh();
     },
     onError: (error) => {
@@ -205,6 +204,11 @@ const ProductCard: React.FC<ProductCardProps> = ({ trackedProduct, onRefresh }) 
     },
   });
 
+  const handleEditClick = () => {
+    console.log('Edit button clicked');
+    setShowEditDialog(true);
+  };
+
   const handleEditSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     const price = parseFloat(newTargetPrice);
@@ -314,7 +318,7 @@ const ProductCard: React.FC<ProductCardProps> = ({ trackedProduct, onRefresh }) 
                   <Button 
                     variant="outline" 
                     size="icon"
-                    onClick={() => setShowEditDialog(true)}
+                    onClick={handleEditClick}
                   >
                     <svg 
                       xmlns="http://www.w3.org/2000/svg" 
