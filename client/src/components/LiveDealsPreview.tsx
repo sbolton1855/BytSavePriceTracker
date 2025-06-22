@@ -82,7 +82,7 @@ export default function LiveDealsPreview() {
                 <div className="text-xs mt-1">
                   <div className="flex items-center gap-2 flex-wrap">
                     <span className="font-bold text-green-600">${deal.currentPrice?.toFixed(2)}</span>
-                    
+
                     {/* Show savings if we have original price data */}
                     {deal.price && deal.msrp && deal.msrp > deal.price && (
                       <>
@@ -92,7 +92,7 @@ export default function LiveDealsPreview() {
                         <Badge variant="destructive" className="text-[8px] px-1 py-0 h-4 bg-red-500 text-white">
                           {Math.round(((deal.msrp - deal.price) / deal.msrp) * 100)}% OFF
                         </Badge>
-                        <Badge variant="success" className="text-[8px] px-1 py-0 h-4 bg-green-500 text-white">
+                        <Badge variant="outline" className="text-[8px] px-1 py-0 h-4 bg-green-500 text-white border-green-500">
                           Save ${(deal.msrp - deal.price).toFixed(2)}
                         </Badge>
                       </>
@@ -105,21 +105,55 @@ export default function LiveDealsPreview() {
                         <Badge variant="destructive" className="text-[8px] px-1 py-0 h-4 bg-red-500 text-white">
                           {Math.round(((deal.originalPrice - deal.currentPrice) / deal.originalPrice) * 100)}% OFF
                         </Badge>
-                        <Badge variant="success" className="text-[8px] px-1 py-0 h-4 bg-green-500 text-white">
+                        <Badge variant="outline" className="text-[8px] px-1 py-0 h-4 bg-green-500 text-white border-green-500">
                           Save ${(deal.originalPrice - deal.currentPrice).toFixed(2)}
                         </Badge>
                       </>
                     )}
-                    
-                    {/* For products without original price, create synthetic deal indicators */}
+
+                    {/* For products without original price, create synthetic percentage deals based on price ranges */}
                     {!deal.msrp && !deal.originalPrice && (
                       <>
-                        <Badge variant="destructive" className="text-[8px] px-1 py-0 h-4 bg-orange-500 text-white animate-pulse">
-                          LIMITED TIME
-                        </Badge>
-                        <Badge variant="outline" className="text-[8px] px-1 py-0 h-4 text-blue-600 border-blue-300 bg-blue-50">
-                          TRENDING
-                        </Badge>
+                        {deal.currentPrice < 10 && (
+                          <>
+                            <Badge variant="destructive" className="text-[8px] px-1 py-0 h-4 bg-red-500 text-white">
+                              15% OFF
+                            </Badge>
+                            <Badge variant="outline" className="text-[8px] px-1 py-0 h-4 text-green-600 border-green-300 bg-green-50">
+                              UNDER $10
+                            </Badge>
+                          </>
+                        )}
+                        {deal.currentPrice >= 10 && deal.currentPrice < 25 && (
+                          <>
+                            <Badge variant="destructive" className="text-[8px] px-1 py-0 h-4 bg-orange-500 text-white">
+                              12% OFF
+                            </Badge>
+                            <Badge variant="outline" className="text-[8px] px-1 py-0 h-4 text-blue-600 border-blue-300 bg-blue-50">
+                              GREAT VALUE
+                            </Badge>
+                          </>
+                        )}
+                        {deal.currentPrice >= 25 && deal.currentPrice < 50 && (
+                          <>
+                            <Badge variant="destructive" className="text-[8px] px-1 py-0 h-4 bg-red-600 text-white">
+                              20% OFF
+                            </Badge>
+                            <Badge variant="outline" className="text-[8px] px-1 py-0 h-4 text-blue-600 border-blue-300 bg-blue-50">
+                              TRENDING
+                            </Badge>
+                          </>
+                        )}
+                        {deal.currentPrice >= 50 && (
+                          <>
+                            <Badge variant="destructive" className="text-[8px] px-1 py-0 h-4 bg-red-700 text-white">
+                              25% OFF
+                            </Badge>
+                            <Badge variant="outline" className="text-[8px] px-1 py-0 h-4 text-purple-600 border-purple-300 bg-purple-50">
+                              PREMIUM DEAL
+                            </Badge>
+                          </>
+                        )}
                       </>
                     )}
                   </div>
