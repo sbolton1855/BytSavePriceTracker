@@ -69,13 +69,7 @@ export default function LiveDealsPreview() {
                 ) : (
                   <div className="w-14 h-14 flex items-center justify-center bg-gray-100 border rounded text-xs text-gray-400">No image</div>
                 )}
-                {/* Deal badge */}
-                <Badge 
-                  variant="destructive" 
-                  className="absolute -top-1 -right-1 text-[8px] px-1 py-0 h-4 bg-red-500 text-white"
-                >
-                  DEAL
-                </Badge>
+                
               </div>
               <div className="flex-1">
                 <p className="text-xs font-medium leading-tight line-clamp-2">{deal.title}</p>
