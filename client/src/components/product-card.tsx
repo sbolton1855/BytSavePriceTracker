@@ -78,42 +78,27 @@ const ProductCard: React.FC<ProductCardProps> = ({ trackedProduct, onRefresh, is
   // Update target price mutation
   const updateTargetPriceMutation = useMutation({
     mutationFn: async (targetPrice: number) => {
-      console.log('Mutation starting with:', {
-        trackedProduct: trackedProduct,
-        trackedProductId: trackedProduct?.id,
-        targetPrice: targetPrice
-      });
+      // Determine which endpoint to use based on whether we have a userId
+      const hasUserId = !!trackedProduct.userId;
 
-      if (!trackedProduct) {
-        throw new Error("Tracked product is undefined");
+      if (hasUserId) {
+        // Use authenticated endpoint
+        return apiRequest("PATCH", `/api/my/tracked-products/${trackedProduct.id}`, { targetPrice });
+      } else {
+        // Use non-authenticated endpoint with email parameter
+        const email = trackedProduct.email || '';
+        return apiRequest("PATCH", `/api/tracked-products/${trackedProduct.id}?email=${encodeURIComponent(email)}`, { targetPrice });
       }
-
-      if (!trackedProduct.id) {
-        throw new Error("Tracked product ID is undefined");
-      }
-
-      const response = await apiRequest("PATCH", `/api/tracked-products/${trackedProduct.id}`, { targetPrice });
-      console.log('API response:', response);
-      return response;
     },
-    onSuccess: (data) => {
-      console.log('Target price update response:', data);
+    onSuccess: () => {
       toast({
         title: "Target price updated",
         description: "We'll notify you when the price drops below your new target.",
       });
       setShowEditDialog(false);
-      setNewTargetPrice(data?.targetPrice?.toString() || targetPrice.toString());
-      queryClient.invalidateQueries({ queryKey: ['/api/tracked-products'] });
       onRefresh();
     },
     onError: (error) => {
-      console.error('Update target price error:', error);
-      console.error('Error details:', {
-        message: error instanceof Error ? error.message : 'Unknown error',
-        stack: error instanceof Error ? error.stack : 'No stack trace',
-        trackedProduct: trackedProduct
-      });
       toast({
         title: "Failed to update target price",
         description: error instanceof Error ? error.message : "Please try again later",

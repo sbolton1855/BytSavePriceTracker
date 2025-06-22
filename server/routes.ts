@@ -1017,7 +1017,53 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // Update a tracked product (modify target price)
+  // Update a tracked product (modify target price) - Non-authenticated
+  app.patch('/api/tracked-products/:id', async (req: Request, res: Response) => {
+    try {
+      const id = parseInt(req.params.id);
+      if (isNaN(id)) {
+        return res.status(400).json({ error: 'Invalid ID' });
+      }
+
+      // Validate the target price
+      const { targetPrice } = req.body;
+      if (targetPrice === undefined || typeof targetPrice !== 'number' || targetPrice <= 0) {
+        return res.status(400).json({ error: 'Valid target price is required' });
+      }
+
+      // Email is required for email-based tracking updates
+      const { email } = req.query;
+      if (!email || typeof email !== 'string') {
+        return res.status(400).json({ error: 'Email is required to update tracked product' });
+      }
+
+      const trackedProduct = await storage.getTrackedProduct(id);
+      if (!trackedProduct) {
+        return res.status(404).json({ error: 'Tracked product not found' });
+      }
+
+      // Normalize emails for comparison
+      const normalizedEmail = email.toUpperCase();
+      
+      // Check if the email matches the tracked product
+      if (trackedProduct.email !== normalizedEmail) {
+        return res.status(403).json({ error: 'Not authorized to update this tracked product' });
+      }
+
+      // Update with new target price and reset notification status
+      const updated = await storage.updateTrackedProduct(id, {
+        targetPrice,
+        notified: false
+      });
+
+      res.json(updated);
+    } catch (error) {
+      console.error('Error updating tracked product:', error);
+      res.status(500).json({ error: 'Server error' });
+    }
+  });
+
+  // Update a tracked product (modify target price) - Authenticated
   app.patch('/api/my/tracked-products/:id', requireAuth, async (req: Request, res: Response) => {
     try {
       const id = parseInt(req.params.id);
