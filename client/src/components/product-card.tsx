@@ -238,15 +238,19 @@ const ProductCard: React.FC<ProductCardProps> = ({ trackedProduct, onRefresh }) 
               <h3 className="text-lg font-semibold text-gray-900 line-clamp-2">{product.title}</h3>
               <p className="text-sm text-gray-500 mt-1">ASIN: {product.asin}</p>
             </div>
-            <div className="flex flex-col gap-1">
+            <div className="flex flex-col gap-1 items-end">
               {percentOff > 0 && (
-                <Badge variant="destructive" className="text-xs">
+                <Badge variant="destructive" className="text-xs font-medium">
                   {percentOff}% OFF
                 </Badge>
               )}
               {product.currentPrice < 10 ? (
-                <Badge variant="success" className="text-xs">
+                <Badge variant="secondary" className="text-xs bg-green-100 text-green-700 border-green-300">
                   UNDER $10
+                </Badge>
+              ) : percentOff > 0 ? (
+                <Badge variant="secondary" className="text-xs bg-blue-100 text-blue-700 border-blue-300">
+                  GREAT VALUE
                 </Badge>
               ) : (
                 <Badge variant={badgeVariant} className="text-xs">
