@@ -30,7 +30,7 @@ const PriceTrackerDashboard: React.FC = () => {
   const { data: deals, isLoading, refetch } = useQuery<ProductDeal[]>({
     queryKey: ["/api/amazon/deals", refreshKey, lastRefreshTime],
     queryFn: async () => {
-      console.log(`Fetching Amazon deals with refreshKey: ${refreshKey}`);
+     // console.log(`Fetching Amazon deals with refreshKey: ${refreshKey}`);
       const timestamp = Date.now();
       const response = await fetch(`/api/amazon/deals?t=${timestamp}`);
       if (!response.ok) {
@@ -51,7 +51,7 @@ const PriceTrackerDashboard: React.FC = () => {
         affiliateUrl: d.url,
         id: d.asin || idx // Use asin or fallback to index
       }));
-      console.log('Received Amazon deals:', mappedDeals);
+    //  console.log('Received Amazon deals:', mappedDeals);
       return mappedDeals;
     },
     staleTime: 0, // Don't cache the data
@@ -80,14 +80,14 @@ const PriceTrackerDashboard: React.FC = () => {
   // Update selected deals when deals change
   useEffect(() => {
     if (deals && deals.length > 0) {
-      console.log('Processing deals for display:', deals.length, 'deals available');
+      //console.log('Processing deals for display:', deals.length, 'deals available');
 
       // First, get all deals with price drops
       const dealsWithPrices = deals.filter((deal: ProductDeal) => 
         deal.originalPrice && deal.originalPrice > deal.currentPrice
       );
 
-      console.log('Deals with price drops:', dealsWithPrices.length);
+     // console.log('Deals with price drops:', dealsWithPrices.length);
 
       // Create a random seed based on refreshKey and timestamp
       const randomSeed = refreshKey + Math.floor(lastRefreshTime / 1000);
@@ -105,7 +105,7 @@ const PriceTrackerDashboard: React.FC = () => {
         // If no price drops, shuffle all deals and take random ones
         const shuffledDeals = shuffle(deals);
         const selectedRandomDeals = shuffledDeals.slice(0, Math.min(3, deals.length));
-        console.log('No price drops, using random deals:', selectedRandomDeals.map(d => d.id));
+      //  console.log('No price drops, using random deals:', selectedRandomDeals.map(d => d.id));
         setSelectedDeals(selectedRandomDeals);
       } else {
         // Sort by discount percentage
@@ -122,11 +122,11 @@ const PriceTrackerDashboard: React.FC = () => {
         const shuffledTopDeals = shuffle(topDeals);
         const selectedTopDeals = shuffledTopDeals.slice(0, Math.min(3, shuffledTopDeals.length));
 
-        console.log('Selected random top deals with discounts:', selectedTopDeals.map(d => ({
-          id: d.id,
-          title: d.title.substring(0, 30) + '...',
-          discount: calculateDiscount(d.originalPrice!, d.currentPrice)
-        })));
+     //   console.log('Selected random top deals with discounts:', selectedTopDeals.map(d => ({
+      //     id: d.id,
+      //     title: d.title.substring(0, 30) + '...',
+      //     discount: calculateDiscount(d.originalPrice!, d.currentPrice)
+      //   })));
 
         setSelectedDeals(selectedTopDeals);
       }
@@ -135,7 +135,7 @@ const PriceTrackerDashboard: React.FC = () => {
 
   // Update the handleRefresh function
   const handleRefresh = async () => {
-    console.log('Refresh clicked, current refreshKey:', refreshKey);
+  //  console.log('Refresh clicked, current refreshKey:', refreshKey);
     setIsRefreshing(true);
 
     // Update both refresh key and timestamp to ensure new rotation
@@ -143,7 +143,7 @@ const PriceTrackerDashboard: React.FC = () => {
     setLastRefreshTime(Date.now());
 
     const result = await refetch();
-    console.log('Refetch completed, new data:', result.data?.length, 'deals');
+  //  console.log('Refetch completed, new data:', result.data?.length, 'deals');
     setLastUpdated("Just now");
     setIsRefreshing(false);
   };
