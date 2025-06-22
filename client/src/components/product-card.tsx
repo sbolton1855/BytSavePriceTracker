@@ -38,16 +38,16 @@ const ProductCard: React.FC<ProductCardProps> = ({ trackedProduct, onRefresh }) 
 
   // Cast the product to our extended type that includes affiliateUrl
   const product = trackedProduct.product as ProductWithAffiliate;
-  
+
   // Calculate price difference percentage
   const percentOff = product.originalPrice 
     ? Math.round(((product.originalPrice - product.currentPrice) / product.originalPrice) * 100) 
     : 0;
-  
+
   // Determine badge status
   let badgeText = "Monitoring";
   let badgeVariant: "success" | "monitoring" | "priceDropped" = "monitoring";
-  
+
   if (product.currentPrice <= trackedProduct.targetPrice) {
     badgeText = "Target Reached!";
     badgeVariant = "success";
@@ -55,14 +55,14 @@ const ProductCard: React.FC<ProductCardProps> = ({ trackedProduct, onRefresh }) 
     badgeText = "Price Dropped";
     badgeVariant = "priceDropped";
   }
-  
+
   // Format last checked time
   const formatLastChecked = (date: Date) => {
     const now = new Date();
     const lastChecked = new Date(date);
     const diffMs = now.getTime() - lastChecked.getTime();
     const diffMins = Math.round(diffMs / 60000);
-    
+
     if (diffMins < 60) {
       return `${diffMins} ${diffMins === 1 ? 'minute' : 'minutes'} ago`;
     } else if (diffMins < 1440) {
@@ -77,20 +77,42 @@ const ProductCard: React.FC<ProductCardProps> = ({ trackedProduct, onRefresh }) 
   // Update target price mutation
   const updateTargetPriceMutation = useMutation({
     mutationFn: async (targetPrice: number) => {
-      return apiRequest("PATCH", `/api/tracked-products/${trackedProduct.id}`, { targetPrice });
+      console.log('Mutation starting with:', {
+        trackedProduct: trackedProduct,
+        trackedProductId: trackedProduct?.id,
+        targetPrice: targetPrice
+      });
+
+      if (!trackedProduct) {
+        throw new Error("Tracked product is undefined");
+      }
+
+      if (!trackedProduct.id) {
+        throw new Error("Tracked product ID is undefined");
+      }
+
+      const response = await apiRequest("PATCH", `/api/tracked-products/${trackedProduct.id}`, { targetPrice });
+      console.log('API response:', response);
+      return response;
     },
-    onSuccess: (updatedTrackedProduct) => {
-      console.log('Target price update response:', updatedTrackedProduct);
+    onSuccess: (data) => {
+      console.log('Target price update response:', data);
       toast({
         title: "Target price updated",
         description: "We'll notify you when the price drops below your new target.",
       });
       setShowEditDialog(false);
-      setNewTargetPrice(updatedTrackedProduct.targetPrice.toString());
+      setNewTargetPrice(data?.targetPrice?.toString() || targetPrice.toString());
       queryClient.invalidateQueries({ queryKey: ['/api/tracked-products'] });
       onRefresh();
     },
     onError: (error) => {
+      console.error('Update target price error:', error);
+      console.error('Error details:', {
+        message: error instanceof Error ? error.message : 'Unknown error',
+        stack: error instanceof Error ? error.stack : 'No stack trace',
+        trackedProduct: trackedProduct
+      });
       toast({
         title: "Failed to update target price",
         description: error instanceof Error ? error.message : "Please try again later",
@@ -127,24 +149,24 @@ const ProductCard: React.FC<ProductCardProps> = ({ trackedProduct, onRefresh }) 
   const deleteTrackingMutation = useMutation({
     mutationFn: async () => {
       console.log(`Deleting tracked product with ID: ${trackedProduct.id}`);
-      
+
       // Determine which endpoint to use based on whether we have a userId
       const hasUserId = !!trackedProduct.userId;
-      
+
       // Make sure we have a valid email for non-authenticated users
       const email = trackedProduct.email || '';
-      
+
       let url = hasUserId 
         ? `/api/my/tracked-products/${trackedProduct.id}`
         : `/api/tracked-products/${trackedProduct.id}?email=${encodeURIComponent(email)}`;
-      
+
       console.log(`Using delete endpoint: ${url}`);
       console.log(`Product data for deletion:`, {
         id: trackedProduct.id,
         email: email,
         hasUserId: hasUserId
       });
-      
+
       // Include credentials to ensure the auth cookie is sent
       const res = await fetch(url, {
         method: 'DELETE',
@@ -153,7 +175,7 @@ const ProductCard: React.FC<ProductCardProps> = ({ trackedProduct, onRefresh }) 
           'Content-Type': 'application/json'
         }
       });
-      
+
       if (!res.ok) {
         const errorText = await res.text();
         console.error("Delete API error response:", errorText);
@@ -164,7 +186,7 @@ const ProductCard: React.FC<ProductCardProps> = ({ trackedProduct, onRefresh }) 
           throw new Error(errorText || "Failed to delete product");
         }
       }
-      
+
       return res;
     },
     onSuccess: () => {
@@ -173,22 +195,22 @@ const ProductCard: React.FC<ProductCardProps> = ({ trackedProduct, onRefresh }) 
         title: "Product removed from tracking ✓",
         description: "You'll no longer receive price alerts for this product.",
       });
-      
+
       setIsDeleting(false);
       setShowDeleteConfirm(false);
-      
+
       console.log("Product deleted, invalidating queries");
-      
+
       // Reset the cache completely for tracked products
       queryClient.resetQueries({ queryKey: ['/api/tracked-products'] });
-      
+
       // Force an immediate refetch of the tracked products
       setTimeout(() => {
         queryClient.refetchQueries({ queryKey: ['/api/tracked-products'] });
-        
+
         // Force re-render any components using the data
         document.dispatchEvent(new CustomEvent('product-deleted'));
-        
+
         // Also trigger the parent's refresh callback
         onRefresh();
       }, 300);
@@ -263,7 +285,7 @@ const ProductCard: React.FC<ProductCardProps> = ({ trackedProduct, onRefresh }) 
               )}
             </div>
           </div>
-          
+
           <div className="mt-4 flex items-center">
             {product.imageUrl && (
               <img 
@@ -286,7 +308,7 @@ const ProductCard: React.FC<ProductCardProps> = ({ trackedProduct, onRefresh }) 
             </div>
           </div>
         </div>
-        
+
         <div className="px-5 py-3 bg-gray-50 flex items-center justify-between">
           <a 
             href={product.affiliateUrl || product.url} 
