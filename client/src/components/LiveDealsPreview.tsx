@@ -1,5 +1,6 @@
 import { useQuery } from "@tanstack/react-query";
 import { Card, CardContent, CardFooter, CardHeader, CardTitle } from "../ui/card";
+import { Badge } from "../ui/badge";
 
 // Type for a deal
 type Deal = {
@@ -57,49 +58,69 @@ export default function LiveDealsPreview() {
         {deals.slice(0, 4).map((deal, index) => {
           console.log("[LiveDealsPreview] Rendering deal:", deal);
           return (
-            <li key={index} className="flex items-start space-x-3">
-              {deal.imageUrl ? (
-                <img
-                  src={deal.imageUrl}
-                  alt={deal.title}
-                  className="w-14 h-14 object-contain border rounded"
-                />
-              ) : (
-                <div className="w-14 h-14 flex items-center justify-center bg-gray-100 border rounded text-xs text-gray-400">No image</div>
-              )}
+            <li key={index} className="flex items-start space-x-3 relative">
+              <div className="relative">
+                {deal.imageUrl ? (
+                  <img
+                    src={deal.imageUrl}
+                    alt={deal.title}
+                    className="w-14 h-14 object-contain border rounded"
+                  />
+                ) : (
+                  <div className="w-14 h-14 flex items-center justify-center bg-gray-100 border rounded text-xs text-gray-400">No image</div>
+                )}
+                {/* Deal badge */}
+                <Badge 
+                  variant="destructive" 
+                  className="absolute -top-1 -right-1 text-[8px] px-1 py-0 h-4 bg-red-500 text-white"
+                >
+                  DEAL
+                </Badge>
+              </div>
               <div className="flex-1">
                 <p className="text-xs font-medium leading-tight line-clamp-2">{deal.title}</p>
                 <div className="text-xs mt-1">
-                  <span className="font-bold">${deal.currentPrice?.toFixed(2)}</span>
-                  {deal.price && deal.msrp && deal.msrp > deal.price && (
-                    <>
-                      <span className="text-muted-foreground line-through ml-1 text-xs">
-                        ${deal.msrp.toFixed(2)}
-                      </span>
-                      <span className="ml-2 text-green-600 text-xs font-medium">
-                        Save ${(deal.msrp - deal.price).toFixed(2)}
-                      </span>
-                    </>
-                  )}
-                  {!deal.msrp && deal.originalPrice && deal.originalPrice > deal.currentPrice && (
-                    <>
-                      <span className="text-muted-foreground line-through ml-1 text-xs">
-                        ${deal.originalPrice.toFixed(2)}
-                      </span>
-                      <span className="ml-2 text-green-600 text-xs font-medium">
-                        Save ${(deal.originalPrice - deal.currentPrice).toFixed(2)}
-                      </span>
-                    </>
-                  )}
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <span className="font-bold text-green-600">${deal.currentPrice?.toFixed(2)}</span>
+                    
+                    {/* Show savings if we have original price data */}
+                    {deal.price && deal.msrp && deal.msrp > deal.price && (
+                      <>
+                        <span className="text-muted-foreground line-through text-xs">
+                          ${deal.msrp.toFixed(2)}
+                        </span>
+                        <Badge variant="success" className="text-[8px] px-1 py-0 h-4">
+                          Save ${(deal.msrp - deal.price).toFixed(2)}
+                        </Badge>
+                      </>
+                    )}
+                    {!deal.msrp && deal.originalPrice && deal.originalPrice > deal.currentPrice && (
+                      <>
+                        <span className="text-muted-foreground line-through text-xs">
+                          ${deal.originalPrice.toFixed(2)}
+                        </span>
+                        <Badge variant="success" className="text-[8px] px-1 py-0 h-4">
+                          Save ${(deal.originalPrice - deal.currentPrice).toFixed(2)}
+                        </Badge>
+                      </>
+                    )}
+                    
+                    {/* For products without original price, show as "Hot Deal" */}
+                    {!deal.msrp && !deal.originalPrice && (
+                      <Badge variant="outline" className="text-[8px] px-1 py-0 h-4 text-orange-600 border-orange-300">
+                        HOT DEAL
+                      </Badge>
+                    )}
+                  </div>
                 </div>
                 {deal.affiliateUrl && (
                   <a
                     href={deal.affiliateUrl}
                     target="_blank"
                     rel="noopener noreferrer"
-                    className="text-xs text-blue-600 hover:underline mt-1 inline-block"
+                    className="text-xs text-blue-600 hover:underline mt-1 inline-block font-medium"
                   >
-                    View
+                    View Deal →
                   </a>
                 )}
               </div>

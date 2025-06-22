@@ -25,7 +25,7 @@ const PriceTrackerDashboard: React.FC = () => {
   // Add refresh key state and timestamp for rotation
   const [refreshKey, setRefreshKey] = useState(0);
   const [lastRefreshTime, setLastRefreshTime] = useState(Date.now());
-  
+
   // Get real price drop deals from the backend
   const { data: deals, isLoading, refetch } = useQuery<ProductDeal[]>({
     queryKey: ["/api/amazon/deals", refreshKey, lastRefreshTime],
@@ -73,22 +73,22 @@ const PriceTrackerDashboard: React.FC = () => {
   // Get three random deals to display in the notification alerts
   const [selectedDeals, setSelectedDeals] = useState<ProductDeal[]>([]);
   const [isRefreshing, setIsRefreshing] = useState(false);
-  
+
   // Update time display
   const [lastUpdated, setLastUpdated] = useState<string>("Just now");
-  
+
   // Update selected deals when deals change
   useEffect(() => {
     if (deals && deals.length > 0) {
       console.log('Processing deals for display:', deals.length, 'deals available');
-      
+
       // First, get all deals with price drops
       const dealsWithPrices = deals.filter((deal: ProductDeal) => 
         deal.originalPrice && deal.originalPrice > deal.currentPrice
       );
-      
+
       console.log('Deals with price drops:', dealsWithPrices.length);
-      
+
       // Create a random seed based on refreshKey and timestamp
       const randomSeed = refreshKey + Math.floor(lastRefreshTime / 1000);
       const shuffle = (array: ProductDeal[]) => {
@@ -100,7 +100,7 @@ const PriceTrackerDashboard: React.FC = () => {
         }
         return shuffled;
       };
-      
+
       if (dealsWithPrices.length === 0) {
         // If no price drops, shuffle all deals and take random ones
         const shuffledDeals = shuffle(deals);
@@ -116,18 +116,18 @@ const PriceTrackerDashboard: React.FC = () => {
           const discountB = ((bOriginal - b.currentPrice) / bOriginal);
           return discountB - discountA;
         });
-        
+
         // Take top 8 deals and randomly select 3 from them
         const topDeals = sorted.slice(0, Math.min(8, sorted.length));
         const shuffledTopDeals = shuffle(topDeals);
         const selectedTopDeals = shuffledTopDeals.slice(0, Math.min(3, shuffledTopDeals.length));
-        
+
         console.log('Selected random top deals with discounts:', selectedTopDeals.map(d => ({
           id: d.id,
           title: d.title.substring(0, 30) + '...',
           discount: calculateDiscount(d.originalPrice!, d.currentPrice)
         })));
-        
+
         setSelectedDeals(selectedTopDeals);
       }
     }
@@ -137,11 +137,11 @@ const PriceTrackerDashboard: React.FC = () => {
   const handleRefresh = async () => {
     console.log('Refresh clicked, current refreshKey:', refreshKey);
     setIsRefreshing(true);
-    
+
     // Update both refresh key and timestamp to ensure new rotation
     setRefreshKey(prev => prev + 1);
     setLastRefreshTime(Date.now());
-    
+
     const result = await refetch();
     console.log('Refetch completed, new data:', result.data?.length, 'deals');
     setLastUpdated("Just now");
@@ -153,7 +153,7 @@ const PriceTrackerDashboard: React.FC = () => {
     const interval = setInterval(() => {
       handleRefresh();
     }, 5 * 60 * 1000);
-    
+
     return () => clearInterval(interval);
   }, []);
 
@@ -165,12 +165,12 @@ const PriceTrackerDashboard: React.FC = () => {
             <Skeleton className="h-6 w-36" />
             <Skeleton className="h-6 w-8" />
           </div>
-          
+
           <div className="grid grid-cols-2 gap-4 mb-4">
             <Skeleton className="h-24 w-full" />
             <Skeleton className="h-24 w-full" />
           </div>
-          
+
           <Skeleton className="h-5 w-32 mb-2" />
           <div className="space-y-3">
             <Skeleton className="h-16 w-full" />
@@ -255,7 +255,7 @@ const PriceTrackerDashboard: React.FC = () => {
             )}
           </div>
         </div>
-        
+
         <div className="flex items-center justify-between bg-gray-50 p-2 rounded-md text-xs text-gray-500">
           <span>Last updated: {lastUpdated}</span>
           <span>Data from Amazon Product API</span>
