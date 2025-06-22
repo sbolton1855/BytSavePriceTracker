@@ -10,17 +10,31 @@ async function throwIfResNotOk(res: Response) {
 export async function apiRequest(
   method: string,
   url: string,
-  data?: unknown | undefined,
+  data?: any
 ): Promise<Response> {
-  const res = await fetch(url, {
+  const options: RequestInit = {
     method,
-    headers: data ? { "Content-Type": "application/json" } : {},
-    body: data ? JSON.stringify(data) : undefined,
-    credentials: "include",
-  });
+    headers: {
+      "Content-Type": "application/json",
+    },
+    credentials: 'include', // Always include cookies for session management
+  };
 
-  await throwIfResNotOk(res);
-  return res;
+  if (data) {
+    options.body = JSON.stringify(data);
+  }
+
+  const response = await fetch(url, options);
+
+  if (!response.ok) {
+    const errorData = await response.json().catch(() => ({}));
+    const error = new Error(errorData.message || `HTTP error! status: ${response.status}`);
+    (error as any).status = response.status;
+    (error as any).response = { data: errorData };
+    throw error;
+  }
+
+  return response;
 }
 
 type UnauthorizedBehavior = "returnNull" | "throw";
@@ -44,15 +58,30 @@ export const getQueryFn: <T>(options: {
 export const queryClient = new QueryClient({
   defaultOptions: {
     queries: {
-      queryFn: getQueryFn({ on401: "throw" }),
-      refetchInterval: false,
-      refetchOnWindowFocus: true,
-      staleTime: 5000, // 5 seconds for faster updates
-      cacheTime: 10000, // 10 seconds cache time
-      retry: 1,
+      staleTime: 1000 * 60 * 5, // 5 minutes
+      retry: (failureCount, error: any) => {
+        // Don't retry on authentication errors
+        if (error?.status === 401) {
+          return false;
+        }
+        return failureCount < 3;
+      },
     },
     mutations: {
-      retry: 1,
+      retry: (failureCount, error: any) => {
+        // Don't retry on authentication errors
+        if (error?.status === 401) {
+          return false;
+        }
+        return failureCount < 2;
+      },
+      onError: (error: any) => {
+        // Handle authentication errors gracefully
+        if (error?.status === 401) {
+          console.warn('Authentication error during mutation:', error);
+          // Don't redirect immediately - let the component handle it
+        }
+      },
     },
   },
 });

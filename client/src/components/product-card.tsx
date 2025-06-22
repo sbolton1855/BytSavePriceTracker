@@ -77,42 +77,46 @@ const ProductCard: React.FC<ProductCardProps> = ({ trackedProduct, onRefresh, is
 
   // Update target price mutation
   const updateTargetPriceMutation = useMutation({
-    mutationFn: async (targetPrice: number) => {
-      // Determine which endpoint to use based on whether we have a userId
-      const hasUserId = !!trackedProduct.userId;
+    mutationFn: async (newPrice: number) => {
+      const endpoint = trackedProduct.userId 
+        ? `/api/my/tracked-products/${trackedProduct.id}`
+        : `/api/tracked-products/${trackedProduct.id}?email=${encodeURIComponent(trackedProduct.email)}`;
 
-      if (hasUserId) {
-        // Use authenticated endpoint
-        return apiRequest("PATCH", `/api/my/tracked-products/${trackedProduct.id}`, { targetPrice });
-      } else {
-        // Use non-authenticated endpoint with email parameter
-        const email = trackedProduct.email || '';
-        return apiRequest("PATCH", `/api/tracked-products/${trackedProduct.id}?email=${encodeURIComponent(email)}`, { targetPrice });
-      }
+      const res = await apiRequest("PATCH", endpoint, { targetPrice: newPrice });
+      return await res.json();
     },
     onSuccess: () => {
+      setShowEditDialog(false);
+      setNewTargetPrice(trackedProduct.targetPrice.toString());
+
+      // Use a timeout to ensure state updates don't interfere with auth
+      setTimeout(() => {
+        // Invalidate both possible query keys
+        queryClient.invalidateQueries({ queryKey: ['/api/tracked-products'] });
+        queryClient.invalidateQueries({ queryKey: ['/api/my/tracked-products'] });
+      }, 100);
+
       toast({
         title: "Target price updated",
-        description: "We'll notify you when the price drops below your new target.",
+        description: `New target price: $${parseFloat(newTargetPrice).toFixed(2)}`,
       });
-      setShowEditDialog(false);
-      
-      // Force invalidate all related queries
-      queryClient.invalidateQueries({ queryKey: ['/api/tracked-products'] });
-      queryClient.invalidateQueries({ queryKey: ['/api/my/tracked-products'] });
-      
-      // Trigger refresh callback
-      onRefresh();
-      
-      // Force a page refresh if needed to ensure UI updates
-      setTimeout(() => {
-        window.location.reload();
-      }, 1000);
     },
-    onError: (error) => {
+    onError: (error: any) => {
+      console.error("Update target price error:", error);
+
+      // Handle authentication errors gracefully
+      if (error?.status === 401) {
+        toast({
+          title: "Session expired",
+          description: "Please refresh the page and try again.",
+          variant: "destructive",
+        });
+        return;
+      }
+
       toast({
         title: "Failed to update target price",
-        description: error instanceof Error ? error.message : "Please try again later",
+        description: error.message || "Please try again later.",
         variant: "destructive",
       });
     },
