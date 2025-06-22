@@ -96,7 +96,18 @@ const ProductCard: React.FC<ProductCardProps> = ({ trackedProduct, onRefresh, is
         description: "We'll notify you when the price drops below your new target.",
       });
       setShowEditDialog(false);
+      
+      // Force invalidate all related queries
+      queryClient.invalidateQueries({ queryKey: ['/api/tracked-products'] });
+      queryClient.invalidateQueries({ queryKey: ['/api/my/tracked-products'] });
+      
+      // Trigger refresh callback
       onRefresh();
+      
+      // Force a page refresh if needed to ensure UI updates
+      setTimeout(() => {
+        window.location.reload();
+      }, 1000);
     },
     onError: (error) => {
       toast({

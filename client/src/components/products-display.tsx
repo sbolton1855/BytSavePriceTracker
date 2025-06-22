@@ -93,7 +93,13 @@ const ProductsDisplay: React.FC<ProductsDisplayProps> = ({ email }) => {
 
   // Handle refresh all
   const handleRefreshAll = () => {
+    // Reset all tracked product queries
+    queryClient.invalidateQueries({ queryKey: ['/api/tracked-products'] });
+    queryClient.invalidateQueries({ queryKey: ['/api/my/tracked-products'] });
+    
+    // Force refetch
     refetch();
+    
     toast({
       title: "Refreshing products",
       description: "Updating prices for all your tracked products...",
@@ -295,14 +301,23 @@ const ProductsDisplay: React.FC<ProductsDisplayProps> = ({ email }) => {
                   </div>
                 )}
                 
-                {filteredProducts.map((trackedProduct: TrackedProductWithDetails) => (
-                  <ProductCard 
-                    key={trackedProduct.id} 
-                    trackedProduct={trackedProduct} 
-                    onRefresh={() => refetch()}
-                    isAuthenticated={isAuthenticated}
-                  />
-                ))}
+                {filteredProducts.map((trackedProduct: TrackedProductWithDetails) => {
+                  // Create a unique key that includes target price to force re-render when it changes
+                  const cardKey = `${trackedProduct.id}-${trackedProduct.targetPrice}-${trackedProduct.product.currentPrice}-${trackedProduct.product.lastChecked}`;
+                  return (
+                    <ProductCard 
+                      key={cardKey}
+                      trackedProduct={trackedProduct} 
+                      onRefresh={() => {
+                        console.log("ProductCard refresh triggered");
+                        queryClient.invalidateQueries({ queryKey: ['/api/tracked-products'] });
+                        queryClient.invalidateQueries({ queryKey: ['/api/my/tracked-products'] });
+                        refetch();
+                      }}
+                      isAuthenticated={isAuthenticated}
+                    />
+                  );
+                })}
                 
                 {/* Add new product card - only for authenticated users */}
                 {isAuthenticated && (
