@@ -90,9 +90,9 @@ async function updateProductPrice(
         product.originalPrice &&
         product.originalPrice > latestInfo.price
       ) {
-        console.log(
-          `Using existing original price for ${product.asin}: $${product.originalPrice}`,
-        );
+        // console.log(
+        //   `Using existing original price for ${product.asin}: $${product.originalPrice}`,
+        // );
         realOriginalPrice = product.originalPrice;
       }
       // If we have a higher price in history
@@ -169,17 +169,17 @@ async function updateProductPrice(
         priceDropped: priceDropped, // Add flag to indicate if price dropped
       });
 
-      console.log(`Successfully updated price for ${product.asin}:`, {
-        oldPrice: product.currentPrice,
-        newPrice: latestInfo.price,
-        oldOriginal: product.originalPrice,
-        newOriginal: realOriginalPrice,
-        lowestPrice: newLowestPrice,
-        highestPrice: newHighestPrice,
-        priceChanged,
-        priceDropped,
-        historyAdded,
-      });
+      // console.log(`Successfully updated price for ${product.asin}:`, {
+      //   oldPrice: product.currentPrice,
+      //   newPrice: latestInfo.price,
+      //   oldOriginal: product.originalPrice,
+      //   newOriginal: realOriginalPrice,
+      //   lowestPrice: newLowestPrice,
+      //   highestPrice: newHighestPrice,
+      //   priceChanged,
+      //   priceDropped,
+      //   historyAdded,
+      // });
 
       return updatedProduct;
     } else {
@@ -212,7 +212,7 @@ async function updateProductPrice(
 // Function to check prices and send notifications
 async function checkPricesAndNotify(): Promise<void> {
   try {
-    console.log("Starting price check routine...");
+    // console.log("Starting price check routine...");
 
     // Clean up stale products first
     await removeStaleProducts();
@@ -228,14 +228,14 @@ async function checkPricesAndNotify(): Promise<void> {
     });
 
     // Update all products with delays between requests to avoid throttling
-    console.log(`Updating prices for all ${sortedProducts.length} products`);
+    // console.log(`Updating prices for all ${sortedProducts.length} products`);
 
     // Update prices with delays between requests to avoid throttling
     for (const product of sortedProducts) {
       try {
         const updated = await updateProductPrice(product);
         if (updated) {
-          console.log(`Successfully updated price for ${product.asin}`);
+          // console.log(`Successfully updated price for ${product.asin}`);
         } else {
           console.warn(
             `Skipped price update for ${product.asin} - no data returned`,
@@ -262,9 +262,9 @@ async function checkPricesAndNotify(): Promise<void> {
     // Process notifications for products that dropped below target price
     const needAlerts = await storage.getTrackedProductsNeedingAlerts();
 
-    console.log(
-      `Found ${needAlerts.length} products requiring price drop alerts`,
-    );
+    // console.log(
+    //   `Found ${needAlerts.length} products requiring price drop alerts`,
+    // );
 
     // Send notifications for each
     for (const trackedProduct of needAlerts) {
@@ -282,7 +282,7 @@ async function checkPricesAndNotify(): Promise<void> {
       }
     }
 
-    console.log("Price check routine completed");
+    // console.log("Price check routine completed");
   } catch (error) {
     console.error("Error in price check routine:", error);
   }
@@ -320,9 +320,9 @@ async function shouldRunProductDiscovery(): Promise<boolean> {
   // Also run discovery if we have very few products in the database (less than 10)
   const productCount = (await storage.getAllProducts()).length;
   if (productCount < 10) {
-    console.log(
-      `Only ${productCount} products in database, running discovery to populate`,
-    );
+    // console.log(
+    //   `Only ${productCount} products in database, running discovery to populate`,
+    // );
     return true;
   }
 
@@ -365,7 +365,7 @@ async function discoverNewProducts(): Promise<void> {
     searchTerms.push(allSearchTerms[idx]);
   }
 
-  console.log(`Discovering products for terms: ${searchTerms.join(", ")}`);
+  // console.log(`Discovering products for terms: ${searchTerms.join(", ")}`);
 
   // Track results
   let newProductCount = 0;
@@ -374,7 +374,7 @@ async function discoverNewProducts(): Promise<void> {
   for (const term of searchTerms) {
     try {
       // Search for products - increased limit for more products
-      console.log(`Searching for: ${term}`);
+      // console.log(`Searching for: ${term}`);
       const searchLimit = process.env.NODE_ENV === "production" ? 10 : 5;
       const results = await searchProducts(term);
 
@@ -382,7 +382,7 @@ async function discoverNewProducts(): Promise<void> {
       for (const result of results.items) {
         try {
           if (!result.price) {
-            console.log(`Skipping product without price: ${result.title}`);
+            // console.log(`Skipping product without price: ${result.title}`);
             continue;
           }
 
@@ -408,7 +408,7 @@ async function discoverNewProducts(): Promise<void> {
             await intelligentlyAddPriceHistory(newProduct.id, result.price);
 
             newProductCount++;
-            console.log(`Added new product: ${result.title}`);
+            // console.log(`Added new product: ${result.title}`);
           }
         } catch (productError) {
           console.error(`Error adding product ${result.asin}:`, productError);
@@ -425,7 +425,7 @@ async function discoverNewProducts(): Promise<void> {
     }
   }
 
-  console.log(`Discovered ${newProductCount} new products`);
+  // console.log(`Discovered ${newProductCount} new products`);
 }
 
 // Helper function to get seasonal search terms based on current season
@@ -525,7 +525,7 @@ async function removeStaleProducts(): Promise<void> {
 
     // Only remove products if we have enough remaining
     if (products.length - productsToRemove.length >= MIN_PRODUCTS_TO_KEEP) {
-      console.log(`Removing ${productsToRemove.length} stale products`);
+      // console.log(`Removing ${productsToRemove.length} stale products`);
 
       for (const product of productsToRemove) {
         try {
@@ -541,9 +541,9 @@ async function removeStaleProducts(): Promise<void> {
         }
       }
     } else {
-      console.log(
-        "Skipping stale product removal to maintain minimum product count",
-      );
+      // console.log(
+      //   "Skipping stale product removal to maintain minimum product count",
+      // );
     }
   } catch (error) {
     console.error(
