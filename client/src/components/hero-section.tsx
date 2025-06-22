@@ -44,9 +44,9 @@ const PriceTrackerDashboard: React.FC = () => {
         url: d.url,
         imageUrl: d.imageUrl,
         currentPrice: d.price,
-        originalPrice: d.msrp,
+        originalPrice: d.msrp && d.msrp > d.price ? d.msrp : null, // Only use msrp if it's higher than price
         lowestPrice: d.price, // Not available, use price
-        highestPrice: d.msrp, // Not available, use msrp
+        highestPrice: d.msrp || d.price, // Use msrp or fallback to price
         lastChecked: '', // Not available
         affiliateUrl: d.url,
         id: d.asin || idx // Use asin or fallback to index
@@ -235,6 +235,9 @@ const PriceTrackerDashboard: React.FC = () => {
                           <span className="text-xs bg-green-100 text-green-800 px-1.5 py-0.5 rounded-full flex items-center">
                             <TrendingDown className="h-3 w-3 mr-0.5" />
                             {calculateDiscount(deal.originalPrice, deal.currentPrice)}%
+                          </span>
+                          <span className="text-xs text-green-700 ml-1 font-medium">
+                            Save ${(deal.originalPrice - deal.currentPrice).toFixed(2)}
                           </span>
                         </>
                       )}

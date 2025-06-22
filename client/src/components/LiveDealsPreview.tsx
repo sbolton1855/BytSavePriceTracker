@@ -71,13 +71,23 @@ export default function LiveDealsPreview() {
                 <p className="text-xs font-medium leading-tight line-clamp-2">{deal.title}</p>
                 <div className="text-xs mt-1">
                   <span className="font-bold">${deal.currentPrice?.toFixed(2)}</span>
-                  {deal.originalPrice && (
+                  {deal.price && deal.msrp && deal.msrp > deal.price && (
+                    <>
+                      <span className="text-muted-foreground line-through ml-1 text-xs">
+                        ${deal.msrp.toFixed(2)}
+                      </span>
+                      <span className="ml-2 text-green-600 text-xs font-medium">
+                        Save ${(deal.msrp - deal.price).toFixed(2)}
+                      </span>
+                    </>
+                  )}
+                  {!deal.msrp && deal.originalPrice && deal.originalPrice > deal.currentPrice && (
                     <>
                       <span className="text-muted-foreground line-through ml-1 text-xs">
                         ${deal.originalPrice.toFixed(2)}
                       </span>
                       <span className="ml-2 text-green-600 text-xs font-medium">
-                        Save ${Math.round(deal.originalPrice - deal.currentPrice)}
+                        Save ${(deal.originalPrice - deal.currentPrice).toFixed(2)}
                       </span>
                     </>
                   )}
@@ -100,4 +110,4 @@ export default function LiveDealsPreview() {
       <p className="text-[10px] text-muted-foreground mt-4">Powered by Amazon Product API</p>
     </div>
   );
-} 
+}
