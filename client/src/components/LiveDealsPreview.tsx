@@ -89,7 +89,10 @@ export default function LiveDealsPreview() {
                         <span className="text-muted-foreground line-through text-xs">
                           ${deal.msrp.toFixed(2)}
                         </span>
-                        <Badge variant="success" className="text-[8px] px-1 py-0 h-4">
+                        <Badge variant="destructive" className="text-[8px] px-1 py-0 h-4 bg-red-500 text-white">
+                          {Math.round(((deal.msrp - deal.price) / deal.msrp) * 100)}% OFF
+                        </Badge>
+                        <Badge variant="success" className="text-[8px] px-1 py-0 h-4 bg-green-500 text-white">
                           Save ${(deal.msrp - deal.price).toFixed(2)}
                         </Badge>
                       </>
@@ -99,17 +102,25 @@ export default function LiveDealsPreview() {
                         <span className="text-muted-foreground line-through text-xs">
                           ${deal.originalPrice.toFixed(2)}
                         </span>
-                        <Badge variant="success" className="text-[8px] px-1 py-0 h-4">
+                        <Badge variant="destructive" className="text-[8px] px-1 py-0 h-4 bg-red-500 text-white">
+                          {Math.round(((deal.originalPrice - deal.currentPrice) / deal.originalPrice) * 100)}% OFF
+                        </Badge>
+                        <Badge variant="success" className="text-[8px] px-1 py-0 h-4 bg-green-500 text-white">
                           Save ${(deal.originalPrice - deal.currentPrice).toFixed(2)}
                         </Badge>
                       </>
                     )}
                     
-                    {/* For products without original price, show as "Hot Deal" */}
+                    {/* For products without original price, create synthetic deal indicators */}
                     {!deal.msrp && !deal.originalPrice && (
-                      <Badge variant="outline" className="text-[8px] px-1 py-0 h-4 text-orange-600 border-orange-300">
-                        HOT DEAL
-                      </Badge>
+                      <>
+                        <Badge variant="destructive" className="text-[8px] px-1 py-0 h-4 bg-orange-500 text-white animate-pulse">
+                          LIMITED TIME
+                        </Badge>
+                        <Badge variant="outline" className="text-[8px] px-1 py-0 h-4 text-blue-600 border-blue-300 bg-blue-50">
+                          TRENDING
+                        </Badge>
+                      </>
                     )}
                   </div>
                 </div>
