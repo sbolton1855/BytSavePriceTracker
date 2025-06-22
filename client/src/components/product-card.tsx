@@ -79,7 +79,14 @@ const ProductCard: React.FC<ProductCardProps> = ({ trackedProduct, onRefresh }) 
     mutationFn: async (targetPrice: number) => {
       return apiRequest("PATCH", `/api/tracked-products/${trackedProduct.id}`, { targetPrice });
     },
-    onSuccess: () => {
+    onSuccess: (updatedData) => {
+      // Update the local tracked product state with the new target price
+      const newTargetPrice = parseFloat(newTargetPrice);
+      
+      // Force a re-render by invalidating and refetching the query
+      queryClient.invalidateQueries({ queryKey: ['/api/tracked-products'] });
+      queryClient.refetchQueries({ queryKey: ['/api/tracked-products'] });
+      
       toast({
         title: "Target price updated",
         description: "We'll notify you when the price drops below your new target.",
