@@ -23,12 +23,12 @@ async function updateProductPrice(product: Product): Promise<Product | undefined
       });
     }
 
-    console.log(`Attempting to update price for product ${product.asin} (${product.title})`);
-    console.log(`Current stored price: $${product.currentPrice}, Original: $${product.originalPrice}`);
-    
+    //console.log(`Attempting to update price for product ${product.asin} (${product.title})`);
+    //console.log(`Current stored price: $${product.currentPrice}, Original: $${product.originalPrice}`);
+
     // Fetch latest product info from Amazon API
     const latestInfo = await getProductInfoSafe(product.asin);
-    
+
     // If no valid data returned, update lastChecked and return
     if (!latestInfo) {
       consecutiveApiFailures++;
@@ -37,10 +37,10 @@ async function updateProductPrice(product: Product): Promise<Product | undefined
         lastChecked: new Date()
       });
     }
-    
+
     // Reset failure counter on success
     consecutiveApiFailures = 0;
-    
+
     // Log the received price information
     console.log(`Received new price data for ${product.asin}:`, {
       newPrice: latestInfo.price,
@@ -48,18 +48,18 @@ async function updateProductPrice(product: Product): Promise<Product | undefined
       currentStoredPrice: product.currentPrice,
       currentStoredOriginal: product.originalPrice
     });
-    
+
     // Validate the received price
     if (!latestInfo.price || isNaN(latestInfo.price) || latestInfo.price <= 0) {
       console.error(`Invalid price received from Amazon for ${product.asin}:`, latestInfo);
       throw new Error(`Invalid price received from Amazon: ${JSON.stringify(latestInfo)}`);
     }
-    
+
     // Only store valid prices in history
     if (typeof latestInfo.price === 'number' && !isNaN(latestInfo.price) && latestInfo.price > 0) {
       // Calculate the real original price with improved logic
       let realOriginalPrice = latestInfo.originalPrice;
-      
+
       // If Amazon provides an original price, use it
       if (latestInfo.originalPrice && latestInfo.originalPrice > latestInfo.price) {
         console.log(`Using Amazon-provided original price for ${product.asin}: $${latestInfo.originalPrice}`);
@@ -88,7 +88,7 @@ async function updateProductPrice(product: Product): Promise<Product | undefined
       // Check if price has actually changed (use small threshold for floating point comparison)
       const priceChanged = Math.abs(product.currentPrice - latestInfo.price) > 0.01;
       const priceDropped = latestInfo.price < product.currentPrice;
-      
+
       if (priceChanged) {
         console.log(`Price change detected for ${product.asin}: $${product.currentPrice} -> $${latestInfo.price} (${priceDropped ? 'dropped' : 'increased'})`);
       } else {
@@ -98,24 +98,24 @@ async function updateProductPrice(product: Product): Promise<Product | undefined
       // Update price history with detailed metadata
       const historyAdded = await intelligentlyAddPriceHistory(product.id, latestInfo.price);
       console.log(`Price history ${historyAdded ? 'updated' : 'unchanged'} for ${product.asin}`);
-      
+
       // Debug: Log current time vs last checked
       const now = new Date();
       const lastChecked = new Date(product.lastChecked);
       const hoursSinceLastCheck = (now.getTime() - lastChecked.getTime()) / (1000 * 60 * 60);
       console.log(`DEBUG: Product ${product.asin} - Hours since last check: ${hoursSinceLastCheck.toFixed(2)}, Should force history: ${hoursSinceLastCheck > 6}`);
-      
+
       // Calculate new lowest and highest prices
       const newLowestPrice = product.lowestPrice 
         ? Math.min(product.lowestPrice, latestInfo.price)
         : latestInfo.price;
-        
+
       const newHighestPrice = Math.max(
         product.highestPrice || 0,
         realOriginalPrice,
         latestInfo.price
       );
-      
+
       // Update product data with improved price tracking
       const updatedProduct = await storage.updateProduct(product.id, {
         currentPrice: latestInfo.price,
@@ -125,7 +125,7 @@ async function updateProductPrice(product: Product): Promise<Product | undefined
         highestPrice: newHighestPrice,
         priceDropped: priceDropped // Add flag to indicate if price dropped
       });
-      
+
       console.log(`Successfully updated price for ${product.asin}:`, {
         oldPrice: product.currentPrice,
         newPrice: latestInfo.price,
@@ -137,7 +137,7 @@ async function updateProductPrice(product: Product): Promise<Product | undefined
         priceDropped,
         historyAdded
       });
-      
+
       return updatedProduct;
     } else {
       console.warn(`Invalid price received for ${product.asin}:`, latestInfo);
@@ -145,7 +145,7 @@ async function updateProductPrice(product: Product): Promise<Product | undefined
     }
   } catch (error) {
     console.error(`Failed to update price for product ${product.asin}:`, error);
-    
+
     // Log additional error details if available
     if (error instanceof Error) {
       console.error(`Error details for ${product.asin}:`, {
@@ -154,12 +154,12 @@ async function updateProductPrice(product: Product): Promise<Product | undefined
         name: error.name
       });
     }
-    
+
     // Even when API fails, update the lastChecked timestamp
     const updatedProduct = await storage.updateProduct(product.id, {
       lastChecked: new Date()
     });
-    
+
     return updatedProduct;
   }
 }
@@ -174,17 +174,17 @@ async function checkPricesAndNotify(): Promise<void> {
 
     // Get all active products (excluding stale ones)
     const products = await storage.getAllProducts();
-    
+
     // Sort by lastChecked (oldest first) to prioritize products that haven't been updated
     const sortedProducts = [...products].sort((a, b) => {
       const aDate = a.lastChecked ? new Date(a.lastChecked).getTime() : 0;
       const bDate = b.lastChecked ? new Date(b.lastChecked).getTime() : 0;
       return aDate - bDate;
     });
-    
+
     // Update all products with delays between requests to avoid throttling
     console.log(`Updating prices for all ${sortedProducts.length} products`);
-    
+
     // Update prices with delays between requests to avoid throttling
     for (const product of sortedProducts) {
       try {
@@ -205,12 +205,12 @@ async function checkPricesAndNotify(): Promise<void> {
         }
       }
     }
-    
+
     // Process notifications for products that dropped below target price
     const needAlerts = await storage.getTrackedProductsNeedingAlerts();
-    
+
     console.log(`Found ${needAlerts.length} products requiring price drop alerts`);
-    
+
     // Send notifications for each
     for (const trackedProduct of needAlerts) {
       const success = await sendPriceDropAlert(
@@ -218,13 +218,13 @@ async function checkPricesAndNotify(): Promise<void> {
         trackedProduct.product,
         trackedProduct
       );
-      
+
       if (success) {
         // Mark as notified
         await storage.updateTrackedProduct(trackedProduct.id, { notified: true });
       }
     }
-    
+
     console.log('Price check routine completed');
   } catch (error) {
     console.error('Error in price check routine:', error);
@@ -233,11 +233,11 @@ async function checkPricesAndNotify(): Promise<void> {
 
 // Start the price checker
 function startPriceChecker(): NodeJS.Timeout {
-  console.log(`Starting price checker (interval: ${CHECK_INTERVAL / 60000} minutes)`);
-  
+  // console.log(`Starting price checker (interval: ${CHECK_INTERVAL / 60000} minutes)`);
+
   // Run immediately on startup
   checkPricesAndNotify();
-  
+
   // Then schedule recurring checks
   return setInterval(checkPricesAndNotify, CHECK_INTERVAL);
 }
@@ -251,10 +251,10 @@ async function shouldRunProductDiscovery(): Promise<boolean> {
   // In production, run discovery once a day (assuming 4-hour check interval = 6 times a day)
   // In development, run on every 5th check to allow faster testing
   const runFrequency = process.env.NODE_ENV === 'production' ? 6 : 5;
-  
+
   // Increment the counter
   priceCheckRunCount++;
-  
+
   // Check if we're on a run that should include discovery
   if (priceCheckRunCount % runFrequency === 1) {
     return true;
@@ -266,7 +266,7 @@ async function shouldRunProductDiscovery(): Promise<boolean> {
     console.log(`Only ${productCount} products in database, running discovery to populate`);
     return true;
   }
-  
+
   return false;
 }
 
@@ -280,10 +280,10 @@ async function discoverNewProducts(): Promise<void> {
     'skincare products',
     'haircare essentials',
     'fragrance deals',
-    
+
     // Seasonal category (dynamic based on current season)
     ...getCurrentSeasonalTerms(),
-    
+
     // Events category
     'amazon lightning deals',
     'today deals amazon',
@@ -294,23 +294,23 @@ async function discoverNewProducts(): Promise<void> {
     'amazon daily deals',
     'amazon promotional offers'
   ];
-  
+
   // Choose a larger subset to ensure we have enough products
   const termCount = process.env.NODE_ENV === 'production' ? 8 : 4;
   const startIdx = priceCheckRunCount % allSearchTerms.length;
   const searchTerms = [];
-  
+
   // Get a sequential subset of terms starting from startIdx
   for (let i = 0; i < termCount; i++) {
     const idx = (startIdx + i) % allSearchTerms.length;
     searchTerms.push(allSearchTerms[idx]);
   }
-  
+
   console.log(`Discovering products for terms: ${searchTerms.join(', ')}`);
-  
+
   // Track results
   let newProductCount = 0;
-  
+
   // Process one search term at a time, with delay between each to avoid throttling
   for (const term of searchTerms) {
     try {
@@ -318,7 +318,7 @@ async function discoverNewProducts(): Promise<void> {
       console.log(`Searching for: ${term}`);
       const searchLimit = process.env.NODE_ENV === 'production' ? 10 : 5;
       const results = await searchProducts(term);
-      
+
       // Add each product to database if not exists
       for (const result of results.items) {
         try {
@@ -326,7 +326,7 @@ async function discoverNewProducts(): Promise<void> {
             console.log(`Skipping product without price: ${result.title}`);
             continue;
           }
-          
+
           const existing = await storage.getProductByAsin(result.asin);
           if (!existing) {
             // Create new product with price history
@@ -341,28 +341,28 @@ async function discoverNewProducts(): Promise<void> {
               highestPrice: Math.max(result.price, Math.round(result.price * 1.15 * 100) / 100),
               lastChecked: new Date()
             });
-            
+
             // Add initial price history entry
             await intelligentlyAddPriceHistory(newProduct.id, result.price);
-            
+
             newProductCount++;
             console.log(`Added new product: ${result.title}`);
           }
         } catch (productError) {
           console.error(`Error adding product ${result.asin}:`, productError);
         }
-        
+
         // Small delay between products to avoid API throttling
         await new Promise(resolve => setTimeout(resolve, 100));
       }
-      
+
       // Add a delay between search terms to avoid throttling
       await new Promise(resolve => setTimeout(resolve, 1000));
     } catch (error) {
       console.error(`Error processing search term "${term}":`, error);
     }
   }
-  
+
   console.log(`Discovered ${newProductCount} new products`);
 }
 
@@ -370,7 +370,7 @@ async function discoverNewProducts(): Promise<void> {
 function getCurrentSeasonalTerms(): string[] {
   const now = new Date();
   const month = now.getMonth();
-  
+
   // Spring: March-May (2-4)
   if (month >= 2 && month <= 4) {
     return [
@@ -381,7 +381,7 @@ function getCurrentSeasonalTerms(): string[] {
       'mothers day gifts'
     ];
   }
-  
+
   // Summer: June-August (5-7)
   if (month >= 5 && month <= 7) {
     return [
@@ -392,7 +392,7 @@ function getCurrentSeasonalTerms(): string[] {
       'bbq grills sale'
     ];
   }
-  
+
   // Fall: September-November (8-10)
   if (month >= 8 && month <= 10) {
     return [
@@ -403,7 +403,7 @@ function getCurrentSeasonalTerms(): string[] {
       'autumn essentials'
     ];
   }
-  
+
   // Winter: December-February (11, 0, 1)
   return [
     'winter deals',
@@ -419,23 +419,23 @@ async function removeStaleProducts(): Promise<void> {
   try {
     const products = await storage.getAllProducts();
     const now = new Date();
-    
+
     // Define thresholds for staleness
     const STALE_DAYS = 30; // Products not checked for 30 days
     const PRICE_UNCHANGED_DAYS = 14; // Price hasn't changed in 14 days
     const MIN_PRODUCTS_TO_KEEP = 100; // Minimum number of products to keep in the system
-    
+
     // Get price history for analysis
     const staleProducts = await Promise.all(
       products.map(async (product) => {
         const lastChecked = new Date(product.lastChecked);
         const daysSinceLastCheck = (now.getTime() - lastChecked.getTime()) / (1000 * 60 * 60 * 24);
-        
+
         // Keep if product is fresh
         if (daysSinceLastCheck < STALE_DAYS) {
           return null;
         }
-        
+
         // Keep if price has changed recently (check price history)
         const priceHistory = await storage.getPriceHistoryByProductId(product.id);
         if (priceHistory && priceHistory.length > 1) {
@@ -443,18 +443,18 @@ async function removeStaleProducts(): Promise<void> {
           const daysSinceLastPriceChange = (now.getTime() - lastPriceChange.getTime()) / (1000 * 60 * 60 * 24);
           return daysSinceLastPriceChange > PRICE_UNCHANGED_DAYS ? product : null;
         }
-        
+
         return product; // Remove if no price history or other conditions met
       })
     );
-    
+
     // Filter out null values and get final stale products list
     const productsToRemove = staleProducts.filter((p): p is NonNullable<typeof p> => p !== null);
-    
+
     // Only remove products if we have enough remaining
     if (products.length - productsToRemove.length >= MIN_PRODUCTS_TO_KEEP) {
       console.log(`Removing ${productsToRemove.length} stale products`);
-      
+
       for (const product of productsToRemove) {
         try {
           // Remove associated price history and tracked products first
