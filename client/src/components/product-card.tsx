@@ -26,9 +26,10 @@ interface ProductWithAffiliate extends Product {
 interface ProductCardProps {
   trackedProduct: TrackedProductWithDetails;
   onRefresh: () => void;
+  isAuthenticated: boolean;
 }
 
-const ProductCard: React.FC<ProductCardProps> = ({ trackedProduct, onRefresh }) => {
+const ProductCard: React.FC<ProductCardProps> = ({ trackedProduct, onRefresh, isAuthenticated }) => {
   const { toast } = useToast();
   const [showEditDialog, setShowEditDialog] = useState(false);
   const [newTargetPrice, setNewTargetPrice] = useState(trackedProduct.targetPrice.toString());
@@ -334,107 +335,145 @@ const ProductCard: React.FC<ProductCardProps> = ({ trackedProduct, onRefresh }) 
             </svg>
           </a>
           <div className="flex space-x-2">
-            <TooltipProvider>
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <Button 
-                    variant="outline" 
-                    size="icon"
-                    onClick={handleEditClick}
-                  >
-                    <svg 
-                      xmlns="http://www.w3.org/2000/svg" 
-                      width="16" 
-                      height="16" 
-                      viewBox="0 0 24 24" 
-                      fill="none" 
-                      stroke="currentColor" 
-                      strokeWidth="2" 
-                      strokeLinecap="round" 
-                      strokeLinejoin="round"
-                    >
-                      <path d="M17 3a2.85 2.83 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5Z" />
-                      <path d="m15 5 4 4" />
-                    </svg>
-                    <span className="sr-only">Edit tracking</span>
-                  </Button>
-                </TooltipTrigger>
-                <TooltipContent>
-                  <p>Edit target price</p>
-                </TooltipContent>
-              </Tooltip>
-            </TooltipProvider>
+            {isAuthenticated ? (
+              <>
+                <TooltipProvider>
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <Button 
+                        variant="outline" 
+                        size="icon"
+                        onClick={handleEditClick}
+                      >
+                        <svg 
+                          xmlns="http://www.w3.org/2000/svg" 
+                          width="16" 
+                          height="16" 
+                          viewBox="0 0 24 24" 
+                          fill="none" 
+                          stroke="currentColor" 
+                          strokeWidth="2" 
+                          strokeLinecap="round" 
+                          strokeLinejoin="round"
+                        >
+                          <path d="M17 3a2.85 2.83 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5Z" />
+                          <path d="m15 5 4 4" />
+                        </svg>
+                        <span className="sr-only">Edit tracking</span>
+                      </Button>
+                    </TooltipTrigger>
+                    <TooltipContent>
+                      <p>Edit target price</p>
+                    </TooltipContent>
+                  </Tooltip>
+                </TooltipProvider>
 
-            <TooltipProvider>
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <Button 
-                    variant="outline" 
-                    size="icon"
-                    onClick={handleRefreshPrice}
-                    disabled={isRefreshing}
-                  >
-                    <svg 
-                      xmlns="http://www.w3.org/2000/svg" 
-                      width="16" 
-                      height="16" 
-                      viewBox="0 0 24 24" 
-                      fill="none" 
-                      stroke="currentColor" 
-                      strokeWidth="2" 
-                      strokeLinecap="round" 
-                      strokeLinejoin="round"
-                      className={isRefreshing ? "animate-spin" : ""}
-                    >
-                      <path d="M21 12a9 9 0 0 0-9-9 9.75 9.75 0 0 0-6.74 2.74L3 8" />
-                      <path d="M3 3v5h5" />
-                      <path d="M3 12a9 9 0 0 0 9 9 9.75 9.75 0 0 0 6.74-2.74L21 16" />
-                      <path d="M16 16h5v5" />
-                    </svg>
-                    <span className="sr-only">Refresh price</span>
-                  </Button>
-                </TooltipTrigger>
-                <TooltipContent>
-                  <p>Refresh price</p>
-                </TooltipContent>
-              </Tooltip>
-            </TooltipProvider>
+                <TooltipProvider>
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <Button 
+                        variant="outline" 
+                        size="icon"
+                        onClick={handleRefreshPrice}
+                        disabled={isRefreshing}
+                      >
+                        <svg 
+                          xmlns="http://www.w3.org/2000/svg" 
+                          width="16" 
+                          height="16" 
+                          viewBox="0 0 24 24" 
+                          fill="none" 
+                          stroke="currentColor" 
+                          strokeWidth="2" 
+                          strokeLinecap="round" 
+                          strokeLinejoin="round"
+                          className={isRefreshing ? "animate-spin" : ""}
+                        >
+                          <path d="M21 12a9 9 0 0 0-9-9 9.75 9.75 0 0 0-6.74 2.74L3 8" />
+                          <path d="M3 3v5h5" />
+                          <path d="M3 12a9 9 0 0 0 9 9 9.75 9.75 0 0 0 6.74-2.74L21 16" />
+                          <path d="M16 16h5v5" />
+                        </svg>
+                        <span className="sr-only">Refresh price</span>
+                      </Button>
+                    </TooltipTrigger>
+                    <TooltipContent>
+                      <p>Refresh price</p>
+                    </TooltipContent>
+                  </Tooltip>
+                </TooltipProvider>
 
-            <TooltipProvider>
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <Button 
-                    variant="outline" 
-                    size="icon"
-                    className="text-destructive hover:text-destructive hover:bg-destructive/10 hover:border-destructive"
-                    onClick={() => setShowDeleteConfirm(true)}
-                    disabled={isDeleting}
-                  >
-                    <svg 
-                      xmlns="http://www.w3.org/2000/svg" 
-                      width="16" 
-                      height="16" 
-                      viewBox="0 0 24 24" 
-                      fill="none" 
-                      stroke="currentColor" 
-                      strokeWidth="2" 
-                      strokeLinecap="round" 
-                      strokeLinejoin="round"
+                <TooltipProvider>
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <Button 
+                        variant="outline" 
+                        size="icon"
+                        className="text-destructive hover:text-destructive hover:bg-destructive/10 hover:border-destructive"
+                        onClick={() => setShowDeleteConfirm(true)}
+                        disabled={isDeleting}
+                      >
+                        <svg 
+                          xmlns="http://www.w3.org/2000/svg" 
+                          width="16" 
+                          height="16" 
+                          viewBox="0 0 24 24" 
+                          fill="none" 
+                          stroke="currentColor" 
+                          strokeWidth="2" 
+                          strokeLinecap="round" 
+                          strokeLinejoin="round"
+                        >
+                          <path d="M3 6h18" />
+                          <path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6" />
+                          <path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2" />
+                          <line x1="10" x2="10" y1="11" y2="17" />
+                          <line x1="14" x2="14" y1="11" y2="17" />
+                        </svg>
+                        <span className="sr-only">Remove tracking</span>
+                      </Button>
+                    </TooltipTrigger>
+                    <TooltipContent>
+                      <p>Remove from tracking</p>
+                    </TooltipContent>
+                  </Tooltip>
+                </TooltipProvider>
+              </>
+            ) : (
+              <TooltipProvider>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <Button 
+                      variant="outline" 
+                      size="sm"
+                      onClick={() => window.location.href = '/auth'}
+                      className="text-xs"
                     >
-                      <path d="M3 6h18" />
-                      <path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6" />
-                      <path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2" />
-                      <line x1="10" x2="10" y1="11" y2="17" />
-                      <line x1="14" x2="14" y1="11" y2="17" />
-                    </svg>
-                    <span className="sr-only">Remove tracking</span>
-                  </Button>
-                </TooltipTrigger>
-                <TooltipContent>
-                  <p>Remove from tracking</p>
-                </TooltipContent>
-              </Tooltip>
-            </TooltipProvider>
+                      <svg 
+                        xmlns="http://www.w3.org/2000/svg" 
+                        width="14" 
+                        height="14" 
+                        viewBox="0 0 24 24" 
+                        fill="none" 
+                        stroke="currentColor" 
+                        strokeWidth="2" 
+                        strokeLinecap="round" 
+                        strokeLinejoin="round"
+                        className="mr-1"
+                      >
+                        <path d="M15 3h4a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2h-4" />
+                        <polyline points="10,17 15,12 10,7" />
+                        <line x1="15" x2="3" y1="12" y2="12" />
+                      </svg>
+                      Register
+                    </Button>
+                  </TooltipTrigger>
+                  <TooltipContent>
+                    <p>Register to edit and manage tracking</p>
+                  </TooltipContent>
+                </Tooltip>
+              </TooltipProvider>
+            )}
           </div>
         </div>
       </div>

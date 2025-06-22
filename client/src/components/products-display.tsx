@@ -188,9 +188,16 @@ const ProductsDisplay: React.FC<ProductsDisplayProps> = ({ email }) => {
                 </svg>
               </div>
               <div className="ml-3">
-                <h3 className="text-sm font-medium text-amber-800">Session-Based Tracking</h3>
+                <h3 className="text-sm font-medium text-amber-800">Limited Session-Based Tracking</h3>
                 <div className="mt-2 text-sm text-amber-700">
-                  <p>Your tracked products are only available for this browser session. Create an account to permanently save your tracking list and receive email notifications.</p>
+                  <p>You're viewing in guest mode. Some features are disabled. <strong>Register for free</strong> to unlock full functionality including price editing, permanent tracking, and email notifications.</p>
+                  <Button 
+                    size="sm" 
+                    className="mt-2"
+                    onClick={() => window.location.href = '/auth'}
+                  >
+                    Create Free Account
+                  </Button>
                 </div>
               </div>
             </div>
@@ -266,34 +273,58 @@ const ProductsDisplay: React.FC<ProductsDisplayProps> = ({ email }) => {
         ) : (
           <>
             {filteredProducts && filteredProducts.length > 0 ? (
-              <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
+              <div className={`grid gap-6 md:grid-cols-2 lg:grid-cols-3 ${!isAuthenticated ? 'opacity-60 pointer-events-none relative' : ''}`}>
+                {!isAuthenticated && (
+                  <div className="absolute inset-0 z-10 flex items-center justify-center bg-white/80 rounded-lg">
+                    <div className="text-center p-6 bg-white rounded-lg shadow-lg border-2 border-primary-200">
+                      <div className="h-12 w-12 rounded-full bg-primary-100 text-primary-500 flex items-center justify-center mx-auto mb-3">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                          <path d="M9 12l2 2 4-4" />
+                          <path d="M21 12c.552 0 1-.448 1-1V5c0-.552-.448-1-1-1H3c-.552 0-1 .448-1 1v6c0 .552.448 1 1 1h18z" />
+                        </svg>
+                      </div>
+                      <h3 className="text-lg font-semibold text-gray-900 mb-2">Unlock Full Features</h3>
+                      <p className="text-sm text-gray-600 mb-4">Register to edit prices, save permanently, and get email alerts</p>
+                      <Button 
+                        onClick={() => window.location.href = '/auth'}
+                        className="w-full"
+                      >
+                        Create Free Account
+                      </Button>
+                    </div>
+                  </div>
+                )}
+                
                 {filteredProducts.map((trackedProduct: TrackedProductWithDetails) => (
                   <ProductCard 
                     key={trackedProduct.id} 
                     trackedProduct={trackedProduct} 
                     onRefresh={() => refetch()}
+                    isAuthenticated={isAuthenticated}
                   />
                 ))}
                 
-                {/* Add new product card */}
-                <div className="border-2 border-dashed border-gray-300 rounded-lg p-6 flex flex-col items-center justify-center text-center">
-                  <div className="h-12 w-12 rounded-full bg-primary-100 text-primary-500 flex items-center justify-center mb-3">
-                    <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                      <path d="M5 12h14" />
-                      <path d="M12 5v14" />
-                    </svg>
+                {/* Add new product card - only for authenticated users */}
+                {isAuthenticated && (
+                  <div className="border-2 border-dashed border-gray-300 rounded-lg p-6 flex flex-col items-center justify-center text-center">
+                    <div className="h-12 w-12 rounded-full bg-primary-100 text-primary-500 flex items-center justify-center mb-3">
+                      <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                        <path d="M5 12h14" />
+                        <path d="M12 5v14" />
+                      </svg>
+                    </div>
+                    <h3 className="text-lg font-medium text-gray-900">Add Another Product</h3>
+                    <p className="mt-1 text-sm text-gray-500">
+                      Track more Amazon products to maximize your savings
+                    </p>
+                    <Button 
+                      className="mt-4"
+                      onClick={() => document.getElementById('search-section')?.scrollIntoView({ behavior: "smooth" })}
+                    >
+                      Add Product
+                    </Button>
                   </div>
-                  <h3 className="text-lg font-medium text-gray-900">Add Another Product</h3>
-                  <p className="mt-1 text-sm text-gray-500">
-                    Track more Amazon products to maximize your savings
-                  </p>
-                  <Button 
-                    className="mt-4"
-                    onClick={() => document.getElementById('search-section')?.scrollIntoView({ behavior: "smooth" })}
-                  >
-                    Add Product
-                  </Button>
-                </div>
+                )}
               </div>
             ) : (
               <div className="text-center py-12 bg-white rounded-lg shadow-sm">
@@ -312,12 +343,20 @@ const ProductsDisplay: React.FC<ProductsDisplayProps> = ({ email }) => {
                   />
                 </svg>
                 <h3 className="mt-4 text-lg font-medium text-gray-900">No products tracked yet</h3>
-                <p className="mt-1 text-gray-500">Start tracking an Amazon product to see it here</p>
+                <p className="mt-1 text-gray-500">
+                  {!isAuthenticated 
+                    ? "Register for free to start tracking products and get price alerts" 
+                    : "Start tracking an Amazon product to see it here"
+                  }
+                </p>
                 <Button 
                   className="mt-6"
-                  onClick={() => document.getElementById('search-section')?.scrollIntoView({ behavior: "smooth" })}
+                  onClick={() => !isAuthenticated 
+                    ? window.location.href = '/auth'
+                    : document.getElementById('search-section')?.scrollIntoView({ behavior: "smooth" })
+                  }
                 >
-                  Track Your First Product
+                  {!isAuthenticated ? "Create Free Account" : "Track Your First Product"}
                 </Button>
               </div>
             )}
