@@ -80,9 +80,6 @@ const ProductCard: React.FC<ProductCardProps> = ({ trackedProduct, onRefresh }) 
       return apiRequest("PATCH", `/api/tracked-products/${trackedProduct.id}`, { targetPrice });
     },
     onSuccess: (updatedData) => {
-      // Update the local tracked product state with the new target price
-      const newTargetPrice = parseFloat(newTargetPrice);
-      
       // Force a re-render by invalidating and refetching the query
       queryClient.invalidateQueries({ queryKey: ['/api/tracked-products'] });
       queryClient.refetchQueries({ queryKey: ['/api/tracked-products'] });
