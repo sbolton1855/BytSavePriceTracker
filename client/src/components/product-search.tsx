@@ -289,6 +289,20 @@ export default function ProductSearch({
                           ${product.price.toFixed(2)}
                         </p>
                       )}
+                      {/* Ratings & Reviews */}
+                      <p className="text-sm text-gray-600 mt-1">
+                        Reviews loading...
+                      </p>
+                      {/* View on Amazon Button */}
+                      <a 
+                        href={product.url}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="mt-2 inline-block bg-[#FF9900] hover:bg-[#e88900] text-white rounded-md px-3 py-1.5 text-sm font-medium transition-colors"
+                        onClick={(e) => e.stopPropagation()}
+                      >
+                        🔗 View on Amazon
+                      </a>
                     </div>
                   </div>
                 </div>
