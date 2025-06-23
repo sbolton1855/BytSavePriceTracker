@@ -249,7 +249,7 @@ export default function ProductSearch({
               {searchResults.map((product) => (
                 <div
                   key={product.asin}
-                  className={`border rounded-md p-3 cursor-pointer transition-all duration-200 hover:scale-[1.01] ${
+                  className={`border rounded-md p-3 cursor-pointer transition-all duration-200 hover:scale-[1.01] mb-3 ${
                     selectedProduct?.asin === product.asin 
                       ? "border-primary border-2 bg-primary/5 shadow-md" 
                       : "hover:border-primary/50 hover:shadow-sm"
@@ -278,7 +278,7 @@ export default function ProductSearch({
                     <div className="flex-1 flex flex-col justify-between min-h-[64px]">
                       <div>
                         <div className="flex justify-between items-start">
-                          <p className="text-sm font-medium line-clamp-2 leading-snug">
+                          <p className="text-sm font-medium line-clamp-2" style={{ lineHeight: "1.4" }}>
                             {product.title}
                           </p>
                           {selectedProduct?.asin === product.asin && (
@@ -287,31 +287,34 @@ export default function ProductSearch({
                             </span>
                           )}
                         </div>
-                        <div className="flex items-center justify-between mt-1.5">
-                          {product.price && (
-                            <p className="text-primary font-bold text-base">
-                              ${product.price.toFixed(2)}
-                            </p>
-                          )}
-                          {/* Ratings & Reviews with badge style */}
-                          <div className="text-sm text-gray-700">
-                            <span className="font-medium">⭐ 4.5</span>
-                            <span className="text-gray-500 opacity-70 ml-1">(2.1K reviews)</span>
+                        {/* Vertical flex container for price, rating, and button */}
+                        <div className="flex flex-col justify-center gap-1 mt-1.5">
+                          <div className="flex items-center justify-between">
+                            {product.price && (
+                              <p className="text-primary font-bold text-base">
+                                ${product.price.toFixed(2)}
+                              </p>
+                            )}
+                            {/* Ratings & Reviews with badge style */}
+                            <div className="text-sm text-gray-700">
+                              <span className="font-medium">⭐ 4.5</span>
+                              <span className="text-gray-500 opacity-70 ml-1">(2.1K reviews)</span>
+                            </div>
+                          </div>
+                          {/* View on Amazon Button - bottom right aligned */}
+                          <div className="flex justify-end">
+                            <a 
+                              href={product.url}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="amazon-button bg-[#FF9900] text-white px-2 py-0.5 text-xs font-medium transition-all duration-200 flex items-center gap-1 hover:bg-[#f08804] hover:shadow-md hover:scale-105"
+                              style={{ borderRadius: "8px" }}
+                              onClick={(e) => e.stopPropagation()}
+                            >
+                              🔗 View on Amazon
+                            </a>
                           </div>
                         </div>
-                      </div>
-                      {/* View on Amazon Button - bottom right aligned */}
-                      <div className="flex justify-end mt-1.5">
-                        <a 
-                          href={product.url}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          className="bg-[#FF9900] hover:bg-[#e88900] text-white px-2.5 py-0.5 text-xs font-medium transition-all duration-200 hover:opacity-90 flex items-center gap-1"
-                          style={{ borderRadius: "8px" }}
-                          onClick={(e) => e.stopPropagation()}
-                        >
-                          🔗 View on Amazon
-                        </a>
                       </div>
                     </div>
                   </div>

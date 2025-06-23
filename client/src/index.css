@@ -74,6 +74,15 @@
 
 :root {
       --background: 0 0% 100%;
+
+
+/* Amazon button hover effects */
+.amazon-button:hover {
+  background-color: #f08804 !important;
+  box-shadow: 0px 2px 5px rgba(0, 0, 0, 0.15);
+  transform: scale(1.02);
+}
+
 --foreground: 20 14.3% 4.1%;
 --muted: 60 4.8% 95.9%;
 --muted-foreground: 25 5.3% 44.7%;
