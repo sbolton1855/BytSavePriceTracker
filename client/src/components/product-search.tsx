@@ -249,7 +249,7 @@ export default function ProductSearch({
               {searchResults.map((product) => (
                 <div
                   key={product.asin}
-                  className={`border rounded-md p-3 cursor-pointer transition-all duration-200 ${
+                  className={`border rounded-md p-3 cursor-pointer transition-all duration-200 hover:scale-[1.01] ${
                     selectedProduct?.asin === product.asin 
                       ? "border-primary border-2 bg-primary/5 shadow-md" 
                       : "hover:border-primary/50 hover:shadow-sm"
@@ -270,41 +270,47 @@ export default function ProductSearch({
                       <img
                         src={product.imageUrl}
                         alt={product.title}
-                        className="w-16 h-16 object-contain"
+                        className="w-16 h-16 object-contain transition-transform duration-200 hover:scale-105"
                       />
                     )}
-                    <div className="flex-1">
-                      <div className="flex justify-between">
-                        <p className="text-sm font-medium line-clamp-2">
-                          {product.title}
-                        </p>
-                        {selectedProduct?.asin === product.asin && (
-                          <span className="bg-primary text-primary-foreground text-xs px-2 py-1 rounded-full ml-2 whitespace-nowrap">
-                            ✓ Selected
-                          </span>
-                        )}
-                      </div>
-                      <div className="flex items-center justify-between mt-1">
-                        {product.price && (
-                          <p className="text-primary font-semibold">
-                            ${product.price.toFixed(2)}
+                    <div className="flex-1 flex flex-col justify-between">
+                      <div>
+                        <div className="flex justify-between items-start">
+                          <p className="text-sm font-medium line-clamp-2 leading-snug">
+                            {product.title}
                           </p>
-                        )}
-                        {/* Ratings & Reviews */}
-                        <p className="text-sm text-gray-600">
-                          ⭐️ 4.5 (2,104)
-                        </p>
+                          {selectedProduct?.asin === product.asin && (
+                            <span className="bg-primary text-primary-foreground text-xs px-2 py-1 rounded-full ml-2 whitespace-nowrap flex-shrink-0">
+                              ✓ Selected
+                            </span>
+                          )}
+                        </div>
+                        <div className="flex items-center justify-between mt-2">
+                          {product.price && (
+                            <p className="text-primary font-bold text-base">
+                              ${product.price.toFixed(2)}
+                            </p>
+                          )}
+                          {/* Ratings & Reviews with badge style */}
+                          <div className="text-sm text-gray-700">
+                            <span className="font-medium">⭐ 4.5</span>
+                            <span className="text-gray-500 opacity-70 ml-1">(2.1K reviews)</span>
+                          </div>
+                        </div>
                       </div>
-                      {/* View on Amazon Button */}
-                      <a 
-                        href={product.url}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="mt-2 inline-block bg-[#FF9900] hover:bg-[#e88900] text-white rounded-md px-3 py-1.5 text-sm font-medium transition-colors"
-                        onClick={(e) => e.stopPropagation()}
-                      >
-                        🔗 View on Amazon
-                      </a>
+                      {/* View on Amazon Button - bottom right aligned */}
+                      <div className="flex justify-end mt-2">
+                        <a 
+                          href={product.url}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="bg-[#FF9900] hover:bg-[#e88900] text-white px-3 py-1 text-xs font-medium transition-all duration-200 hover:opacity-90 flex items-center gap-1"
+                          style={{ borderRadius: "8px" }}
+                          onClick={(e) => e.stopPropagation()}
+                        >
+                          🔗 View on Amazon
+                        </a>
+                      </div>
                     </div>
                   </div>
                 </div>
