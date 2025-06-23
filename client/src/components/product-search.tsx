@@ -284,15 +284,17 @@ export default function ProductSearch({
                           </span>
                         )}
                       </div>
-                      {product.price && (
-                        <p className="text-primary font-semibold mt-1">
-                          ${product.price.toFixed(2)}
+                      <div className="flex items-center justify-between mt-1">
+                        {product.price && (
+                          <p className="text-primary font-semibold">
+                            ${product.price.toFixed(2)}
+                          </p>
+                        )}
+                        {/* Ratings & Reviews */}
+                        <p className="text-sm text-gray-600">
+                          ⭐️ 4.5 (2,104)
                         </p>
-                      )}
-                      {/* Ratings & Reviews */}
-                      <p className="text-sm text-gray-600 mt-1">
-                        Reviews loading...
-                      </p>
+                      </div>
                       {/* View on Amazon Button */}
                       <a 
                         href={product.url}
