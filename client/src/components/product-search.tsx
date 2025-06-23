@@ -265,15 +265,17 @@ export default function ProductSearch({
                     }, 200);
                   }}
                 >
-                  <div className="flex gap-3">
+                  <div className="flex gap-3 items-center">
                     {product.imageUrl && (
-                      <img
-                        src={product.imageUrl}
-                        alt={product.title}
-                        className="w-16 h-16 object-contain transition-transform duration-200 hover:scale-105"
-                      />
+                      <div className="flex-shrink-0 flex items-center justify-center">
+                        <img
+                          src={product.imageUrl}
+                          alt={product.title}
+                          className="w-16 h-16 object-contain transition-transform duration-200 hover:scale-105"
+                        />
+                      </div>
                     )}
-                    <div className="flex-1 flex flex-col justify-between">
+                    <div className="flex-1 flex flex-col justify-between min-h-[64px]">
                       <div>
                         <div className="flex justify-between items-start">
                           <p className="text-sm font-medium line-clamp-2 leading-snug">
@@ -285,7 +287,7 @@ export default function ProductSearch({
                             </span>
                           )}
                         </div>
-                        <div className="flex items-center justify-between mt-2">
+                        <div className="flex items-center justify-between mt-1.5">
                           {product.price && (
                             <p className="text-primary font-bold text-base">
                               ${product.price.toFixed(2)}
@@ -299,12 +301,12 @@ export default function ProductSearch({
                         </div>
                       </div>
                       {/* View on Amazon Button - bottom right aligned */}
-                      <div className="flex justify-end mt-2">
+                      <div className="flex justify-end mt-1.5">
                         <a 
                           href={product.url}
                           target="_blank"
                           rel="noopener noreferrer"
-                          className="bg-[#FF9900] hover:bg-[#e88900] text-white px-3 py-1 text-xs font-medium transition-all duration-200 hover:opacity-90 flex items-center gap-1"
+                          className="bg-[#FF9900] hover:bg-[#e88900] text-white px-2.5 py-0.5 text-xs font-medium transition-all duration-200 hover:opacity-90 flex items-center gap-1"
                           style={{ borderRadius: "8px" }}
                           onClick={(e) => e.stopPropagation()}
                         >
