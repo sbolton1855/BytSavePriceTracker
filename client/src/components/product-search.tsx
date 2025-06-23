@@ -225,7 +225,6 @@ export default function ProductSearch({
     <div className="space-y-6">
       <div className="space-y-4">
         <div className="space-y-2">
-          <Label>Search for Products</Label>
           <div className="relative">
             <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
             <Input

@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from "react";
 import HeroSection from "@/components/hero-section";
 import FeaturesSection from "@/components/features-section";
@@ -290,7 +289,7 @@ const Home: React.FC = () => {
             </div>
           </div>
 
-          
+
         </div>
       </section>
 
