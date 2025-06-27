@@ -310,7 +310,6 @@ const Home: React.FC = () => {
         </section>
       )}
 
-      <FeaturesSection />
       <NotificationDemo />
     </>
   );
