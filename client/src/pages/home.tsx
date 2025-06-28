@@ -335,20 +335,7 @@ const Home: React.FC = () => {
 
       <NotificationDemo />
 
-      {/* OpenAI Integration Test - Lightweight Module */}
-      <section className="py-12 bg-gradient-to-r from-purple-50 to-blue-50">
-        <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="text-center mb-8">
-            <h2 className="text-2xl font-bold text-gray-900 mb-2">
-              🤖 AI Integration Test
-            </h2>
-            <p className="text-gray-600">
-              Test our OpenAI integration - click the button below to verify it's working
-            </p>
-          </div>
-          <OpenAITest />
-        </div>
-      </section>
+      
           {/* AI Recommendations Section */}
           <section className="py-16 bg-gradient-to-br from-purple-50 to-indigo-50">
             <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
@@ -368,13 +355,7 @@ const Home: React.FC = () => {
                   userEmail={user?.email || savedEmail} 
                 />
 
-                {/* AI Recommendations - Text Suggestions */}
-                <div className="border-t pt-8">
-                  <h3 className="text-xl font-semibold text-gray-900 mb-4 text-center">
-                    AI Product Insights
-                  </h3>
-                  <AIRecommendations />
-                </div>
+                
               </div>
             </div>
           </section>
