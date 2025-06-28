@@ -3,6 +3,7 @@ import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Loader2 } from "lucide-react";
+import { OpenAITest } from "@/components/OpenAITest";
 
 interface SearchResult {
   asin: string;
@@ -42,7 +43,15 @@ export default function TestPage() {
 
   return (
     <div className="container mx-auto px-4 py-8">
-      <h1 className="text-2xl font-bold mb-6">Amazon Product Search Test</h1>
+      <h1 className="text-2xl font-bold mb-6">API Tests</h1>
+      
+      <div className="mb-8">
+        <h2 className="text-xl font-semibold mb-4">OpenAI Integration Test</h2>
+        <OpenAITest />
+      </div>
+
+      <div className="mb-8">
+        <h2 className="text-xl font-semibold mb-4">Amazon Product Search Test</h2></div>
       
       <div className="flex gap-4 mb-8">
         <Input

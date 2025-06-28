@@ -1380,6 +1380,57 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // OpenAI test endpoint
+  app.get('/api/openai/test', async (req: Request, res: Response) => {
+    try {
+      // Check if OpenAI API key is configured
+      if (!process.env.OPENAI_API_KEY) {
+        return res.status(500).json({ 
+          error: 'OpenAI API key not configured. Please add OPENAI_API_KEY to your secrets.' 
+        });
+      }
+
+      // Import OpenAI (dynamic import to avoid issues if not installed)
+      const { OpenAI } = await import('openai');
+      
+      const openai = new OpenAI({
+        apiKey: process.env.OPENAI_API_KEY,
+      });
+
+      const completion = await openai.chat.completions.create({
+        messages: [
+          {
+            role: "system",
+            content: "You are a helpful assistant. Respond with a brief, friendly message."
+          },
+          {
+            role: "user",
+            content: "Say hello and confirm the OpenAI integration is working!"
+          }
+        ],
+        model: "gpt-3.5-turbo",
+        max_tokens: 100,
+      });
+
+      const response = completion.choices[0]?.message?.content || "No response generated";
+
+      res.json({
+        success: true,
+        message: "OpenAI integration successful!",
+        response: response,
+        timestamp: new Date().toISOString()
+      });
+
+    } catch (error: any) {
+      console.error('OpenAI API error:', error);
+      res.status(500).json({
+        success: false,
+        error: error.message || 'Failed to call OpenAI API',
+        details: error.code || 'Unknown error'
+      });
+    }
+  });
+
   app.use('/api', amazonRouter);
   // console.log(">>> [DEBUG] Registered amazonRouter at /api");
 
