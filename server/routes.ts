@@ -1542,6 +1542,179 @@ Focus on products that are:
     }
   });
 
+  // AI-powered product search with real Amazon results
+  app.post('/api/ai/product-search', async (req: Request, res: Response) => {
+    try {
+      // Check if OpenAI API key is configured
+      if (!process.env.OPENAI_API_KEY) {
+        return res.status(500).json({ 
+          error: 'OpenAI API key not configured. Please add OPENAI_API_KEY to your secrets.' 
+        });
+      }
+
+      const { trackedProducts, userEmail } = req.body;
+
+      if (!trackedProducts || trackedProducts.length === 0) {
+        return res.status(400).json({ 
+          error: 'No tracked products provided for analysis' 
+        });
+      }
+
+      // Import OpenAI
+      const { OpenAI } = await import('openai');
+      
+      const openai = new OpenAI({
+        apiKey: process.env.OPENAI_API_KEY,
+      });
+
+      // Step 1: Generate search terms using AI
+      const productList = trackedProducts.map((product: any, index: number) => 
+        `${index + 1}. ${product.title} - $${product.price}`
+      ).join('\n');
+
+      const prompt = `
+Based on this user's Amazon watchlist, generate optimized search terms for finding complementary products:
+
+TRACKED PRODUCTS:
+${productList}
+
+Generate 3-5 specific search terms that would find products that complement their interests. Focus on:
+- Related accessories or compatible items
+- Products in similar categories but different subcategories
+- Items that enhance or work with their current products
+- Search terms that are specific enough to find relevant products but broad enough to return good results
+
+Respond with ONLY a JSON array of search terms, like this:
+["search term 1", "search term 2", "search term 3", "search term 4", "search term 5"]
+
+Keep search terms short (1-3 words) and product-focused.
+`;
+
+      const completion = await openai.chat.completions.create({
+        messages: [
+          {
+            role: "system",
+            content: "You are an expert at generating Amazon search terms. Always respond with only a valid JSON array of search terms."
+          },
+          {
+            role: "user",
+            content: prompt
+          }
+        ],
+        model: "gpt-3.5-turbo",
+        max_tokens: 200,
+        temperature: 0.7,
+      });
+
+      const aiResponse = completion.choices[0]?.message?.content;
+      
+      if (!aiResponse) {
+        throw new Error('No search terms generated from AI');
+      }
+
+      // Parse the JSON response
+      let searchTerms;
+      try {
+        searchTerms = JSON.parse(aiResponse);
+      } catch (parseError) {
+        console.error('Failed to parse AI search terms:', aiResponse);
+        throw new Error('Invalid search terms format from AI');
+      }
+
+      // Validate that we got an array of strings
+      if (!Array.isArray(searchTerms) || searchTerms.length === 0) {
+        throw new Error('AI did not return valid search terms');
+      }
+
+      // Step 2: Search Amazon for each term and collect results
+      const allProducts = [];
+      const searchResults = {};
+
+      for (const searchTerm of searchTerms) {
+        try {
+          console.log(`Searching Amazon for: "${searchTerm}"`);
+          const amazonResults = await searchAmazonProducts(searchTerm);
+          
+          if (amazonResults && amazonResults.length > 0) {
+            // Take first 3 results from each search
+            const topResults = amazonResults.slice(0, 3).map((item: any) => ({
+              asin: item.ASIN,
+              title: item.ItemInfo?.Title?.DisplayValue || 'Unknown Product',
+              price: item.Offers?.Listings?.[0]?.Price?.Amount || null,
+              originalPrice: item.Offers?.Listings?.[0]?.SavingBasis?.Amount || null,
+              imageUrl: item.Images?.Primary?.Medium?.URL || item.Images?.Primary?.Small?.URL || null,
+              url: item.DetailPageURL || `https://www.amazon.com/dp/${item.ASIN}`,
+              affiliateUrl: addAffiliateTag(item.DetailPageURL || `https://www.amazon.com/dp/${item.ASIN}`, AFFILIATE_TAG),
+              searchTerm: searchTerm,
+              couponDetected: item.Offers?.Listings?.[0]?.Promotions?.length > 0 || false
+            }));
+
+            searchResults[searchTerm] = topResults;
+            allProducts.push(...topResults);
+          } else {
+            searchResults[searchTerm] = [];
+          }
+        } catch (searchError) {
+          console.error(`Error searching for "${searchTerm}":`, searchError);
+          searchResults[searchTerm] = [];
+        }
+      }
+
+      // Step 3: Generate AI analysis of the results
+      const analysisPrompt = `
+Based on the user's tracked products and the search results found, provide a brief analysis:
+
+USER'S TRACKED PRODUCTS:
+${productList}
+
+SEARCH TERMS USED: ${searchTerms.join(', ')}
+
+Provide a brief 2-3 sentence explanation of why these search results would be valuable for this user, focusing on how the recommended products complement their current interests.
+
+Respond with just the analysis text, no JSON needed.
+`;
+
+      const analysisCompletion = await openai.chat.completions.create({
+        messages: [
+          {
+            role: "system",
+            content: "You are a product recommendation expert. Provide clear, helpful analysis."
+          },
+          {
+            role: "user",
+            content: analysisPrompt
+          }
+        ],
+        model: "gpt-3.5-turbo",
+        max_tokens: 200,
+        temperature: 0.7,
+      });
+
+      const aiAnalysis = analysisCompletion.choices[0]?.message?.content || 
+        "These products complement your current watchlist with related accessories and compatible items.";
+
+      // Return comprehensive results
+      res.json({
+        success: true,
+        searchTerms,
+        analysis: aiAnalysis,
+        products: allProducts,
+        searchResults, // Organized by search term
+        totalProducts: allProducts.length,
+        timestamp: new Date().toISOString(),
+        basedOnProducts: trackedProducts.length
+      });
+
+    } catch (error: any) {
+      console.error('AI product search error:', error);
+      res.status(500).json({
+        success: false,
+        error: error.message || 'Failed to generate AI product search',
+        details: error.code || 'Unknown error'
+      });
+    }
+  });
+
   app.use('/api', amazonRouter);
   // console.log(">>> [DEBUG] Registered amazonRouter at /api");
 
