@@ -1,4 +1,3 @@
-
 import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { useToast } from "@/hooks/use-toast";
@@ -189,28 +188,25 @@ export default function AIProductSearch({ trackedProducts, userEmail }: AIProduc
                           {product.title}
                         </h4>
 
-                        {/* Price */}
+                        {/* Price and Link */}
                         <div className="flex items-center justify-between">
-                          {product.price ? (
-                            <div className="flex items-center gap-2">
-                              <span className="text-lg font-bold text-green-600">
+                          <div className="text-sm">
+                            {product.price ? (
+                              <span className="font-bold text-green-600">
                                 ${product.price.toFixed(2)}
                               </span>
-                              {product.originalPrice && product.originalPrice > product.price && (
-                                <span className="text-sm text-gray-500 line-through">
-                                  ${product.originalPrice.toFixed(2)}
-                                </span>
-                              )}
-                            </div>
-                          ) : (
-                            <span className="text-gray-500 text-sm">Price not available</span>
-                          )}
-                          
-                          {product.couponDetected && (
-                            <span className="bg-orange-100 text-orange-800 text-xs px-2 py-1 rounded-full">
-                              Coupon
-                            </span>
-                          )}
+                            ) : (
+                              <span className="text-gray-500">Price unavailable</span>
+                            )}
+                          </div>
+                          <Button
+                            size="sm"
+                            onClick={() => window.open(product.affiliateUrl, '_blank')}
+                            className="bg-orange-500 hover:bg-orange-600 text-white"
+                          >
+                            <ExternalLink className="h-3 w-3 mr-1" />
+                            View on Amazon
+                          </Button>
                         </div>
 
                         {/* Search Term Badge */}

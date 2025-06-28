@@ -90,9 +90,9 @@ export const AIRecommendations: React.FC<AIRecommendationsProps> = ({
   const searchForRecommendation = async (searchTerm: string) => {
     setIsLoading(true);
     try {
-      // Navigate to search results or open in new tab
-      const searchUrl = `/search?q=${encodeURIComponent(searchTerm)}`;
-      window.open(searchUrl, '_blank');
+      // Open Amazon search with affiliate tag
+      const amazonSearchUrl = `https://www.amazon.com/s?k=${encodeURIComponent(searchTerm)}&tag=bytsave-20`;
+      window.open(amazonSearchUrl, '_blank');
     } catch (error) {
       console.error('Search error:', error);
     } finally {
@@ -179,8 +179,8 @@ export const AIRecommendations: React.FC<AIRecommendationsProps> = ({
                       disabled={isLoading}
                       className="ml-3"
                     >
-                      <ShoppingCart className="h-3 w-3 mr-1" />
-                      Search
+                      <ExternalLink className="h-3 w-3 mr-1" />
+                      Find on Amazon
                     </Button>
                   </div>
                 ))}
