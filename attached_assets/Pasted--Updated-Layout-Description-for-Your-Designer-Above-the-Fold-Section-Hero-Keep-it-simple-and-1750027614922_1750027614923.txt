@@ -1,0 +1,72 @@
+✅ Updated Layout Description (for Your Designer)
+🔷 Above-the-Fold Section (Hero)
+Keep it simple and focused — this is your first impression.
+
+Suggested Layout:
+
+Left Side: Headline, tagline, search input
+
+Headline: Track Amazon Prices
+
+Subheadline: Enter a product name or link to set alerts for price drops.
+
+Search box with icon: labeled clearly as “Search by Product Name”
+
+Add a toggle or hint below: Looking to track by URL or ASIN? Use Quick Track →
+
+Right Side: Illustration or animation (shopping cart, money-saving icon, etc.)
+
+Purpose: break text overload and increase visual interest
+
+🟨 Quick Track (Current Yellow Box)
+Currently it looks like a fallback, but feels clunky.
+
+Updated Presentation:
+
+Collapse it by default with a toggle: “Want to paste a link instead? Click to expand”
+
+Move it below the search section, not beside it
+
+Keep it minimal and clean — like a one-line accordion form
+
+📊 Price Drop Dashboard
+Visually dominant right now. Push it down the page.
+
+Suggested Treatment:
+
+Label it clearly: “Your Recent Alerts” or “Active Price Watches”
+
+Style it more like a feed: Card list with cleaner padding, inline price-change badges (e.g. -43%, +$2.50)
+
+Optional: Add a “History” tab if you want room for past alert logs
+
+🧾 How It Works Section
+Too generic and buried. Let's make it visual and trust-building.
+
+Revise this into a 3‑column benefit section:
+
+Step 1: “Search or paste a product” → icon of magnifying glass
+
+Step 2: “Set your target price” → target/bullseye icon
+
+Step 3: “Get notified when it drops” → email alert icon
+
+Add a “Trusted by” section or logos if you have partners or beta users.
+
+🎯 Overall Style Suggestions
+Spacing: Increase whitespace between modules—everything’s feeling too tight vertically.
+
+Font Hierarchy: Use different font weights/sizes to guide the eye. Right now, all headings feel equal.
+
+Consistency: Avoid repeating “Search & Track” in multiple places. Choose one and stick with it.
+
+CTA Buttons: Make “Track a Product” prominent with icon → emphasize action.
+
+Final UI Goals
+Cleaner visual hierarchy
+
+Stronger first impression
+
+Better separation between “Search”, “Track by URL”, and “Your Alerts”
+
+More onboarding clarity (“what do I do first?” is fuzzy right now)

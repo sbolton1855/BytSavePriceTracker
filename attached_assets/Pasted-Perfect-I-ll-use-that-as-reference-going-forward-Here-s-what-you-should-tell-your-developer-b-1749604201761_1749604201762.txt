@@ -1,0 +1,84 @@
+Perfect. I’ll use that as reference going forward.
+
+Here’s what you should tell your developer **based on everything we now know**:
+
+---
+
+### 🔧 Implementation Guidance for Developer
+
+#### 1. **Split the API Usage by Feature**
+
+To avoid breaking other features:
+
+* **Create distinct handler functions** for each of the following:
+
+  * **Live Deals** (`/api/amazon/deals`)
+  * **Search & Track** (`/api/amazon/search`)
+  * **Price Drop Dashboard** (`/api/amazon/tracked-prices`)
+* These functions can still use `SearchItems` or `GetItems`, but **pass different `Resources` arrays** based on the feature's needs.
+
+---
+
+#### 2. **For Live Deals: Update PA-API Call**
+
+Use `SearchItems` with the following **Resources**:
+
+```json
+[
+  "Images.Primary.Small",
+  "ItemInfo.Title",
+  "Offers.Listings.Price",
+  "Offers.Listings.SavingBasis",
+  "Offers.Listings.Condition",
+  "Offers.Listings.DeliveryInfo.IsPrimeEligible",
+  "Offers.Summaries.LowestPrice",
+  "Offers.Summaries.HighestPrice",
+  "Offers.Summaries.OfferCount"
+]
+```
+
+This maximizes pricing and savings data while still showing basic product info.
+
+---
+
+#### 3. **Logic to Detect and Render Discounts**
+
+In the backend:
+
+* Check if both `Offers.Listings.Price.Amount` and `Offers.Listings.SavingBasis.Amount` exist.
+* If `SavingBasis.Amount > Price.Amount`, a discount exists.
+* Use `Price.Savings` if present for a more direct indicator (includes amount + percentage).
+
+Frontend:
+
+* Render `Price.DisplayAmount`
+* If discount: show “You save \$X (Y%)” and/or strike-through of list price.
+
+---
+
+#### 4. **Don’t Overfetch in Search & Track**
+
+Keep `SearchItems` lightweight for this feature:
+
+```json
+[
+  "ItemInfo.Title",
+  "Offers.Listings.Price"
+]
+```
+
+Use `GetItems` (ASIN-based) for targeted re-checks with fuller `Resources` if needed.
+
+---
+
+#### 5. **Throttle-Aware Logging**
+
+Enable backend logs to print:
+
+* `ASIN`
+* `Price.Amount`, `SavingBasis.Amount`, `Savings.Percentage`
+  …so you can debug what Amazon is sending and detect gaps in logic.
+
+---
+
+Let me know when he’s ready and I can help draft or refactor the actual code logic or routes.
