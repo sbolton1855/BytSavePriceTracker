@@ -8,6 +8,7 @@ import SimpleTracker from "@/components/simple-tracker";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/hooks/use-auth";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { OpenAITest } from "@/components/OpenAITest";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -311,6 +312,21 @@ const Home: React.FC = () => {
       )}
 
       <NotificationDemo />
+      
+      {/* OpenAI Integration Test - Lightweight Module */}
+      <section className="py-12 bg-gradient-to-r from-purple-50 to-blue-50">
+        <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8">
+          <div className="text-center mb-8">
+            <h2 className="text-2xl font-bold text-gray-900 mb-2">
+              🤖 AI Integration Test
+            </h2>
+            <p className="text-gray-600">
+              Test our OpenAI integration - click the button below to verify it's working
+            </p>
+          </div>
+          <OpenAITest />
+        </div>
+      </section>
     </>
   );
 };
