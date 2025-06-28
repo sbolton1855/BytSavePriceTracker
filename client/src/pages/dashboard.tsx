@@ -2,6 +2,7 @@ import { useState, useEffect } from "react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import ProductsDisplay from "@/components/products-display";
+import { AIRecommendations } from "@/components/AIRecommendations";
 
 import ProductSearch from "@/components/product-search";
 import { useAuth } from "@/hooks/use-auth";
@@ -11,6 +12,7 @@ const Dashboard: React.FC = () => {
   const { user } = useAuth();
   const { toast } = useToast();
   const [refreshTrigger, setRefreshTrigger] = useState(0);
+  const [trackedProducts, setTrackedProducts] = useState<any[]>([]);
   
   // Get the user's email for product tracking
   const [userEmail, setUserEmail] = useState<string>(() => {
@@ -77,8 +79,19 @@ const Dashboard: React.FC = () => {
         {/* For testing - use hardcoded email if no email is available */}
         <ProductsDisplay 
           email={userEmail || "SBOLTON1855@GMAIL.COM"} 
-          key={refreshTrigger} 
+          key={refreshTrigger}
+          onProductsChange={setTrackedProducts}
         />
+
+        {/* AI Recommendations Section */}
+        {trackedProducts.length > 0 && (
+          <div className="mt-8">
+            <AIRecommendations 
+              trackedProducts={trackedProducts}
+              userEmail={userEmail || "SBOLTON1855@GMAIL.COM"}
+            />
+          </div>
+        )}
 
         <div className="mt-8" id="search-section">
           <Card>

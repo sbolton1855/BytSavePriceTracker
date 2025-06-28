@@ -11,15 +11,16 @@ import { useAuth } from "@/hooks/use-auth";
 
 interface ProductsDisplayProps {
   email: string;
+  onProductsChange?: (products: TrackedProductWithDetails[]) => void;
 }
 
 type FilterOption = "all" | "price-dropped" | "target-reached" | "recently-added";
 
-const ProductsDisplay: React.FC<ProductsDisplayProps> = ({ email }) => {
+const ProductsDisplay: React.FC<ProductsDisplayProps> = ({ email, onProductsChange }) => {
   const { toast } = useToast();
   const { user, isAuthenticated } = useAuth();
   const [filter, setFilter] = useState<FilterOption>("all");
-  
+
   // Fetch tracked products - adapts to auth status
   const { data, isLoading, isError, error, refetch } = useQuery<TrackedProductWithDetails[]>({
     queryKey: isAuthenticated ? ['/api/my/tracked-products'] : ['/api/tracked-products', email],
@@ -27,14 +28,14 @@ const ProductsDisplay: React.FC<ProductsDisplayProps> = ({ email }) => {
     queryFn: async ({ queryKey }) => {
       if (isAuthenticated) {
         console.log("ProductsDisplay - Fetching tracked products for authenticated user");
-        
+
         try {
           // Add timestamp to prevent caching
           const timestamp = new Date().getTime();
           const res = await fetch(`${queryKey[0]}?_t=${timestamp}`, {
             credentials: 'include' // Important for authenticated requests
           });
-          
+
           if (!res.ok) throw new Error('Failed to fetch tracked products');
           const data = await res.json();
           console.log("ProductsDisplay - data changed:", data);
@@ -45,12 +46,12 @@ const ProductsDisplay: React.FC<ProductsDisplayProps> = ({ email }) => {
         }
       } else {
         console.log("ProductsDisplay - Fetching tracked products by email:", email);
-        
+
         if (!email || email.length === 0) {
           console.log("No email provided, returning empty array");
           return [];
         }
-        
+
         try {
           // Force email to uppercase to match stored format
           const upperEmail = email.toUpperCase();
@@ -96,10 +97,10 @@ const ProductsDisplay: React.FC<ProductsDisplayProps> = ({ email }) => {
     // Reset all tracked product queries
     queryClient.invalidateQueries({ queryKey: ['/api/tracked-products'] });
     queryClient.invalidateQueries({ queryKey: ['/api/my/tracked-products'] });
-    
+
     // Force refetch
     refetch();
-    
+
     toast({
       title: "Refreshing products",
       description: "Updating prices for all your tracked products...",
@@ -117,31 +118,31 @@ const ProductsDisplay: React.FC<ProductsDisplayProps> = ({ email }) => {
         refetch();
       }, 500);
     };
-    
+
     const handleProductTracked = (event: any) => {
       console.log("Product tracking detected, refetching data", event.detail);
-      
+
       // Update email from the event if provided
       if (event.detail?.email) {
         console.log("Updating email from tracked event:", event.detail.email);
         // Store the email in localStorage for consistency
         localStorage.setItem("bytsave_user_email", event.detail.email);
       }
-      
+
       // Reset tracked products queries to ensure fresh data
       queryClient.resetQueries({ queryKey: ['/api/tracked-products'] });
-      
+
       // Wait a moment for the database to update
       setTimeout(() => {
         console.log("Performing manual refetch after tracking");
         refetch();
       }, 800);
     };
-    
+
     // Add event listeners
     document.addEventListener('product-deleted', handleProductDeleted);
     document.addEventListener('product-tracked', handleProductTracked);
-    
+
     // Clean up
     return () => {
       document.removeEventListener('product-deleted', handleProductDeleted);
@@ -158,13 +159,13 @@ const ProductsDisplay: React.FC<ProductsDisplayProps> = ({ email }) => {
       });
     }
   }, [isError, error, toast]);
-  
+
   // Debug effect to show data changes
   useEffect(() => {
     console.log("ProductsDisplay - current email:", email);
     console.log("ProductsDisplay - data changed:", data);
     console.log("ProductsDisplay - filteredProducts:", filteredProducts);
-    
+
     // Show detailed debug info
     if (!email || email.length === 0) {
       console.log("ProductsDisplay - No email provided");
@@ -178,6 +179,12 @@ const ProductsDisplay: React.FC<ProductsDisplayProps> = ({ email }) => {
       console.log("ProductsDisplay - Found", data.length, "products for email:", email);
     }
   }, [email, data, filteredProducts, isLoading, isError, error]);
+
+  useEffect(() => {
+    if (onProductsChange && filteredProducts) {
+      onProductsChange(filteredProducts);
+    }
+  }, [filteredProducts, onProductsChange]);
 
   // For non-authenticated users, we'll show a version of this section that encourages login
   // but they can still view tracked products by email
@@ -214,7 +221,7 @@ const ProductsDisplay: React.FC<ProductsDisplayProps> = ({ email }) => {
             <h2 className="text-3xl font-bold text-gray-900">Your Tracked Products</h2>
             <p className="mt-2 text-gray-500">Monitor price changes and manage your tracking list</p>
           </div>
-          
+
           <div className="mt-4 md:mt-0 flex items-center">
             <Select
               value={filter}
@@ -230,7 +237,7 @@ const ProductsDisplay: React.FC<ProductsDisplayProps> = ({ email }) => {
                 <SelectItem value="recently-added">Recently Added</SelectItem>
               </SelectContent>
             </Select>
-            
+
             <Button 
               variant="outline" 
               className="ml-3"
@@ -300,7 +307,7 @@ const ProductsDisplay: React.FC<ProductsDisplayProps> = ({ email }) => {
                     </div>
                   </div>
                 )}
-                
+
                 {filteredProducts.map((trackedProduct: TrackedProductWithDetails) => {
                   // Create a unique key that includes target price to force re-render when it changes
                   const cardKey = `${trackedProduct.id}-${trackedProduct.targetPrice}-${trackedProduct.product.currentPrice}-${trackedProduct.product.lastChecked}`;
@@ -318,7 +325,7 @@ const ProductsDisplay: React.FC<ProductsDisplayProps> = ({ email }) => {
                     />
                   );
                 })}
-                
+
                 {/* Add new product card - only for authenticated users */}
                 {isAuthenticated && (
                   <div className="border-2 border-dashed border-gray-300 rounded-lg p-6 flex flex-col items-center justify-center text-center">
@@ -377,7 +384,7 @@ const ProductsDisplay: React.FC<ProductsDisplayProps> = ({ email }) => {
             )}
           </>
         )}
-        
+
         <div className="mt-8 text-center">
           <p className="text-sm text-gray-500">
             Want to track more than 10 products? <a href="#" className="text-primary-500 font-medium hover:text-primary-600">Upgrade to Premium</a>

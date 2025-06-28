@@ -1431,6 +1431,117 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // AI-powered product recommendations endpoint
+  app.post('/api/ai/recommendations', async (req: Request, res: Response) => {
+    try {
+      // Check if OpenAI API key is configured
+      if (!process.env.OPENAI_API_KEY) {
+        return res.status(500).json({ 
+          error: 'OpenAI API key not configured. Please add OPENAI_API_KEY to your secrets.' 
+        });
+      }
+
+      const { trackedProducts, userEmail } = req.body;
+
+      if (!trackedProducts || trackedProducts.length === 0) {
+        return res.status(400).json({ 
+          error: 'No tracked products provided for analysis' 
+        });
+      }
+
+      // Import OpenAI
+      const { OpenAI } = await import('openai');
+      
+      const openai = new OpenAI({
+        apiKey: process.env.OPENAI_API_KEY,
+      });
+
+      // Prepare product data for AI analysis
+      const productList = trackedProducts.map((product: any, index: number) => 
+        `${index + 1}. ${product.title} - $${product.price}`
+      ).join('\n');
+
+      const prompt = `
+Analyze this user's Amazon product watchlist and provide personalized recommendations:
+
+TRACKED PRODUCTS:
+${productList}
+
+Please provide:
+1. The main category/theme of their interests
+2. Your reasoning for why you think they'd like certain complementary products
+3. 5 specific product recommendations that would complement their current watchlist
+4. Optimized search terms for finding these products on Amazon
+
+Respond in this exact JSON format:
+{
+  "category": "brief category description",
+  "reasoning": "2-3 sentence explanation of their shopping patterns and why these recommendations fit",
+  "suggestions": ["product 1", "product 2", "product 3", "product 4", "product 5"],
+  "searchTerms": ["search term 1", "search term 2", "search term 3", "search term 4", "search term 5"]
+}
+
+Focus on products that are:
+- Complementary to what they already track
+- In a similar price range
+- Practical and useful
+- Available on Amazon
+`;
+
+      const completion = await openai.chat.completions.create({
+        messages: [
+          {
+            role: "system",
+            content: "You are an expert Amazon product analyst who understands consumer behavior and can suggest highly relevant complementary products. Always respond with valid JSON."
+          },
+          {
+            role: "user",
+            content: prompt
+          }
+        ],
+        model: "gpt-3.5-turbo",
+        max_tokens: 800,
+        temperature: 0.7,
+      });
+
+      const aiResponse = completion.choices[0]?.message?.content;
+      
+      if (!aiResponse) {
+        throw new Error('No response generated from AI');
+      }
+
+      // Parse the JSON response
+      let recommendations;
+      try {
+        recommendations = JSON.parse(aiResponse);
+      } catch (parseError) {
+        console.error('Failed to parse AI response:', aiResponse);
+        throw new Error('Invalid response format from AI');
+      }
+
+      // Validate the response structure
+      if (!recommendations.category || !recommendations.reasoning || 
+          !recommendations.suggestions || !recommendations.searchTerms) {
+        throw new Error('Incomplete response from AI');
+      }
+
+      res.json({
+        success: true,
+        recommendations,
+        timestamp: new Date().toISOString(),
+        analysedProducts: trackedProducts.length
+      });
+
+    } catch (error: any) {
+      console.error('AI recommendations error:', error);
+      res.status(500).json({
+        success: false,
+        error: error.message || 'Failed to generate AI recommendations',
+        details: error.code || 'Unknown error'
+      });
+    }
+  });
+
   app.use('/api', amazonRouter);
   // console.log(">>> [DEBUG] Registered amazonRouter at /api");
 
