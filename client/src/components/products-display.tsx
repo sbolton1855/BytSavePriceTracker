@@ -37,12 +37,22 @@ const ProductsDisplay: React.FC<ProductsDisplayProps> = ({ email, onProductsChan
           });
 
           if (!res.ok) throw new Error('Failed to fetch tracked products');
+
+          // Check if response is valid JSON
+          const contentType = res.headers.get('content-type');
+          if (!contentType || !contentType.includes('application/json')) {
+            const text = await res.text();
+            console.error('Non-JSON response received:', text);
+            throw new Error('Invalid response format');
+          }
+
           const data = await res.json();
           console.log("ProductsDisplay - data changed:", data);
           return data;
         } catch (err) {
           console.error("Error fetching tracked products:", err);
-          throw err;
+          // Return empty array on error to prevent component crash
+          return [];
         }
       } else {
         console.log("ProductsDisplay - Fetching tracked products by email:", email);

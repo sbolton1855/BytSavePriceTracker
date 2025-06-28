@@ -148,7 +148,7 @@ const categoryFilters = {
     ];
 
     const title = product.title.toLowerCase();
-    
+
     // Check title and significant discounts
     return eventKeywords.some(keyword => title.includes(keyword)) || 
       (product.originalPrice && 
@@ -221,10 +221,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       // Get query parameters
       const { category, rotate, t: timestamp } = req.query;
-      
+
       // Get all products from storage
       const products = await storage.getAllProducts();
-      
+
       // Filter out products that haven't been checked in the last 48 hours
       const freshProducts = products.filter(product => {
         const lastChecked = new Date(product.lastChecked);
@@ -293,10 +293,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const rotationIndex = parseInt(rotate as string) || 0;
       const dealsPerRotation = 6;
       const totalRotations = Math.ceil(deals.length / dealsPerRotation);
-      
+
       // Ensure rotation index wraps around
       const effectiveRotation = rotationIndex % totalRotations;
-      
+
       // Get the subset for this rotation
       const startIndex = effectiveRotation * dealsPerRotation;
       const rotatedDeals = deals.slice(startIndex, startIndex + dealsPerRotation);
@@ -320,7 +320,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     // console.log('🔍 [ROUTE] /api/search - Request received');
     // console.log('[ROUTE] Query params:', req.query);
     // console.log('[ROUTE] Headers:', req.headers);
-    
+
     try {
       const { q, searchIndex } = req.query;
 
@@ -361,7 +361,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }));
 
       // console.log(`[ROUTE] Formatted ${formattedResults.length} results`);
-      
+
       res.json({ 
         items: formattedResults,
         totalPages: 1 // Not available from this endpoint, so set to 1
@@ -377,7 +377,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.get('/api/product', async (req: Request, res: Response) => {
     // console.log('📦 [ROUTE] /api/product - Request received');
     // console.log('[ROUTE] Query params:', req.query);
-    
+
     try {
       const { asin, url } = req.query;
 
@@ -503,17 +503,17 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.get('/api/tracked-products', async (req: Request, res: Response) => {
     try {
       const { email } = req.query;
-      
+
       // console.log('GET /api/tracked-products - Request query:', req.query);
 
       // Check if email provided as query param
       if (email && typeof email === 'string') {
         // console.log(`Fetching tracked products for email: ${email}`);
-        
+
         // Uppercase the email to match how we store it
         const emailUpperCase = email.toUpperCase();
         // console.log(`Using normalized email: ${emailUpperCase}`);
-        
+
         const trackedProducts = await storage.getTrackedProductsWithDetailsByEmail(emailUpperCase);
         // console.log(`Found ${trackedProducts.length} tracked products for ${emailUpperCase}`);
 
@@ -546,18 +546,18 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const userId = (req.user as any).id.toString();
       const userEmail = (req.user as any).email.toUpperCase();
       // console.log(`Fetching tracked products for user ${userId} with email ${userEmail}`);
-      
+
       // Get products by userId
       const userIdProducts = await storage.getTrackedProductsByUserId(userId);
       // console.log(`Found ${userIdProducts.length} products by userId`);
-      
+
       // Also get products by email (for products tracked before login)
       const emailProducts = await storage.getTrackedProductsByEmail(userEmail);
       // console.log(`Found ${emailProducts.length} products by email`);
-      
+
       // Combine both lists, ensuring no duplicates
       let allTrackedProducts = [...userIdProducts];
-      
+
       // Add email products that aren't already in the user ID products
       const existingProductIds = new Set(userIdProducts.map(p => p.productId));
       for (const emailProduct of emailProducts) {
@@ -565,7 +565,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
           allTrackedProducts.push(emailProduct);
         }
       }
-      
+
       // console.log(`Combined total: ${allTrackedProducts.length} tracked products`);
 
       // For each tracked product, fetch the product details
@@ -585,8 +585,19 @@ export async function registerRoutes(app: Express): Promise<Server> {
       );
 
       // Filter out any null entries (products that may have been deleted)
-      const response = fullDetails.filter(item => item !== null);
-      // console.log(`Returning ${response.length} tracked products with details`);
+      const validDetails = fullDetails.filter(item => item !== null);
+      console.log(`Returning ${validDetails.length} tracked products with details`);
+
+      // Ensure response is properly serializable
+      const response = validDetails.map(item => {
+        try {
+          // Clean any potential circular references or invalid JSON
+          return JSON.parse(JSON.stringify(item));
+        } catch (error) {
+          console.error('Error serializing tracked product:', item?.id, error);
+          return null;
+        }
+      }).filter(item => item !== null);
 
       res.json(response);
     } catch (error) {
@@ -603,13 +614,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
       // console.log('Request body:', JSON.stringify(req.body, null, 2));
       // console.log('Content type:', req.headers['content-type']);
       // console.log('Request headers:', JSON.stringify(req.headers, null, 2));
-      
+
       // Get the form values for tracking (just for logging)
       if (!req.body) {
         // console.log('REQUEST BODY IS NULL OR UNDEFINED');
         return res.status(400).json({ error: 'Request body is missing' });
       }
-      
+
       // Log raw request data for debugging
       // console.log('Raw request data:');
       // console.log('- productUrl:', req.body.productUrl ? 'present' : 'MISSING');
@@ -622,9 +633,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
         console.error('❌ VALIDATION FAILED:', JSON.stringify(result.error.format(), null, 2));
         return res.status(400).json({ error: 'Invalid request data', details: result.error.format() });
       }
-      
+
       // console.log('✅ Validation succeeded');
-      
+
       // Use the validated data
       const { productUrl, targetPrice, email, percentageAlert, percentageThreshold, productId } = result.data;
 
@@ -632,12 +643,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
       if (!email) {
         return res.status(400).json({ error: 'Email is required for non-authenticated tracking' });
       }
-      
+
       // For non-authenticated users, check if they've reached the limit of 3 tracked products
       if (!req.user) {
         const upperEmail = email.toUpperCase();
         const existingTrackedProducts = await storage.getTrackedProductsByEmail(upperEmail);
-        
+
         if (existingTrackedProducts.length >= 3) {
           return res.status(403).json({ 
             error: 'Limit reached', 
@@ -684,15 +695,15 @@ export async function registerRoutes(app: Express): Promise<Server> {
               highestPrice: amazonProduct.price,
               lastChecked: new Date()
             });
-            
+
             // console.log('Created new product in database:', product);
-            
+
             // Add initial price history entry
             await intelligentlyAddPriceHistory(product.id, product.currentPrice);
             // console.log('Added initial price history for new product');
           } catch (error) {
             console.error('Error fetching product from Amazon:', error);
-            
+
             // Still create a product entry so tracking can work even with API issues
             product = await storage.createProduct({
               asin: extractedAsin,
@@ -705,9 +716,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
               highestPrice: targetPrice || 99.99,
               lastChecked: new Date()
             });
-            
+
             // console.log('Created basic product entry due to API error:', product);
-            
+
             // Add initial price history entry for the basic product
             await intelligentlyAddPriceHistory(product.id, product.currentPrice);
           }
@@ -823,10 +834,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
           } catch (error) {
             // If API fails, create minimal product entry
             console.error('Failed to fetch from Amazon API, creating minimal product entry:', error);
-            
+
             // Use the target price as a fallback for price fields
             const fallbackPrice = targetPrice > 0 ? targetPrice : 99.99;
-            
+
             product = await storage.createProduct({
               asin: productAsin,
               title: `Amazon Product (${productAsin})`,
@@ -838,9 +849,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
               highestPrice: fallbackPrice,
               lastChecked: new Date()
             });
-            
+
             // console.log('Created product with fallback data:', product);
-            
+
             // Create initial price history entry for the fallback product
             await intelligentlyAddPriceHistory(product.id, fallbackPrice);
           }
@@ -898,9 +909,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
           createdAt: new Date(),
           notified: false
         };
-        
+
         // console.log('Creating tracking with data:', trackingData);
-        
+
         const tracking = await storage.createTrackedProduct(trackingData);
 
         if (!tracking) {
@@ -954,7 +965,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.status(500).json({ error: 'Server error' });
     }
   });
-  
+
   // Delete a tracked product by email (non-authenticated)
   app.delete('/api/tracked-products/:id', async (req: Request, res: Response) => {
     try {
@@ -963,31 +974,31 @@ export async function registerRoutes(app: Express): Promise<Server> {
       if (isNaN(id)) {
         return res.status(400).json({ error: 'Invalid ID' });
       }
-      
+
       // Email is required for email-based tracking deletion
       const { email } = req.query;
       if (!email || typeof email !== 'string') {
         return res.status(400).json({ error: 'Email is required to delete tracked product' });
       }
-      
+
       // console.log(`Attempting to delete tracked product ${id} for email ${email}`);
-      
+
       const trackedProduct = await storage.getTrackedProduct(id);
       if (!trackedProduct) {
         // console.log(`Product with ID ${id} not found`);
         return res.status(404).json({ error: 'Tracked product not found' });
       }
-      
+
       // Normalize emails for comparison
       const normalizedEmail = email.toUpperCase();
       // console.log(`Comparing emails: ${normalizedEmail} vs. ${trackedProduct.email}`);
-      
+
       // Check if the email matches the tracked product
       if (trackedProduct.email !== normalizedEmail) {
         // console.log(`Email mismatch: ${normalizedEmail} vs. ${trackedProduct.email}`);
         return res.status(403).json({ error: 'Not authorized to delete this tracked product' });
       }
-      
+
       try {
         // Double check that the product exists
         const finalCheck = await storage.getTrackedProduct(id);
@@ -995,13 +1006,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
           // console.log(`Product with ID ${id} not found during final check`);
           return res.status(404).json({ error: 'Tracked product not found' });
         }
-        
+
         // Force delete the tracked product directly from the database
         // console.log(`Deleting tracked product ${id} for email ${normalizedEmail}`);
         const success = await storage.deleteTrackedProduct(id);
-        
+
         // console.log(`Successfully deleted tracked product ${id}`);
-        
+
         // Send a refresh signal to the client
         res.status(200).json({ 
           message: 'Tracked product deleted successfully',
@@ -1044,7 +1055,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       // Normalize emails for comparison
       const normalizedEmail = email.toUpperCase();
-      
+
       // Check if the email matches the tracked product
       if (trackedProduct.email !== normalizedEmail) {
         return res.status(403).json({ error: 'Not authorized to update this tracked product' });
@@ -1143,7 +1154,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       // Determine if there's a significant price change
       const priceChanged = Math.abs(product.currentPrice - amazonProduct.price) > 0.01;
-      
+
       // if (priceChanged) {
       //   console.log(`Price change detected for ${product.asin}: $${product.currentPrice} -> $${amazonProduct.price}`);
       // } else {
@@ -1181,7 +1192,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.json(response);
     } catch (error: any) {
       console.error('Error refreshing price:', error);
-      
+
       // Log additional error details if available
       if (error instanceof Error) {
         console.error('Error details:', {
@@ -1190,7 +1201,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
           name: error.name
         });
       }
-      
+
       res.status(500).json({ error: error.message || 'Failed to refresh price' });
     }
   });
@@ -1198,23 +1209,23 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Test Amazon API credentials
   app.get('/api/test-amazon', async (req: Request, res: Response) => {
     console.log('🔧 [TEST] Amazon API credential test');
-    
+
     // Check environment variables
     const credCheck = {
       AMAZON_ACCESS_KEY: process.env.AMAZON_ACCESS_KEY ? `Set (${process.env.AMAZON_ACCESS_KEY.length} chars)` : 'Missing',
       AMAZON_SECRET_KEY: process.env.AMAZON_SECRET_KEY ? `Set (${process.env.AMAZON_SECRET_KEY.length} chars)` : 'Missing',
       AMAZON_PARTNER_TAG: process.env.AMAZON_PARTNER_TAG || 'Missing'
     };
-    
+
     console.log('[TEST] Credentials:', credCheck);
-    
+
     // Try a simple GetItems request with a known ASIN
     try {
       const testAsin = 'B08N5WRWNW'; // Echo Dot
       console.log(`[TEST] Testing with ASIN: ${testAsin}`);
-      
+
       const result = await getProductInfo(testAsin);
-      
+
       res.json({
         success: true,
         credentials: credCheck,
@@ -1392,7 +1403,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       // Import OpenAI (dynamic import to avoid issues if not installed)
       const { OpenAI } = await import('openai');
-      
+
       const openai = new OpenAI({
         apiKey: process.env.OPENAI_API_KEY,
       });
@@ -1451,7 +1462,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       // Import OpenAI
       const { OpenAI } = await import('openai');
-      
+
       const openai = new OpenAI({
         apiKey: process.env.OPENAI_API_KEY,
       });
@@ -1505,7 +1516,7 @@ Focus on products that are:
       });
 
       const aiResponse = completion.choices[0]?.message?.content;
-      
+
       if (!aiResponse) {
         throw new Error('No response generated from AI');
       }
@@ -1562,7 +1573,7 @@ Focus on products that are:
 
       // Import OpenAI
       const { OpenAI } = await import('openai');
-      
+
       const openai = new OpenAI({
         apiKey: process.env.OPENAI_API_KEY,
       });
@@ -1607,7 +1618,7 @@ Keep search terms short (1-3 words) and product-focused.
       });
 
       const aiResponse = completion.choices[0]?.message?.content;
-      
+
       if (!aiResponse) {
         throw new Error('No search terms generated from AI');
       }
@@ -1634,7 +1645,7 @@ Keep search terms short (1-3 words) and product-focused.
         try {
           console.log(`Searching Amazon for: "${searchTerm}"`);
           const amazonResults = await searchAmazonProducts(searchTerm);
-          
+
           if (amazonResults && amazonResults.length > 0) {
             // Take first 3 results from each search
             const topResults = amazonResults.slice(0, 3).map((item: any) => ({
