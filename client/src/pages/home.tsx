@@ -1,9 +1,14 @@
 import { useState, useEffect } from "react";
 import HeroSection from "@/components/hero-section";
 import FeaturesSection from "@/components/features-section";
-import ProductSearch from "@/components/product-search";
 import ProductsDisplay from "@/components/products-display";
+import ProductSearch from "@/components/product-search";
+import ProductTeasers from "@/components/product-teasers";
+import HighlightedDeals from "@/components/highlighted-deals";
+import LiveDealsPreview from "@/components/LiveDealsPreview";
 import NotificationDemo from "@/components/notification-demo";
+import AIRecommendations from "@/components/AIRecommendations";
+import AIProductSearch from "@/components/AIProductSearch";
 import SimpleTracker from "@/components/simple-tracker";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/hooks/use-auth";
@@ -23,6 +28,9 @@ const Home: React.FC = () => {
   });
   const { toast } = useToast();
   const [showQuickTrack, setShowQuickTrack] = useState(false);
+    const [trackedProducts, setTrackedProducts] = useState<any[]>([]);
+  const [savedEmail, setSavedEmail] = useState<string | null>(null);
+
 
   // Update email when user changes or localStorage changes
   useEffect(() => {
@@ -140,6 +148,20 @@ const Home: React.FC = () => {
       });
     });
   };
+
+    useEffect(() => {
+        const savedEmail = localStorage.getItem("bytsave_user_email");
+        setSavedEmail(savedEmail);
+
+        if (savedEmail) {
+            fetch(`/api/products?email=${savedEmail}`)
+                .then(response => response.json())
+                .then(data => {
+                    setTrackedProducts(data);
+                })
+                .catch(error => console.error("Error fetching tracked products:", error));
+        }
+    }, []);
 
   return (
     <>
@@ -312,7 +334,7 @@ const Home: React.FC = () => {
       )}
 
       <NotificationDemo />
-      
+
       {/* OpenAI Integration Test - Lightweight Module */}
       <section className="py-12 bg-gradient-to-r from-purple-50 to-blue-50">
         <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8">
@@ -327,6 +349,35 @@ const Home: React.FC = () => {
           <OpenAITest />
         </div>
       </section>
+          {/* AI Recommendations Section */}
+          <section className="py-16 bg-gradient-to-br from-purple-50 to-indigo-50">
+            <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+              <div className="text-center mb-12">
+                <h2 className="text-3xl font-bold text-gray-900 mb-4">
+                  🤖 AI-Powered Product Discovery
+                </h2>
+                <p className="text-xl text-gray-600 max-w-3xl mx-auto">
+                  Let our AI analyze your tracked products and find real Amazon products you'll love
+                </p>
+              </div>
+
+              <div className="space-y-8">
+                {/* AI Product Search - Real Amazon Products */}
+                <AIProductSearch 
+                  trackedProducts={trackedProducts || []} 
+                  userEmail={user?.email || savedEmail} 
+                />
+
+                {/* AI Recommendations - Text Suggestions */}
+                <div className="border-t pt-8">
+                  <h3 className="text-xl font-semibold text-gray-900 mb-4 text-center">
+                    AI Product Insights
+                  </h3>
+                  <AIRecommendations />
+                </div>
+              </div>
+            </div>
+          </section>
     </>
   );
 };
