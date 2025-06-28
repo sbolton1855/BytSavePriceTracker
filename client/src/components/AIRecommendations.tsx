@@ -30,7 +30,7 @@ interface AIRecommendationsProps {
 }
 
 export const AIRecommendations: React.FC<AIRecommendationsProps> = ({ 
-  trackedProducts, 
+  trackedProducts = [], 
   userEmail 
 }) => {
   const [recommendations, setRecommendations] = useState<AIRecommendation | null>(null);
@@ -39,7 +39,7 @@ export const AIRecommendations: React.FC<AIRecommendationsProps> = ({
   const { toast } = useToast();
 
   const generateRecommendations = async () => {
-    if (trackedProducts.length === 0) {
+    if (!trackedProducts || trackedProducts.length === 0) {
       toast({
         title: "No products to analyze",
         description: "Add some products to your watchlist first to get AI recommendations!",
@@ -56,7 +56,7 @@ export const AIRecommendations: React.FC<AIRecommendationsProps> = ({
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
-          trackedProducts: trackedProducts.map(tp => ({
+          trackedProducts: (trackedProducts || []).map(tp => ({
             title: tp.product.title,
             price: tp.product.currentPrice
           })),
@@ -124,7 +124,7 @@ export const AIRecommendations: React.FC<AIRecommendationsProps> = ({
             </p>
             <Button 
               onClick={generateRecommendations}
-              disabled={isGenerating || trackedProducts.length === 0}
+              disabled={isGenerating || !trackedProducts || trackedProducts.length === 0}
               className="bg-gradient-to-r from-purple-600 to-blue-600 hover:from-purple-700 hover:to-blue-700"
             >
               {isGenerating ? (
