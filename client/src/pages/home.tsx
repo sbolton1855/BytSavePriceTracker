@@ -7,7 +7,7 @@ import ProductTeasers from "@/components/product-teasers";
 import HighlightedDeals from "@/components/highlighted-deals";
 import LiveDealsPreview from "@/components/LiveDealsPreview";
 import NotificationDemo from "@/components/notification-demo";
-import AIRecommendations from "@/components/AIRecommendations";
+import { AIRecommendations } from "@/components/AIRecommendations";
 import AIProductSearch from "@/components/AIProductSearch";
 import SimpleTracker from "@/components/simple-tracker";
 import { useToast } from "@/hooks/use-toast";
