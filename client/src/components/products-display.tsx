@@ -141,6 +141,13 @@ const ProductsDisplay: React.FC<ProductsDisplayProps> = ({ email, onProductsChan
         localStorage.setItem("bytsave_user_email", event.detail.email);
       }
 
+      // Show signup modal for non-authenticated users after they track a product
+      if (!isAuthenticated) {
+        setTimeout(() => {
+          setShowSignupModal(true);
+        }, 1500); // Show modal after products are refreshed
+      }
+
       // Reset tracked products queries to ensure fresh data
       queryClient.resetQueries({ queryKey: ['/api/tracked-products'] });
 
@@ -172,7 +179,7 @@ const ProductsDisplay: React.FC<ProductsDisplayProps> = ({ email, onProductsChan
     }
   }, [isError, error, toast]);
 
-  // Debug effect to show data changes and show signup modal for guests
+  // Debug effect to show data changes
   useEffect(() => {
     console.log("ProductsDisplay - current email:", email);
     console.log("ProductsDisplay - data changed:", data);
@@ -189,16 +196,8 @@ const ProductsDisplay: React.FC<ProductsDisplayProps> = ({ email, onProductsChan
       console.log("ProductsDisplay - No products found for email:", email);
     } else {
       console.log("ProductsDisplay - Found", data.length, "products for email:", email);
-      
-      // Show signup encouragement modal for non-authenticated users with tracked products
-      if (!isAuthenticated && data && data.length > 0 && !showSignupModal) {
-        // Add a small delay to let the products render first
-        setTimeout(() => {
-          setShowSignupModal(true);
-        }, 1500);
-      }
     }
-  }, [email, data, filteredProducts, isLoading, isError, error, isAuthenticated, showSignupModal]);
+  }, [email, data, filteredProducts, isLoading, isError, error]);
 
   useEffect(() => {
     if (onProductsChange && filteredProducts) {
