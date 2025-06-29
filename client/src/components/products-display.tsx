@@ -6,6 +6,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/hooks/use-toast";
 import { Skeleton } from "@/components/ui/skeleton";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import type { TrackedProductWithDetails } from "@shared/schema";
 import { useAuth } from "@/hooks/use-auth";
 
@@ -20,6 +21,7 @@ const ProductsDisplay: React.FC<ProductsDisplayProps> = ({ email, onProductsChan
   const { toast } = useToast();
   const { user, isAuthenticated } = useAuth();
   const [filter, setFilter] = useState<FilterOption>("all");
+  const [showSignupModal, setShowSignupModal] = useState(false);
 
   // Fetch tracked products - adapts to auth status
   const { data, isLoading, isError, error, refetch } = useQuery<TrackedProductWithDetails[]>({
@@ -170,7 +172,7 @@ const ProductsDisplay: React.FC<ProductsDisplayProps> = ({ email, onProductsChan
     }
   }, [isError, error, toast]);
 
-  // Debug effect to show data changes
+  // Debug effect to show data changes and show signup modal for guests
   useEffect(() => {
     console.log("ProductsDisplay - current email:", email);
     console.log("ProductsDisplay - data changed:", data);
@@ -187,8 +189,16 @@ const ProductsDisplay: React.FC<ProductsDisplayProps> = ({ email, onProductsChan
       console.log("ProductsDisplay - No products found for email:", email);
     } else {
       console.log("ProductsDisplay - Found", data.length, "products for email:", email);
+      
+      // Show signup encouragement modal for non-authenticated users with tracked products
+      if (!isAuthenticated && data && data.length > 0 && !showSignupModal) {
+        // Add a small delay to let the products render first
+        setTimeout(() => {
+          setShowSignupModal(true);
+        }, 1500);
+      }
     }
-  }, [email, data, filteredProducts, isLoading, isError, error]);
+  }, [email, data, filteredProducts, isLoading, isError, error, isAuthenticated, showSignupModal]);
 
   useEffect(() => {
     if (onProductsChange && filteredProducts) {
@@ -202,40 +212,7 @@ const ProductsDisplay: React.FC<ProductsDisplayProps> = ({ email, onProductsChan
   return (
     <section className="py-12 bg-gray-50" id="dashboard">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-        {!isAuthenticated && (
-          <div className="mb-6 p-4 bg-blue-50 border border-blue-200 rounded-lg">
-            <div className="flex items-start">
-              <div className="flex-shrink-0">
-                <svg className="h-5 w-5 text-blue-500" viewBox="0 0 20 20" fill="currentColor">
-                  <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.857-9.809a.75.75 0 00-1.214-.882l-3.236 4.53L7.53 10.23a.75.75 0 00-1.06 1.061l2.5 2.5a.75.75 0 001.137-.089l4-5.5z" clipRule="evenodd" />
-                </svg>
-              </div>
-              <div className="ml-3">
-                <h3 className="text-sm font-medium text-blue-800">🎉 Great choice! Want to save this permanently?</h3>
-                <div className="mt-2 text-sm text-blue-700">
-                  <p>Create a free account to <strong>permanently save your tracking</strong>, get email alerts when prices drop, and edit your target prices anytime!</p>
-                  <div className="flex gap-2 mt-3">
-                    <Button 
-                      size="sm" 
-                      className="bg-blue-600 hover:bg-blue-700"
-                      onClick={() => window.location.href = '/auth'}
-                    >
-                      Sign Up Free
-                    </Button>
-                    <Button 
-                      variant="outline" 
-                      size="sm" 
-                      className="border-blue-300 text-blue-700 hover:bg-blue-100"
-                      onClick={() => window.location.href = '/auth'}
-                    >
-                      Login
-                    </Button>
-                  </div>
-                </div>
-              </div>
-            </div>
-          </div>
-        )}
+        
         <div className="flex flex-col md:flex-row md:items-center md:justify-between mb-8">
           <div>
             <h2 className="text-3xl font-bold text-gray-900">Your Tracked Products</h2>
@@ -411,6 +388,44 @@ const ProductsDisplay: React.FC<ProductsDisplayProps> = ({ email, onProductsChan
           </p>
         </div>
       </div>
+
+      {/* Signup Encouragement Modal */}
+      <Dialog open={showSignupModal} onOpenChange={setShowSignupModal}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <span className="text-2xl">🎉</span>
+              Great choice! Want to save this permanently?
+            </DialogTitle>
+            <DialogDescription>
+              Create a free account to permanently save your tracking, get email alerts when prices drop, and edit your target prices anytime!
+            </DialogDescription>
+          </DialogHeader>
+          
+          <div className="flex flex-col gap-3 mt-4">
+            <Button 
+              className="w-full bg-blue-600 hover:bg-blue-700"
+              onClick={() => window.location.href = '/auth'}
+            >
+              Sign Up Free
+            </Button>
+            <Button 
+              variant="outline" 
+              className="w-full border-blue-300 text-blue-700 hover:bg-blue-50"
+              onClick={() => window.location.href = '/auth'}
+            >
+              Login to Existing Account
+            </Button>
+            <Button 
+              variant="ghost" 
+              className="w-full text-sm text-gray-500"
+              onClick={() => setShowSignupModal(false)}
+            >
+              Continue as Guest
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
     </section>
   );
 };
