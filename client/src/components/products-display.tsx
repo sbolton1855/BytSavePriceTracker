@@ -203,24 +203,34 @@ const ProductsDisplay: React.FC<ProductsDisplayProps> = ({ email, onProductsChan
     <section className="py-12 bg-gray-50" id="dashboard">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         {!isAuthenticated && (
-          <div className="mb-6 p-4 bg-amber-50 border border-amber-200 rounded-lg">
+          <div className="mb-6 p-4 bg-blue-50 border border-blue-200 rounded-lg">
             <div className="flex items-start">
               <div className="flex-shrink-0">
-                <svg className="h-5 w-5 text-amber-400" viewBox="0 0 20 20" fill="currentColor">
-                  <path fillRule="evenodd" d="M8.485 2.495c.673-1.167 2.357-1.167 3.03 0l6.28 10.875c.673 1.167-.17 2.625-1.516 2.625H3.72c-1.347 0-2.189-1.458-1.515-2.625L8.485 2.495zM10 6a.75.75 0 01.75.75v3.5a.75.75 0 01-1.5 0v-3.5A.75.75 0 0110 6zm0 9a1 1 0 100-2 1 1 0 000 2z" clipRule="evenodd" />
+                <svg className="h-5 w-5 text-blue-500" viewBox="0 0 20 20" fill="currentColor">
+                  <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.857-9.809a.75.75 0 00-1.214-.882l-3.236 4.53L7.53 10.23a.75.75 0 00-1.06 1.061l2.5 2.5a.75.75 0 001.137-.089l4-5.5z" clipRule="evenodd" />
                 </svg>
               </div>
               <div className="ml-3">
-                <h3 className="text-sm font-medium text-amber-800">Limited Session-Based Tracking</h3>
-                <div className="mt-2 text-sm text-amber-700">
-                  <p>You're viewing in guest mode. Some features are disabled. <strong>Register for free</strong> to unlock full functionality including price editing, permanent tracking, and email notifications.</p>
-                  <Button 
-                    size="sm" 
-                    className="mt-2"
-                    onClick={() => window.location.href = '/auth'}
-                  >
-                    Create Free Account
-                  </Button>
+                <h3 className="text-sm font-medium text-blue-800">🎉 Great choice! Want to save this permanently?</h3>
+                <div className="mt-2 text-sm text-blue-700">
+                  <p>Create a free account to <strong>permanently save your tracking</strong>, get email alerts when prices drop, and edit your target prices anytime!</p>
+                  <div className="flex gap-2 mt-3">
+                    <Button 
+                      size="sm" 
+                      className="bg-blue-600 hover:bg-blue-700"
+                      onClick={() => window.location.href = '/auth'}
+                    >
+                      Sign Up Free
+                    </Button>
+                    <Button 
+                      variant="outline" 
+                      size="sm" 
+                      className="border-blue-300 text-blue-700 hover:bg-blue-100"
+                      onClick={() => window.location.href = '/auth'}
+                    >
+                      Login
+                    </Button>
+                  </div>
                 </div>
               </div>
             </div>
