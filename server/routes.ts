@@ -645,7 +645,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
 
       // For non-authenticated users, check if they've reached the tracking limit
-      if (!req.user) {
+      const isAuthenticated = !!(req.user && (req.user as any).id);
+      console.log(`User authentication status: ${isAuthenticated ? 'authenticated' : 'guest'}`);
+      
+      if (!isAuthenticated) {
         const upperEmail = email.toUpperCase();
         const existingTrackedProducts = await storage.getTrackedProductsByEmail(upperEmail);
         
@@ -662,6 +665,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
             maxAllowed: trackingLimit
           });
         }
+      } else {
+        console.log(`Authenticated user ${(req.user as any).id} can track unlimited products`);
       }
 
       let product;
@@ -733,7 +738,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       // Check if this email is already tracking this product
       const existingTracking = await storage.getTrackedProductByUserAndProduct(
-        null, 
+        isAuthenticated ? (req.user as any).id.toString() : null, 
         email.toUpperCase(), // Store email in uppercase to normalize
         product.id
       );
@@ -758,7 +763,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       // console.log('Creating new tracking for product:', product.id);
       const tracking = await storage.createTrackedProduct({
         productId: product.id,
-        userId: null, // No user for email-only tracking
+        userId: isAuthenticated ? (req.user as any).id.toString() : null,
         email: email.toUpperCase(), // Store email in uppercase to normalize
         targetPrice,
         percentageAlert,
