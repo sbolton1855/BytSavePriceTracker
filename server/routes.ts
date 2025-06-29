@@ -647,7 +647,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
       // For non-authenticated users, check if they've reached the tracking limit
       const isAuthenticated = !!(req.user && (req.user as any).id);
       console.log(`User authentication status: ${isAuthenticated ? 'authenticated' : 'guest'}`);
-      
+      console.log(`User object:`, req.user ? { id: (req.user as any).id, email: (req.user as any).email } : 'null');
+      console.log(`Session ID:`, req.sessionID);
+      console.log(`Session authenticated:`, req.isAuthenticated());
+
       if (!isAuthenticated) {
         const upperEmail = email.toUpperCase();
         const existingTrackedProducts = await storage.getTrackedProductsByEmail(upperEmail);
