@@ -644,16 +644,22 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(400).json({ error: 'Email is required for non-authenticated tracking' });
       }
 
-      // For non-authenticated users, check if they've reached the limit of 3 tracked products
+      // For non-authenticated users, check if they've reached the tracking limit
       if (!req.user) {
         const upperEmail = email.toUpperCase();
         const existingTrackedProducts = await storage.getTrackedProductsByEmail(upperEmail);
+        
+        // Get tracking limit from environment variable or use default
+        const trackingLimit = parseInt(process.env.MAX_TRACKED_PRODUCTS || process.env.GUEST_TRACKING_LIMIT || '3');
+        console.log(`Checking tracking limit for guest user: ${existingTrackedProducts.length}/${trackingLimit}`);
 
-        if (existingTrackedProducts.length >= 3) {
+        if (existingTrackedProducts.length >= trackingLimit) {
           return res.status(403).json({ 
             error: 'Limit reached', 
-            message: 'You have reached the maximum of 3 tracked products as a guest. Please create an account to track more products.',
-            limitReached: true 
+            message: `You have reached the maximum of ${trackingLimit} tracked products as a guest. Please create an account to track more products.`,
+            limitReached: true,
+            currentCount: existingTrackedProducts.length,
+            maxAllowed: trackingLimit
           });
         }
       }
@@ -1388,6 +1394,70 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error) {
       console.error('Manual price check failed:', error);
       res.status(500).json({ success: false, error: error instanceof Error ? error.message : 'Unknown error' });
+    }
+  });
+
+  // Environment variable diagnostic endpoint
+  app.get('/api/debug/env-vars', async (req: Request, res: Response) => {
+    try {
+      // Get all environment variables
+      const allEnvVars = { ...process.env };
+      
+      // Remove sensitive variables from the response
+      const sensitiveKeys = [
+        'AMAZON_SECRET_KEY', 
+        'GOOGLE_CLIENT_SECRET', 
+        'SESSION_SECRET',
+        'OPENAI_API_KEY',
+        'EMAIL_PASSWORD',
+        'GMAIL_APP_PASSWORD'
+      ];
+      
+      const filteredEnvVars: Record<string, string> = {};
+      const sensitiveVarsFound: string[] = [];
+      
+      Object.keys(allEnvVars).forEach(key => {
+        if (sensitiveKeys.some(sensitive => key.includes(sensitive))) {
+          sensitiveVarsFound.push(key);
+          filteredEnvVars[key] = '[REDACTED]';
+        } else {
+          filteredEnvVars[key] = allEnvVars[key] || '';
+        }
+      });
+
+      // Check for tracking limit related variables
+      const trackingLimitVars = {
+        MAX_TRACKED_PRODUCTS: process.env.MAX_TRACKED_PRODUCTS || 'undefined',
+        TRACKING_LIMIT: process.env.TRACKING_LIMIT || 'undefined',
+        GUEST_TRACKING_LIMIT: process.env.GUEST_TRACKING_LIMIT || 'undefined',
+        USER_TRACKING_LIMIT: process.env.USER_TRACKING_LIMIT || 'undefined'
+      };
+
+      // Get the actual limit being used in the code
+      const trackingLimit = parseInt(process.env.MAX_TRACKED_PRODUCTS || process.env.GUEST_TRACKING_LIMIT || '3');
+
+      res.json({
+        success: true,
+        environment: process.env.NODE_ENV || 'undefined',
+        trackingLimitAnalysis: {
+          trackingLimitVars,
+          actualLimitUsed: trackingLimit,
+          limitSource: process.env.MAX_TRACKED_PRODUCTS ? 'MAX_TRACKED_PRODUCTS' : 
+                      process.env.GUEST_TRACKING_LIMIT ? 'GUEST_TRACKING_LIMIT' : 
+                      'hardcoded default (3)'
+        },
+        totalEnvVars: Object.keys(allEnvVars).length,
+        sensitiveVarsFound,
+        allEnvironmentVariables: filteredEnvVars,
+        timestamp: new Date().toISOString()
+      });
+
+    } catch (error: any) {
+      console.error('Environment diagnostic error:', error);
+      res.status(500).json({
+        success: false,
+        error: error.message || 'Failed to analyze environment variables'
+      });
     }
   });
 
