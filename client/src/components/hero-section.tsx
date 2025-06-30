@@ -80,18 +80,18 @@ const PriceTrackerDashboard: React.FC = () => {
       // Create a scoring system for better deal selection
       const scoredDeals = deals.map((deal: ProductDeal) => {
         let score = 0;
-        
+
         // Price-based scoring
         if (deal.currentPrice < 10) score += 15;
         else if (deal.currentPrice < 20) score += 10;
         else if (deal.currentPrice < 30) score += 5;
-        
+
         // Discount scoring (if available)
         if (deal.originalPrice && deal.originalPrice > deal.currentPrice) {
           const discountPercent = calculateDiscount(deal.originalPrice, deal.currentPrice);
           score += discountPercent * 2; // High weight for discounts
         }
-        
+
         // Category bonus scoring
         const title = deal.title.toLowerCase();
         if (title.includes('vitamin') || title.includes('supplement')) score += 8;
@@ -99,7 +99,7 @@ const PriceTrackerDashboard: React.FC = () => {
         if (title.includes('gummy') || title.includes('chewable')) score += 4;
         if (title.includes('women') || title.includes('men')) score += 3;
         if (title.includes('nature made') || title.includes('olly')) score += 5; // Brand recognition
-        
+
         return { ...deal, score };
       });
 
@@ -206,8 +206,8 @@ const PriceTrackerDashboard: React.FC = () => {
             <div className="flex-1">
               <p className="text-xs font-medium leading-tight line-clamp-2">{deal.title}</p>
               <div className="text-xs mt-1">
-                <div className="flex items-center gap-2 flex-wrap">
-                  <span className="font-bold text-green-600">${deal.currentPrice?.toFixed(2)}</span>
+                <div className="flex items-center flex-wrap gap-1">
+                      <span className="text-xs font-bold text-green-600">${deal.currentPrice?.toFixed(2)}</span>
 
                   {/* Show savings if we have original price data */}
                   {deal.originalPrice && deal.originalPrice > deal.currentPrice && (
