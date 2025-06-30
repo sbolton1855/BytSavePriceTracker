@@ -80,58 +80,85 @@ const PriceTrackerDashboard: React.FC = () => {
   // Update selected deals when deals change
   useEffect(() => {
     if (deals && deals.length > 0) {
-      //console.log('Processing deals for display:', deals.length, 'deals available');
+      console.log('Processing deals for display:', deals.length, 'deals available');
 
-      // First, get all deals with price drops
-      const dealsWithPrices = deals.filter((deal: ProductDeal) => 
-        deal.originalPrice && deal.originalPrice > deal.currentPrice
-      );
-
-     // console.log('Deals with price drops:', dealsWithPrices.length);
-
-      // Create a random seed based on refreshKey and timestamp
-      const randomSeed = refreshKey + Math.floor(lastRefreshTime / 1000);
-      const shuffle = (array: ProductDeal[]) => {
-        // Use the random seed for consistent but different shuffling
-        const shuffled = [...array];
-        for (let i = shuffled.length - 1; i > 0; i--) {
-          const j = Math.floor((Math.sin(i + randomSeed) + 1) * i);
-          [shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]];
+      // Create a scoring system for better deal selection
+      const scoredDeals = deals.map((deal: ProductDeal) => {
+        let score = 0;
+        
+        // Price-based scoring
+        if (deal.currentPrice < 10) score += 15;
+        else if (deal.currentPrice < 20) score += 10;
+        else if (deal.currentPrice < 30) score += 5;
+        
+        // Discount scoring (if available)
+        if (deal.originalPrice && deal.originalPrice > deal.currentPrice) {
+          const discountPercent = calculateDiscount(deal.originalPrice, deal.currentPrice);
+          score += discountPercent * 2; // High weight for discounts
         }
-        return shuffled;
-      };
+        
+        // Category bonus scoring
+        const title = deal.title.toLowerCase();
+        if (title.includes('vitamin') || title.includes('supplement')) score += 8;
+        if (title.includes('organic') || title.includes('natural')) score += 6;
+        if (title.includes('gummy') || title.includes('chewable')) score += 4;
+        if (title.includes('women') || title.includes('men')) score += 3;
+        if (title.includes('nature made') || title.includes('olly')) score += 5; // Brand recognition
+        
+        // Variety bonus (prefer different price ranges)
+        return { ...deal, score };
+      });
 
-      if (dealsWithPrices.length === 0) {
-        // If no price drops, shuffle all deals and take random ones
-        const shuffledDeals = shuffle(deals);
-        const selectedRandomDeals = shuffledDeals.slice(0, Math.min(3, deals.length));
-      //  console.log('No price drops, using random deals:', selectedRandomDeals.map(d => d.id));
-        setSelectedDeals(selectedRandomDeals);
-      } else {
-        // Sort by discount percentage
-        const sorted = [...dealsWithPrices].sort((a, b) => {
-          const aOriginal = a.originalPrice || a.currentPrice;
-          const bOriginal = b.originalPrice || b.currentPrice;
-          const discountA = ((aOriginal - a.currentPrice) / aOriginal);
-          const discountB = ((bOriginal - b.currentPrice) / bOriginal);
-          return discountB - discountA;
-        });
+      // Sort by score and add randomization
+      const randomSeed = refreshKey + Math.floor(lastRefreshTime / 1000);
+      const sortedDeals = scoredDeals.sort((a, b) => {
+        const scoreDiff = b.score - a.score;
+        // Add small random factor to prevent same order
+        const randomFactor = (Math.sin(a.asin.charCodeAt(0) + randomSeed) * 2);
+        return scoreDiff + randomFactor;
+      });
 
-        // Take top 8 deals and randomly select 3 from them
-        const topDeals = sorted.slice(0, Math.min(8, sorted.length));
-        const shuffledTopDeals = shuffle(topDeals);
-        const selectedTopDeals = shuffledTopDeals.slice(0, Math.min(3, shuffledTopDeals.length));
-
-     //   console.log('Selected random top deals with discounts:', selectedTopDeals.map(d => ({
-      //     id: d.id,
-      //     title: d.title.substring(0, 30) + '...',
-      //     discount: calculateDiscount(d.originalPrice!, d.currentPrice)
-      //   })));
-
-        setSelectedDeals(selectedTopDeals);
+      // Select top deals with variety
+      const selectedTopDeals = [];
+      const usedPriceRanges = new Set();
+      
+      for (const deal of sortedDeals) {
+        if (selectedTopDeals.length >= 3) break;
+        
+        // Determine price range for variety
+        let priceRange = 'high';
+        if (deal.currentPrice < 10) priceRange = 'low';
+        else if (deal.currentPrice < 20) priceRange = 'medium';
+        
+        // Try to avoid duplicating price ranges for first 2 selections
+        if (selectedTopDeals.length < 2 && usedPriceRanges.has(priceRange)) {
+          continue;
+        }
+        
+        selectedTopDeals.push(deal);
+        usedPriceRanges.add(priceRange);
       }
+      
+      // Fill remaining slots if needed
+      if (selectedTopDeals.length < 3) {
+        for (const deal of sortedDeals) {
+          if (selectedTopDeals.length >= 3) break;
+          if (!selectedTopDeals.find(d => d.asin === deal.asin)) {
+            selectedTopDeals.push(deal);
+          }
+        }
+      }
+
+      console.log('Selected deals with scores:', selectedTopDeals.map(d => ({
+        asin: d.asin,
+        title: d.title.substring(0, 40) + '...',
+        price: d.currentPrice,
+        score: d.score
+      })));
+
+      setSelectedDeals(selectedTopDeals);
     }
-  }, [deals, refreshKey, lastRefreshTime]); // Include all dependencies
+  }, [deals, refreshKey, lastRefreshTime]);
 
   // Update the handleRefresh function
   const handleRefresh = async () => {
@@ -197,7 +224,12 @@ const PriceTrackerDashboard: React.FC = () => {
           </button>
         </div>
         <div className="mb-4">
-          <h4 className="text-sm font-medium text-gray-700 mb-2">Latest Price Alerts</h4>
+          <div className="flex items-center justify-between mb-2">
+            <h4 className="text-sm font-medium text-gray-700">🔥 Hot Deals Right Now</h4>
+            <span className="text-xs text-amber-600 bg-amber-100 px-2 py-1 rounded-full">
+              Live Prices
+            </span>
+          </div>
           <div className="space-y-3 max-h-[300px] overflow-y-auto">
             {selectedDeals.length > 0 ? (
               selectedDeals.map((deal, index) => (
@@ -206,7 +238,7 @@ const PriceTrackerDashboard: React.FC = () => {
                   href={deal.affiliateUrl || deal.url} 
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="flex items-center p-3 bg-gradient-to-r from-white to-gray-50 rounded-lg border border-gray-200 hover:border-amber-300 hover:shadow-md transition-all duration-200 cursor-pointer group"
+                  className="flex items-center p-3 bg-gradient-to-r from-white to-amber-50 rounded-lg border border-amber-200 hover:border-amber-400 hover:shadow-lg transition-all duration-200 cursor-pointer group hover:bg-gradient-to-r hover:from-amber-50 hover:to-amber-100"
                 >
                   <div className="flex-shrink-0 w-16 h-16 mr-4 bg-white rounded-lg border border-gray-200 flex items-center justify-center overflow-hidden shadow-sm">
                     {deal.imageUrl ? (
@@ -239,11 +271,26 @@ const PriceTrackerDashboard: React.FC = () => {
                         </>
                       )}
                     </div>
-                    <div className="flex items-center mt-1 space-x-2">
+                    <div className="flex items-center mt-1 space-x-2 flex-wrap">
                       <span className="text-xs text-gray-500">ASIN: {deal.asin}</span>
                       {deal.currentPrice < 15 && (
                         <span className="text-xs bg-blue-100 text-blue-700 px-1.5 py-0.5 rounded font-medium">
                           Under $15
+                        </span>
+                      )}
+                      {deal.currentPrice < 25 && deal.currentPrice >= 15 && (
+                        <span className="text-xs bg-purple-100 text-purple-700 px-1.5 py-0.5 rounded font-medium">
+                          Under $25
+                        </span>
+                      )}
+                      {deal.title.toLowerCase().includes('vitamin') && (
+                        <span className="text-xs bg-orange-100 text-orange-700 px-1.5 py-0.5 rounded font-medium">
+                          Health & Wellness
+                        </span>
+                      )}
+                      {deal.title.toLowerCase().includes('organic') && (
+                        <span className="text-xs bg-green-100 text-green-700 px-1.5 py-0.5 rounded font-medium">
+                          Organic
                         </span>
                       )}
                     </div>
