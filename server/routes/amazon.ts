@@ -17,14 +17,28 @@ router.get('/amazon/deals', async (req, res) => {
     const deals = items.filter((item: any) => {
       const price = item?.Offers?.Listings?.[0]?.Price?.Amount;
       return !!price;
-    }).map((item: any) => ({
-      asin: item.ASIN,
-      title: item.ItemInfo?.Title?.DisplayValue,
-      price: item.Offers?.Listings?.[0]?.Price?.Amount,
-      msrp: item.Offers?.Listings?.[0]?.SavingBasis?.Amount,
-      imageUrl: item.Images?.Primary?.Medium?.URL || item.Images?.Primary?.Small?.URL || item.Images?.Primary?.Large?.URL || null,
-      url: item.DetailPageURL,
-    }));
+    }).map((item: any) => {
+      const listing = item.Offers?.Listings?.[0];
+      const price = listing?.Price?.Amount;
+      const savings = listing?.Price?.Savings;
+      const savingBasis = listing?.SavingBasis?.Amount;
+      
+      return {
+        asin: item.ASIN,
+        title: item.ItemInfo?.Title?.DisplayValue,
+        price: price,
+        msrp: savingBasis,
+        imageUrl: item.Images?.Primary?.Medium?.URL || item.Images?.Primary?.Small?.URL || item.Images?.Primary?.Large?.URL || null,
+        url: item.DetailPageURL,
+        // Include Amazon savings data if available
+        savings: savings ? {
+          Amount: savings.Amount,
+          Percentage: savings.Percentage,
+          DisplayAmount: savings.DisplayAmount,
+          Currency: savings.Currency
+        } : null
+      };
+    });
 
     res.json({ deals });
   } catch (err: any) {

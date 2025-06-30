@@ -54,7 +54,7 @@ const PriceTrackerDashboard: React.FC = () => {
           savingsAmount = savings.Amount;
           savingsPercentage = savings.Percentage;
         }
-        // Fallback: check if savings data is directly on the deal object
+        // Check if savings data is directly on the deal object (from backend)
         else if (d.savings && d.savings.Amount > 0) {
           hasSavings = true;
           savingsAmount = d.savings.Amount;
