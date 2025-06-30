@@ -224,51 +224,7 @@ const PriceTrackerDashboard: React.FC = () => {
                     </>
                   )}
 
-                  {/* For products without original price, create synthetic percentage deals based on price ranges */}
-                  {!deal.originalPrice && (
-                    <>
-                      {deal.currentPrice < 10 && (
-                        <>
-                          <span className="text-[8px] px-1 py-0 h-4 bg-red-500 text-white rounded-full">
-                            15% OFF
-                          </span>
-                          <span className="text-[8px] px-1 py-0 h-4 text-green-600 border border-green-300 bg-green-50 rounded-full">
-                            UNDER $10
-                          </span>
-                        </>
-                      )}
-                      {deal.currentPrice >= 10 && deal.currentPrice < 25 && (
-                        <>
-                          <span className="text-[8px] px-1 py-0 h-4 bg-orange-500 text-white rounded-full">
-                            12% OFF
-                          </span>
-                          <span className="text-[8px] px-1 py-0 h-4 text-blue-600 border border-blue-300 bg-blue-50 rounded-full">
-                            GREAT VALUE
-                          </span>
-                        </>
-                      )}
-                      {deal.currentPrice >= 25 && deal.currentPrice < 50 && (
-                        <>
-                          <span className="text-[8px] px-1 py-0 h-4 bg-red-600 text-white rounded-full">
-                            20% OFF
-                          </span>
-                          <span className="text-[8px] px-1 py-0 h-4 text-blue-600 border border-blue-300 bg-blue-50 rounded-full">
-                            TRENDING
-                          </span>
-                        </>
-                      )}
-                      {deal.currentPrice >= 50 && (
-                        <>
-                          <span className="text-[8px] px-1 py-0 h-4 bg-red-700 text-white rounded-full">
-                            25% OFF
-                          </span>
-                          <span className="text-[8px] px-1 py-0 h-4 text-purple-600 border border-purple-300 bg-purple-50 rounded-full">
-                            PREMIUM DEAL
-                          </span>
-                        </>
-                      )}
-                    </>
-                  )}
+                  
                 </div>
               </div>
               {deal.affiliateUrl && (
