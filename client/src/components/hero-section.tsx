@@ -14,6 +14,8 @@ interface ProductDeal {
   imageUrl: string | null;
   currentPrice: number;
   originalPrice: number | null;
+  savingsAmount?: number;
+  savingsPercentage?: number;
   lowestPrice: number;
   highestPrice: number;
   lastChecked: string;
@@ -36,20 +38,49 @@ const PriceTrackerDashboard: React.FC = () => {
         throw new Error('Failed to fetch deals');
       }
       const result = await response.json();
-      // result.deals is the array
-      const mappedDeals = result.deals.map((d: any, idx: number) => ({
-        asin: d.asin,
-        title: d.title,
-        url: d.url,
-        imageUrl: d.imageUrl,
-        currentPrice: d.price,
-        originalPrice: d.msrp && d.msrp > d.price ? d.msrp : null, // Only use msrp if it's higher than price
-        lowestPrice: d.price, // Not available, use price
-        highestPrice: d.msrp || d.price, // Use msrp or fallback to price
-        lastChecked: '', // Not available
-        affiliateUrl: d.url,
-        id: d.asin || idx // Use asin or fallback to index
-      }));
+      console.log('[PriceTracker] Raw Amazon API response:', result);
+      
+      // Extract real Amazon savings data from the API response
+      const mappedDeals = result.deals.map((d: any, idx: number) => {
+        // Check if Amazon provides savings data
+        const hasSavings = d.savings && d.savings.Amount > 0;
+        const savingsAmount = hasSavings ? d.savings.Amount : 0;
+        const savingsPercentage = hasSavings ? d.savings.Percentage : 0;
+        
+        // Calculate original price from savings if available
+        let originalPrice = null;
+        if (hasSavings && savingsAmount > 0) {
+          originalPrice = d.price + savingsAmount;
+        } else if (d.msrp && d.msrp > d.price) {
+          originalPrice = d.msrp;
+        }
+        
+        console.log('[PriceTracker] Deal:', {
+          asin: d.asin,
+          title: d.title.substring(0, 40) + '...',
+          price: d.price,
+          originalPrice,
+          hasSavings,
+          savingsAmount,
+          savingsPercentage
+        });
+
+        return {
+          asin: d.asin,
+          title: d.title,
+          url: d.url,
+          imageUrl: d.imageUrl,
+          currentPrice: d.price,
+          originalPrice,
+          savingsAmount,
+          savingsPercentage,
+          lowestPrice: d.price,
+          highestPrice: originalPrice || d.price,
+          lastChecked: '',
+          affiliateUrl: d.url,
+          id: d.asin || idx
+        };
+      });
       return mappedDeals;
     },
     staleTime: 0, // Don't cache the data
@@ -209,8 +240,23 @@ const PriceTrackerDashboard: React.FC = () => {
                 <div className="flex items-center flex-wrap gap-1">
                       <span className="text-xs font-bold text-green-600">${deal.currentPrice?.toFixed(2)}</span>
 
-                  {/* Show savings if we have original price data */}
-                  {deal.originalPrice && deal.originalPrice > deal.currentPrice && (
+                  {/* Show real Amazon savings data */}
+                  {deal.savingsAmount && deal.savingsAmount > 0 && deal.savingsPercentage && (
+                    <>
+                      <span className="text-muted-foreground line-through text-xs">
+                        ${deal.originalPrice!.toFixed(2)}
+                      </span>
+                      <span className="text-[8px] px-1 py-0 h-4 bg-red-500 text-white rounded-full">
+                        {deal.savingsPercentage}% OFF
+                      </span>
+                      <span className="text-[8px] px-1 py-0 h-4 bg-green-500 text-white rounded-full">
+                        Save ${deal.savingsAmount.toFixed(2)}
+                      </span>
+                    </>
+                  )}
+                  
+                  {/* Fallback for products with original price but no Amazon savings data */}
+                  {!deal.savingsAmount && deal.originalPrice && deal.originalPrice > deal.currentPrice && (
                     <>
                       <span className="text-muted-foreground line-through text-xs">
                         ${deal.originalPrice.toFixed(2)}
