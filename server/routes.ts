@@ -1556,25 +1556,20 @@ Analyze this user's Amazon product watchlist and provide personalized recommenda
 TRACKED PRODUCTS:
 ${productList}
 
-Please provide:
-1. The main category/theme of their interests
-2. Your reasoning for why you think they'd like certain complementary products
-3. 5 specific product recommendations that would complement their current watchlist
-4. Optimized search terms for finding these products on Amazon
+You must respond with ONLY valid JSON in this exact format (no extra text, no prices in product names):
 
-Respond in this exact JSON format:
 {
   "category": "brief category description",
   "reasoning": "2-3 sentence explanation of their shopping patterns and why these recommendations fit",
-  "suggestions": ["product 1", "product 2", "product 3", "product 4", "product 5"],
+  "suggestions": ["Product Name 1", "Product Name 2", "Product Name 3", "Product Name 4", "Product Name 5"],
   "searchTerms": ["search term 1", "search term 2", "search term 3", "search term 4", "search term 5"]
 }
 
-Focus on products that are:
-- Complementary to what they already track
-- In a similar price range
-- Practical and useful
-- Available on Amazon
+IMPORTANT RULES:
+- Product names in "suggestions" should be clean product names WITHOUT prices or extra details
+- Each suggestion should be a simple, searchable product name
+- Respond with ONLY the JSON object, no other text
+- Focus on complementary products that would interest this user
 `;
 
       const completion = await openai.chat.completions.create({
@@ -1602,16 +1597,33 @@ Focus on products that are:
       // Parse the JSON response
       let recommendations;
       try {
-        recommendations = JSON.parse(aiResponse);
+        // Clean the response in case there's extra text
+        const cleanedResponse = aiResponse.trim();
+        const jsonStart = cleanedResponse.indexOf('{');
+        const jsonEnd = cleanedResponse.lastIndexOf('}') + 1;
+        
+        if (jsonStart === -1 || jsonEnd === 0) {
+          throw new Error('No JSON found in AI response');
+        }
+        
+        const jsonString = cleanedResponse.substring(jsonStart, jsonEnd);
+        recommendations = JSON.parse(jsonString);
       } catch (parseError) {
         console.error('Failed to parse AI response:', aiResponse);
+        console.error('Parse error:', parseError);
         throw new Error('Invalid response format from AI');
       }
 
       // Validate the response structure
       if (!recommendations.category || !recommendations.reasoning || 
-          !recommendations.suggestions || !recommendations.searchTerms) {
+          !Array.isArray(recommendations.suggestions) || !Array.isArray(recommendations.searchTerms)) {
+        console.error('Invalid AI response structure:', recommendations);
         throw new Error('Incomplete response from AI');
+      }
+
+      // Ensure we have the right number of items
+      if (recommendations.suggestions.length === 0 || recommendations.searchTerms.length === 0) {
+        throw new Error('AI response missing suggestions or search terms');
       }
 
       res.json({
