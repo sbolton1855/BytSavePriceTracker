@@ -30,7 +30,6 @@ const PriceTrackerDashboard: React.FC = () => {
   const { data: deals, isLoading, refetch } = useQuery<ProductDeal[]>({
     queryKey: ["/api/amazon/deals", refreshKey, lastRefreshTime],
     queryFn: async () => {
-     // console.log(`Fetching Amazon deals with refreshKey: ${refreshKey}`);
       const timestamp = Date.now();
       const response = await fetch(`/api/amazon/deals?t=${timestamp}`);
       if (!response.ok) {
@@ -51,7 +50,6 @@ const PriceTrackerDashboard: React.FC = () => {
         affiliateUrl: d.url,
         id: d.asin || idx // Use asin or fallback to index
       }));
-    //  console.log('Received Amazon deals:', mappedDeals);
       return mappedDeals;
     },
     staleTime: 0, // Don't cache the data
@@ -70,12 +68,9 @@ const PriceTrackerDashboard: React.FC = () => {
     return Math.round(((original - current) / original) * 100);
   };
 
-  // Get three random deals to display in the notification alerts
+  // Get deals to display
   const [selectedDeals, setSelectedDeals] = useState<ProductDeal[]>([]);
   const [isRefreshing, setIsRefreshing] = useState(false);
-
-  // Update time display
-  const [lastUpdated, setLastUpdated] = useState<string>("Just now");
 
   // Update selected deals when deals change
   useEffect(() => {
@@ -105,7 +100,6 @@ const PriceTrackerDashboard: React.FC = () => {
         if (title.includes('women') || title.includes('men')) score += 3;
         if (title.includes('nature made') || title.includes('olly')) score += 5; // Brand recognition
         
-        // Variety bonus (prefer different price ranges)
         return { ...deal, score };
       });
 
@@ -118,36 +112,8 @@ const PriceTrackerDashboard: React.FC = () => {
         return scoreDiff + randomFactor;
       });
 
-      // Select top deals with variety
-      const selectedTopDeals = [];
-      const usedPriceRanges = new Set();
-      
-      for (const deal of sortedDeals) {
-        if (selectedTopDeals.length >= 3) break;
-        
-        // Determine price range for variety
-        let priceRange = 'high';
-        if (deal.currentPrice < 10) priceRange = 'low';
-        else if (deal.currentPrice < 20) priceRange = 'medium';
-        
-        // Try to avoid duplicating price ranges for first 2 selections
-        if (selectedTopDeals.length < 2 && usedPriceRanges.has(priceRange)) {
-          continue;
-        }
-        
-        selectedTopDeals.push(deal);
-        usedPriceRanges.add(priceRange);
-      }
-      
-      // Fill remaining slots if needed
-      if (selectedTopDeals.length < 3) {
-        for (const deal of sortedDeals) {
-          if (selectedTopDeals.length >= 3) break;
-          if (!selectedTopDeals.find(d => d.asin === deal.asin)) {
-            selectedTopDeals.push(deal);
-          }
-        }
-      }
+      // Select top 4 deals to match LiveDealsPreview
+      const selectedTopDeals = sortedDeals.slice(0, 4);
 
       console.log('Selected deals with scores:', selectedTopDeals.map(d => ({
         asin: d.asin,
@@ -162,7 +128,6 @@ const PriceTrackerDashboard: React.FC = () => {
 
   // Update the handleRefresh function
   const handleRefresh = async () => {
-  //  console.log('Refresh clicked, current refreshKey:', refreshKey);
     setIsRefreshing(true);
 
     // Update both refresh key and timestamp to ensure new rotation
@@ -170,8 +135,6 @@ const PriceTrackerDashboard: React.FC = () => {
     setLastRefreshTime(Date.now());
 
     const result = await refetch();
-  //  console.log('Refetch completed, new data:', result.data?.length, 'deals');
-    setLastUpdated("Just now");
     setIsRefreshing(false);
   };
 
@@ -186,147 +149,143 @@ const PriceTrackerDashboard: React.FC = () => {
 
   if (isLoading) {
     return (
-      <div className="rounded-lg shadow-xl w-full overflow-hidden bg-white">
-        <div className="p-4 border border-gray-200 rounded-lg">
-          <div className="border-b pb-3 mb-4 flex justify-between">
-            <Skeleton className="h-6 w-36" />
-            <Skeleton className="h-6 w-8" />
-          </div>
-
-          <div className="grid grid-cols-2 gap-4 mb-4">
-            <Skeleton className="h-24 w-full" />
-            <Skeleton className="h-24 w-full" />
-          </div>
-
-          <Skeleton className="h-5 w-32 mb-2" />
-          <div className="space-y-3">
-            <Skeleton className="h-16 w-full" />
-            <Skeleton className="h-16 w-full" />
-            <Skeleton className="h-16 w-full" />
-          </div>
+      <div className="bg-white border rounded-xl shadow-sm p-4">
+        <div className="flex justify-between items-center mb-2">
+          <Skeleton className="h-5 w-32" />
+          <Skeleton className="h-4 w-16" />
+        </div>
+        <div className="text-sm text-muted-foreground mb-4">Loading deals...</div>
+        <div className="space-y-3">
+          {Array.from({ length: 4 }).map((_, i) => (
+            <div key={i} className="flex items-start space-x-3">
+              <Skeleton className="w-14 h-14" />
+              <div className="flex-1 space-y-2">
+                <Skeleton className="h-4 w-full" />
+                <Skeleton className="h-4 w-3/4" />
+                <Skeleton className="h-4 w-1/2" />
+              </div>
+            </div>
+          ))}
         </div>
       </div>
     );
   }
 
   return (
-    <div className="rounded-lg shadow-xl w-full h-auto overflow-hidden">
-      <div className="bg-white p-4 border border-gray-200 rounded-lg">
-        <div className="border-b pb-3 mb-4 flex justify-between items-center">
-          <h3 className="text-lg font-semibold text-gray-800">Price Drop Dashboard</h3>
-          <button 
-            className={`text-primary-600 hover:text-primary-800 transition-all flex items-center text-sm ${isRefreshing ? 'opacity-50' : ''}`}
-            onClick={handleRefresh}
-            disabled={isRefreshing}
-          >
-            <RefreshCw className={`h-3.5 w-3.5 mr-1 ${isRefreshing ? 'animate-spin' : ''}`} />
-            <span className="sr-only">Refresh</span>
-          </button>
+    <div className="bg-white border rounded-xl shadow-sm p-4">
+      <div className="flex justify-between items-center mb-2">
+        <h3 className="text-sm font-semibold">Price Drop Dashboard</h3>
+        <button 
+          className={`text-sm text-blue-600 hover:underline ${isRefreshing ? 'opacity-50' : ''}`}
+          onClick={handleRefresh}
+          disabled={isRefreshing}
+        >
+          <RefreshCw className={`h-3 w-3 inline mr-1 ${isRefreshing ? 'animate-spin' : ''}`} />
+          Refresh
+        </button>
+      </div>
+      {!isLoading && selectedDeals.length === 0 && (
+        <div className="text-sm text-muted-foreground">
+          No deals available at this moment.
         </div>
-        <div className="mb-4">
-          <div className="flex items-center justify-between mb-2">
-            <h4 className="text-sm font-medium text-gray-700">🔥 Hot Deals Right Now</h4>
-            <span className="text-xs text-amber-600 bg-amber-100 px-2 py-1 rounded-full">
-              Live Prices
-            </span>
-          </div>
-          <div className="space-y-3 max-h-[300px] overflow-y-auto">
-            {selectedDeals.length > 0 ? (
-              selectedDeals.map((deal, index) => (
-                <a 
-                  key={deal.id || `deal-${index}`}
-                  href={deal.affiliateUrl || deal.url} 
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="flex items-center p-3 bg-gradient-to-r from-white to-amber-50 rounded-lg border border-amber-200 hover:border-amber-400 hover:shadow-lg transition-all duration-200 cursor-pointer group hover:bg-gradient-to-r hover:from-amber-50 hover:to-amber-100"
-                >
-                  <div className="flex-shrink-0 w-16 h-16 mr-4 bg-white rounded-lg border border-gray-200 flex items-center justify-center overflow-hidden shadow-sm">
-                    {deal.imageUrl ? (
-                      <img
-                        src={deal.imageUrl}
-                        alt={deal.title}
-                        className="max-w-full max-h-full object-contain"
-                      />
-                    ) : (
-                      <div className="w-full h-full bg-gray-100 flex items-center justify-center">
-                        <span className="text-xs text-gray-400">No image</span>
-                      </div>
-                    )}
-                  </div>
-                  <div className="flex-1 min-w-0">
-                    <h4 className="text-sm font-medium text-gray-900 line-clamp-2 group-hover:text-amber-800 transition-colors leading-tight">{deal.title}</h4>
-                    <div className="flex items-center space-x-2 mt-2">
-                      <span className="text-lg font-bold text-green-600">{formatPrice(deal.currentPrice)}</span>
-                      {deal.originalPrice && deal.originalPrice > deal.currentPrice && (
+      )}
+      <ul className="space-y-3">
+        {selectedDeals.slice(0, 4).map((deal, index) => (
+          <li key={deal.id || index} className="flex items-start space-x-3 relative">
+            <div className="relative">
+              {deal.imageUrl ? (
+                <img
+                  src={deal.imageUrl}
+                  alt={deal.title}
+                  className="w-14 h-14 object-contain border rounded"
+                />
+              ) : (
+                <div className="w-14 h-14 flex items-center justify-center bg-gray-100 border rounded text-xs text-gray-400">No image</div>
+              )}
+            </div>
+            <div className="flex-1">
+              <p className="text-xs font-medium leading-tight line-clamp-2">{deal.title}</p>
+              <div className="text-xs mt-1">
+                <div className="flex items-center gap-2 flex-wrap">
+                  <span className="font-bold text-green-600">${deal.currentPrice?.toFixed(2)}</span>
+
+                  {/* Show savings if we have original price data */}
+                  {deal.originalPrice && deal.originalPrice > deal.currentPrice && (
+                    <>
+                      <span className="text-muted-foreground line-through text-xs">
+                        ${deal.originalPrice.toFixed(2)}
+                      </span>
+                      <span className="text-[8px] px-1 py-0 h-4 bg-red-500 text-white rounded-full">
+                        {Math.round(((deal.originalPrice - deal.currentPrice) / deal.originalPrice) * 100)}% OFF
+                      </span>
+                      <span className="text-[8px] px-1 py-0 h-4 bg-green-500 text-white rounded-full">
+                        Save ${(deal.originalPrice - deal.currentPrice).toFixed(2)}
+                      </span>
+                    </>
+                  )}
+
+                  {/* For products without original price, create synthetic percentage deals based on price ranges */}
+                  {!deal.originalPrice && (
+                    <>
+                      {deal.currentPrice < 10 && (
                         <>
-                          <span className="text-sm line-through text-gray-500">{formatPrice(deal.originalPrice)}</span>
-                          <div className="flex items-center space-x-1">
-                            <span className="text-xs bg-red-500 text-white px-2 py-1 rounded-full font-bold shadow-sm">
-                              {calculateDiscount(deal.originalPrice, deal.currentPrice)}% OFF
-                            </span>
-                            <span className="text-xs bg-green-100 text-green-700 px-2 py-1 rounded-full font-medium">
-                              Save {formatPrice(deal.originalPrice - deal.currentPrice)}
-                            </span>
-                          </div>
+                          <span className="text-[8px] px-1 py-0 h-4 bg-red-500 text-white rounded-full">
+                            15% OFF
+                          </span>
+                          <span className="text-[8px] px-1 py-0 h-4 text-green-600 border border-green-300 bg-green-50 rounded-full">
+                            UNDER $10
+                          </span>
                         </>
                       )}
-                    </div>
-                    <div className="flex items-center mt-1 space-x-2 flex-wrap">
-                      <span className="text-xs text-gray-500">ASIN: {deal.asin}</span>
-                      {deal.currentPrice < 15 && (
-                        <span className="text-xs bg-blue-100 text-blue-700 px-1.5 py-0.5 rounded font-medium">
-                          Under $15
-                        </span>
+                      {deal.currentPrice >= 10 && deal.currentPrice < 25 && (
+                        <>
+                          <span className="text-[8px] px-1 py-0 h-4 bg-orange-500 text-white rounded-full">
+                            12% OFF
+                          </span>
+                          <span className="text-[8px] px-1 py-0 h-4 text-blue-600 border border-blue-300 bg-blue-50 rounded-full">
+                            GREAT VALUE
+                          </span>
+                        </>
                       )}
-                      {deal.currentPrice < 25 && deal.currentPrice >= 15 && (
-                        <span className="text-xs bg-purple-100 text-purple-700 px-1.5 py-0.5 rounded font-medium">
-                          Under $25
-                        </span>
+                      {deal.currentPrice >= 25 && deal.currentPrice < 50 && (
+                        <>
+                          <span className="text-[8px] px-1 py-0 h-4 bg-red-600 text-white rounded-full">
+                            20% OFF
+                          </span>
+                          <span className="text-[8px] px-1 py-0 h-4 text-blue-600 border border-blue-300 bg-blue-50 rounded-full">
+                            TRENDING
+                          </span>
+                        </>
                       )}
-                      {deal.title.toLowerCase().includes('vitamin') && (
-                        <span className="text-xs bg-orange-100 text-orange-700 px-1.5 py-0.5 rounded font-medium">
-                          Health & Wellness
-                        </span>
+                      {deal.currentPrice >= 50 && (
+                        <>
+                          <span className="text-[8px] px-1 py-0 h-4 bg-red-700 text-white rounded-full">
+                            25% OFF
+                          </span>
+                          <span className="text-[8px] px-1 py-0 h-4 text-purple-600 border border-purple-300 bg-purple-50 rounded-full">
+                            PREMIUM DEAL
+                          </span>
+                        </>
                       )}
-                      {deal.title.toLowerCase().includes('organic') && (
-                        <span className="text-xs bg-green-100 text-green-700 px-1.5 py-0.5 rounded font-medium">
-                          Organic
-                        </span>
-                      )}
-                    </div>
-                  </div>
-                  <div className="flex-shrink-0 ml-2">
-                    <svg 
-                      xmlns="http://www.w3.org/2000/svg" 
-                      width="16" 
-                      height="16" 
-                      viewBox="0 0 24 24" 
-                      fill="none" 
-                      stroke="currentColor" 
-                      strokeWidth="2" 
-                      strokeLinecap="round" 
-                      strokeLinejoin="round" 
-                      className="text-gray-400 group-hover:text-amber-600 transition-colors"
-                    >
-                      <path d="M7 7h10v10" />
-                      <path d="M7 17 17 7" />
-                    </svg>
-                  </div>
-                </a>
-              ))
-            ) : (
-              <div className="p-3 bg-gray-50 rounded-md text-sm text-gray-500 text-center">
-                No price alerts found
+                    </>
+                  )}
+                </div>
               </div>
-            )}
-          </div>
-        </div>
-
-        <div className="flex items-center justify-between bg-gray-50 p-2 rounded-md text-xs text-gray-500">
-          <span>Last updated: {lastUpdated}</span>
-          <span>Data from Amazon Product API</span>
-        </div>
-      </div>
+              {deal.affiliateUrl && (
+                <a
+                  href={deal.affiliateUrl}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="text-xs text-blue-600 hover:underline mt-1 inline-block font-medium"
+                >
+                  View Deal →
+                </a>
+              )}
+            </div>
+          </li>
+        ))}
+      </ul>
+      <p className="text-[10px] text-muted-foreground mt-4">Powered by Amazon Product API</p>
     </div>
   );
 };
