@@ -206,45 +206,64 @@ const PriceTrackerDashboard: React.FC = () => {
                   href={deal.affiliateUrl || deal.url} 
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="flex items-center p-2 bg-gray-50 rounded-md border border-gray-200 hover:bg-gray-100 transition-colors cursor-pointer"
+                  className="flex items-center p-3 bg-gradient-to-r from-white to-gray-50 rounded-lg border border-gray-200 hover:border-amber-300 hover:shadow-md transition-all duration-200 cursor-pointer group"
                 >
-                  <div className="w-12 h-12 min-w-[48px] bg-gray-100 rounded-md overflow-hidden mr-3 flex items-center justify-center">
+                  <div className="flex-shrink-0 w-16 h-16 mr-4 bg-white rounded-lg border border-gray-200 flex items-center justify-center overflow-hidden shadow-sm">
                     {deal.imageUrl ? (
-                      <img 
-                        src={deal.imageUrl} 
-                        alt={deal.title} 
-                        className="w-full h-full object-contain"
+                      <img
+                        src={deal.imageUrl}
+                        alt={deal.title}
+                        className="max-w-full max-h-full object-contain"
                       />
                     ) : (
-                      <div className="w-full h-full bg-gray-200 flex items-center justify-center">
-                        <span className="text-xs text-gray-500">No img</span>
+                      <div className="w-full h-full bg-gray-100 flex items-center justify-center">
+                        <span className="text-xs text-gray-400">No image</span>
                       </div>
                     )}
                   </div>
                   <div className="flex-1 min-w-0">
-                    <p className="text-xs font-medium text-gray-800 truncate">{deal.title}</p>
-                    <div className="flex items-center flex-wrap gap-1">
-                      <span className="text-xs font-bold text-green-600">
-                        {formatPrice(deal.currentPrice)}
-                      </span>
+                    <h4 className="text-sm font-medium text-gray-900 line-clamp-2 group-hover:text-amber-800 transition-colors leading-tight">{deal.title}</h4>
+                    <div className="flex items-center space-x-2 mt-2">
+                      <span className="text-lg font-bold text-green-600">{formatPrice(deal.currentPrice)}</span>
                       {deal.originalPrice && deal.originalPrice > deal.currentPrice && (
                         <>
-                          <span className="text-xs text-gray-500 line-through">
-                            {formatPrice(deal.originalPrice)}
-                          </span>
-                          <span className="text-xs bg-green-100 text-green-800 px-1.5 py-0.5 rounded-full flex items-center">
-                            <TrendingDown className="h-3 w-3 mr-0.5" />
-                            {calculateDiscount(deal.originalPrice, deal.currentPrice)}%
-                          </span>
-                          <span className="text-xs text-green-700 ml-1 font-medium">
-                            Save ${(deal.originalPrice - deal.currentPrice).toFixed(2)}
-                          </span>
+                          <span className="text-sm line-through text-gray-500">{formatPrice(deal.originalPrice)}</span>
+                          <div className="flex items-center space-x-1">
+                            <span className="text-xs bg-red-500 text-white px-2 py-1 rounded-full font-bold shadow-sm">
+                              {calculateDiscount(deal.originalPrice, deal.currentPrice)}% OFF
+                            </span>
+                            <span className="text-xs bg-green-100 text-green-700 px-2 py-1 rounded-full font-medium">
+                              Save {formatPrice(deal.originalPrice - deal.currentPrice)}
+                            </span>
+                          </div>
                         </>
                       )}
                     </div>
-                    <div className="mt-1">
-                      <span className="text-xs text-blue-600">View on Amazon →</span>
+                    <div className="flex items-center mt-1 space-x-2">
+                      <span className="text-xs text-gray-500">ASIN: {deal.asin}</span>
+                      {deal.currentPrice < 15 && (
+                        <span className="text-xs bg-blue-100 text-blue-700 px-1.5 py-0.5 rounded font-medium">
+                          Under $15
+                        </span>
+                      )}
                     </div>
+                  </div>
+                  <div className="flex-shrink-0 ml-2">
+                    <svg 
+                      xmlns="http://www.w3.org/2000/svg" 
+                      width="16" 
+                      height="16" 
+                      viewBox="0 0 24 24" 
+                      fill="none" 
+                      stroke="currentColor" 
+                      strokeWidth="2" 
+                      strokeLinecap="round" 
+                      strokeLinejoin="round" 
+                      className="text-gray-400 group-hover:text-amber-600 transition-colors"
+                    >
+                      <path d="M7 7h10v10" />
+                      <path d="M7 17 17 7" />
+                    </svg>
                   </div>
                 </a>
               ))

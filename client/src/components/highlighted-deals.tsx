@@ -18,7 +18,7 @@ type HighlightedDeal = Product & {
 export default function HighlightedDeals() {
   const [deals, setDeals] = useState<HighlightedDeal[]>([]);
   const [refreshKey, setRefreshKey] = useState<number>(0);
-  
+
   // Fetch the top deals from the API
   const { data, isLoading, isError, refetch } = useQuery({
     queryKey: ["/api/products/deals", refreshKey],
@@ -27,11 +27,11 @@ export default function HighlightedDeals() {
       const timestamp = Date.now();
       const rotation = refreshKey % 10; // Create 10 different product sets
       const res = await fetch(`/api/products/deals?t=${timestamp}&rotate=${rotation}`);
-      
+
       if (!res.ok) {
         throw new Error("Failed to fetch deals");
       }
-      
+
       const data = await res.json();
       console.log(`Received ${data.length} products, rotation: ${rotation}`, 
                  data.map((p: any) => p.id));
@@ -42,9 +42,9 @@ export default function HighlightedDeals() {
     gcTime: 0,
     refetchOnWindowFocus: false,
   });
-  
+
   console.log("Deals data from React Query:", data);
-  
+
   // Function to manually refresh deals
   const refreshDeals = () => {
     setRefreshKey(prev => prev + 1);
@@ -56,7 +56,7 @@ export default function HighlightedDeals() {
       const processedDeals = data.map(product => {
         const savings = product.savings || 
           (product.originalPrice ? (product.originalPrice - product.currentPrice) : 0);
-        
+
         return {
           ...product,
           discountPercentage: product.discountPercentage || 
@@ -64,26 +64,26 @@ export default function HighlightedDeals() {
           savings: Math.round(savings * 100) / 100
         };
       });
-      
+
       console.log("[Deals] processedDeals.length:", processedDeals.length, processedDeals.map(d => d.id || d.asin));
       // Add extra randomization using refreshKey in the sort
       // This helps produce different results each time
       const shuffleAmount = refreshKey % 4 + 1; // 1-4 based on refreshKey
-      
+
       // Get all deals with any discount
       const dealsWithDiscount = processedDeals.filter(deal => deal.discountPercentage > 0);
       console.log("[Deals] dealsWithDiscount.length:", dealsWithDiscount.length, dealsWithDiscount.map(d => d.id || d.asin));
-      
+
       // Apply multiple shuffling passes for better randomization
       let shuffledDeals = [...dealsWithDiscount];
       for (let i = 0; i < shuffleAmount; i++) {
         shuffledDeals = shuffledDeals.sort(() => Math.random() - 0.5);
       }
-      
+
       // Take a variable number of top deals based on refreshKey
       const dealsCount = Math.min(6, Math.max(3, shuffledDeals.length));
       let selectedDeals = shuffledDeals.slice(0, dealsCount);
-      
+
       // If we need more deals, add regular products
       if (selectedDeals.length < 6) {
         // Get non-discounted deals and shuffle them with multiple passes
@@ -98,10 +98,10 @@ export default function HighlightedDeals() {
         regularDeals = regularDeals.slice(0, 6 - selectedDeals.length);
         selectedDeals = [...selectedDeals, ...regularDeals];
       }
-      
+
       // One final shuffle to mix discounted and regular products
       selectedDeals = selectedDeals.sort(() => Math.random() - 0.5);
-      
+
       setDeals(selectedDeals);
     }
   }, [data, refreshKey]);
@@ -193,13 +193,18 @@ export default function HighlightedDeals() {
               )}
               <div className="absolute top-2 right-2 flex flex-col gap-1 items-end">
                 {deal.discountPercentage > 0 && (
-                  <Badge className="bg-red-600 text-white">
+                  <Badge className="bg-red-600 text-white font-bold shadow-lg">
                     {deal.discountPercentage}% OFF
                   </Badge>
                 )}
-                {deal.isNewAddition && (
-                  <Badge variant="secondary" className="bg-blue-100 text-blue-800">
-                    New Find
+                {deal.originalPrice && deal.currentPrice < deal.originalPrice && (
+                  <Badge className="bg-green-600 text-white text-xs shadow-lg">
+                    Save ${(deal.originalPrice - deal.currentPrice).toFixed(2)}
+                  </Badge>
+                )}
+                {deal.currentPrice < 15 && (
+                  <Badge className="bg-blue-600 text-white text-xs">
+                    Under $15
                   </Badge>
                 )}
               </div>
@@ -220,7 +225,7 @@ export default function HighlightedDeals() {
                   </span>
                 )}
               </div>
-              
+
               {/* Price drop info */}
               {deal.discountPercentage > 0 && (
                 <div className="flex flex-col gap-1 mt-1">
@@ -235,7 +240,7 @@ export default function HighlightedDeals() {
                   )}
                 </div>
               )}
-              
+
               {/* Historical price context */}
               <div className="mt-2 text-xs text-muted-foreground">
                 <div className="flex justify-between">
