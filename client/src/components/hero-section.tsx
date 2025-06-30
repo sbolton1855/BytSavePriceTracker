@@ -40,12 +40,26 @@ const PriceTrackerDashboard: React.FC = () => {
       const result = await response.json();
       console.log('[PriceTracker] Raw Amazon API response:', result);
       
-      // Extract real Amazon savings data from the API response
+      // Extract real Amazon savings data from the API response structure
       const mappedDeals = result.deals.map((d: any, idx: number) => {
-        // Check if Amazon provides savings data
-        const hasSavings = d.savings && d.savings.Amount > 0;
-        const savingsAmount = hasSavings ? d.savings.Amount : 0;
-        const savingsPercentage = hasSavings ? d.savings.Percentage : 0;
+        // Amazon savings data is nested in the full API response structure
+        let hasSavings = false;
+        let savingsAmount = 0;
+        let savingsPercentage = 0;
+        
+        // Check if we have full Amazon API response with Offers structure
+        if (d.Offers && d.Offers.Listings && d.Offers.Listings[0] && d.Offers.Listings[0].Price && d.Offers.Listings[0].Price.Savings) {
+          const savings = d.Offers.Listings[0].Price.Savings;
+          hasSavings = savings.Amount > 0;
+          savingsAmount = savings.Amount;
+          savingsPercentage = savings.Percentage;
+        }
+        // Fallback: check if savings data is directly on the deal object
+        else if (d.savings && d.savings.Amount > 0) {
+          hasSavings = true;
+          savingsAmount = d.savings.Amount;
+          savingsPercentage = d.savings.Percentage;
+        }
         
         // Calculate original price from savings if available
         let originalPrice = null;
@@ -62,7 +76,8 @@ const PriceTrackerDashboard: React.FC = () => {
           originalPrice,
           hasSavings,
           savingsAmount,
-          savingsPercentage
+          savingsPercentage,
+          hasOffers: !!d.Offers
         });
 
         return {
