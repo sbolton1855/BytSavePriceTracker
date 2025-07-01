@@ -125,8 +125,19 @@ const PriceTrackerDashboard: React.FC = () => {
     if (deals && deals.length > 0) {
       console.log('Processing deals for display:', deals.length, 'deals available');
 
+      // Filter to only include deals with actual savings first
+      const dealsWithSavings = deals.filter((deal: ProductDeal) => {
+        // Only include if it has Amazon savings data OR calculated savings
+        const hasAmazonSavings = deal.savingsAmount && deal.savingsAmount > 0;
+        const hasCalculatedSavings = deal.originalPrice && deal.originalPrice > deal.currentPrice;
+        
+        return hasAmazonSavings || hasCalculatedSavings;
+      });
+
+      console.log(`[PriceTracker] Filtered to ${dealsWithSavings.length} deals with actual savings`);
+
       // Create a scoring system for better deal selection
-      const scoredDeals = deals.map((deal: ProductDeal) => {
+      const scoredDeals = dealsWithSavings.map((deal: ProductDeal) => {
         let score = 0;
 
         // Price-based scoring
@@ -134,8 +145,10 @@ const PriceTrackerDashboard: React.FC = () => {
         else if (deal.currentPrice < 20) score += 10;
         else if (deal.currentPrice < 30) score += 5;
 
-        // Discount scoring (if available)
-        if (deal.originalPrice && deal.originalPrice > deal.currentPrice) {
+        // Discount scoring (prioritize this since all deals now have savings)
+        if (deal.savingsAmount && deal.savingsAmount > 0) {
+          score += deal.savingsPercentage * 2; // Use Amazon's percentage
+        } else if (deal.originalPrice && deal.originalPrice > deal.currentPrice) {
           const discountPercent = calculateDiscount(deal.originalPrice, deal.currentPrice);
           score += discountPercent * 2; // High weight for discounts
         }
@@ -239,7 +252,7 @@ const PriceTrackerDashboard: React.FC = () => {
       </div>
       {!isLoading && selectedDeals.length === 0 && (
         <div className="text-sm text-muted-foreground">
-          No deals available at this moment.
+          No active deals with savings found. Check back soon for new price drops!
         </div>
       )}
       <ul className="space-y-3">
@@ -292,6 +305,10 @@ const PriceTrackerDashboard: React.FC = () => {
                     </>
                   )}
 
+                  {/* Only show if there are no savings at all - this shouldn't happen now due to filtering */}
+                  {!deal.savingsAmount && (!deal.originalPrice || deal.originalPrice <= deal.currentPrice) && (
+                    <span className="text-[8px] text-gray-400">Regular Price</span>
+                  )}
 
                 </div>
               </div>
