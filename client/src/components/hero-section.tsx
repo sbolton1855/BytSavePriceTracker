@@ -20,6 +20,7 @@ interface ProductDeal {
   highestPrice: number;
   lastChecked: string;
   affiliateUrl: string;
+  reviewCount?: number;
 }
 
 // Real-time dashboard with actual price drop alerts
@@ -39,14 +40,14 @@ const PriceTrackerDashboard: React.FC = () => {
       }
       const result = await response.json();
       console.log('[PriceTracker] Raw Amazon API response:', result);
-      
+
       // Extract real Amazon savings data from the API response structure
       const mappedDeals = result.deals.map((d: any, idx: number) => {
         // Amazon savings data is nested in the full API response structure
         let hasSavings = false;
         let savingsAmount = 0;
         let savingsPercentage = 0;
-        
+
         // Check if we have full Amazon API response with Offers structure
         if (d.Offers && d.Offers.Listings && d.Offers.Listings[0] && d.Offers.Listings[0].Price && d.Offers.Listings[0].Price.Savings) {
           const savings = d.Offers.Listings[0].Price.Savings;
@@ -60,7 +61,7 @@ const PriceTrackerDashboard: React.FC = () => {
           savingsAmount = d.savings.Amount;
           savingsPercentage = d.savings.Percentage;
         }
-        
+
         // Calculate original price from savings if available
         let originalPrice = null;
         if (hasSavings && savingsAmount > 0) {
@@ -68,7 +69,7 @@ const PriceTrackerDashboard: React.FC = () => {
         } else if (d.msrp && d.msrp > d.price) {
           originalPrice = d.msrp;
         }
-        
+
         console.log('[PriceTracker] Deal:', {
           asin: d.asin,
           title: d.title.substring(0, 40) + '...',
@@ -93,7 +94,8 @@ const PriceTrackerDashboard: React.FC = () => {
           highestPrice: originalPrice || d.price,
           lastChecked: '',
           affiliateUrl: d.url,
-          id: d.asin || idx
+          id: d.asin || idx,
+          reviewCount: d.reviewCount
         };
       });
       return mappedDeals;
@@ -145,6 +147,11 @@ const PriceTrackerDashboard: React.FC = () => {
         if (title.includes('gummy') || title.includes('chewable')) score += 4;
         if (title.includes('women') || title.includes('men')) score += 3;
         if (title.includes('nature made') || title.includes('olly')) score += 5; // Brand recognition
+        if (title.includes('pure encapsulations')) score += 8; // Premium brand
+        if (title.includes('thorne')) score += 8; // Premium brand
+
+        // Review count bonus scoring
+        if (deal.reviewCount && deal.reviewCount > 5000) score += 7;
 
         return { ...deal, score };
       });
@@ -269,7 +276,7 @@ const PriceTrackerDashboard: React.FC = () => {
                       </span>
                     </>
                   )}
-                  
+
                   {/* Fallback for products with original price but no Amazon savings data */}
                   {!deal.savingsAmount && deal.originalPrice && deal.originalPrice > deal.currentPrice && (
                     <>
@@ -285,7 +292,7 @@ const PriceTrackerDashboard: React.FC = () => {
                     </>
                   )}
 
-                  
+
                 </div>
               </div>
               {deal.affiliateUrl && (
