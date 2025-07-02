@@ -42,3 +42,10 @@ export function getAvailableOAuthMethods(): { google: boolean } {
     google: hasGoogleOAuthConfig()
   };
 }
+
+/**
+ * Utility function to validate if a price is valid
+ */
+export function isValidPrice(price: any): price is number {
+  return typeof price === 'number' && !isNaN(price) && price > 0;
+}

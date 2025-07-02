@@ -10,6 +10,11 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } f
 import type { TrackedProductWithDetails } from "@shared/schema";
 import { useAuth } from "@/hooks/use-auth";
 
+// Utility function to validate if a price is valid
+function isValidPrice(price: any): price is number {
+  return typeof price === 'number' && !isNaN(price) && price > 0;
+}
+
 interface ProductsDisplayProps {
   email: string;
   onProductsChange?: (products: TrackedProductWithDetails[]) => void;

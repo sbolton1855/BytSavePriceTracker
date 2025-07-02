@@ -1,3 +1,7 @@
+The code is modified to include price validation, display "Price unavailable" when the price is missing or zero, and update the original price display with validation.
+```
+
+```replit_final_file
 import { useState } from "react";
 import { useMutation } from "@tanstack/react-query";
 import { 
@@ -27,6 +31,11 @@ interface ProductCardProps {
   trackedProduct: TrackedProductWithDetails;
   onRefresh: () => void;
   isAuthenticated: boolean;
+}
+
+// Utility function to validate if a price is valid
+function isValidPrice(price: any): price is number {
+  return typeof price === 'number' && !isNaN(price) && price > 0;
 }
 
 const ProductCard: React.FC<ProductCardProps> = ({ trackedProduct, onRefresh, isAuthenticated }) => {
@@ -297,8 +306,33 @@ const ProductCard: React.FC<ProductCardProps> = ({ trackedProduct, onRefresh, is
             )}
             <div className="ml-4">
               <div className="flex items-baseline">
-                <span className="text-2xl font-bold text-gray-900">${product.currentPrice.toFixed(2)}</span>
-                {product.originalPrice && (
+                
+                <div className="text-2xl font-bold text-gray-900 flex items-center gap-2">
+                {isValidPrice(product.currentPrice) ? (
+                  `$${product.currentPrice.toFixed(2)}`
+                ) : (
+                  <>
+                    <span className="text-gray-500">Price unavailable</span>
+                    <svg 
+                      xmlns="http://www.w3.org/2000/svg" 
+                      width="16" 
+                      height="16" 
+                      viewBox="0 0 24 24" 
+                      fill="none" 
+                      stroke="currentColor" 
+                      strokeWidth="2" 
+                      strokeLinecap="round" 
+                      strokeLinejoin="round" 
+                      className="text-amber-500"
+                    >
+                      <path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3Z"/>
+                      <path d="M12 9v4"/>
+                      <path d="m12 17 .01 0"/>
+                    </svg>
+                  </>
+                )}
+              </div>
+                {isValidPrice(product.originalPrice) && (
                   <span className="ml-2 text-sm line-through text-gray-500">${product.originalPrice.toFixed(2)}</span>
                 )}
               </div>
