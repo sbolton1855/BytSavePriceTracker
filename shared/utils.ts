@@ -14,13 +14,13 @@ export function checkEnvVars(envVars: string[]): {
   missing: string[];
 } {
   const missing: string[] = [];
-  
+
   for (const envVar of envVars) {
     if (!checkEnvVar(envVar)) {
       missing.push(envVar);
     }
   }
-  
+
   return {
     allExist: missing.length === 0,
     missing
@@ -43,9 +43,26 @@ export function getAvailableOAuthMethods(): { google: boolean } {
   };
 }
 
-/**
- * Utility function to validate if a price is valid
- */
+// Utility function to validate if a price is valid
 export function isValidPrice(price: any): price is number {
   return typeof price === 'number' && !isNaN(price) && price > 0;
+}
+
+// Utility function to format price display with fallback
+export function formatPriceDisplay(price: any): string {
+  if (isValidPrice(price)) {
+    return `$${price.toFixed(2)}`;
+  }
+  return 'Price unavailable';
+}
+
+// Utility function to get price status for UI
+export function getPriceStatus(price: any): 'valid' | 'unavailable' | 'zero' {
+  if (isValidPrice(price)) {
+    return 'valid';
+  }
+  if (price === 0) {
+    return 'zero';
+  }
+  return 'unavailable';
 }

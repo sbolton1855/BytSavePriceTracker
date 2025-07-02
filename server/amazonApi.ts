@@ -399,7 +399,24 @@ export async function getProductInfoSafe(asin: string) {
     }
     return data;
   } catch (error) {
-    console.error(`🚫 Failed to fetch ASIN ${asin}: ${error instanceof Error ? error.message : 'Unknown error'}`);
+    // Categorize the error for better handling
+    let errorCategory = 'UNKNOWN';
+    let errorMessage = 'Unknown error';
+    
+    if (error instanceof Error) {
+      errorMessage = error.message;
+      if (error.message.includes('No product data found')) {
+        errorCategory = 'PRODUCT_NOT_FOUND';
+      } else if (error.message.includes('timeout') || error.message.includes('ECONNRESET')) {
+        errorCategory = 'NETWORK_TIMEOUT';
+      } else if (error.message.includes('quota') || error.message.includes('throttle')) {
+        errorCategory = 'API_LIMIT';
+      } else if (error.message.includes('Invalid ASIN')) {
+        errorCategory = 'INVALID_ASIN';
+      }
+    }
+    
+    console.error(`🚫 Failed to fetch ASIN ${asin} (${errorCategory}): ${errorMessage}`);
     return null;
   }
 }

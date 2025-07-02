@@ -65,44 +65,70 @@ async function updateProductPrice(
     if (!latestInfo) {
       consecutiveApiFailures++;
       await incrementProductFailureCount(product.asin);
+      const failureCount = await getProductFailureCount(product.asin);
+      
       console.warn(
-        `Error: No product data returned for ASIN ${product.asin}. (API failure ${consecutiveApiFailures}/${MAX_CONSECUTIVE_FAILURES})`,
+        `Error: No product data returned for ASIN ${product.asin}. (API failure ${consecutiveApiFailures}/${MAX_CONSECUTIVE_FAILURES}, product failure ${failureCount}/5)`,
       );
+      
+      // If we've had many failures for this specific product, add a longer delay
+      let nextCheckDelay = 0;
+      if (failureCount >= 3) {
+        // Add exponential backoff: 1 hour, 4 hours, 24 hours
+        const backoffHours = Math.min(Math.pow(4, failureCount - 3), 24);
+        nextCheckDelay = backoffHours * 60 * 60 * 1000;
+        console.log(`⏰ Adding ${backoffHours}h delay for repeatedly failing ASIN ${product.asin}`);
+      }
+      
       return await storage.updateProduct(product.id, {
-        lastChecked: new Date(),
+        lastChecked: new Date(Date.now() + nextCheckDelay),
       });
     }
 
     // Validate the received price
     if (!isValidPrice(latestInfo.price)) {
       await incrementProductFailureCount(product.asin);
+      const failureCount = await getProductFailureCount(product.asin);
+      
+      // Determine the specific issue for better logging
+      let issueType = 'UNKNOWN_PRICE_ISSUE';
+      let issueDescription = `Invalid price data (price=${latestInfo.price})`;
       
       if (latestInfo.price === 0) {
-        console.warn(
-          `Warning: ASIN ${product.asin} has no price data (price=0). Skipping update.`,
-        );
-      } else {
-        console.warn(
-          `Warning: ASIN ${product.asin} has invalid price data (price=${latestInfo.price}). Skipping update.`,
-        );
+        issueType = 'PRICE_ZERO';
+        issueDescription = 'Amazon returned price=0';
+      } else if (latestInfo.price === undefined || latestInfo.price === null) {
+        issueType = 'PRICE_MISSING';
+        issueDescription = 'Amazon returned no price data';
+      } else if (isNaN(latestInfo.price)) {
+        issueType = 'PRICE_NAN';
+        issueDescription = `Amazon returned non-numeric price: ${latestInfo.price}`;
       }
       
-      // For known problematic ASINs, just update lastChecked and continue
-      const isKnownProblematicAsin = ['B01DJGLYZQ', 'B08PX626SG'].includes(product.asin);
-      if (isKnownProblematicAsin) {
+      console.warn(
+        `Warning: ASIN ${product.asin} - ${issueDescription}. Skipping update (failure ${failureCount}/5).`,
+      );
+      
+      // Check if this product has failed too many times
+      if (failureCount >= 5) {
+        console.warn(
+          `⚠️ ASIN ${product.asin} has failed ${failureCount} consecutive times. Marking for review.`,
+        );
+        
+        // Mark product as problematic but don't delete it yet
         return await storage.updateProduct(product.id, {
           lastChecked: new Date(),
+          // You could add a 'status' field to track problematic products
         });
       }
       
-      // Check if this product has failed too many times
-      const failureCount = await getProductFailureCount(product.asin);
-      if (failureCount >= 3) {
-        console.warn(
-          `ASIN ${product.asin} has failed ${failureCount} times. Consider marking as inactive.`,
-        );
+      // For known problematic ASINs, handle more gracefully
+      const isKnownProblematicAsin = ['B01DJGLYZQ', 'B08PX626SG'].includes(product.asin);
+      if (isKnownProblematicAsin) {
+        console.log(`Known problematic ASIN ${product.asin}, updating lastChecked only.`);
       }
       
+      // Update lastChecked timestamp to prevent immediate retry
       return await storage.updateProduct(product.id, {
         lastChecked: new Date(),
       });
@@ -235,18 +261,46 @@ async function updateProductPrice(
       );
     }
   } catch (error) {
-    console.error(`Failed to update price for product ${product.asin}:`, error);
-
-    // Log additional error details if available
+    // Increment failure count for tracking
+    await incrementProductFailureCount(product.asin);
+    const failureCount = await getProductFailureCount(product.asin);
+    
+    // Categorize the error type for better logging
+    let errorType = 'UNKNOWN_ERROR';
+    let errorDescription = 'Unknown error occurred';
+    
     if (error instanceof Error) {
+      if (error.message.includes('No product data found')) {
+        errorType = 'ASIN_NOT_FOUND';
+        errorDescription = 'Product not found on Amazon';
+      } else if (error.message.includes('Network') || error.message.includes('timeout')) {
+        errorType = 'NETWORK_ERROR';
+        errorDescription = 'Network or timeout error';
+      } else if (error.message.includes('API request quota exceeded')) {
+        errorType = 'API_QUOTA_EXCEEDED';
+        errorDescription = 'Amazon API quota exceeded';
+      } else {
+        errorDescription = error.message;
+      }
+    }
+    
+    console.error(`❌ Failed to update price for ASIN ${product.asin} (${errorType}): ${errorDescription} (failure ${failureCount}/5)`);
+
+    // Log detailed error info in development
+    if (process.env.NODE_ENV === 'development' && error instanceof Error) {
       console.error(`Error details for ${product.asin}:`, {
         message: error.message,
-        stack: error.stack,
         name: error.name,
+        type: errorType,
       });
     }
 
-    // Even when API fails, update the lastChecked timestamp
+    // Check for consecutive failures
+    if (failureCount >= 5) {
+      console.warn(`🔴 ASIN ${product.asin} has failed ${failureCount} consecutive times. Consider manual review.`);
+    }
+
+    // Even when API fails, update the lastChecked timestamp to prevent immediate retry
     const updatedProduct = await storage.updateProduct(product.id, {
       lastChecked: new Date(),
     });
@@ -529,28 +583,41 @@ function getCurrentSeasonalTerms(): string[] {
 async function cleanupFailedProducts(): Promise<void> {
   try {
     const failedAsins: string[] = [];
+    const currentTime = new Date();
     
-    // Check for products that have failed more than 5 times
+    // Check for products that have failed more than 10 times
     for (const [asin, failureCount] of productFailureCounts.entries()) {
-      if (failureCount >= 5) {
-        console.warn(`Marking ASIN ${asin} as inactive due to ${failureCount} consecutive failures`);
+      if (failureCount >= 10) {
+        console.warn(`🔴 ASIN ${asin} has ${failureCount} consecutive failures - scheduling for review`);
         failedAsins.push(asin);
         
-        // Remove from failure tracking
-        productFailureCounts.delete(asin);
-        
-        // You could add logic here to:
-        // 1. Mark the product as inactive in the database
-        // 2. Send notification to admin
-        // 3. Remove from tracking altogether
-        
-        // For now, we'll just log it
-        console.log(`TODO: Handle consistently failing ASIN ${asin}`);
+        try {
+          // Get the product from database
+          const product = await storage.getProductByAsin(asin);
+          if (product) {
+            // Add a comment or flag rather than deleting
+            console.log(`📋 Flagging ASIN ${asin} for manual review due to persistent failures`);
+            
+            // You could implement a 'status' field in your schema to mark products as problematic
+            // For now, we'll just reset the failure count and add a longer delay
+            productFailureCounts.set(asin, 0);
+            
+            // Update lastChecked to add a longer delay before next attempt (24 hours)
+            const nextCheckTime = new Date(currentTime.getTime() + 24 * 60 * 60 * 1000);
+            await storage.updateProduct(product.id, {
+              lastChecked: nextCheckTime,
+            });
+            
+            console.log(`⏰ ASIN ${asin} next check scheduled for: ${nextCheckTime.toISOString()}`);
+          }
+        } catch (dbError) {
+          console.error(`Error updating failed product ${asin}:`, dbError);
+        }
       }
     }
     
     if (failedAsins.length > 0) {
-      console.log(`Cleaned up ${failedAsins.length} consistently failing products`);
+      console.log(`🔧 Processed ${failedAsins.length} consistently failing products`);
     }
   } catch (error) {
     console.error('Error cleaning up failed products:', error);
