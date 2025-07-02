@@ -181,21 +181,33 @@ const ProductsDisplay: React.FC<ProductsDisplayProps> = ({ email, onProductsChan
 
   // Debug effect to show data changes
   useEffect(() => {
-    console.log("ProductsDisplay - current email:", email);
+    const currentEmail = email;
+    console.log("ProductsDisplay - current email:", currentEmail);
     console.log("ProductsDisplay - data changed:", data);
     console.log("ProductsDisplay - filteredProducts:", filteredProducts);
 
     // Show detailed debug info
-    if (!email || email.length === 0) {
+    if (!currentEmail || currentEmail.length === 0) {
       console.log("ProductsDisplay - No email provided");
     } else if (isLoading) {
-      console.log("ProductsDisplay - Loading data for email:", email);
+      console.log("ProductsDisplay - Loading data for email:", currentEmail);
     } else if (isError) {
       console.error("ProductsDisplay - Error fetching data:", error);
     } else if (!data || data.length === 0) {
-      console.log("ProductsDisplay - No products found for email:", email);
+      console.log("ProductsDisplay - No products found for email:", currentEmail);
     } else {
-      console.log("ProductsDisplay - Found", data.length, "products for email:", email);
+      console.log('ProductsDisplay - Found', filteredProducts.length, 'products for email:', currentEmail);
+
+      // Debug logging for TRUEplus product
+      const trueplus = filteredProducts.find(p => p.product.asin === 'B01DJGLYZQ');
+      if (trueplus) {
+        console.log('DEBUG: TRUEplus product in dashboard:', {
+          asin: trueplus.product.asin,
+          currentPrice: trueplus.product.currentPrice,
+          originalPrice: trueplus.product.originalPrice,
+          title: trueplus.product.title.substring(0, 50) + '...'
+        });
+      }
     }
   }, [email, data, filteredProducts, isLoading, isError, error]);
 
@@ -211,7 +223,7 @@ const ProductsDisplay: React.FC<ProductsDisplayProps> = ({ email, onProductsChan
   return (
     <section className="py-12 bg-gray-50" id="dashboard">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-        
+
         <div className="flex flex-col md:flex-row md:items-center md:justify-between mb-8">
           <div>
             <h2 className="text-3xl font-bold text-gray-900">Your Tracked Products</h2>
@@ -401,7 +413,7 @@ const ProductsDisplay: React.FC<ProductsDisplayProps> = ({ email, onProductsChan
               Create a free account to permanently save your tracking, get email alerts when prices drop, and edit your target prices anytime!
             </DialogDescription>
           </DialogHeader>
-          
+
           <div className="flex flex-col gap-3 mt-4">
             <Button 
               className="w-full bg-blue-600 hover:bg-blue-700"

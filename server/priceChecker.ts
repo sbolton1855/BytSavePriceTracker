@@ -32,6 +32,13 @@ async function updateProductPrice(
 
     // Fetch latest product info from Amazon API
     const latestInfo = await getProductInfoSafe(product.asin);
+    
+    // Debug logging for TRUEplus product
+    if (product.asin === 'B01DJGLYZQ') {
+      console.log(`DEBUG: TRUEplus price update - Product ASIN: ${product.asin}`);
+      console.log(`DEBUG: TRUEplus price update - Current stored price: $${product.currentPrice}`);
+      console.log(`DEBUG: TRUEplus price update - API returned:`, latestInfo);
+    }
 
     // If no valid data returned, update lastChecked and return
     if (!latestInfo) {
