@@ -282,9 +282,9 @@ const ProductsDisplay: React.FC<ProductsDisplayProps> = ({ email, onProductsChan
         ) : (
           <>
             {filteredProducts && filteredProducts.length > 0 ? (
-              <div className={`grid gap-6 md:grid-cols-2 lg:grid-cols-3 ${!isAuthenticated ? 'opacity-60 pointer-events-none relative' : ''}`}>
+              <div className={`grid gap-6 md:grid-cols-2 lg:grid-cols-3 ${!isAuthenticated ? 'opacity-60 relative' : ''}`}>
                 {!isAuthenticated && (
-                  <div className="absolute inset-0 z-10 flex items-center justify-center bg-white/80 rounded-lg">
+                  <div className="absolute inset-0 z-10 flex items-center justify-center bg-white/80 rounded-lg pointer-events-auto">
                     <div className="text-center p-6 bg-white rounded-lg shadow-lg border-2 border-primary-200">
                       <div className="h-12 w-12 rounded-full bg-primary-100 text-primary-500 flex items-center justify-center mx-auto mb-3">
                         <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
@@ -308,17 +308,18 @@ const ProductsDisplay: React.FC<ProductsDisplayProps> = ({ email, onProductsChan
                   // Create a unique key that includes target price to force re-render when it changes
                   const cardKey = `${trackedProduct.id}-${trackedProduct.targetPrice}-${trackedProduct.product.currentPrice}-${trackedProduct.product.lastChecked}`;
                   return (
-                    <ProductCard 
-                      key={cardKey}
-                      trackedProduct={trackedProduct} 
-                      onRefresh={() => {
-                        console.log("ProductCard refresh triggered");
-                        queryClient.invalidateQueries({ queryKey: ['/api/tracked-products'] });
-                        queryClient.invalidateQueries({ queryKey: ['/api/my/tracked-products'] });
-                        refetch();
-                      }}
-                      isAuthenticated={isAuthenticated}
-                    />
+                    <div key={cardKey} className={!isAuthenticated ? 'pointer-events-none' : ''}>
+                      <ProductCard 
+                        trackedProduct={trackedProduct} 
+                        onRefresh={() => {
+                          console.log("ProductCard refresh triggered");
+                          queryClient.invalidateQueries({ queryKey: ['/api/tracked-products'] });
+                          queryClient.invalidateQueries({ queryKey: ['/api/my/tracked-products'] });
+                          refetch();
+                        }}
+                        isAuthenticated={isAuthenticated}
+                      />
+                    </div>
                   );
                 })}
 
