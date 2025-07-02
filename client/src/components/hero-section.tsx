@@ -125,14 +125,16 @@ const PriceTrackerDashboard: React.FC = () => {
     if (deals && deals.length > 0) {
       console.log('Processing deals for display:', deals.length, 'deals available');
 
-      // Filter to only include deals with actual savings first
-      const dealsWithSavings = deals.filter((deal: ProductDeal) => {
-        // Only include if it has Amazon savings data OR calculated savings
-        const hasAmazonSavings = deal.savingsAmount && deal.savingsAmount > 0;
-        const hasCalculatedSavings = deal.originalPrice && deal.originalPrice > deal.currentPrice;
-        
-        return hasAmazonSavings || hasCalculatedSavings;
-      });
+      const allDeals = deals;
+
+      // Filter to only include deals with actual savings and valid pricing
+      const dealsWithSavings = allDeals.filter(deal => 
+        deal.originalPrice && 
+        deal.currentPrice && 
+        deal.originalPrice > deal.currentPrice &&
+        deal.currentPrice > 0 &&
+        calculateDiscount(deal.originalPrice, deal.currentPrice) > 0
+      );
 
       console.log(`[PriceTracker] Filtered to ${dealsWithSavings.length} deals with actual savings`);
 
