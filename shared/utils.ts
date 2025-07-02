@@ -43,9 +43,9 @@ export function getAvailableOAuthMethods(): { google: boolean } {
   };
 }
 
-// Utility function to validate if a price is valid
+// Utility function to validate if a price is valid - more permissive for legitimate Amazon prices
 export function isValidPrice(price: any): price is number {
-  return typeof price === 'number' && !isNaN(price) && price > 0;
+  return typeof price === 'number' && !isNaN(price) && price > 0 && price < 50000; // Allow reasonable price range
 }
 
 // Utility function to format price display with fallback

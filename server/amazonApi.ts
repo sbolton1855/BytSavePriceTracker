@@ -325,19 +325,10 @@ async function getProductInfo(asinOrUrl: string): Promise<AmazonProduct> {
         }
       }
       
-      // Known price corrections for TRUEplus insulin syringes
+      // Log actual API prices for debugging - no more hard-coded overrides
       if (asin === 'B01DJGLYZQ') {
-        console.log('DEBUG: TRUEplus ASIN detected - BEFORE price override:', { 
-          apiCurrentPrice: currentPrice, 
-          apiOriginalPrice: originalPrice 
-        });
-        // Use known market price for TRUEplus insulin syringes
-        currentPrice = 18.12;
-        originalPrice = 19.93;
-        console.log('DEBUG: TRUEplus ASIN detected - AFTER price override:', { 
-          currentPrice, 
-          originalPrice 
-        });
+        console.log('[DEBUG] TRUEplus API Response - currentPrice:', currentPrice, 'originalPrice:', originalPrice);
+        console.log('[DEBUG] No override applied, using actual API prices');
       }
       
       // Log all price data found

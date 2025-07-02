@@ -15,10 +15,7 @@ const MAX_CONSECUTIVE_FAILURES = 5;
 // Track individual product failure counts
 const productFailureCounts = new Map<string, number>();
 
-// Utility function to validate if a price is valid
-function isValidPrice(price: any): price is number {
-  return typeof price === 'number' && !isNaN(price) && price > 0;
-}
+import { isValidPrice } from "../shared/utils";
 
 // Function to increment failure count for a specific ASIN
 async function incrementProductFailureCount(asin: string): Promise<void> {
@@ -85,7 +82,10 @@ async function updateProductPrice(
       });
     }
 
-    // Validate the received price
+    // Log the API response before validation
+    console.log(`[DEBUG] Amazon API returned for ${product.asin} - currentPrice: ${latestInfo.price}, originalPrice: ${latestInfo.originalPrice}`);
+    
+    // Validate the received price - but be more permissive with valid price ranges
     if (!isValidPrice(latestInfo.price)) {
       await incrementProductFailureCount(product.asin);
       const failureCount = await getProductFailureCount(product.asin);
@@ -118,14 +118,7 @@ async function updateProductPrice(
         // Mark product as problematic but don't delete it yet
         return await storage.updateProduct(product.id, {
           lastChecked: new Date(),
-          // You could add a 'status' field to track problematic products
         });
-      }
-      
-      // For known problematic ASINs, handle more gracefully
-      const isKnownProblematicAsin = ['B01DJGLYZQ', 'B08PX626SG'].includes(product.asin);
-      if (isKnownProblematicAsin) {
-        console.log(`Known problematic ASIN ${product.asin}, updating lastChecked only.`);
       }
       
       // Update lastChecked timestamp to prevent immediate retry
@@ -133,6 +126,9 @@ async function updateProductPrice(
         lastChecked: new Date(),
       });
     }
+    
+    console.log(`[DEBUG] No override applied for ${product.asin}, saving currentPrice: ${latestInfo.price}`);
+    console.log(`[DEBUG] Stored price BEFORE update: ${product.currentPrice}, API price: ${latestInfo.price}`);
 
     // Reset failure counter on successful price fetch
     consecutiveApiFailures = 0;
@@ -240,6 +236,8 @@ async function updateProductPrice(
         highestPrice: newHighestPrice,
         priceDropped: priceDropped, // Add flag to indicate if price dropped
       });
+      
+      console.log(`[DEBUG] Database updated for ${product.asin} - Final stored currentPrice: ${latestInfo.price}, originalPrice: ${realOriginalPrice}`);
 
       // console.log(`Successfully updated price for ${product.asin}:`, {
       //   oldPrice: product.currentPrice,
