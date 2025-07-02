@@ -1,7 +1,3 @@
-The code is modified to include price validation, display "Price unavailable" when the price is missing or zero, and update the original price display with validation.
-```
-
-```replit_final_file
 import { useState } from "react";
 import { useMutation } from "@tanstack/react-query";
 import { 
