@@ -1,5 +1,6 @@
 import type { Express, Request, Response } from "express";
 import { createServer, type Server } from "http";
+import path from "path";
 import { storage } from "./storage";
 import { getProductInfo, searchProducts, extractAsinFromUrl, isValidAsin, addAffiliateTag, searchAmazonProducts } from "./amazonApi";
 import { startPriceChecker, checkPricesAndNotify } from "./priceChecker";
@@ -161,6 +162,15 @@ export async function registerRoutes(app: Express): Promise<Server> {
   configureAuth(app);
 
   // Note: Auth routes are already set up in authService.ts
+
+  // Serve static HTML files for password reset
+  app.use('/reset-password.html', (req, res) => {
+    res.sendFile(path.join(__dirname, '../client/reset-password.html'));
+  });
+  
+  app.use('/forgot-password.html', (req, res) => {
+    res.sendFile(path.join(__dirname, '../client/forgot-password.html'));
+  });
 
   // Create HTTP server
   const httpServer = createServer(app);

@@ -11,6 +11,8 @@ import { users } from "@shared/schema";
 import { eq } from "drizzle-orm";
 import { storage } from "./storage";
 import { pool } from "./db";
+import jwt from "jsonwebtoken";
+import nodemailer from "nodemailer";
 
 // Extend the Express.User type
 declare global {
@@ -80,6 +82,27 @@ function dbUserToExpressUser(dbUser: any): Express.User {
   };
 }
 
+// JWT secret for password reset tokens
+const JWT_SECRET = process.env.JWT_SECRET || process.env.SESSION_SECRET || Math.random().toString(36).substring(2);
+
+// Email transporter setup
+const createEmailTransporter = () => {
+  if (!process.env.EMAIL_USER || !process.env.EMAIL_PASSWORD) {
+    console.warn("Email credentials not configured. Password reset emails will not be sent.");
+    return null;
+  }
+
+  return nodemailer.createTransporter({
+    host: process.env.SMTP_HOST || 'smtp.gmail.com',
+    port: parseInt(process.env.SMTP_PORT || '587'),
+    secure: false,
+    auth: {
+      user: process.env.EMAIL_USER,
+      pass: process.env.EMAIL_PASSWORD,
+    },
+  });
+};
+
 // Function to initialize authentication
 export function configureAuth(app: Express) {
   // Secret is required for session
@@ -88,6 +111,7 @@ export function configureAuth(app: Express) {
   }
   
   const sessionSecret = process.env.SESSION_SECRET || Math.random().toString(36).substring(2);
+  const emailTransporter = createEmailTransporter();
   
   // Create PostgreSQL session store
   const PgSession = connectPgSimple(session);
@@ -184,56 +208,141 @@ export function configureAuth(app: Express) {
     });
   });
   
-  // Reset password route
-  app.post('/api/reset-password', async (req, res) => {
+  // Request password reset route
+  app.post('/api/reset-password/request', async (req, res) => {
     try {
-      const { email, password } = req.body;
+      const { email } = req.body;
       
-      if (!email || !password) {
+      if (!email) {
         return res.status(400).json({ 
-          message: 'Email and password are required',
-          errors: {
-            email: !email ? { _errors: ["Email is required"] } : undefined,
-            password: !password ? { _errors: ["Password is required"] } : undefined
-          }
+          message: 'Email is required'
         });
       }
-      
-      // Find the user
-      const user = await storage.getUserByEmail(email);
-      if (!user) {
-        return res.status(404).json({ message: 'User not found' });
+
+      // Always return success to prevent email enumeration
+      // This is a security best practice
+      const response = { 
+        message: 'If an account with that email exists, a password reset link has been sent.' 
+      };
+
+      try {
+        // Check if user exists
+        const user = await storage.getUserByEmail(email);
+        
+        if (user && emailTransporter) {
+          // Generate JWT token valid for 15 minutes
+          const resetToken = jwt.sign(
+            { userId: user.id, email: user.email },
+            JWT_SECRET,
+            { expiresIn: '15m' }
+          );
+
+          // Create reset URL
+          const resetUrl = `${req.protocol}://${req.get('host')}/reset-password.html?token=${resetToken}`;
+
+          // Send email
+          const mailOptions = {
+            from: process.env.EMAIL_USER,
+            to: email,
+            subject: 'BytSave - Password Reset Request',
+            html: `
+              <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+                <h2 style="color: #333;">Password Reset Request</h2>
+                <p>You requested a password reset for your BytSave account.</p>
+                <p>Click the link below to reset your password:</p>
+                <p>
+                  <a href="${resetUrl}" style="background-color: #007bff; color: white; padding: 10px 20px; text-decoration: none; border-radius: 5px; display: inline-block;">
+                    Reset Password
+                  </a>
+                </p>
+                <p><strong>This link will expire in 15 minutes.</strong></p>
+                <p>If you didn't request this reset, please ignore this email.</p>
+                <hr style="margin: 20px 0;">
+                <p style="color: #666; font-size: 12px;">
+                  If the button doesn't work, copy and paste this link into your browser:<br>
+                  ${resetUrl}
+                </p>
+              </div>
+            `
+          };
+
+          await emailTransporter.sendMail(mailOptions);
+          console.log(`Password reset email sent to ${email}`);
+        }
+      } catch (error) {
+        console.error('Error in password reset request:', error);
+        // Don't expose the error to the client for security
       }
+
+      // Always return the same response regardless of whether user exists
+      res.status(200).json(response);
+    } catch (error) {
+      console.error('Password reset request error:', error);
+      res.status(500).json({ message: 'An error occurred. Please try again.' });
+    }
+  });
+
+  // Confirm password reset route
+  app.post('/api/reset-password/confirm', async (req, res) => {
+    try {
+      const { token, password, confirmPassword } = req.body;
       
+      if (!token || !password || !confirmPassword) {
+        return res.status(400).json({ 
+          message: 'Token, password, and confirm password are required'
+        });
+      }
+
+      if (password !== confirmPassword) {
+        return res.status(400).json({ 
+          message: 'Passwords do not match'
+        });
+      }
+
+      if (password.length < 6) {
+        return res.status(400).json({ 
+          message: 'Password must be at least 6 characters long'
+        });
+      }
+
+      // Verify JWT token
+      let decoded;
+      try {
+        decoded = jwt.verify(token, JWT_SECRET) as any;
+      } catch (error) {
+        console.error('Token verification failed:', error);
+        return res.status(400).json({ 
+          message: 'Invalid or expired reset token'
+        });
+      }
+
+      // Find the user
+      const user = await storage.getUserByEmail(decoded.email);
+      if (!user) {
+        return res.status(400).json({ 
+          message: 'Invalid reset token'
+        });
+      }
+
       // Hash the new password
       const hashedPassword = await hashPassword(password);
       
       // Update the user's password
-      const [updatedUser] = await db.update(users)
+      await db.update(users)
         .set({
           password: hashedPassword,
           updatedAt: new Date()
         })
-        .where(eq(users.id, user.id))
-        .returning();
+        .where(eq(users.id, user.id));
+
+      console.log(`Password reset successful for user: ${user.email}`);
       
-      // Log the user in
-      req.login(dbUserToExpressUser(updatedUser), (err) => {
-        if (err) {
-          console.error('Login after password reset error:', err);
-          return res.status(500).json({ message: 'Error during login after password reset' });
-        }
-        
-        // Return user data without password
-        const { password, ...userWithoutPassword } = updatedUser;
-        res.status(200).json({ 
-          user: userWithoutPassword, 
-          message: 'Password reset successfully. You are now logged in.' 
-        });
+      res.status(200).json({ 
+        message: 'Password reset successful. You can now login with your new password.'
       });
     } catch (error) {
-      console.error('Password reset error:', error);
-      res.status(500).json({ message: 'Password reset failed due to server error' });
+      console.error('Password reset confirm error:', error);
+      res.status(500).json({ message: 'Password reset failed. Please try again.' });
     }
   });
 
