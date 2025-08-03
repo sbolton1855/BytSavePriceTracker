@@ -1417,11 +1417,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // Secure daily alerts trigger endpoint
-  app.post('/api/run-daily-alerts', async (req: Request, res: Response) => {
+  // Secure daily alerts trigger endpoint - accepts both GET and POST
+  app.all('/api/run-daily-alerts', async (req: Request, res: Response) => {
     try {
-      // Validate token from query parameter
-      const { token } = req.query;
+      // Validate token from query parameter (GET) or request body (POST)
+      const token = req.query.token || req.body.token;
       const expectedToken = process.env.ALERT_TRIGGER_TOKEN;
 
       if (!expectedToken) {
