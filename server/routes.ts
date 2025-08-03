@@ -6,9 +6,11 @@ import { getProductInfo, searchProducts, extractAsinFromUrl, isValidAsin, addAff
 import { startPriceChecker, checkPricesAndNotify } from "./priceChecker";
 import { requireAuth, configureAuth } from "./authService";
 import { z } from "zod";
-import { trackingFormSchema, type Product } from "@shared/schema";
+import { trackingFormSchema, type Product, trackedProducts } from "@shared/schema";
 import { fetchSignedAmazonRequest } from './lib/awsSignedRequest';
 import amazonRouter from './routes/amazon';
+import { db } from "./db";
+import { eq } from "drizzle-orm";
 
 const AFFILIATE_TAG = process.env.AMAZON_PARTNER_TAG || 'bytsave-20';
 
@@ -1470,6 +1472,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Temporary test route for productId 103
   app.get('/api/dev/test-track-103', async (req: Request, res: Response) => {
     try {
+      console.log('Querying tracked_products table for productId = 103');
+      
       const results = await db.select({
         id: trackedProducts.id,
         targetPrice: trackedProducts.targetPrice,
@@ -1479,6 +1483,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
       .from(trackedProducts)
       .where(eq(trackedProducts.productId, 103));
 
+      console.log(`Found ${results.length} tracked products for productId 103:`, results);
+
       res.json({
         success: true,
         count: results.length,
@@ -1486,9 +1492,15 @@ export async function registerRoutes(app: Express): Promise<Server> {
       });
     } catch (error) {
       console.error('Error querying tracked products for productId 103:', error);
+      console.error('Error details:', {
+        message: error instanceof Error ? error.message : 'Unknown error',
+        stack: error instanceof Error ? error.stack : 'No stack trace',
+        name: error instanceof Error ? error.name : 'Unknown error type'
+      });
       res.status(500).json({
         success: false,
-        error: 'Failed to query tracked products'
+        error: 'Failed to query tracked products',
+        details: error instanceof Error ? error.message : 'Unknown error'
       });
     }
   });
