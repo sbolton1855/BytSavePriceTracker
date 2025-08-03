@@ -1478,17 +1478,31 @@ export async function registerRoutes(app: Express): Promise<Server> {
         id: trackedProducts.id,
         targetPrice: trackedProducts.targetPrice,
         notified: trackedProducts.notified,
-        userId: trackedProducts.userId
+        userId: trackedProducts.userId,
+        productId: trackedProducts.productId
       })
       .from(trackedProducts)
       .where(eq(trackedProducts.productId, 103));
 
+      // Also get all unique productIds to help with testing
+      const allProductIds = await db.select({
+        productId: trackedProducts.productId
+      })
+      .from(trackedProducts);
+
+      const uniqueProductIds = [...new Set(allProductIds.map(p => p.productId))];
+
       console.log(`Found ${results.length} tracked products for productId 103:`, results);
+      console.log(`Available productIds in database:`, uniqueProductIds);
 
       res.json({
         success: true,
         count: results.length,
-        data: results
+        data: results,
+        availableProductIds: uniqueProductIds,
+        message: uniqueProductIds.length > 0 ? 
+          `No results for productId 103. Try testing with one of these productIds: ${uniqueProductIds.slice(0, 5).join(', ')}` :
+          'No tracked products found in database'
       });
     } catch (error) {
       console.error('Error querying tracked products for productId 103:', error);
