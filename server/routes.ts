@@ -1470,7 +1470,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Temporary test route to update tracked product id 42 for price drop testing
-  app.post('/api/dev/update-track-42', async (req: Request, res: Response) => {
+  app.get('/api/dev/update-track-42', async (req: Request, res: Response) => {
     try {
       console.log('Updating tracked_products row with id = 42');
       
