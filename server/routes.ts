@@ -1469,6 +1469,43 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Temporary test route to update tracked product id 42 for price drop testing
+  app.post('/api/dev/update-track-42', async (req: Request, res: Response) => {
+    try {
+      console.log('Updating tracked_products row with id = 42');
+      
+      const updated = await db.update(trackedProducts)
+        .set({
+          targetPrice: 16.00,
+          notified: false
+        })
+        .where(eq(trackedProducts.id, 42))
+        .returning();
+
+      if (updated.length === 0) {
+        return res.status(404).json({
+          success: false,
+          error: 'Tracked product with id = 42 not found'
+        });
+      }
+
+      console.log('Successfully updated tracked product id 42:', updated[0]);
+
+      res.json({
+        success: true,
+        message: 'Updated tracked product id 42 for price drop testing',
+        data: updated[0]
+      });
+    } catch (error) {
+      console.error('Error updating tracked product id 42:', error);
+      res.status(500).json({
+        success: false,
+        error: 'Failed to update tracked product',
+        details: error instanceof Error ? error.message : 'Unknown error'
+      });
+    }
+  });
+
   // Temporary test route for productId 103
   app.get('/api/dev/test-track-103', async (req: Request, res: Response) => {
     try {
