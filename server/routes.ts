@@ -1467,6 +1467,32 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Temporary test route for productId 103
+  app.get('/api/dev/test-track-103', async (req: Request, res: Response) => {
+    try {
+      const results = await db.select({
+        id: trackedProducts.id,
+        targetPrice: trackedProducts.targetPrice,
+        notified: trackedProducts.notified,
+        userId: trackedProducts.userId
+      })
+      .from(trackedProducts)
+      .where(eq(trackedProducts.productId, 103));
+
+      res.json({
+        success: true,
+        count: results.length,
+        data: results
+      });
+    } catch (error) {
+      console.error('Error querying tracked products for productId 103:', error);
+      res.status(500).json({
+        success: false,
+        error: 'Failed to query tracked products'
+      });
+    }
+  });
+
   // Environment variable diagnostic endpoint
   app.get('/api/debug/env-vars', async (req: Request, res: Response) => {
     try {
