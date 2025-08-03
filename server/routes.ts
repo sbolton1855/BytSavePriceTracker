@@ -1415,6 +1415,58 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Secure daily alerts trigger endpoint
+  app.post('/api/run-daily-alerts', async (req: Request, res: Response) => {
+    try {
+      // Validate token from query parameter
+      const { token } = req.query;
+      const expectedToken = process.env.ALERT_TRIGGER_TOKEN;
+
+      if (!expectedToken) {
+        console.error('ALERT_TRIGGER_TOKEN not configured in environment');
+        return res.status(500).json({ 
+          success: false, 
+          error: 'Alert trigger token not configured on server' 
+        });
+      }
+
+      if (!token || typeof token !== 'string') {
+        return res.status(403).json({ 
+          success: false, 
+          error: 'Unauthorized: Missing token parameter' 
+        });
+      }
+
+      if (token !== expectedToken) {
+        return res.status(403).json({ 
+          success: false, 
+          error: 'Unauthorized: Invalid token' 
+        });
+      }
+
+      // Import and call the price alerts function
+      const { processPriceAlerts } = await import('./emailTrigger');
+      
+      console.log('Manual daily alerts job triggered via API');
+      const alertCount = await processPriceAlerts();
+      
+      res.json({
+        success: true,
+        message: 'Daily alerts job completed successfully',
+        alertsProcessed: alertCount,
+        timestamp: new Date().toISOString()
+      });
+
+    } catch (error: any) {
+      console.error('Daily alerts job failed:', error);
+      res.status(500).json({
+        success: false,
+        error: 'Daily alerts job failed',
+        details: error.message || 'Unknown error occurred'
+      });
+    }
+  });
+
   // Environment variable diagnostic endpoint
   app.get('/api/debug/env-vars', async (req: Request, res: Response) => {
     try {
@@ -1428,7 +1480,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
         'SESSION_SECRET',
         'OPENAI_API_KEY',
         'EMAIL_PASSWORD',
-        'GMAIL_APP_PASSWORD'
+        'GMAIL_APP_PASSWORD',
+        'ALERT_TRIGGER_TOKEN'
       ];
       
       const filteredEnvVars: Record<string, string> = {};
