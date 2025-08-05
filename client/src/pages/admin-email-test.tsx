@@ -19,7 +19,8 @@ export default function AdminEmailTest() {
     oldPrice: '',
     newPrice: '',
     email: '',
-    sendEmail: false
+    sendEmail: false,
+    adminToken: ''
   });
   const [previewHtml, setPreviewHtml] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -39,10 +40,19 @@ export default function AdminEmailTest() {
         oldPrice: formData.oldPrice,
         newPrice: formData.newPrice,
         email: formData.email,
-        send: formData.sendEmail.toString()
+        send: formData.sendEmail.toString(),
+        token: formData.adminToken
       });
 
       const response = await fetch(`/api/dev/preview-email?${params}`);
+      
+      if (response.headers.get('content-type')?.includes('text/html')) {
+        // It's HTML preview
+        const htmlContent = await response.text();
+        setPreviewHtml(htmlContent);
+        return;
+      }
+      
       const result = await response.json();
 
       if (response.ok) {
@@ -98,6 +108,18 @@ export default function AdminEmailTest() {
           </CardHeader>
           <CardContent>
             <form onSubmit={handleSubmit} className="space-y-4">
+              <div>
+                <Label htmlFor="adminToken">Admin Token</Label>
+                <Input
+                  id="adminToken"
+                  type="password"
+                  value={formData.adminToken}
+                  onChange={(e) => handleInputChange('adminToken', e.target.value)}
+                  placeholder="Enter admin token"
+                  required
+                />
+              </div>
+              
               <div>
                 <Label htmlFor="asin">ASIN</Label>
                 <Input
