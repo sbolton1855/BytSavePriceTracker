@@ -10,9 +10,12 @@ import { trackingFormSchema, type Product, trackedProducts } from "@shared/schem
 import { fetchSignedAmazonRequest } from './lib/awsSignedRequest';
 import amazonRouter from './routes/amazon';
 import { db } from "./db";
-import { eq, sql } from "drizzle-orm";
+import { eq, sql, desc } from "drizzle-orm";
 import { renderPriceDropTemplate } from "./emailTemplates";
 import { sendEmail } from "./sendEmail";
+import { emailLogs, users, products, productTracking } from "./schema";
+import { sendPriceDropAlert } from "./emailTrigger";
+
 
 const AFFILIATE_TAG = process.env.AMAZON_PARTNER_TAG || 'bytsave-20';
 
@@ -174,6 +177,154 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.use('/forgot-password.html', (req, res) => {
     res.sendFile(path.join(__dirname, '../client/forgot-password.html'));
+  });
+
+  // Admin email testing route
+  app.get('/admin/email-test', (req, res) => {
+    const token = req.query.token as string;
+    if (!token || token !== process.env.ADMIN_SECRET) {
+      return res.status(401).json({ error: 'Invalid admin token' });
+    }
+
+    // Serve the admin email test page
+    res.sendFile(path.join(__dirname, '../client/src/pages/admin-email-test.tsx'));
+  });
+
+  // Admin email logs route
+  app.get('/admin/email-logs', async (req, res) => {
+    try {
+      const token = req.query.token as string;
+      if (!token || token !== process.env.ADMIN_SECRET) {
+        return res.status(401).json({ error: 'Invalid admin token' });
+      }
+
+      const page = parseInt(req.query.page as string) || 1;
+      const limit = 20;
+      const offset = (page - 1) * limit;
+      const emailFilter = req.query.email as string;
+
+      let query = db.select().from(emailLogs).orderBy(desc(emailLogs.createdAt));
+
+      if (emailFilter) {
+        query = query.where(eq(emailLogs.to, emailFilter));
+      }
+
+      const logs = await query.limit(limit).offset(offset);
+      const totalCount = await db.select({ count: sql`count(*)` }).from(emailLogs);
+
+      res.json({
+        logs,
+        pagination: {
+          page,
+          limit,
+          total: totalCount[0].count,
+          totalPages: Math.ceil(totalCount[0].count / limit)
+        }
+      });
+    } catch (error) {
+      console.error('Email logs error:', error);
+      res.status(500).json({ error: 'Failed to fetch email logs' });
+    }
+  });
+
+  // Force price drop alerts (admin only)
+  app.post('/api/dev/force-alerts', async (req, res) => {
+    try {
+      const { token, asins } = req.body;
+
+      if (!token || token !== process.env.ADMIN_SECRET) {
+        return res.status(401).json({ error: 'Invalid admin token' });
+      }
+
+      if (!Array.isArray(asins) || asins.length === 0) {
+        return res.status(400).json({ error: 'ASINs array is required' });
+      }
+
+      const results = [];
+
+      for (const asin of asins) {
+        try {
+          // Get all tracking records for this ASIN
+          const trackingRecords = await db.select()
+            .from(productTracking)
+            .leftJoin(users, eq(productTracking.userId, users.id))
+            .leftJoin(products, eq(productTracking.productId, products.id))
+            .where(eq(products.asin, asin));
+
+          if (trackingRecords.length === 0) {
+            results.push({
+              asin,
+              success: false,
+              message: 'No users tracking this product'
+            });
+            continue;
+          }
+
+          let emailsSent = 0;
+
+          // Force send alerts to all users tracking this product
+          for (const record of trackingRecords) {
+            if (record.users?.email && record.products) {
+              try {
+                const alertData = {
+                  userEmail: record.users.email,
+                  productTitle: record.products.title || 'Unknown Product',
+                  currentPrice: record.products.currentPrice || 0,
+                  originalPrice: record.products.originalPrice || 0,
+                  productUrl: `https://amazon.com/dp/${asin}`,
+                  savings: (record.products.originalPrice || 0) - (record.products.currentPrice || 0)
+                };
+
+                await sendPriceDropAlert(alertData);
+                emailsSent++;
+              } catch (emailError) {
+                console.error(`Failed to send alert to ${record.users.email}:`, emailError);
+              }
+            }
+          }
+
+          results.push({
+            asin,
+            success: true,
+            message: `Forced alerts sent to ${emailsSent} users`,
+            emailsSent
+          });
+
+        } catch (error) {
+          console.error(`Error processing ASIN ${asin}:`, error);
+          results.push({
+            asin,
+            success: false,
+            message: `Error: ${error instanceof Error ? error.message : 'Unknown error'}`
+          });
+        }
+      }
+
+      res.json({ results });
+    } catch (error) {
+      console.error('Force alerts error:', error);
+      res.status(500).json({ error: 'Failed to force alerts' });
+    }
+  });
+
+  // Dev route for testing email templates
+  app.post('/api/dev/preview-email', async (req, res) => {
+    try {
+      const { token, asin, email } = req.body;
+
+      if (!token || token !== process.env.ADMIN_SECRET) {
+        return res.status(401).json({ error: 'Invalid admin token' });
+      }
+
+      // Serve the admin email test page
+      res.sendFile(path.join(__dirname, '../client/src/pages/admin-email-test.tsx'));
+    } catch (error) {
+      console.error('Error in preview-email route:', error);
+      res.status(500).json({ 
+        error: 'Internal server error',
+        details: error instanceof Error ? error.message : 'Unknown error'
+      });
+    }
   });
 
   // Create HTTP server
@@ -2009,7 +2160,7 @@ Respond with just the analysis text, no JSON needed.
         }
 
         console.log(`Attempting to send test email to: ${recipientEmail}`);
-        
+
         const { generateEmailSubject } = await import('./emailTemplates');
         const dynamicSubject = generateEmailSubject(emailData);
 

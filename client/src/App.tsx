@@ -19,6 +19,9 @@ import NotFound from "@/pages/not-found";
 import ApiMonitor from "@/pages/api-monitor";
 import TestTracking from "@/pages/test-tracking";
 import AdminEmailTest from "@/pages/admin-email-test";
+import AdminEmailLogs from "@/pages/admin-email-logs";
+import AdminForceAlerts from "@/pages/admin-force-alerts";
+import AdminHub from "@/pages/admin-hub";
 
 function Router() {
   return (
@@ -34,6 +37,15 @@ function Router() {
       </Route>
       <Route path="/admin/email-test">
         <AdminEmailTest />
+      </Route>
+      <Route path="/admin/email-logs">
+        <AdminEmailLogs />
+      </Route>
+      <Route path="/admin/force-alerts">
+        <AdminForceAlerts />
+      </Route>
+      <Route path="/admin">
+        <AdminHub />
       </Route>
       <Route path="/test-tracking">
         <TestTracking />

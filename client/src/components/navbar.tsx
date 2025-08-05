@@ -54,6 +54,14 @@ const Navbar: React.FC = () => {
           FAQ
         </div>
       </Link>
+      <Link href="/admin">
+        <div
+          className={`text-gray-600 hover:text-primary-500 px-3 py-2 rounded-md text-sm font-medium cursor-pointer ${location === "/admin" ? "text-primary-500" : ""}`}
+          onClick={() => setIsOpen(false)}
+        >
+          Admin
+        </div>
+      </Link>
     </>
   );
 
