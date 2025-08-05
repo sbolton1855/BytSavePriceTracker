@@ -6,11 +6,25 @@ export interface PriceDropTemplateData {
   newPrice: number;
 }
 
+export function generateEmailSubject(data: PriceDropTemplateData): string {
+  const { productTitle, oldPrice, newPrice } = data;
+  const savings = oldPrice - newPrice;
+  const savingsPercentage = Math.round((savings / oldPrice) * 100);
+  
+  // Truncate title if too long
+  const shortTitle = productTitle.length > 40 
+    ? productTitle.substring(0, 37) + '...' 
+    : productTitle;
+  
+  return `🔥 Price Drop: ${shortTitle} now $${newPrice.toFixed(2)} (${savingsPercentage}% off!)`;
+}
+
 export function renderPriceDropTemplate(data: PriceDropTemplateData): string {
   const { asin, productTitle, oldPrice, newPrice } = data;
   const savings = oldPrice - newPrice;
   const savingsPercentage = Math.round((savings / oldPrice) * 100);
   const amazonUrl = `https://www.amazon.com/dp/${asin}`;
+  const productImageUrl = `https://images-na.ssl-images-amazon.com/images/P/${asin}.01.L.jpg`;
 
   return `
     <!DOCTYPE html>
@@ -135,6 +149,11 @@ export function renderPriceDropTemplate(data: PriceDropTemplateData): string {
             </div>
             
             <div class="product-info">
+                <div style="text-align: center; margin-bottom: 20px;">
+                    <img src="${productImageUrl}" alt="${productTitle}" 
+                         style="max-width: 200px; max-height: 200px; object-fit: contain; border-radius: 8px; box-shadow: 0 2px 8px rgba(0,0,0,0.1);" 
+                         onerror="this.style.display='none'">
+                </div>
                 <div class="product-title">${productTitle}</div>
                 
                 <div class="price-container">

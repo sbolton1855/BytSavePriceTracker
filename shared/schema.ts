@@ -1,6 +1,6 @@
 import { pgTable, text, serial, integer, boolean, timestamp, doublePrecision, varchar, jsonb, index } from "drizzle-orm/pg-core";
 import { relations } from "drizzle-orm";
-import { createInsertSchema } from "drizzle-zod";
+import { createInsertSchema, InferSelectModel, InferInsertModel } from "drizzle-zod";
 import { z } from "zod";
 
 // Session table for authentication
@@ -202,3 +202,17 @@ export const apiErrorsRelations = relations(apiErrors, ({ one }) => ({
     references: [products.asin],
   })
 }));
+
+// Email logs table
+export const emailLogs = pgTable('email_logs', {
+  id: serial('id').primaryKey(),
+  recipientEmail: varchar('recipient_email', { length: 255 }).notNull(),
+  productId: integer('product_id').references(() => products.id),
+  sentAt: timestamp('sent_at', { withTimezone: true }).defaultNow(),
+  subject: text('subject'),
+  previewHtml: text('preview_html'),
+  createdAt: timestamp('created_at', { withTimezone: true }).defaultNow(),
+});
+
+export type EmailLog = InferSelectModel<typeof emailLogs>;
+export type NewEmailLog = InferInsertModel<typeof emailLogs>;

@@ -2009,10 +2009,13 @@ Respond with just the analysis text, no JSON needed.
         }
 
         console.log(`Attempting to send test email to: ${recipientEmail}`);
+        
+        const { generateEmailSubject } = await import('./emailTemplates');
+        const dynamicSubject = generateEmailSubject(emailData);
 
         await sendEmail({
           to: recipientEmail,
-          subject: `BytSave Price Drop Alert: ${emailData.productTitle}`,
+          subject: dynamicSubject,
           html: emailHtml,
         });
 
