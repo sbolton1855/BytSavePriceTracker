@@ -1970,6 +1970,71 @@ Respond with just the analysis text, no JSON needed.
     }
   });
 
+  // Admin-only email preview and send route
+  app.get('/api/dev/preview-email', async (req: Request, res: Response) => {
+    try {
+      const { asin, productTitle, oldPrice, newPrice, email, send, token } = req.query;
+
+      // Validate admin token
+      if (token !== process.env.ADMIN_SECRET) {
+        console.log('Invalid admin token provided:', token);
+        return res.status(403).json({ error: 'Unauthorized access' });
+      }
+
+      // Validate required parameters
+      if (!asin || !oldPrice || !newPrice) {
+        return res.status(400).json({ 
+          error: 'Missing required parameters: asin, oldPrice, newPrice' 
+        });
+      }
+
+      const emailData = {
+        asin: asin as string,
+        productTitle: (productTitle as string) || 'Unnamed Product',
+        oldPrice: parseFloat(oldPrice as string),
+        newPrice: parseFloat(newPrice as string),
+      };
+
+      // Generate the email HTML
+      const emailHtml = renderPriceDropTemplate(emailData);
+
+      // If send=true, send the email
+      if (send === 'true') {
+        const recipientEmail = (email as string) || process.env.TEST_ADMIN_EMAIL;
+
+        if (!recipientEmail) {
+          return res.status(400).json({ 
+            error: 'No recipient email provided and TEST_ADMIN_EMAIL not set' 
+          });
+        }
+
+        console.log(`Attempting to send test email to: ${recipientEmail}`);
+
+        await sendEmail({
+          to: recipientEmail,
+          subject: `BytSave Price Drop Alert: ${emailData.productTitle}`,
+          html: emailHtml,
+        });
+
+        console.log(`Test email sent successfully to: ${recipientEmail}`);
+        return res.json({ 
+          success: true, 
+          message: `Test email sent to ${recipientEmail}` 
+        });
+      }
+
+      // Otherwise, return the HTML preview
+      res.setHeader('Content-Type', 'text/html');
+      res.send(emailHtml);
+    } catch (error) {
+      console.error('Error in preview-email route:', error);
+      res.status(500).json({ 
+        error: 'Internal server error',
+        details: error instanceof Error ? error.message : 'Unknown error'
+      });
+    }
+  });
+
   app.use('/api', amazonRouter);
   // console.log(">>> [DEBUG] Registered amazonRouter at /api");
 
