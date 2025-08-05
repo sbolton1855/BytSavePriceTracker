@@ -10,7 +10,9 @@ import { trackingFormSchema, type Product, trackedProducts } from "@shared/schem
 import { fetchSignedAmazonRequest } from './lib/awsSignedRequest';
 import amazonRouter from './routes/amazon';
 import { db } from "./db";
-import { eq } from "drizzle-orm";
+import { eq, sql } from "drizzle-orm";
+import { renderPriceDropTemplate } from "./emailTemplates";
+import { sendEmail } from "./sendEmail";
 
 const AFFILIATE_TAG = process.env.AMAZON_PARTNER_TAG || 'bytsave-20';
 
@@ -169,7 +171,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.use('/reset-password.html', (req, res) => {
     res.sendFile(path.join(__dirname, '../client/reset-password.html'));
   });
-  
+
   app.use('/forgot-password.html', (req, res) => {
     res.sendFile(path.join(__dirname, '../client/forgot-password.html'));
   });
@@ -666,7 +668,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       if (!isAuthenticated) {
         const upperEmail = email.toUpperCase();
         const existingTrackedProducts = await storage.getTrackedProductsByEmail(upperEmail);
-        
+
         // Get tracking limit from environment variable or use default
         const trackingLimit = parseInt(process.env.MAX_TRACKED_PRODUCTS || process.env.GUEST_TRACKING_LIMIT || '3');
         console.log(`Checking tracking limit for guest user: ${existingTrackedProducts.length}/${trackingLimit}`);
@@ -733,7 +735,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
             // Still create a product entry so tracking can work even with API issues
             product = await storage.createProduct({
               asin: extractedAsin,
-              title: `Amazon Product (${extractedAsin})`,
+              title: "Product information pending...",
               url: `https://www.amazon.com/dp/${extractedAsin}`,
               imageUrl: null,
               currentPrice: targetPrice || 99.99,
@@ -1448,10 +1450,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       // Import and call the price alerts function
       const { processPriceAlerts } = await import('./emailTrigger');
-      
+
       console.log('Manual daily alerts job triggered via API');
       const alertCount = await processPriceAlerts();
-      
+
       res.json({
         success: true,
         message: 'Daily alerts job completed successfully',
@@ -1473,7 +1475,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.get('/api/dev/update-track-42', async (req: Request, res: Response) => {
     try {
       console.log('Updating tracked_products row with id = 42');
-      
+
       const updated = await db.update(trackedProducts)
         .set({
           targetPrice: 16.00,
@@ -1510,7 +1512,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.get('/api/dev/test-track-103', async (req: Request, res: Response) => {
     try {
       console.log('Querying tracked_products table for productId = 103');
-      
+
       const results = await db.select({
         id: trackedProducts.id,
         targetPrice: trackedProducts.targetPrice,
@@ -1561,7 +1563,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       // Get all environment variables
       const allEnvVars = { ...process.env };
-      
+
       // Remove sensitive variables from the response
       const sensitiveKeys = [
         'AMAZON_SECRET_KEY', 
@@ -1572,10 +1574,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
         'GMAIL_APP_PASSWORD',
         'ALERT_TRIGGER_TOKEN'
       ];
-      
+
       const filteredEnvVars: Record<string, string> = {};
       const sensitiveVarsFound: string[] = [];
-      
+
       Object.keys(allEnvVars).forEach(key => {
         if (sensitiveKeys.some(sensitive => key.includes(sensitive))) {
           sensitiveVarsFound.push(key);
@@ -1753,11 +1755,11 @@ IMPORTANT RULES:
         const cleanedResponse = aiResponse.trim();
         const jsonStart = cleanedResponse.indexOf('{');
         const jsonEnd = cleanedResponse.lastIndexOf('}') + 1;
-        
+
         if (jsonStart === -1 || jsonEnd === 0) {
           throw new Error('No JSON found in AI response');
         }
-        
+
         const jsonString = cleanedResponse.substring(jsonStart, jsonEnd);
         recommendations = JSON.parse(jsonString);
       } catch (parseError) {
