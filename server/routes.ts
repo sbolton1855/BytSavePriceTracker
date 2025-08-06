@@ -2,6 +2,7 @@ import type { Express, Request, Response } from "express";
 import { createServer, type Server } from "http";
 import path from "path";
 import { storage } from "./storage";
+import { db } from "./db";
 import { getProductInfo, searchProducts, extractAsinFromUrl, isValidAsin, addAffiliateTag, searchAmazonProducts } from "./amazonApi";
 import { startPriceChecker, checkPricesAndNotify } from "./priceChecker";
 import { requireAuth, configureAuth } from "./authService";
@@ -14,7 +15,6 @@ import { eq, sql, desc } from "drizzle-orm";
 import { renderPriceDropTemplate } from "./emailTemplates";
 import { sendEmail } from "./sendEmail";
 import { emailLogs, users, products, trackedProducts as productTracking } from "../shared/schema";
-import { sendPriceDropAlert } from "./emailTrigger";
 
 
 const AFFILIATE_TAG = process.env.AMAZON_PARTNER_TAG || 'bytsave-20';
@@ -206,7 +206,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       let query = db.select().from(emailLogs).orderBy(desc(emailLogs.createdAt));
 
       if (emailFilter) {
-        query = query.where(eq(emailLogs.to, emailFilter));
+        query = query.where(eq(emailLogs.recipientEmail, emailFilter));
       }
 
       const logs = await query.limit(limit).offset(offset);
@@ -266,16 +266,29 @@ export async function registerRoutes(app: Express): Promise<Server> {
           for (const record of trackingRecords) {
             if (record.users?.email && record.products) {
               try {
-                const alertData = {
-                  userEmail: record.users.email,
+                const emailData = {
+                  asin: asin,
                   productTitle: record.products.title || 'Unknown Product',
-                  currentPrice: record.products.currentPrice || 0,
-                  originalPrice: record.products.originalPrice || 0,
-                  productUrl: `https://amazon.com/dp/${asin}`,
-                  savings: (record.products.originalPrice || 0) - (record.products.currentPrice || 0)
+                  oldPrice: record.products.originalPrice || record.products.currentPrice || 0,
+                  newPrice: record.products.currentPrice || 0,
                 };
 
-                await sendPriceDropAlert(alertData);
+                const emailHtml = renderPriceDropTemplate(emailData);
+                
+                await sendEmail({
+                  to: record.users.email,
+                  subject: `Price Drop Alert: ${emailData.productTitle}`,
+                  html: emailHtml,
+                });
+
+                // Log the email
+                await db.insert(emailLogs).values({
+                  recipientEmail: record.users.email,
+                  productId: record.products.id,
+                  subject: `Price Drop Alert: ${emailData.productTitle}`,
+                  previewHtml: emailHtml,
+                });
+
                 emailsSent++;
               } catch (emailError) {
                 console.error(`Failed to send alert to ${record.users.email}:`, emailError);
