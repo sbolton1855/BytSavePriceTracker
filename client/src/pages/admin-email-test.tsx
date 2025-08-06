@@ -10,7 +10,6 @@ import { useToast } from "@/hooks/use-toast";
 import { Loader2 } from "lucide-react";
 
 export default function AdminEmailTest() {
-  const { user, isAuthenticated, isLoading } = useAuth();
   const { toast } = useToast();
   
   const [formData, setFormData] = useState({
@@ -24,9 +23,17 @@ export default function AdminEmailTest() {
   });
   const [previewHtml, setPreviewHtml] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [isAuthenticated, setIsAuthenticated] = useState(false);
 
   const handleInputChange = (field: string, value: string | boolean) => {
     setFormData(prev => ({ ...prev, [field]: value }));
+    
+    // Auto-authenticate when admin token is entered
+    if (field === 'adminToken' && typeof value === 'string' && value.trim()) {
+      setIsAuthenticated(true);
+    } else if (field === 'adminToken' && (!value || value === '')) {
+      setIsAuthenticated(false);
+    }
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -78,20 +85,13 @@ export default function AdminEmailTest() {
     }
   };
 
-  if (isLoading) {
-    return (
-      <div className="flex items-center justify-center min-h-[70vh]">
-        <Loader2 className="h-8 w-8 animate-spin text-primary" />
-      </div>
-    );
-  }
+  
 
   if (!isAuthenticated) {
     return (
       <div className="max-w-4xl mx-auto px-4 py-16 text-center">
         <h1 className="text-3xl font-bold mb-4">Admin Access Required</h1>
-        <p className="text-lg mb-8">Please log in to access the admin email testing.</p>
-        <Button onClick={() => window.location.href = "/auth"}>Go to Login</Button>
+        <p className="text-lg mb-8">Enter your admin token in the form below to access email testing.</p>
       </div>
     );
   }
