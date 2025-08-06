@@ -13,7 +13,7 @@ import { db } from "./db";
 import { eq, sql, desc } from "drizzle-orm";
 import { renderPriceDropTemplate } from "./emailTemplates";
 import { sendEmail } from "./sendEmail";
-import { emailLogs, users, products, productTracking } from "./schema";
+import { emailLogs, users, products, trackedProducts as productTracking } from "../shared/schema";
 import { sendPriceDropAlert } from "./emailTrigger";
 
 
