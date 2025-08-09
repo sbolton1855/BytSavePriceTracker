@@ -87,38 +87,52 @@ export default function AdminEmailTest() {
 
   
 
-  if (!isAuthenticated) {
-    return (
-      <div className="max-w-4xl mx-auto px-4 py-16 text-center">
-        <h1 className="text-3xl font-bold mb-4">Admin Access Required</h1>
-        <p className="text-lg mb-8">Enter your admin token in the form below to access email testing.</p>
-      </div>
-    );
-  }
-
   return (
     <div className="container mx-auto px-4 py-8">
       <h1 className="text-3xl font-bold mb-8">Admin Email Test</h1>
       
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-        <Card>
-          <CardHeader>
-            <CardTitle>Email Test Form</CardTitle>
-            <CardDescription>Test price drop email alerts</CardDescription>
-          </CardHeader>
-          <CardContent>
-            <form onSubmit={handleSubmit} className="space-y-4">
-              <div>
-                <Label htmlFor="adminToken">Admin Token</Label>
+      {!isAuthenticated && (
+        <div className="max-w-md mx-auto mb-8 p-6">
+          <Card>
+            <CardHeader>
+              <CardTitle>Admin Access Required</CardTitle>
+              <CardDescription>Enter your admin token to access email testing</CardDescription>
+            </CardHeader>
+            <CardContent>
+              <div className="space-y-4">
                 <Input
-                  id="adminToken"
                   type="password"
+                  placeholder="Admin Token"
                   value={formData.adminToken}
                   onChange={(e) => handleInputChange('adminToken', e.target.value)}
-                  placeholder="Enter admin token"
-                  required
+                  onKeyPress={(e) => e.key === 'Enter' && handleInputChange('adminToken', e.target.value)}
                 />
               </div>
+            </CardContent>
+          </Card>
+        </div>
+      )}
+      
+      {isAuthenticated && (
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+          <Card>
+            <CardHeader>
+              <CardTitle>Email Test Form</CardTitle>
+              <CardDescription>Test price drop email alerts</CardDescription>
+            </CardHeader>
+            <CardContent>
+              <form onSubmit={handleSubmit} className="space-y-4">
+                <div>
+                  <Label htmlFor="adminToken">Admin Token</Label>
+                  <Input
+                    id="adminToken"
+                    type="password"
+                    value={formData.adminToken}
+                    onChange={(e) => handleInputChange('adminToken', e.target.value)}
+                    placeholder="Enter admin token"
+                    required
+                  />
+                </div>
               
               <div>
                 <Label htmlFor="asin">ASIN</Label>
@@ -191,28 +205,29 @@ export default function AdminEmailTest() {
               </div>
               
               <Button type="submit" disabled={isSubmitting} className="w-full">
-                {isSubmitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                {formData.sendEmail ? 'Send Test Email' : 'Preview Email'}
-              </Button>
-            </form>
-          </CardContent>
-        </Card>
-        
-        {previewHtml && (
-          <Card>
-            <CardHeader>
-              <CardTitle>Email Preview</CardTitle>
-              <CardDescription>How the email will look</CardDescription>
-            </CardHeader>
-            <CardContent>
-              <div 
-                className="border rounded p-4 bg-white"
-                dangerouslySetInnerHTML={{ __html: previewHtml }}
-              />
+                  {isSubmitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                  {formData.sendEmail ? 'Send Test Email' : 'Preview Email'}
+                </Button>
+              </form>
             </CardContent>
           </Card>
-        )}
-      </div>
+          
+          {previewHtml && (
+            <Card>
+              <CardHeader>
+                <CardTitle>Email Preview</CardTitle>
+                <CardDescription>How the email will look</CardDescription>
+              </CardHeader>
+              <CardContent>
+                <div 
+                  className="border rounded p-4 bg-white"
+                  dangerouslySetInnerHTML={{ __html: previewHtml }}
+                />
+              </CardContent>
+            </Card>
+          )}
+        </div>
+      )}
     </div>
   );
 }
