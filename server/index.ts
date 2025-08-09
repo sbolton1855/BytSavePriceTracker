@@ -1,8 +1,15 @@
 console.log('Running from server/index.ts');
+import dotenv from 'dotenv';
+dotenv.config();
+
 import express, { type Request, Response, NextFunction } from "express";
 import { registerRoutes } from "./routes";
 import { setupVite, serveStatic, log } from "./vite";
 import { configureAuth } from "./authService";
+import { adminSessionConfig, attachAdminToRequest } from "./middleware/adminSession";
+import { adminSecurityMiddleware } from "./middleware/adminSecurity";
+import adminAuthRoutes from "./routes/adminAuth";
+import adminEmailRoutes from "./routes/adminEmail";
 import LiveDealsPreview from "@/components/LiveDealsPreview";
 const app = express();
 app.use(express.json());
@@ -10,6 +17,15 @@ app.use(express.urlencoded({ extended: false }));
 
 // Configure authentication with OAuth providers
 configureAuth(app);
+
+// Admin session and security middleware (scoped to /admin paths)
+app.use('/admin', adminSecurityMiddleware);
+app.use('/admin', adminSessionConfig);
+app.use('/admin', attachAdminToRequest);
+
+// Admin routes
+app.use('/admin/api', adminAuthRoutes);
+app.use('/admin/api/email', adminEmailRoutes);
 
 // Enhanced logging middleware for debugging API failures
 app.use((req, res, next) => {
