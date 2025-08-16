@@ -1,6 +1,6 @@
 
 import session from 'express-session';
-import RedisStore from 'connect-redis';
+import { RedisStore } from 'connect-redis';
 import { createClient } from 'redis';
 import { Request, Response, NextFunction } from 'express';
 
