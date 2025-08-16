@@ -214,5 +214,20 @@ export const emailLogs = pgTable('email_logs', {
   createdAt: timestamp('created_at', { withTimezone: true }).defaultNow(),
 });
 
+export const userEmailPreferences = pgTable('user_email_preferences', {
+  id: serial('id').primaryKey(),
+  email: varchar('email', { length: 255 }).notNull().unique(),
+  alertFrequency: varchar('alert_frequency', { length: 20 }).notNull().default('instant'), // instant, daily, weekly
+  categories: jsonb('categories').default(['amazon']), // ['amazon', 'cvs', 'peptides']
+  digestEnabled: boolean('digest_enabled').default(true),
+  marketingEnabled: boolean('marketing_enabled').default(false),
+  couponAlertsEnabled: boolean('coupon_alerts_enabled').default(true),
+  autoBuyConfirmations: boolean('auto_buy_confirmations').default(true),
+  createdAt: timestamp('created_at', { withTimezone: true }).defaultNow(),
+  updatedAt: timestamp('updated_at', { withTimezone: true }).defaultNow(),
+});
+
 export type EmailLog = InferSelectModel<typeof emailLogs>;
 export type NewEmailLog = InferInsertModel<typeof emailLogs>;
+export type UserEmailPreferences = InferSelectModel<typeof userEmailPreferences>;
+export type NewUserEmailPreferences = InferInsertModel<typeof userEmailPreferences>;

@@ -10,7 +10,7 @@ import { z } from "zod";
 import { trackingFormSchema, type Product, trackedProducts } from "@shared/schema";
 import { fetchSignedAmazonRequest } from './lib/awsSignedRequest';
 import amazonRouter from './routes/amazon';
-import { db } from "./db";
+// import { db } from "./db"; // Duplicate import, remove one
 import { eq, sql, desc } from "drizzle-orm";
 import { renderPriceDropTemplate } from "./emailTemplates";
 import { sendEmail } from "./sendEmail";
@@ -24,12 +24,12 @@ const AFFILIATE_TAG = process.env.AMAZON_PARTNER_TAG || 'bytsave-20';
 
 /**
  * Helper function that intelligently adds price history entries only when needed
- * 
+ *
  * Will only create a new price history entry if:
  * 1. No previous price history exists, or
  * 2. The current price is different from the last recorded price, or
  * 3. Significant time has passed since the last price point (over 12 hours)
- * 
+ *
  * @param productId - The product ID to add price history for
  * @param currentPrice - The current price to potentially add
  * @returns Promise<boolean> - Whether a new price history entry was created
@@ -51,7 +51,7 @@ async function intelligentlyAddPriceHistory(productId: number, currentPrice: num
     }
 
     // Sort by timestamp to get the most recent entry
-    priceHistory.sort((a, b) => 
+    priceHistory.sort((a, b) =>
       new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime()
     );
 
@@ -111,7 +111,7 @@ const categoryFilters = {
     const now = new Date();
     const month = now.getMonth();
 
-    // Spring: March-May (2-4), Summer: June-August (5-7), 
+    // Spring: March-May (2-4), Summer: June-August (5-7),
     // Fall: Sept-Nov (8-10), Winter: Dec-Feb (11, 0, 1)
     const seasonalKeywords = {
       spring: [
@@ -158,10 +158,19 @@ const categoryFilters = {
     const title = product.title.toLowerCase();
 
     // Check title and significant discounts
-    return eventKeywords.some(keyword => title.includes(keyword)) || 
-      (product.originalPrice && 
+    return eventKeywords.some(keyword => title.includes(keyword)) ||
+      (product.originalPrice &&
        ((product.originalPrice - product.currentPrice) / product.originalPrice >= 0.2));
   }
+};
+
+// Middleware to check for admin token
+const requireAdminToken = (req: Request, res: Response, next: Function) => {
+  const token = req.query.token as string;
+  if (!token || token !== process.env.ADMIN_SECRET) {
+    return res.status(401).json({ error: 'Invalid admin token' });
+  }
+  next();
 };
 
 export async function registerRoutes(app: Express): Promise<Server> {
@@ -180,14 +189,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Admin email testing route
-  app.get('/admin/email-test', (req, res) => {
-    const token = req.query.token as string;
-    if (!token || token !== process.env.ADMIN_SECRET) {
-      return res.status(401).json({ error: 'Invalid admin token' });
-    }
-
-    // Serve the admin email test page
-    res.sendFile(path.join(__dirname, '../client/src/pages/admin-email-test.tsx'));
+  app.get('/admin/email-test', requireAdminToken, (req, res) => {
+    res.sendFile(path.join(process.cwd(), 'client/admin-email-test.html'));
   });
 
   // Admin email logs route
@@ -274,7 +277,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
                 };
 
                 const emailHtml = renderPriceDropTemplate(emailData);
-                
+
                 await sendEmail({
                   to: record.users.email,
                   subject: `Price Drop Alert: ${emailData.productTitle}`,
@@ -321,7 +324,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Dev route for testing email templates
-  app.post('/api/dev/preview-email', async (req, res) => {
+  app.post('/api/dev/preview-email', async (req: Request, res: Response) => {
     try {
       const { token, asin, email } = req.body;
 
@@ -333,7 +336,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.sendFile(path.join(__dirname, '../client/src/pages/admin-email-test.tsx'));
     } catch (error) {
       console.error('Error in preview-email route:', error);
-      res.status(500).json({ 
+      res.status(500).json({
         error: 'Internal server error',
         details: error instanceof Error ? error.message : 'Unknown error'
       });
@@ -355,14 +358,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
       if (userId) {
         // For logged in users, get personalized suggestions
         const userTrackedProducts = await storage.getTrackedProductsWithDetailsByEmail((req.user as any)?.email);
-        const categories = new Set(userTrackedProducts.map(tp => 
+        const categories = new Set(userTrackedProducts.map(tp =>
           tp.product.title.split(' ').slice(0, 2).join(' ').toLowerCase()
         ));
 
         // Get products in similar categories
         const allProducts = await storage.getAllProducts();
         teasers = allProducts
-          .filter(p => 
+          .filter(p =>
             categories.size === 0 || // If no tracked products, don't filter
             Array.from(categories).some(c => p.title.toLowerCase().includes(c))
           )
@@ -412,7 +415,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       });
 
       // Sort products by last checked time (most recently checked first)
-      const sortedProducts = freshProducts.sort((a, b) => 
+      const sortedProducts = freshProducts.sort((a, b) =>
         new Date(b.lastChecked).getTime() - new Date(a.lastChecked).getTime()
       );
 
@@ -449,8 +452,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
           const safeOriginalPrice = originalPrice ?? product.currentPrice;
 
           // Avoid division by zero
-          const discountPercentage = safeOriginalPrice > 0 
-            ? ((safeOriginalPrice - product.currentPrice) / safeOriginalPrice) * 100 
+          const discountPercentage = safeOriginalPrice > 0
+            ? ((safeOriginalPrice - product.currentPrice) / safeOriginalPrice) * 100
             : 0;
 
           // Calculate potential savings
@@ -540,7 +543,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       // console.log(`[ROUTE] Formatted ${formattedResults.length} results`);
 
-      res.json({ 
+      res.json({
         items: formattedResults,
         totalPages: 1 // Not available from this endpoint, so set to 1
       });
@@ -838,8 +841,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
         console.log(`Checking tracking limit for guest user: ${existingTrackedProducts.length}/${trackingLimit}`);
 
         if (existingTrackedProducts.length >= trackingLimit) {
-          return res.status(403).json({ 
-            error: 'Limit reached', 
+          return res.status(403).json({
+            error: 'Limit reached',
             message: `You have reached the maximum of ${trackingLimit} tracked products as a guest. Please create an account to track more products.`,
             limitReached: true,
             currentCount: existingTrackedProducts.length,
@@ -919,7 +922,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       // Check if this email is already tracking this product
       const existingTracking = await storage.getTrackedProductByUserAndProduct(
-        isAuthenticated ? (req.user as any).id.toString() : null, 
+        isAuthenticated ? (req.user as any).id.toString() : null,
         email.toUpperCase(), // Store email in uppercase to normalize
         product.id
       );
@@ -1061,7 +1064,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       // Check if user is already tracking this product
       const existingTracking = await storage.getTrackedProductByUserAndProduct(
-        userId, 
+        userId,
         email || '',
         product.id
       );
@@ -1206,7 +1209,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         // console.log(`Successfully deleted tracked product ${id}`);
 
         // Send a refresh signal to the client
-        res.status(200).json({ 
+        res.status(200).json({
           message: 'Tracked product deleted successfully',
           id: id
         });
@@ -1592,23 +1595,23 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       if (!expectedToken) {
         console.error('ALERT_TRIGGER_TOKEN not configured in environment');
-        return res.status(500).json({ 
-          success: false, 
-          error: 'Alert trigger token not configured on server' 
+        return res.status(500).json({
+          success: false,
+          error: 'Alert trigger token not configured on server'
         });
       }
 
       if (!token || typeof token !== 'string') {
-        return res.status(403).json({ 
-          success: false, 
-          error: 'Unauthorized: Missing token parameter' 
+        return res.status(403).json({
+          success: false,
+          error: 'Unauthorized: Missing token parameter'
         });
       }
 
       if (token !== expectedToken) {
-        return res.status(403).json({ 
-          success: false, 
-          error: 'Unauthorized: Invalid token' 
+        return res.status(403).json({
+          success: false,
+          error: 'Unauthorized: Invalid token'
         });
       }
 
@@ -1703,7 +1706,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         count: results.length,
         data: results,
         availableProductIds: uniqueProductIds,
-        message: uniqueProductIds.length > 0 ? 
+        message: uniqueProductIds.length > 0 ?
           `No results for productId 103. Try testing with one of these productIds: ${uniqueProductIds.slice(0, 5).join(', ')}` :
           'No tracked products found in database'
       });
@@ -1730,8 +1733,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       // Remove sensitive variables from the response
       const sensitiveKeys = [
-        'AMAZON_SECRET_KEY', 
-        'GOOGLE_CLIENT_SECRET', 
+        'AMAZON_SECRET_KEY',
+        'GOOGLE_CLIENT_SECRET',
         'SESSION_SECRET',
         'OPENAI_API_KEY',
         'EMAIL_PASSWORD',
@@ -1768,8 +1771,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
         trackingLimitAnalysis: {
           trackingLimitVars,
           actualLimitUsed: trackingLimit,
-          limitSource: process.env.MAX_TRACKED_PRODUCTS ? 'MAX_TRACKED_PRODUCTS' : 
-                      process.env.GUEST_TRACKING_LIMIT ? 'GUEST_TRACKING_LIMIT' : 
+          limitSource: process.env.MAX_TRACKED_PRODUCTS ? 'MAX_TRACKED_PRODUCTS' :
+                      process.env.GUEST_TRACKING_LIMIT ? 'GUEST_TRACKING_LIMIT' :
                       'hardcoded default (3)'
         },
         totalEnvVars: Object.keys(allEnvVars).length,
@@ -1792,8 +1795,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       // Check if OpenAI API key is configured
       if (!process.env.OPENAI_API_KEY) {
-        return res.status(500).json({ 
-          error: 'OpenAI API key not configured. Please add OPENAI_API_KEY to your secrets.' 
+        return res.status(500).json({
+          error: 'OpenAI API key not configured. Please add OPENAI_API_KEY to your secrets.'
         });
       }
 
@@ -1843,16 +1846,16 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       // Check if OpenAI API key is configured
       if (!process.env.OPENAI_API_KEY) {
-        return res.status(500).json({ 
-          error: 'OpenAI API key not configured. Please add OPENAI_API_KEY to your secrets.' 
+        return res.status(500).json({
+          error: 'OpenAI API key not configured. Please add OPENAI_API_KEY to your secrets.'
         });
       }
 
       const { trackedProducts, userEmail } = req.body;
 
       if (!trackedProducts || trackedProducts.length === 0) {
-        return res.status(400).json({ 
-          error: 'No tracked products provided for analysis' 
+        return res.status(400).json({
+          error: 'No tracked products provided for analysis'
         });
       }
 
@@ -1864,7 +1867,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       });
 
       // Prepare product data for AI analysis
-      const productList = trackedProducts.map((product: any, index: number) => 
+      const productList = trackedProducts.map((product: any, index: number) =>
         `${index + 1}. ${product.title} - $${product.price}`
       ).join('\n');
 
@@ -1933,7 +1936,7 @@ IMPORTANT RULES:
       }
 
       // Validate the response structure
-      if (!recommendations.category || !recommendations.reasoning || 
+      if (!recommendations.category || !recommendations.reasoning ||
           !Array.isArray(recommendations.suggestions) || !Array.isArray(recommendations.searchTerms)) {
         console.error('Invalid AI response structure:', recommendations);
         throw new Error('Incomplete response from AI');
@@ -1966,16 +1969,16 @@ IMPORTANT RULES:
     try {
       // Check if OpenAI API key is configured
       if (!process.env.OPENAI_API_KEY) {
-        return res.status(500).json({ 
-          error: 'OpenAI API key not configured. Please add OPENAI_API_KEY to your secrets.' 
+        return res.status(500).json({
+          error: 'OpenAI API key not configured. Please add OPENAI_API_KEY to your secrets.'
         });
       }
 
       const { trackedProducts, userEmail } = req.body;
 
       if (!trackedProducts || trackedProducts.length === 0) {
-        return res.status(400).json({ 
-          error: 'No tracked products provided for analysis' 
+        return res.status(400).json({
+          error: 'No tracked products provided for analysis'
         });
       }
 
@@ -1987,7 +1990,7 @@ IMPORTANT RULES:
       });
 
       // Step 1: Generate search terms using AI
-      const productList = trackedProducts.map((product: any, index: number) => 
+      const productList = trackedProducts.map((product: any, index: number) =>
         `${index + 1}. ${product.title} - $${product.price}`
       ).join('\n');
 
@@ -2109,7 +2112,7 @@ Respond with just the analysis text, no JSON needed.
         temperature: 0.7,
       });
 
-      const aiAnalysis = analysisCompletion.choices[0]?.message?.content || 
+      const aiAnalysis = analysisCompletion.choices[0]?.message?.content ||
         "These products complement your current watchlist with related accessories and compatible items.";
 
       // Return comprehensive results
@@ -2147,8 +2150,8 @@ Respond with just the analysis text, no JSON needed.
 
       // Validate required parameters
       if (!asin || !oldPrice || !newPrice) {
-        return res.status(400).json({ 
-          error: 'Missing required parameters: asin, oldPrice, newPrice' 
+        return res.status(400).json({
+          error: 'Missing required parameters: asin, oldPrice, newPrice'
         });
       }
 
@@ -2167,8 +2170,8 @@ Respond with just the analysis text, no JSON needed.
         const recipientEmail = (email as string) || process.env.TEST_ADMIN_EMAIL;
 
         if (!recipientEmail) {
-          return res.status(400).json({ 
-            error: 'No recipient email provided and TEST_ADMIN_EMAIL not set' 
+          return res.status(400).json({
+            error: 'No recipient email provided and TEST_ADMIN_EMAIL not set'
           });
         }
 
@@ -2184,9 +2187,9 @@ Respond with just the analysis text, no JSON needed.
         });
 
         console.log(`Test email sent successfully to: ${recipientEmail}`);
-        return res.json({ 
-          success: true, 
-          message: `Test email sent to ${recipientEmail}` 
+        return res.json({
+          success: true,
+          message: `Test email sent to ${recipientEmail}`
         });
       }
 
@@ -2195,7 +2198,7 @@ Respond with just the analysis text, no JSON needed.
       res.send(emailHtml);
     } catch (error) {
       console.error('Error in preview-email route:', error);
-      res.status(500).json({ 
+      res.status(500).json({
         error: 'Internal server error',
         details: error instanceof Error ? error.message : 'Unknown error'
       });
