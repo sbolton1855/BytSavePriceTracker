@@ -120,6 +120,36 @@ async function sendPriceDropAlert(
   }
 }
 
+// Generic email sending function
+interface EmailOptions {
+  to: string;
+  subject: string;
+  html: string;
+  templateId?: string;
+}
+
+async function sendEmail(options: EmailOptions): Promise<any> {
+  try {
+    const transporter = createTransporter();
+    
+    const mailOptions = {
+      from: process.env.EMAIL_FROM || 'alerts@bytsave.com',
+      to: options.to,
+      subject: options.subject,
+      html: options.html
+    };
+    
+    const info = await transporter.sendMail(mailOptions);
+    console.log(`Email sent to ${options.to} - Message ID: ${info.messageId}`);
+    
+    return info;
+  } catch (error) {
+    console.error('Failed to send email:', error);
+    throw error;
+  }
+}
+
 export {
-  sendPriceDropAlert
+  sendPriceDropAlert,
+  sendEmail
 };
