@@ -1,83 +1,239 @@
 
-import { useState } from "react";
-import { useAuth } from "@/hooks/use-auth";
+import { useState, useEffect } from "react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Checkbox } from "@/components/ui/checkbox";
 import { useToast } from "@/hooks/use-toast";
-import { Loader2 } from "lucide-react";
+import { Loader2, LogOut } from "lucide-react";
+
+interface Template {
+  id: string;
+  name: string;
+  description: string;
+}
+
+interface AdminSession {
+  email: string;
+  roles: string[];
+}
 
 export default function AdminEmailTest() {
   const { toast } = useToast();
   
-  const [formData, setFormData] = useState({
-    asin: '',
-    title: '',
-    oldPrice: '',
-    newPrice: '',
+  // Login state
+  const [loginData, setLoginData] = useState({
     email: '',
-    sendEmail: false,
-    adminToken: ''
+    password: ''
   });
-  const [previewHtml, setPreviewHtml] = useState('');
-  const [isSubmitting, setIsSubmitting] = useState(false);
-  const [isAuthenticated, setIsAuthenticated] = useState(false);
+  const [isLoggedIn, setIsLoggedIn] = useState(false);
+  const [adminSession, setAdminSession] = useState<AdminSession | null>(null);
+  const [isLoggingIn, setIsLoggingIn] = useState(false);
+  const [isCheckingAuth, setIsCheckingAuth] = useState(true);
 
-  const handleInputChange = (field: string, value: string | boolean) => {
-    setFormData(prev => ({ ...prev, [field]: value }));
-    
-    // Auto-authenticate when admin token is entered
-    if (field === 'adminToken' && typeof value === 'string' && value.trim()) {
-      setIsAuthenticated(true);
-    } else if (field === 'adminToken' && (!value || value === '')) {
-      setIsAuthenticated(false);
+  // Email form state
+  const [templates, setTemplates] = useState<Template[]>([]);
+  const [selectedTemplate, setSelectedTemplate] = useState('');
+  const [testEmail, setTestEmail] = useState('');
+  const [previewHtml, setPreviewHtml] = useState('');
+  const [isLoadingTemplates, setIsLoadingTemplates] = useState(false);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+
+  // CSRF token
+  const [csrfToken, setCsrfToken] = useState('');
+
+  // Check if already authenticated on load
+  useEffect(() => {
+    checkAuthStatus();
+  }, []);
+
+  const checkAuthStatus = async () => {
+    try {
+      const response = await fetch('/admin/api/me', {
+        credentials: 'include'
+      });
+      
+      if (response.ok) {
+        const session = await response.json();
+        setAdminSession(session);
+        setIsLoggedIn(true);
+        loadTemplates();
+        // Get CSRF token
+        const csrfResponse = await fetch('/admin/api/csrf-token', {
+          credentials: 'include'
+        });
+        if (csrfResponse.ok) {
+          const { csrfToken } = await csrfResponse.json();
+          setCsrfToken(csrfToken);
+        }
+      }
+    } catch (error) {
+      console.error('Auth check failed:', error);
+    } finally {
+      setIsCheckingAuth(false);
     }
   };
 
-  const handleSubmit = async (e: React.FormEvent) => {
+  const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
-    setIsSubmitting(true);
+    setIsLoggingIn(true);
 
     try {
-      const params = new URLSearchParams({
-        asin: formData.asin,
-        title: formData.title,
-        oldPrice: formData.oldPrice,
-        newPrice: formData.newPrice,
-        email: formData.email,
-        send: formData.sendEmail.toString(),
-        token: formData.adminToken
+      const response = await fetch('/admin/api/login', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        credentials: 'include',
+        body: JSON.stringify(loginData)
       });
 
-      const response = await fetch(`/api/dev/preview-email?${params}`);
-      
-      if (response.headers.get('content-type')?.includes('text/html')) {
-        // It's HTML preview
-        const htmlContent = await response.text();
-        setPreviewHtml(htmlContent);
-        return;
-      }
-      
       const result = await response.json();
 
       if (response.ok) {
-        if (formData.sendEmail) {
-          toast({
-            title: "Email sent successfully!",
-            description: `Test email sent to ${formData.email}`
-          });
-        } else {
-          setPreviewHtml(result.html || result.preview || 'No preview available');
-        }
+        setAdminSession(result.admin);
+        setIsLoggedIn(true);
+        setCsrfToken(result.csrfToken);
+        loadTemplates();
+        toast({
+          title: "Login successful",
+          description: `Welcome back, ${result.admin.email}!`
+        });
       } else {
-        throw new Error(result.error || 'Failed to process email');
+        toast({
+          title: "Login failed",
+          description: result.error || 'Invalid credentials',
+          variant: "destructive"
+        });
+      }
+    } catch (error) {
+      toast({
+        title: "Login error",
+        description: 'Failed to connect to server',
+        variant: "destructive"
+      });
+    } finally {
+      setIsLoggingIn(false);
+    }
+  };
+
+  const handleLogout = async () => {
+    try {
+      await fetch('/admin/api/logout', {
+        method: 'POST',
+        credentials: 'include'
+      });
+      
+      setIsLoggedIn(false);
+      setAdminSession(null);
+      setTemplates([]);
+      setPreviewHtml('');
+      setCsrfToken('');
+      
+      toast({
+        title: "Logged out",
+        description: "You have been logged out successfully"
+      });
+    } catch (error) {
+      console.error('Logout error:', error);
+    }
+  };
+
+  const loadTemplates = async () => {
+    setIsLoadingTemplates(true);
+    try {
+      const response = await fetch('/admin/api/email/templates', {
+        credentials: 'include'
+      });
+      
+      if (response.ok) {
+        const data = await response.json();
+        setTemplates(data.templates);
+      } else {
+        toast({
+          title: "Error",
+          description: "Failed to load email templates",
+          variant: "destructive"
+        });
       }
     } catch (error) {
       toast({
         title: "Error",
-        description: error instanceof Error ? error.message : 'An error occurred',
+        description: "Failed to connect to server",
+        variant: "destructive"
+      });
+    } finally {
+      setIsLoadingTemplates(false);
+    }
+  };
+
+  const handlePreviewTemplate = async () => {
+    if (!selectedTemplate) return;
+
+    try {
+      const response = await fetch(`/admin/api/email/preview/${selectedTemplate}`, {
+        credentials: 'include'
+      });
+      
+      if (response.ok) {
+        const data = await response.json();
+        setPreviewHtml(data.previewHtml);
+      } else {
+        toast({
+          title: "Error",
+          description: "Failed to load template preview",
+          variant: "destructive"
+        });
+      }
+    } catch (error) {
+      toast({
+        title: "Error",
+        description: "Failed to load preview",
+        variant: "destructive"
+      });
+    }
+  };
+
+  const handleSendTestEmail = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!selectedTemplate || !csrfToken) return;
+
+    setIsSubmitting(true);
+
+    try {
+      const response = await fetch('/admin/api/email/test', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'X-CSRF-Token': csrfToken
+        },
+        credentials: 'include',
+        body: JSON.stringify({
+          templateId: selectedTemplate,
+          to: testEmail || undefined
+        })
+      });
+
+      const result = await response.json();
+
+      if (response.ok) {
+        toast({
+          title: "Test email sent!",
+          description: result.message
+        });
+      } else {
+        toast({
+          title: "Failed to send email",
+          description: result.error || 'Unknown error',
+          variant: "destructive"
+        });
+      }
+    } catch (error) {
+      toast({
+        title: "Error",
+        description: "Failed to send test email",
         variant: "destructive"
       });
     } finally {
@@ -85,149 +241,153 @@ export default function AdminEmailTest() {
     }
   };
 
-  
+  if (isCheckingAuth) {
+    return (
+      <div className="container mx-auto px-4 py-8 text-center">
+        <Loader2 className="h-8 w-8 animate-spin mx-auto mb-4" />
+        <p>Checking authentication...</p>
+      </div>
+    );
+  }
 
-  return (
-    <div className="container mx-auto px-4 py-8">
-      <h1 className="text-3xl font-bold mb-8">Admin Email Test</h1>
-      
-      {!isAuthenticated && (
-        <div className="max-w-md mx-auto mb-8 p-6">
+  if (!isLoggedIn) {
+    return (
+      <div className="container mx-auto px-4 py-8">
+        <div className="max-w-md mx-auto">
           <Card>
             <CardHeader>
-              <CardTitle>Admin Access Required</CardTitle>
-              <CardDescription>Enter your admin token to access email testing</CardDescription>
+              <CardTitle>Admin Login</CardTitle>
+              <CardDescription>Login to access email testing tools</CardDescription>
             </CardHeader>
             <CardContent>
-              <div className="space-y-4">
-                <Input
-                  type="password"
-                  placeholder="Admin Token"
-                  value={formData.adminToken}
-                  onChange={(e) => handleInputChange('adminToken', e.target.value)}
-                  onKeyPress={(e) => e.key === 'Enter' && handleInputChange('adminToken', e.target.value)}
-                />
-              </div>
-            </CardContent>
-          </Card>
-        </div>
-      )}
-      
-      {isAuthenticated && (
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-          <Card>
-            <CardHeader>
-              <CardTitle>Email Test Form</CardTitle>
-              <CardDescription>Test price drop email alerts</CardDescription>
-            </CardHeader>
-            <CardContent>
-              <form onSubmit={handleSubmit} className="space-y-4">
+              <form onSubmit={handleLogin} className="space-y-4">
                 <div>
-                  <Label htmlFor="adminToken">Admin Token</Label>
+                  <Label htmlFor="email">Email</Label>
                   <Input
-                    id="adminToken"
+                    id="email"
+                    type="email"
+                    value={loginData.email}
+                    onChange={(e) => setLoginData(prev => ({ ...prev, email: e.target.value }))}
+                    required
+                  />
+                </div>
+                <div>
+                  <Label htmlFor="password">Password</Label>
+                  <Input
+                    id="password"
                     type="password"
-                    value={formData.adminToken}
-                    onChange={(e) => handleInputChange('adminToken', e.target.value)}
-                    placeholder="Enter admin token"
+                    value={loginData.password}
+                    onChange={(e) => setLoginData(prev => ({ ...prev, password: e.target.value }))}
                     required
                   />
                 </div>
-              
-              <div>
-                <Label htmlFor="asin">ASIN</Label>
-                <Input
-                  id="asin"
-                  value={formData.asin}
-                  onChange={(e) => handleInputChange('asin', e.target.value)}
-                  placeholder="B01234567890"
-                  required
-                />
-              </div>
-              
-              <div>
-                <Label htmlFor="title">Product Title</Label>
-                <Input
-                  id="title"
-                  value={formData.title}
-                  onChange={(e) => handleInputChange('title', e.target.value)}
-                  placeholder="Amazing Product Name"
-                  required
-                />
-              </div>
-              
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <Label htmlFor="oldPrice">Old Price</Label>
-                  <Input
-                    id="oldPrice"
-                    type="number"
-                    step="0.01"
-                    value={formData.oldPrice}
-                    onChange={(e) => handleInputChange('oldPrice', e.target.value)}
-                    placeholder="29.99"
-                    required
-                  />
-                </div>
-                <div>
-                  <Label htmlFor="newPrice">New Price</Label>
-                  <Input
-                    id="newPrice"
-                    type="number"
-                    step="0.01"
-                    value={formData.newPrice}
-                    onChange={(e) => handleInputChange('newPrice', e.target.value)}
-                    placeholder="19.99"
-                    required
-                  />
-                </div>
-              </div>
-              
-              <div>
-                <Label htmlFor="email">Test Email Address</Label>
-                <Input
-                  id="email"
-                  type="email"
-                  value={formData.email}
-                  onChange={(e) => handleInputChange('email', e.target.value)}
-                  placeholder="test@example.com"
-                  required
-                />
-              </div>
-              
-              <div className="flex items-center space-x-2">
-                <Checkbox
-                  id="sendEmail"
-                  checked={formData.sendEmail}
-                  onCheckedChange={(checked) => handleInputChange('sendEmail', checked as boolean)}
-                />
-                <Label htmlFor="sendEmail">Actually send email (otherwise just preview)</Label>
-              </div>
-              
-              <Button type="submit" disabled={isSubmitting} className="w-full">
-                  {isSubmitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                  {formData.sendEmail ? 'Send Test Email' : 'Preview Email'}
+                <Button type="submit" className="w-full" disabled={isLoggingIn}>
+                  {isLoggingIn && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                  Login
                 </Button>
               </form>
             </CardContent>
           </Card>
-          
-          {previewHtml && (
-            <Card>
-              <CardHeader>
-                <CardTitle>Email Preview</CardTitle>
-                <CardDescription>How the email will look</CardDescription>
-              </CardHeader>
-              <CardContent>
-                <div 
-                  className="border rounded p-4 bg-white"
-                  dangerouslySetInnerHTML={{ __html: previewHtml }}
-                />
-              </CardContent>
-            </Card>
-          )}
         </div>
-      )}
+      </div>
+    );
+  }
+
+  return (
+    <div className="container mx-auto px-4 py-8">
+      <div className="flex justify-between items-center mb-8">
+        <div>
+          <h1 className="text-3xl font-bold">Admin Email Test</h1>
+          <p className="text-gray-600">Logged in as: {adminSession?.email}</p>
+        </div>
+        <Button variant="outline" onClick={handleLogout}>
+          <LogOut className="mr-2 h-4 w-4" />
+          Logout
+        </Button>
+      </div>
+      
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+        <Card>
+          <CardHeader>
+            <CardTitle>Email Template Testing</CardTitle>
+            <CardDescription>Preview and send test emails</CardDescription>
+          </CardHeader>
+          <CardContent>
+            <form onSubmit={handleSendTestEmail} className="space-y-4">
+              <div>
+                <Label htmlFor="template">Email Template</Label>
+                <Select 
+                  value={selectedTemplate} 
+                  onValueChange={(value) => {
+                    setSelectedTemplate(value);
+                    setPreviewHtml('');
+                  }}
+                  disabled={isLoadingTemplates}
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder="Select a template" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {templates.map((template) => (
+                      <SelectItem key={template.id} value={template.id}>
+                        {template.name}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+
+              {selectedTemplate && (
+                <div>
+                  <Button 
+                    type="button" 
+                    variant="outline" 
+                    onClick={handlePreviewTemplate}
+                    className="w-full mb-4"
+                  >
+                    Preview Template
+                  </Button>
+                </div>
+              )}
+
+              <div>
+                <Label htmlFor="testEmail">Test Email (optional)</Label>
+                <Input
+                  id="testEmail"
+                  type="email"
+                  value={testEmail}
+                  onChange={(e) => setTestEmail(e.target.value)}
+                  placeholder={`Leave empty to use ${adminSession?.email}`}
+                />
+              </div>
+
+              <Button 
+                type="submit" 
+                className="w-full"
+                disabled={!selectedTemplate || isSubmitting}
+              >
+                {isSubmitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                Send Test Email
+              </Button>
+            </form>
+          </CardContent>
+        </Card>
+        
+        {previewHtml && (
+          <Card>
+            <CardHeader>
+              <CardTitle>Email Preview</CardTitle>
+              <CardDescription>How the email will look</CardDescription>
+            </CardHeader>
+            <CardContent>
+              <div 
+                className="border rounded p-4 bg-white max-h-96 overflow-y-auto"
+                dangerouslySetInnerHTML={{ __html: previewHtml }}
+              />
+            </CardContent>
+          </Card>
+        )}
+      </div>
     </div>
   );
 }

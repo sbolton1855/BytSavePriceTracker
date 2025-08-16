@@ -1,4 +1,3 @@
-
 import express from 'express';
 import argon2 from 'argon2';
 import { z } from 'zod';
@@ -17,9 +16,9 @@ const loginSchema = z.object({
 router.post('/login', adminLoginRateLimit, async (req, res) => {
   try {
     const validation = loginSchema.safeParse(req.body);
-    
+
     if (!validation.success) {
-      return res.status(400).json({ 
+      return res.status(400).json({
         error: 'Invalid input',
         details: validation.error.format()
       });
@@ -42,7 +41,7 @@ router.post('/login', adminLoginRateLimit, async (req, res) => {
 
     // Verify password
     const isValidPassword = await argon2.verify(adminPasswordHash, password);
-    
+
     if (!isValidPassword) {
       return res.status(401).json({ error: 'Invalid credentials' });
     }
@@ -53,7 +52,7 @@ router.post('/login', adminLoginRateLimit, async (req, res) => {
       roles: ['admin']
     };
 
-    res.json({ 
+    res.json({
       success: true,
       admin: {
         email: adminEmail,
@@ -68,15 +67,15 @@ router.post('/login', adminLoginRateLimit, async (req, res) => {
 });
 
 // POST /admin/api/logout
-router.post('/logout', (req, res) => {
+router.post('/logout', requireAdmin, (req, res) => {
   req.session.destroy((err) => {
     if (err) {
       console.error('Session destroy error:', err);
-      return res.status(500).json({ error: 'Logout failed' });
+      return res.status(500).json({ error: 'Failed to logout' });
     }
-    
+
     res.clearCookie(process.env.COOKIE_NAME || 'admin.sid', { path: '/admin' });
-    res.json({ success: true });
+    res.json({ success: true, message: 'Logged out successfully' });
   });
 });
 
@@ -88,8 +87,8 @@ router.get('/me', requireAdmin, (req, res) => {
   });
 });
 
-// GET /admin/api/csrf
-router.get('/csrf', csrfProtection, (req, res) => {
+// GET /admin/api/csrf-token
+router.get('/csrf-token', requireAdmin, (req, res) => {
   res.json({ csrfToken: req.csrfToken() });
 });
 
