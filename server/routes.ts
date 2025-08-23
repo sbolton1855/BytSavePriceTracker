@@ -17,6 +17,8 @@ import { sendEmail } from "./sendEmail";
 import { emailLogs, users, products, trackedProducts as productTracking } from "../shared/schema";
 import adminDashboardRoutes from './routes/analytics';
 import adminToolsRoutes from './routes/adminTools';
+import adminAuthRoutes from './routes/adminAuth';
+import adminEmailRoutes from './routes/adminEmail';
 
 
 const AFFILIATE_TAG = process.env.AMAZON_PARTNER_TAG || 'bytsave-20';

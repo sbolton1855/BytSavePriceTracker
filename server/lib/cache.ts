@@ -1,4 +1,3 @@
-
 interface CacheItem {
   value: any;
   expires: number;
@@ -11,25 +10,25 @@ class InMemoryCache {
   set(key: string, value: any, ttlSeconds?: number): void {
     const ttl = ttlSeconds || this.defaultTTL;
     const expires = Date.now() + (ttl * 1000);
-    
+
     this.cache.set(key, { value, expires });
-    
+
     // Clean up expired items periodically
     this.cleanup();
   }
 
   get(key: string): any | null {
     const item = this.cache.get(key);
-    
+
     if (!item) {
       return null;
     }
-    
+
     if (Date.now() > item.expires) {
       this.cache.delete(key);
       return null;
     }
-    
+
     return item.value;
   }
 

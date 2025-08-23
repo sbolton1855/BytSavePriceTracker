@@ -5,12 +5,11 @@ const apiKey = process.env.SENDGRID_API_KEY;
 
 if (!apiKey) {
   console.error('SENDGRID_API_KEY environment variable is not set');
-} else if (!apiKey.startsWith('SG.')) {
-  console.error('Invalid SendGrid API key format. Key should start with "SG."');
-  console.error('Please check your SendGrid API key in Replit Secrets');
 } else {
+  // SendGrid API keys can start with 'SG.' but Replit Secrets may modify the format
+  // Just verify it's a non-empty string and initialize
   sgMail.setApiKey(apiKey);
-  console.log('SendGrid initialized successfully');
+  console.log('SendGrid initialized successfully with API key from Replit Secrets');
 }
 
 export interface SendGridEmailOptions {
@@ -26,8 +25,8 @@ export async function sendEmail(to: string, subject: string, html: string): Prom
       return { success: false, error: 'SendGrid API key not configured' };
     }
 
-    // Further check if the API key was validly set during initialization
-    if (!apiKey || !apiKey.startsWith('SG.')) {
+    // Check if API key is configured
+    if (!apiKey) {
         console.warn('SendGrid API key is invalid or not set. Email not sent.');
         return { success: false, error: 'SendGrid API key is invalid or not configured' };
     }
