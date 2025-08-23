@@ -59,7 +59,61 @@ class InMemoryCache {
 }
 
 // Export singleton instance
-export const cache = new InMemoryCache();
+export const cache = {
+  async set(key: string, value: any, ttl: number = 3600): Promise<void> {
+    try {
+      await redisClient.setEx(key, ttl, JSON.stringify(value));
+    } catch (error) {
+      console.warn('Cache set failed:', error);
+    }
+  },
+
+  async get(key: string): Promise<any> {
+    try {
+      const value = await redisClient.get(key);
+      return value ? JSON.parse(value) : null;
+    } catch (error) {
+      console.warn('Cache get failed:', error);
+      return null;
+    }
+  },
+
+  async getProduct(asin: string): Promise<any> {
+    try {
+      const key = `product:${asin}`;
+      const value = await redisClient.get(key);
+      return value ? JSON.parse(value) : null;
+    } catch (error) {
+      console.warn('Cache getProduct failed:', error);
+      return null;
+    }
+  },
+
+  async setProduct(asin: string, productData: any, ttl: number = 3600): Promise<void> {
+    try {
+      const key = `product:${asin}`;
+      await redisClient.setEx(key, ttl, JSON.stringify(productData));
+    } catch (error) {
+      console.warn('Cache setProduct failed:', error);
+    }
+  },
+
+  async del(key: string): Promise<void> {
+    try {
+      await redisClient.del(key);
+    } catch (error) {
+      console.warn('Cache delete failed:', error);
+    }
+  },
+
+  async clear(): Promise<void> {
+    try {
+      await redisClient.flushAll();
+    } catch (error) {
+      console.warn('Cache clear failed:', error);
+    }
+  }
+};
 
 // Helper functions for common cache patterns
 export const cacheGet = (key: string) => cache.get(key);

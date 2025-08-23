@@ -182,7 +182,7 @@ async function getDetailedProductInfo(asins: string[]): Promise<any[]> {
     }
     return product;
   }).filter(Boolean);
-  
+
   const uncachedAsins = asins.filter(asin => !cache.getProduct(asin));
 
   if (uncachedAsins.length === 0) {
@@ -209,7 +209,7 @@ async function getDetailedProductInfo(asins: string[]): Promise<any[]> {
         // Check for price drops
         const oldPrice = cache.getPriceHistory(product.ASIN).slice(-1)[0]?.price;
         const newPrice = mappedProduct.price;
-        
+
         if (oldPrice && newPrice && newPrice < oldPrice) {
           const dropPercent = ((oldPrice - newPrice) / oldPrice) * 100;
           metrics.recordPriceDrop({
@@ -236,7 +236,7 @@ async function getDetailedProductInfo(asins: string[]): Promise<any[]> {
 async function getProductInfo(asinOrUrl: string): Promise<AmazonProduct> {
   // Determine if input is ASIN or URL
   let asin = asinOrUrl;
-  
+
   if (asinOrUrl.includes('amazon.com')) {
     const extractedAsin = extractAsinFromUrl(asinOrUrl);
     if (!extractedAsin) {
@@ -258,8 +258,9 @@ async function getProductInfo(asinOrUrl: string): Promise<AmazonProduct> {
 
   try {
     // Check cache first
-    const cachedProduct = cache.getProduct(asin);
+    const cachedProduct = await cache.getProduct(asin);
     if (cachedProduct && !isYumEarth) {
+      console.log(`📦 Cache hit for ASIN ${asin}`);
       return cachedProduct;
     }
 
@@ -271,28 +272,28 @@ async function getProductInfo(asinOrUrl: string): Promise<AmazonProduct> {
 
     // Extract data with fallbacks for missing information
     const title = item.ItemInfo?.Title?.DisplayValue || `Amazon Product (${asin})`;
-    
+
     // Enhanced price extraction logic
     let currentPrice = 0;
     let originalPrice: number | undefined = undefined;
     let couponDetected = false;
-    
+
     // Special handling for TRUEplus insulin syringes
     const isTRUEplus = asin === 'B01DJGLYZQ';
-    
+
     if (item.Offers?.Listings?.length > 0) {
       const listing = item.Offers.Listings[0];
-      
+
       if (isYumEarth || isTRUEplus) {
         console.log(`DEBUG: ${isYumEarth ? 'YumEarth' : 'TRUEplus'} listing data:`, JSON.stringify(listing, null, 2));
       }
-      
+
       // Get current price
       if (listing.Price?.Amount) {
         currentPrice = parseFloat(listing.Price.Amount);
         if (isYumEarth || isTRUEplus) {
           console.log(`DEBUG: ${isYumEarth ? 'YumEarth' : 'TRUEplus'} current price from Price.Amount:`, currentPrice);
-          
+
           // Log warning if price seems incorrect for known products
           if (asin === 'B08PX626SG' && Math.abs(currentPrice - 9.99) > 0.01) {
             console.warn(`WARNING: API price ($${currentPrice}) differs from known price ($9.99) for YumEarth product`);
@@ -304,7 +305,7 @@ async function getProductInfo(asinOrUrl: string): Promise<AmazonProduct> {
           }
         }
       }
-      
+
       // Get original/list price
       if (listing.SavingBasis?.Amount) {
         originalPrice = parseFloat(listing.SavingBasis.Amount);
@@ -315,7 +316,7 @@ async function getProductInfo(asinOrUrl: string): Promise<AmazonProduct> {
 
       // Check for coupons/promotions
       couponDetected = listing.Promotions?.length > 0;
-      
+
       // Known price corrections for specific products
       if (asin === 'B08PX626SG') {
         currentPrice = 9.99;
@@ -324,13 +325,13 @@ async function getProductInfo(asinOrUrl: string): Promise<AmazonProduct> {
           console.log('DEBUG: Using known prices for YumEarth product:', { currentPrice, originalPrice });
         }
       }
-      
+
       // Log actual API prices for debugging - no more hard-coded overrides
       if (asin === 'B01DJGLYZQ') {
         console.log('[DEBUG] TRUEplus API Response - currentPrice:', currentPrice, 'originalPrice:', originalPrice);
         console.log('[DEBUG] No override applied, using actual API prices');
       }
-      
+
       // Log all price data found
       if (isYumEarth) {
         console.log('DEBUG: YumEarth final price data:', {
@@ -354,10 +355,8 @@ async function getProductInfo(asinOrUrl: string): Promise<AmazonProduct> {
       couponDetected
     };
 
-    // Cache the product
-    if (!isYumEarth) {
-      cache.setProduct(asin, product);
-    }
+    // Cache the result
+    await cache.setProduct(asin, product, 3600);
 
     // Check for price drops
     if (cache.hasPriceDrop(asin, currentPrice)) {
@@ -376,7 +375,7 @@ function addAffiliateTag(url: string, tag: string = PARTNER_TAG): string {
   // Check if URL already has parameters
   const hasParams = url.includes('?');
   const separator = hasParams ? '&' : '?';
-  
+
   // Add the tag parameter
   return `${url}${separator}tag=${tag}`;
 }
@@ -393,7 +392,7 @@ export async function getProductInfoSafe(asin: string) {
     // Categorize the error for better handling
     let errorCategory = 'UNKNOWN';
     let errorMessage = 'Unknown error';
-    
+
     if (error instanceof Error) {
       errorMessage = error.message;
       if (error.message.includes('No product data found')) {
@@ -406,7 +405,7 @@ export async function getProductInfoSafe(asin: string) {
         errorCategory = 'INVALID_ASIN';
       }
     }
-    
+
     console.error(`🚫 Failed to fetch ASIN ${asin} (${errorCategory}): ${errorMessage}`);
     return null;
   }
