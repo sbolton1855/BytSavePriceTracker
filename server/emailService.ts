@@ -120,6 +120,9 @@ async function sendEmail(options: EmailOptions): Promise<any> {
   }
 }
 
+// Re-export the SendGrid sendEmail function for password resets and other generic emails
+export { sendEmail as sendGridEmail } from './email/sendgridService';
+
 export {
   sendPriceDropAlert,
   sendEmail
