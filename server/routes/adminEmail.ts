@@ -5,7 +5,7 @@ import { sendEmail } from '../emailService';
 import { z } from 'zod';
 import { sql, desc, count, and } from 'drizzle-orm'; // Assuming you're using drizzle-orm and need these functions
 import { db } from '../db'; // Assuming you have a db instance initialized
-import { emailLogs } from '../db/schema'; // Assuming you have emailLogs schema defined
+import { emailLogs, affiliateClicks } from '../../shared/schema'; // Import from correct schema location
 
 const router = express.Router();
 
