@@ -1,6 +1,6 @@
 
 import { sendEmail as sendGridEmail } from './email/sendgridService';
-import { addAffiliateTag } from './amazonApi';
+import { addAffiliateTag } from './utils/affiliateLinks';
 import type { Product, TrackedProduct } from '@shared/schema';
 
 // Default affiliate tag
@@ -60,7 +60,11 @@ function createPriceDropEmail(
         for this product on ${new Date(trackedProduct.createdAt).toLocaleDateString()}.
       </p>
       
-      <p style="color: #6B7280; font-size: 12px; text-align: center; margin-top: 30px;">
+      <hr style="margin: 30px 0; border: 0; border-top: 1px solid #E5E7EB;">
+      <p style="color: #999; font-size: 11px; text-align: center; font-style: italic; margin: 10px 0;">
+        As an Amazon Associate, BytSave earns from qualifying purchases.
+      </p>
+      <p style="color: #6B7280; font-size: 12px; text-align: center; margin-top: 10px;">
         This email was sent by BytSave. <a href="#" style="color: #3B82F6;">Unsubscribe</a> or <a href="#" style="color: #3B82F6;">Manage Preferences</a>
       </p>
     </div>

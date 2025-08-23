@@ -19,11 +19,13 @@ export function generateEmailSubject(data: PriceDropTemplateData): string {
   return `🔥 Price Drop: ${shortTitle} now $${newPrice.toFixed(2)} (${savingsPercentage}% off!)`;
 }
 
+import { buildAffiliateLink, AFFILIATE_DISCLOSURE } from './utils/affiliateLinks';
+
 export function renderPriceDropTemplate(data: PriceDropTemplateData): string {
   const { asin, productTitle, oldPrice, newPrice } = data;
   const savings = oldPrice - newPrice;
   const savingsPercentage = Math.round((savings / oldPrice) * 100);
-  const amazonUrl = `https://www.amazon.com/dp/${asin}`;
+  const amazonUrl = buildAffiliateLink(asin);
   const productImageUrl = `https://images-na.ssl-images-amazon.com/images/P/${asin}.01.L.jpg`;
 
   return `
@@ -175,6 +177,8 @@ export function renderPriceDropTemplate(data: PriceDropTemplateData): string {
                 <p>This price drop alert was sent by <strong>BytSave</strong></p>
                 <p>We monitor Amazon prices so you don't have to!</p>
                 <p><small>Price data last updated: ${new Date().toLocaleString()}</small></p>
+                <hr style="margin: 20px 0; border: 0; border-top: 1px solid #eee;">
+                <p style="color: #999; font-size: 11px; font-style: italic;">${AFFILIATE_DISCLOSURE}</p>
             </div>
         </div>
     </body>

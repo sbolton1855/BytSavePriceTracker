@@ -58,3 +58,16 @@ export const sessions = pgTable("sessions", {
 }, (table) => [
 	index("IDX_session_expire").using("btree", table.expire.asc().nullsLast().op("timestamp_ops")),
 ]);
+
+export const affiliateClicks = pgTable('affiliate_clicks', {
+  id: serial('id').primaryKey(),
+  userId: text('user_id'),
+  asin: text('asin').notNull(),
+  clickedAt: timestamp('clicked_at').defaultNow().notNull(),
+  userAgent: text('user_agent'),
+  ipAddress: text('ip_address'),
+  referrer: text('referrer')
+});
+
+export const emailLogs = pgTable('email_logs', {
+});

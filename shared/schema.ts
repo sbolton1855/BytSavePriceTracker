@@ -204,6 +204,16 @@ export const apiErrorsRelations = relations(apiErrors, ({ one }) => ({
 }));
 
 // Email logs table
+export const affiliateClicks = pgTable('affiliate_clicks', {
+  id: serial('id').primaryKey(),
+  userId: text('user_id'),
+  asin: text('asin').notNull(),
+  clickedAt: timestamp('clicked_at').defaultNow().notNull(),
+  userAgent: text('user_agent'),
+  ipAddress: text('ip_address'),
+  referrer: text('referrer')
+});
+
 export const emailLogs = pgTable('email_logs', {
   id: serial('id').primaryKey(),
   recipientEmail: varchar('recipient_email', { length: 255 }).notNull(),

@@ -9,6 +9,22 @@ import { emailLogs } from '../db/schema'; // Assuming you have emailLogs schema 
 
 const router = express.Router();
 
+// Load environment variables
+import dotenv from 'dotenv';
+dotenv.config();
+
+// Affiliate Link Helper
+function buildAffiliateLink(asin: string): string {
+  const tag = process.env.AMAZON_AFFILIATE_TAG;
+  if (!tag) {
+    console.warn('AMAZON_AFFILIATE_TAG is not set. Affiliate links will not include the tag.');
+    return `https://www.amazon.com/dp/${asin}?linkCode=ogi&th=1&psc=1`;
+  }
+  return `https://www.amazon.com/dp/${asin}?tag=${tag}&linkCode=ogi&th=1&psc=1`;
+}
+
+const AFFILIATE_DISCLOSURE = "As an Amazon Associate, BytSave earns from qualifying purchases.";
+
 // All routes require admin authentication
 router.use(requireAdmin);
 
@@ -24,7 +40,7 @@ const EMAIL_TEMPLATES = {
       currentPrice: '$19.99',
       originalPrice: '$29.99',
       savings: '$10.00 (33%)',
-      productUrl: 'https://amazon.com/sample'
+      productUrl: buildAffiliateLink('SAMPLE_ASIN_1') // Using helper to build link
     }
   },
   'welcome': {
@@ -83,6 +99,9 @@ router.get('/preview/:templateId', (req, res) => {
               View Deal on Amazon
             </a>
           </div>
+          <p style="color: #666; font-size: 12px; margin-top: 20px;">This is a test email from BytSave Admin Panel.</p>
+          <hr style="margin: 20px 0; border: 0; border-top: 1px solid #eee;">
+          <p style="color: #999; font-size: 11px; font-style: italic;">${AFFILIATE_DISCLOSURE}</p>
         </div>
       `;
       break;
@@ -93,6 +112,9 @@ router.get('/preview/:templateId', (req, res) => {
           <p>Hi ${template.previewData.firstName},</p>
           <p>Thank you for signing up for BytSave Price Tracker. We're excited to help you save money on your favorite products!</p>
           <p>Start tracking products and we'll notify you when prices drop.</p>
+          <p style="color: #666; font-size: 12px; margin-top: 20px;">This is a test email from BytSave Admin Panel.</p>
+          <hr style="margin: 20px 0; border: 0; border-top: 1px solid #eee;">
+          <p style="color: #999; font-size: 11px; font-style: italic;">${AFFILIATE_DISCLOSURE}</p>
         </div>
       `;
       break;
@@ -209,6 +231,12 @@ router.post('/test', csrfProtection, async (req, res) => {
     // Merge template data with custom data
     const emailData = { ...template.previewData, ...customData };
 
+    // Update productUrl in emailData if it exists and is for a price-drop template
+    if (templateId === 'price-drop' && emailData.productUrl && customData?.asin) {
+      emailData.productUrl = buildAffiliateLink(customData.asin);
+    }
+
+
     // Send test email
     const emailResult = await sendEmail({
       to: recipient,
@@ -246,6 +274,8 @@ function generateEmailHtml(templateId: string, data: any): string {
             </a>
           </div>
           <p style="color: #666; font-size: 12px; margin-top: 20px;">This is a test email from BytSave Admin Panel.</p>
+          <hr style="margin: 20px 0; border: 0; border-top: 1px solid #eee;">
+          <p style="color: #999; font-size: 11px; font-style: italic;">${AFFILIATE_DISCLOSURE}</p>
         </div>
       `;
     case 'welcome':
@@ -256,6 +286,8 @@ function generateEmailHtml(templateId: string, data: any): string {
           <p>Thank you for signing up for BytSave Price Tracker. We're excited to help you save money on your favorite products!</p>
           <p>Start tracking products and we'll notify you when prices drop.</p>
           <p style="color: #666; font-size: 12px; margin-top: 20px;">This is a test email from BytSave Admin Panel.</p>
+          <hr style="margin: 20px 0; border: 0; border-top: 1px solid #eee;">
+          <p style="color: #999; font-size: 11px; font-style: italic;">${AFFILIATE_DISCLOSURE}</p>
         </div>
       `;
     default:
@@ -353,5 +385,36 @@ router.get('/logs', async (req, res) => {
     res.status(500).json({ error: 'Failed to fetch email logs' });
   }
 });
+
+// Redirect endpoint for affiliate link clicks
+router.get('/r/:asin', async (req, res) => {
+  const { asin } = req.params;
+  const { u: userId } = req.query; // Get userId from query parameter
+
+  try {
+    // Log the click event
+    if (userId) {
+      await db.insert(affiliateClicks).values({
+        userId: userId as string,
+        asin: asin as string,
+      });
+    } else {
+      console.warn('Affiliate click logged without userId:', { asin });
+      // Optionally, you could still log it without a userId if that's acceptable
+      // await db.insert(affiliateClicks).values({ asin: asin as string });
+    }
+
+    // Redirect to the affiliate link
+    const affiliateUrl = buildAffiliateLink(asin as string);
+    res.redirect(302, affiliateUrl);
+
+  } catch (error) {
+    console.error('Error logging affiliate click or redirecting:', error);
+    // Fallback redirect or error response
+    const affiliateUrl = buildAffiliateLink(asin as string); // Try to build URL even on error
+    res.redirect(302, affiliateUrl); // Redirect anyway, or show an error page
+  }
+});
+
 
 export default router;

@@ -2215,9 +2215,17 @@ Respond with just the analysis text, no JSON needed.
   app.use('/api/admin', adminAuthRoutes);
   app.use('/api/admin', adminEmailRoutes);
   app.use('/api/admin', adminToolsRoutes);
+  
+  // Admin affiliate routes
+  const adminAffiliateRoutes = await import('./routes/adminAffiliate');
+  app.use('/api/admin/affiliate', adminAffiliateRoutes.default);
 
   // Email testing routes
   app.use('/api/admin', emailTestRoutes);
+
+  // Affiliate redirect routes
+  const affiliateRoutes = await import('./routes/affiliate');
+  app.use('/', affiliateRoutes.default);
 
   app.use('/api', amazonRouter);
   // console.log(">>> [DEBUG] Registered amazonRouter at /api");
