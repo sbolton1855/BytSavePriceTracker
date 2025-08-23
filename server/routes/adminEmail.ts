@@ -108,6 +108,76 @@ router.get('/preview/:templateId', (req, res) => {
   });
 });
 
+// GET /admin/api/test-reset - Test password reset emails
+router.get('/test-reset', async (req, res) => {
+  try {
+    const { email, token, send } = req.query;
+
+    // Check admin token
+    if (!token || token !== process.env.ADMIN_SECRET) {
+      return res.status(403).json({ error: 'Unauthorized' });
+    }
+
+    if (!email) {
+      return res.status(400).json({ error: 'Email parameter is required' });
+    }
+
+    // Generate password reset email HTML using the same template as authService
+    const resetUrl = send === 'true' 
+      ? `${req.protocol}://${req.get('host')}/reset-password.html?token=LIVE_RESET_TOKEN`
+      : `https://bytsave.com/reset/EXAMPLETOKEN`;
+
+    const resetEmailHtml = `
+      <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; border: 1px solid #ddd; border-radius: 8px;">
+        <h2 style="color: #333; border-bottom: 1px solid #eee; padding-bottom: 10px;">Password Reset</h2>
+        <p style="color: #555; line-height: 1.6;">Hello,</p>
+        <p style="color: #555; line-height: 1.6;">You requested to reset your password for your BytSave account.</p>
+        <p style="margin: 20px 0;">
+          <a href="${resetUrl}" style="background-color: #007bff; color: white; padding: 12px 25px; text-decoration: none; border-radius: 5px; display: inline-block; font-weight: bold;">
+            Reset Password
+          </a>
+        </p>
+        <p style="color: #555; line-height: 1.6;">
+          If the button above doesn't work, you can also copy and paste the following link into your browser:
+        </p>
+        <p style="color: #007bff; word-break: break-all;">${resetUrl}</p>
+        <p style="color: #777; font-size: 12px; margin-top: 20px;">
+          This password reset link will expire in 15 minutes. If you did not request a password reset, please ignore this email.
+        </p>
+        <hr style="margin: 30px 0; border: 0; border-top: 1px solid #eee;">
+        <p style="color: #999; font-size: 12px;">Thank you,<br>The BytSave Team</p>
+      </div>
+    `;
+
+    // If send=true, actually send the email
+    if (send === 'true') {
+      const emailResult = await sendEmail({
+        to: email as string,
+        subject: '[TEST] Reset your BytSave password',
+        html: resetEmailHtml
+      });
+
+      res.json({
+        success: true,
+        message: `Password reset test email sent to ${email}`,
+        emailResult
+      });
+    } else {
+      // Preview mode - return HTML
+      res.json({
+        success: true,
+        message: 'Password reset email preview generated',
+        previewHtml: resetEmailHtml,
+        previewUrl: `Preview mode - HTML returned in response`
+      });
+    }
+
+  } catch (error) {
+    console.error('Password reset test error:', error);
+    res.status(500).json({ error: 'Failed to test password reset email' });
+  }
+});
+
 // POST /admin/api/email/test
 router.post('/test', csrfProtection, async (req, res) => {
   try {
