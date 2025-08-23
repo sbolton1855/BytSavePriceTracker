@@ -2205,6 +2205,16 @@ Respond with just the analysis text, no JSON needed.
     }
   });
 
+  // Import routes
+  app.use('/api/admin', adminDashboardRoutes);
+  app.use('/api/admin', adminAuthRoutes);
+  app.use('/api/admin', adminEmailRoutes);
+  app.use('/api/admin', adminToolsRoutes);
+
+  // Email testing routes
+  const emailTestRoutes = require('./routes/emailTest').default;
+  app.use('/api/admin', emailTestRoutes);
+
   app.use('/api', amazonRouter);
   // console.log(">>> [DEBUG] Registered amazonRouter at /api");
 
