@@ -15,6 +15,8 @@ import { eq, sql, desc } from "drizzle-orm";
 import { renderPriceDropTemplate } from "./emailTemplates";
 import { sendEmail } from "./sendEmail";
 import { emailLogs, users, products, trackedProducts as productTracking } from "../shared/schema";
+import adminDashboardRoutes from './routes/analytics';
+import adminToolsRoutes from './routes/adminTools';
 
 
 const AFFILIATE_TAG = process.env.AMAZON_PARTNER_TAG || 'bytsave-20';

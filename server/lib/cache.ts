@@ -1,93 +1,68 @@
-import LRU from 'lru-cache';
-import type { AmazonProduct } from '../amazonApi';
 
-// Cache configuration
-const CACHE_OPTIONS = {
-  max: 500, // Maximum number of items to store
-  ttl: 1000 * 60 * 60 * 6, // 6 hours
-  updateAgeOnGet: true, // Reset TTL when item is accessed
-};
-
-// Create separate caches for different types of data
-const productCache = new LRU<string, AmazonProduct>(CACHE_OPTIONS);
-const priceHistoryCache = new LRU<string, PriceHistoryEntry[]>(CACHE_OPTIONS);
-
-// Interface for price history entries
-interface PriceHistoryEntry {
-  price: number;
-  originalPrice?: number;
-  timestamp: Date;
+interface CacheItem {
+  value: any;
+  expires: number;
 }
 
-/**
- * Cache wrapper for product data
- */
-export const cache = {
-  /**
-   * Get a product from cache
-   */
-  getProduct(asin: string): AmazonProduct | undefined {
-    return productCache.get(asin);
-  },
+class InMemoryCache {
+  private cache = new Map<string, CacheItem>();
+  private defaultTTL = 300; // 5 minutes default
 
-  /**
-   * Store a product in cache and track price history
-   */
-  setProduct(asin: string, product: AmazonProduct): void {
-    const existingProduct = productCache.get(asin);
+  set(key: string, value: any, ttlSeconds?: number): void {
+    const ttl = ttlSeconds || this.defaultTTL;
+    const expires = Date.now() + (ttl * 1000);
     
-    // Store the new product
-    productCache.set(asin, product);
-
-    // Update price history if price changed
-    if (existingProduct && existingProduct.price !== product.price) {
-      this.addPriceHistoryEntry(asin, {
-        price: product.price,
-        originalPrice: product.originalPrice,
-        timestamp: new Date()
-      });
-    }
-  },
-
-  /**
-   * Get price history for a product
-   */
-  getPriceHistory(asin: string): PriceHistoryEntry[] {
-    return priceHistoryCache.get(asin) || [];
-  },
-
-  /**
-   * Add a price history entry
-   */
-  addPriceHistoryEntry(asin: string, entry: PriceHistoryEntry): void {
-    const history = this.getPriceHistory(asin);
-    history.push(entry);
+    this.cache.set(key, { value, expires });
     
-    // Keep only last 30 days of history
-    const thirtyDaysAgo = new Date();
-    thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
-    
-    const filteredHistory = history.filter(e => e.timestamp >= thirtyDaysAgo);
-    priceHistoryCache.set(asin, filteredHistory);
-  },
-
-  /**
-   * Check if a price drop occurred
-   */
-  hasPriceDrop(asin: string, currentPrice: number): boolean {
-    const history = this.getPriceHistory(asin);
-    if (history.length === 0) return false;
-
-    // Get the previous price
-    const previousEntry = history[history.length - 1];
-    return currentPrice < previousEntry.price;
-  },
-
-  /**
-   * Clear all caches
-   */
-  clear(): void {
-    productCache.clear();
-    priceHistoryCache.clear();
+    // Clean up expired items periodically
+    this.cleanup();
   }
-}; 
+
+  get(key: string): any | null {
+    const item = this.cache.get(key);
+    
+    if (!item) {
+      return null;
+    }
+    
+    if (Date.now() > item.expires) {
+      this.cache.delete(key);
+      return null;
+    }
+    
+    return item.value;
+  }
+
+  delete(key: string): void {
+    this.cache.delete(key);
+  }
+
+  clear(): void {
+    this.cache.clear();
+  }
+
+  private cleanup(): void {
+    const now = Date.now();
+    for (const [key, item] of this.cache.entries()) {
+      if (now > item.expires) {
+        this.cache.delete(key);
+      }
+    }
+  }
+
+  // Get cache stats
+  getStats() {
+    return {
+      size: this.cache.size,
+      keys: Array.from(this.cache.keys())
+    };
+  }
+}
+
+// Export singleton instance
+export const cache = new InMemoryCache();
+
+// Helper functions for common cache patterns
+export const cacheGet = (key: string) => cache.get(key);
+export const cacheSet = (key: string, value: any, ttl?: number) => cache.set(key, value, ttl);
+export const cacheDel = (key: string) => cache.delete(key);
