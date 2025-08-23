@@ -7,7 +7,7 @@ import { getProductInfo, searchProducts, extractAsinFromUrl, isValidAsin, addAff
 import { startPriceChecker, checkPricesAndNotify } from "./priceChecker";
 import { requireAuth, configureAuth } from "./authService";
 import { z } from "zod";
-import { trackingFormSchema, type Product, trackedProducts } from "@shared/schema";
+import { trackingFormSchema } from "@shared/schema";
 import { fetchSignedAmazonRequest } from './lib/awsSignedRequest';
 import amazonRouter from './routes/amazon';
 // import { db } from "./db"; // Duplicate import, remove one
@@ -19,6 +19,7 @@ import adminDashboardRoutes from './routes/analytics';
 import adminToolsRoutes from './routes/adminTools';
 import adminAuthRoutes from './routes/adminAuth';
 import adminEmailRoutes from './routes/adminEmail';
+import emailTestRoutes from './routes/emailTest';
 
 
 const AFFILIATE_TAG = process.env.AMAZON_PARTNER_TAG || 'bytsave-20';
@@ -2216,7 +2217,6 @@ Respond with just the analysis text, no JSON needed.
   app.use('/api/admin', adminToolsRoutes);
 
   // Email testing routes
-  const emailTestRoutes = require('./routes/emailTest').default;
   app.use('/api/admin', emailTestRoutes);
 
   app.use('/api', amazonRouter);
