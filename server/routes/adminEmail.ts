@@ -1,9 +1,11 @@
-
 import express from 'express';
 import { requireAdmin } from '../middleware/requireAdmin';
 import { csrfProtection } from '../middleware/adminSecurity';
 import { sendEmail } from '../emailService';
 import { z } from 'zod';
+import { sql, desc, count, and } from 'drizzle-orm'; // Assuming you're using drizzle-orm and need these functions
+import { db } from '../db'; // Assuming you have a db instance initialized
+import { emailLogs } from '../db/schema'; // Assuming you have emailLogs schema defined
 
 const router = express.Router();
 
@@ -51,7 +53,7 @@ router.get('/templates', (req, res) => {
     name: template.name,
     description: template.description
   }));
-  
+
   res.json({ templates });
 });
 
@@ -59,14 +61,14 @@ router.get('/templates', (req, res) => {
 router.get('/preview/:templateId', (req, res) => {
   const { templateId } = req.params;
   const template = EMAIL_TEMPLATES[templateId as keyof typeof EMAIL_TEMPLATES];
-  
+
   if (!template) {
     return res.status(404).json({ error: 'Template not found' });
   }
 
   // Generate preview HTML based on template
   let previewHtml = '';
-  
+
   switch (templateId) {
     case 'price-drop':
       previewHtml = `
@@ -123,7 +125,7 @@ router.get('/test-reset', async (req, res) => {
     }
 
     // Generate password reset email HTML using the same template as authService
-    const resetUrl = send === 'true' 
+    const resetUrl = send === 'true'
       ? `${req.protocol}://${req.get('host')}/reset-password.html?token=LIVE_RESET_TOKEN`
       : `https://bytsave.com/reset/EXAMPLETOKEN`;
 
@@ -182,9 +184,9 @@ router.get('/test-reset', async (req, res) => {
 router.post('/test', csrfProtection, async (req, res) => {
   try {
     const validation = testEmailSchema.safeParse(req.body);
-    
+
     if (!validation.success) {
-      return res.status(400).json({ 
+      return res.status(400).json({
         error: 'Invalid input',
         details: validation.error.format()
       });
@@ -192,21 +194,21 @@ router.post('/test', csrfProtection, async (req, res) => {
 
     const { to, templateId, customData } = validation.data;
     const template = EMAIL_TEMPLATES[templateId as keyof typeof EMAIL_TEMPLATES];
-    
+
     if (!template) {
       return res.status(404).json({ error: 'Template not found' });
     }
 
     // Use admin email as default recipient
     const recipient = to || req.session.admin?.email;
-    
+
     if (!recipient) {
       return res.status(400).json({ error: 'No recipient specified' });
     }
 
     // Merge template data with custom data
     const emailData = { ...template.previewData, ...customData };
-    
+
     // Send test email
     const emailResult = await sendEmail({
       to: recipient,
@@ -215,7 +217,7 @@ router.post('/test', csrfProtection, async (req, res) => {
       templateId: templateId
     });
 
-    res.json({ 
+    res.json({
       success: true,
       message: `Test email sent to ${recipient}`,
       emailResult
@@ -260,5 +262,96 @@ function generateEmailHtml(templateId: string, data: any): string {
       return '<p>Template not found</p>';
   }
 }
+
+// GET /admin/api/email-logs - View email logs with pagination and filtering
+router.get('/logs', async (req, res) => {
+  try {
+    const { token, page = '1', pageSize = '20', status, type } = req.query;
+
+    // Check admin token
+    if (!token || token !== process.env.ADMIN_SECRET) {
+      return res.status(403).json({ error: 'Unauthorized' });
+    }
+
+    const pageNum = parseInt(page as string) || 1;
+    const limit = parseInt(pageSize as string) || 20;
+    const offset = (pageNum - 1) * limit;
+
+    // Build where conditions
+    let whereConditions = [];
+
+    if (status) {
+      // Determine status based on whether there's an error or not
+      if (status === 'fail') {
+        whereConditions.push(sql`${emailLogs.subject} LIKE '%ERROR%' OR ${emailLogs.subject} LIKE '%FAILED%'`);
+      } else if (status === 'success') {
+        whereConditions.push(sql`${emailLogs.subject} NOT LIKE '%ERROR%' AND ${emailLogs.subject} NOT LIKE '%FAILED%'`);
+      }
+    }
+
+    if (type) {
+      if (type === 'price-drop') {
+        whereConditions.push(sql`${emailLogs.subject} LIKE '%Price Drop%'`);
+      } else if (type === 'reset') {
+        whereConditions.push(sql`${emailLogs.subject} LIKE '%Reset%'`);
+      } else if (type === 'test') {
+        whereConditions.push(sql`${emailLogs.subject} LIKE '%TEST%'`);
+      }
+    }
+
+    // Build the query
+    let query = db.select({
+      id: emailLogs.id,
+      recipientEmail: emailLogs.recipientEmail,
+      subject: emailLogs.subject,
+      sentAt: emailLogs.sentAt,
+      previewHtml: emailLogs.previewHtml,
+      createdAt: emailLogs.createdAt
+    }).from(emailLogs);
+
+    if (whereConditions.length > 0) {
+      query = query.where(and(...whereConditions));
+    }
+
+    // Get paginated results
+    const logs = await query
+      .orderBy(desc(emailLogs.createdAt))
+      .limit(limit)
+      .offset(offset);
+
+    // Get total count for pagination
+    let countQuery = db.select({ count: count() }).from(emailLogs);
+    if (whereConditions.length > 0) {
+      countQuery = countQuery.where(and(...whereConditions));
+    }
+    const [{ count: total }] = await countQuery;
+
+    // Process logs to add status and type
+    const processedLogs = logs.map(log => ({
+      id: log.id,
+      recipientEmail: log.recipientEmail,
+      subject: log.subject,
+      sentAt: log.sentAt,
+      previewHtml: log.previewHtml,
+      createdAt: log.createdAt,
+      status: (log.subject?.includes('ERROR') || log.subject?.includes('FAILED')) ? 'fail' : 'success',
+      type: log.subject?.includes('Price Drop') ? 'price-drop' :
+            log.subject?.includes('Reset') ? 'reset' :
+            log.subject?.includes('TEST') ? 'test' : 'other'
+    }));
+
+    res.json({
+      logs: processedLogs,
+      total,
+      page: pageNum,
+      pageSize: limit,
+      totalPages: Math.ceil(total / limit)
+    });
+
+  } catch (error) {
+    console.error('Email logs fetch error:', error);
+    res.status(500).json({ error: 'Failed to fetch email logs' });
+  }
+});
 
 export default router;

@@ -1,22 +1,74 @@
-
-import { useState, useEffect } from "react";
+import { useState, useRef } from 'react';
+import { useQuery } from '@tanstack/react-query';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Textarea } from "@/components/ui/textarea";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
+import { Badge } from '@/components/ui/badge';
+import { Loader2, Mail, Send, Eye, AlertCircle, ChevronLeft, ChevronRight, CheckCircle, XCircle } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
-import { Loader2, Mail, Send, Eye, AlertCircle } from "lucide-react";
+
+interface EmailLog {
+  id: number;
+  recipientEmail: string;
+  subject: string;
+  sentAt: string;
+  previewHtml: string;
+  createdAt: string;
+  status: 'success' | 'fail';
+  type: 'price-drop' | 'reset' | 'test' | 'other';
+}
+
+interface EmailLogsResponse {
+  logs: EmailLog[];
+  total: number;
+  page: number;
+  pageSize: number;
+  totalPages: number;
+}
 
 export default function AdminEmailCenter() {
-  const { toast } = useToast();
-  
-  // Admin token state with localStorage persistence
   const [adminToken, setAdminToken] = useState(() => 
-    localStorage.getItem('admin-email-token') || ''
+    localStorage.getItem('adminToken') || ''
   );
-  
+  const [results, setResults] = useState<Record<string, any>>({});
+  const [currentPage, setCurrentPage] = useState(1);
+  const [statusFilter, setStatusFilter] = useState<string>('');
+  const [typeFilter, setTypeFilter] = useState<string>('');
+  const iframeRef = useRef<HTMLIFrameElement>(null);
+  const { toast } = useToast();
+
+  // Query for email logs
+  const { data: emailLogs, isLoading: logsLoading, refetch: refetchLogs } = useQuery<EmailLogsResponse>({
+    queryKey: ['admin-email-logs', adminToken, currentPage, statusFilter, typeFilter],
+    queryFn: async () => {
+      const params = new URLSearchParams({
+        token: adminToken,
+        page: currentPage.toString(),
+        pageSize: '20',
+        ...(statusFilter && { status: statusFilter }),
+        ...(typeFilter && { type: typeFilter })
+      });
+
+      const response = await fetch(`/api/admin/email-logs?${params}`);
+      if (!response.ok) {
+        if (response.status === 403) {
+          toast({ title: "Unauthorized", description: "Invalid admin token.", variant: "destructive" });
+        } else {
+          toast({ title: "Error", description: "Failed to fetch email logs.", variant: "destructive" });
+        }
+        throw new Error('Failed to fetch email logs');
+      }
+      return response.json();
+    },
+    enabled: !!adminToken,
+  });
+
+
   // Price Drop Alert form state
   const [priceDropForm, setPriceDropForm] = useState({
     asin: '',
@@ -25,17 +77,17 @@ export default function AdminEmailCenter() {
     newPrice: '',
     email: ''
   });
-  
+
   // Password Reset form state
   const [passwordResetForm, setPasswordResetForm] = useState({
     email: ''
   });
-  
+
   // Generic Test Email form state
   const [genericEmailForm, setGenericEmailForm] = useState({
     email: ''
   });
-  
+
   // Loading states
   const [isLoading, setIsLoading] = useState({
     priceDropPreview: false,
@@ -44,20 +96,6 @@ export default function AdminEmailCenter() {
     passwordResetSend: false,
     genericTest: false
   });
-  
-  // Results state
-  const [results, setResults] = useState({
-    priceDropPreview: '',
-    priceDropSend: null,
-    passwordResetPreview: '',
-    passwordResetSend: null,
-    genericTest: null
-  });
-
-  // Save token to localStorage when it changes
-  useEffect(() => {
-    localStorage.setItem('admin-email-token', adminToken);
-  }, [adminToken]);
 
   // Helper function to update loading state
   const setLoadingState = (key: string, value: boolean) => {
@@ -75,7 +113,7 @@ export default function AdminEmailCenter() {
       toast({ title: "Error", description: "Admin token required", variant: "destructive" });
       return;
     }
-    
+
     if (!priceDropForm.asin || !priceDropForm.oldPrice || !priceDropForm.newPrice) {
       toast({ title: "Error", description: "ASIN, old price, and new price are required", variant: "destructive" });
       return;
@@ -93,7 +131,7 @@ export default function AdminEmailCenter() {
 
       const response = await fetch(`/api/dev/preview-email?${params}`);
       const html = await response.text();
-      
+
       if (response.ok) {
         setResult('priceDropPreview', html);
         toast({ title: "Success", description: "Price drop preview generated" });
@@ -113,7 +151,7 @@ export default function AdminEmailCenter() {
       toast({ title: "Error", description: "Admin token required", variant: "destructive" });
       return;
     }
-    
+
     if (!priceDropForm.asin || !priceDropForm.oldPrice || !priceDropForm.newPrice) {
       toast({ title: "Error", description: "ASIN, old price, and new price are required", variant: "destructive" });
       return;
@@ -133,7 +171,7 @@ export default function AdminEmailCenter() {
 
       const response = await fetch(`/api/dev/preview-email?${params}`);
       const result = await response.json();
-      
+
       if (response.ok) {
         setResult('priceDropSend', result);
         toast({ title: "Success", description: result.message || "Email sent successfully" });
@@ -164,7 +202,7 @@ export default function AdminEmailCenter() {
 
       const response = await fetch(`/api/admin/test-reset?${params}`);
       const result = await response.json();
-      
+
       if (response.ok) {
         setResult('passwordResetPreview', result.previewHtml || '');
         toast({ title: "Success", description: "Password reset preview generated" });
@@ -195,7 +233,7 @@ export default function AdminEmailCenter() {
 
       const response = await fetch(`/api/admin/test-reset?${params}`);
       const result = await response.json();
-      
+
       if (response.ok) {
         setResult('passwordResetSend', result);
         toast({ title: "Success", description: result.message || "Email sent successfully" });
@@ -231,7 +269,7 @@ export default function AdminEmailCenter() {
       });
 
       const result = await response.json();
-      
+
       if (response.ok) {
         setResult('genericTest', result);
         toast({ title: "Success", description: result.message || "Test email sent successfully" });
@@ -243,6 +281,28 @@ export default function AdminEmailCenter() {
       console.error(error);
     } finally {
       setLoadingState('genericTest', false);
+    }
+  };
+
+  // Function to render status badge
+  const renderStatusBadge = (status: EmailLog['status']) => {
+    return status === 'success' ? (
+      <Badge variant="success" className="flex items-center gap-1">
+        <CheckCircle className="h-4 w-4" /> Success
+      </Badge>
+    ) : (
+      <Badge variant="destructive" className="flex items-center gap-1">
+        <XCircle className="h-4 w-4" /> Fail
+      </Badge>
+    );
+  };
+
+  // Function to handle pagination
+  const handlePageChange = (direction: 'prev' | 'next') => {
+    if (direction === 'prev' && currentPage > 1) {
+      setCurrentPage(prev => prev - 1);
+    } else if (direction === 'next' && emailLogs && currentPage < emailLogs.totalPages) {
+      setCurrentPage(prev => prev + 1);
     }
   };
 
@@ -273,7 +333,10 @@ export default function AdminEmailCenter() {
                 id="adminToken"
                 type="password"
                 value={adminToken}
-                onChange={(e) => setAdminToken(e.target.value)}
+                onChange={(e) => {
+                  setAdminToken(e.target.value);
+                  refetchLogs(); // Refetch logs when token changes
+                }}
                 placeholder="Enter ADMIN_SECRET token"
               />
             </div>
@@ -283,10 +346,11 @@ export default function AdminEmailCenter() {
 
       {/* Email Testing Tabs */}
       <Tabs defaultValue="price-drop" className="space-y-6">
-        <TabsList className="grid w-full grid-cols-3">
+        <TabsList className="grid w-full grid-cols-4"> {/* Increased columns to 4 */}
           <TabsTrigger value="price-drop">Price Drop Alerts</TabsTrigger>
           <TabsTrigger value="password-reset">Password Reset</TabsTrigger>
           <TabsTrigger value="generic-test">Generic Test</TabsTrigger>
+          <TabsTrigger value="email-logs">Email Logs</TabsTrigger> {/* New Tab */}
         </TabsList>
 
         {/* Price Drop Alerts Tab */}
@@ -349,7 +413,7 @@ export default function AdminEmailCenter() {
                   />
                 </div>
               </div>
-              
+
               <div className="flex gap-2">
                 <Button 
                   onClick={handlePriceDropPreview} 
@@ -381,7 +445,7 @@ export default function AdminEmailCenter() {
                   />
                 </div>
               )}
-              
+
               {results.priceDropSend && (
                 <div className="mt-6">
                   <Label>Send Result</Label>
@@ -414,7 +478,7 @@ export default function AdminEmailCenter() {
                   placeholder="test@example.com"
                 />
               </div>
-              
+
               <div className="flex gap-2">
                 <Button 
                   onClick={handlePasswordResetPreview} 
@@ -446,7 +510,7 @@ export default function AdminEmailCenter() {
                   />
                 </div>
               )}
-              
+
               {results.passwordResetSend && (
                 <div className="mt-6">
                   <Label>Send Result</Label>
@@ -479,7 +543,7 @@ export default function AdminEmailCenter() {
                   placeholder="test@example.com"
                 />
               </div>
-              
+
               <Button 
                 onClick={handleGenericTestSend}
                 disabled={isLoading.genericTest}
@@ -498,6 +562,140 @@ export default function AdminEmailCenter() {
                     readOnly
                     className="mt-2 h-24"
                   />
+                </div>
+              )}
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        {/* Email Logs Tab */}
+        <TabsContent value="email-logs">
+          <Card>
+            <CardHeader>
+              <CardTitle>Email Logs</CardTitle>
+              <CardDescription>View a history of sent emails</CardDescription>
+            </CardHeader>
+            <CardContent>
+              {/* Filters */}
+              <div className="flex justify-between items-center mb-4">
+                <div className="flex gap-4">
+                  <div className="flex items-center gap-2">
+                    <Label htmlFor="statusFilter">Status:</Label>
+                    <Select value={statusFilter} onValueChange={setStatusFilter}>
+                      <SelectTrigger className="w-[180px]">
+                        <SelectValue placeholder="All" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="">All</SelectItem>
+                        <SelectItem value="success">Success</SelectItem>
+                        <SelectItem value="fail">Fail</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <Label htmlFor="typeFilter">Type:</Label>
+                    <Select value={typeFilter} onValueChange={setTypeFilter}>
+                      <SelectTrigger className="w-[180px]">
+                        <SelectValue placeholder="All" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="">All</SelectItem>
+                        <SelectItem value="price-drop">Price Drop</SelectItem>
+                        <SelectItem value="reset">Password Reset</SelectItem>
+                        <SelectItem value="test">Generic Test</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                </div>
+                <Button onClick={() => {
+                  setCurrentPage(1); // Reset to first page on filter change
+                  refetchLogs();
+                }} disabled={!adminToken}>
+                  Apply Filters
+                </Button>
+              </div>
+
+              {/* Email Logs Table */}
+              {logsLoading ? (
+                <div className="flex justify-center items-center h-64">
+                  <Loader2 className="h-8 w-8 animate-spin" />
+                </div>
+              ) : emailLogs && emailLogs.logs.length > 0 ? (
+                <>
+                  <Table>
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead>Sent At</TableHead>
+                        <TableHead>To</TableHead>
+                        <TableHead>Subject</TableHead>
+                        <TableHead>Type</TableHead>
+                        <TableHead>Status</TableHead>
+                        <TableHead>Actions</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {emailLogs.logs.map(log => (
+                        <TableRow key={log.id}>
+                          <TableCell>{new Date(log.createdAt).toLocaleString()}</TableCell>
+                          <TableCell>{log.recipientEmail}</TableCell>
+                          <TableCell>{log.subject}</TableCell>
+                          <TableCell>{log.type}</TableCell>
+                          <TableCell>{renderStatusBadge(log.status)}</TableCell>
+                          <TableCell>
+                            <Dialog>
+                              <DialogTrigger asChild>
+                                <Button variant="outline" size="sm" onClick={() => setResult('emailBody', log.previewHtml)}>
+                                  <Eye className="h-4 w-4" /> View Details
+                                </Button>
+                              </DialogTrigger>
+                              <DialogContent className="sm:max-w-[700px]">
+                                <DialogHeader>
+                                  <DialogTitle>Email Details</DialogTitle>
+                                </DialogHeader>
+                                <DialogHeader>
+                                  <DialogDescription>
+                                    <strong>To:</strong> {log.recipientEmail} <br />
+                                    <strong>Subject:</strong> {log.subject} <br />
+                                    <strong>Sent At:</strong> {new Date(log.createdAt).toLocaleString()} <br />
+                                    <strong>Status:</strong> {renderStatusBadge(log.status)} <br />
+                                    <strong>Type:</strong> {log.type}
+                                  </DialogHeader>
+                                </DialogHeader>
+                                <iframe
+                                  srcDoc={log.previewHtml}
+                                  className="w-full h-[500px] border rounded"
+                                  title={`Email Preview - ${log.subject}`}
+                                />
+                              </DialogContent>
+                            </Dialog>
+                          </TableCell>
+                        </TableRow>
+                      ))}
+                    </TableBody>
+                  </Table>
+
+                  {/* Pagination */}
+                  <div className="flex justify-between items-center mt-4">
+                    <Button
+                      variant="outline"
+                      onClick={() => handlePageChange('prev')}
+                      disabled={currentPage === 1 || logsLoading}
+                    >
+                      <ChevronLeft className="h-4 w-4" /> Previous
+                    </Button>
+                    <span>Page {currentPage} of {emailLogs.totalPages}</span>
+                    <Button
+                      variant="outline"
+                      onClick={() => handlePageChange('next')}
+                      disabled={currentPage === emailLogs.totalPages || logsLoading}
+                    >
+                      Next <ChevronRight className="h-4 w-4" />
+                    </Button>
+                  </div>
+                </>
+              ) : (
+                <div className="flex justify-center items-center h-64">
+                  <p>No email logs found.</p>
                 </div>
               )}
             </CardContent>
