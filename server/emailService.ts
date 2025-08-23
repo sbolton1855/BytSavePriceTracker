@@ -1,43 +1,17 @@
-import nodemailer from 'nodemailer';
+
+import { sendEmail as sendGridEmail } from './email/sendgridService';
 import { addAffiliateTag } from './amazonApi';
 import type { Product, TrackedProduct } from '@shared/schema';
 
 // Default affiliate tag
 const AFFILIATE_TAG = process.env.AMAZON_AFFILIATE_TAG || 'bytsave-20';
 
-// Configure email transporter
-function createTransporter() {
-  // For development/testing, use a test account from Ethereal
-  if (process.env.NODE_ENV === 'development') {
-    return nodemailer.createTransport({
-      host: 'smtp.ethereal.email',
-      port: 587,
-      secure: false,
-      auth: {
-        user: process.env.EMAIL_USER || 'ethereal.user@ethereal.email',
-        pass: process.env.EMAIL_PASSWORD || 'ethereal_pass'
-      }
-    });
-  }
-  
-  // For production, use your preferred SMTP service
-  return nodemailer.createTransport({
-    host: process.env.SMTP_HOST || 'smtp.example.com',
-    port: parseInt(process.env.SMTP_PORT || '587'),
-    secure: process.env.SMTP_SECURE === 'true',
-    auth: {
-      user: process.env.EMAIL_USER || '',
-      pass: process.env.EMAIL_PASSWORD || ''
-    }
-  });
-}
-
 // Create email content for price drop alert
 function createPriceDropEmail(
   to: string, 
   product: Product, 
   trackedProduct: TrackedProduct
-): nodemailer.SendMailOptions {
+): { to: string; subject: string; html: string } {
   const affiliateUrl = addAffiliateTag(product.url, AFFILIATE_TAG);
   const percentOff = product.originalPrice 
     ? Math.round(((product.originalPrice - product.currentPrice) / product.originalPrice) * 100) 
@@ -93,7 +67,6 @@ function createPriceDropEmail(
   `;
   
   return {
-    from: process.env.EMAIL_FROM || 'alerts@bytsave.com',
     to,
     subject: `Price Drop Alert: ${product.title} now $${product.currentPrice.toFixed(2)}`,
     html: emailContent
@@ -107,13 +80,16 @@ async function sendPriceDropAlert(
   trackedProduct: TrackedProduct
 ): Promise<boolean> {
   try {
-    const transporter = createTransporter();
-    const mailOptions = createPriceDropEmail(to, product, trackedProduct);
+    const emailData = createPriceDropEmail(to, product, trackedProduct);
+    const result = await sendGridEmail(emailData.to, emailData.subject, emailData.html);
     
-    const info = await transporter.sendMail(mailOptions);
-    console.log(`Price drop alert sent to ${to} - Message ID: ${info.messageId}`);
-    
-    return true;
+    if (result.success) {
+      console.log(`Price drop alert sent to ${to} via SendGrid - Message ID: ${result.messageId}`);
+      return true;
+    } else {
+      console.error(`Failed to send price drop alert via SendGrid: ${result.error}`);
+      return false;
+    }
   } catch (error) {
     console.error('Failed to send price drop alert email:', error);
     return false;
@@ -130,19 +106,14 @@ interface EmailOptions {
 
 async function sendEmail(options: EmailOptions): Promise<any> {
   try {
-    const transporter = createTransporter();
+    const result = await sendGridEmail(options.to, options.subject, options.html);
     
-    const mailOptions = {
-      from: process.env.EMAIL_FROM || 'alerts@bytsave.com',
-      to: options.to,
-      subject: options.subject,
-      html: options.html
-    };
-    
-    const info = await transporter.sendMail(mailOptions);
-    console.log(`Email sent to ${options.to} - Message ID: ${info.messageId}`);
-    
-    return info;
+    if (result.success) {
+      console.log(`Email sent to ${options.to} via SendGrid - Message ID: ${result.messageId}`);
+      return { messageId: result.messageId };
+    } else {
+      throw new Error(result.error || 'SendGrid email failed');
+    }
   } catch (error) {
     console.error('Failed to send email:', error);
     throw error;
