@@ -21,6 +21,7 @@ import TestTracking from "@/pages/test-tracking";
 import AdminEmailTest from "@/pages/admin-email-test";
 import AdminEmailLogs from "@/pages/admin-email-logs";
 import AdminForceAlerts from "@/pages/admin-force-alerts";
+import AdminEmailCenter from "@/pages/admin-email-center";
 import AdminHub from "@/pages/admin-hub";
 
 function Router() {
@@ -43,6 +44,9 @@ function Router() {
       </Route>
       <Route path="/admin/force-alerts">
         <AdminForceAlerts />
+      </Route>
+      <Route path="/admin/email-center">
+        <AdminEmailCenter />
       </Route>
       <Route path="/admin">
         <AdminHub />
