@@ -348,6 +348,97 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // QA Test Route: Drop price for a tracked product to trigger alerts
+  app.get('/api/dev/drop-price/:id', async (req: Request, res: Response) => {
+    try {
+      const { token } = req.query;
+      const { id } = req.params;
+
+      // Validate admin token
+      if (!token || token !== process.env.ADMIN_SECRET) {
+        return res.status(403).json({ 
+          success: false, 
+          error: 'Unauthorized: Invalid admin token' 
+        });
+      }
+
+      // Validate tracked product ID
+      const trackedProductId = parseInt(id, 10);
+      if (isNaN(trackedProductId)) {
+        return res.status(400).json({ 
+          success: false, 
+          error: 'Invalid tracked product ID' 
+        });
+      }
+
+      // Get the tracked product with product details
+      const trackedProduct = await db.select()
+        .from(trackedProducts)
+        .leftJoin(products, eq(trackedProducts.productId, products.id))
+        .where(eq(trackedProducts.id, trackedProductId))
+        .limit(1);
+
+      if (trackedProduct.length === 0) {
+        return res.status(404).json({ 
+          success: false, 
+          error: `Tracked product with ID ${trackedProductId} not found` 
+        });
+      }
+
+      const tracked = trackedProduct[0].tracked_products;
+      const product = trackedProduct[0].products;
+
+      if (!product) {
+        return res.status(404).json({ 
+          success: false, 
+          error: 'Associated product not found' 
+        });
+      }
+
+      // Calculate new target price (current price + $10 to ensure alert triggers)
+      const newTargetPrice = product.currentPrice + 10;
+      const oldTargetPrice = tracked.targetPrice;
+
+      // Update the tracked product
+      await db.update(trackedProducts)
+        .set({
+          targetPrice: newTargetPrice,
+          notified: false
+        })
+        .where(eq(trackedProducts.id, trackedProductId));
+
+      console.log(`QA TEST: Updated tracked product ${trackedProductId}`);
+      console.log(`  - Product: ${product.title} (ASIN: ${product.asin})`);
+      console.log(`  - Current Price: $${product.currentPrice}`);
+      console.log(`  - Target Price: $${oldTargetPrice} → $${newTargetPrice}`);
+      console.log(`  - Notified: true → false`);
+
+      res.json({
+        success: true,
+        message: 'Price drop simulation configured successfully',
+        data: {
+          trackedProductId,
+          productTitle: product.title,
+          asin: product.asin,
+          currentPrice: product.currentPrice,
+          oldTargetPrice,
+          newTargetPrice,
+          email: tracked.email,
+          notified: false
+        },
+        nextStep: `Call GET /api/run-daily-alerts?token=${process.env.ALERT_TRIGGER_TOKEN} to trigger alerts`
+      });
+
+    } catch (error) {
+      console.error('Error in drop-price route:', error);
+      res.status(500).json({
+        success: false,
+        error: 'Failed to configure price drop test',
+        details: error instanceof Error ? error.message : 'Unknown error'
+      });
+    }
+  });
+
   // Create HTTP server
   const httpServer = createServer(app);
 
@@ -1623,18 +1714,27 @@ export async function registerRoutes(app: Express): Promise<Server> {
       // Import and call the price alerts function
       const { processPriceAlerts } = await import('./emailTrigger');
 
-      console.log('Manual daily alerts job triggered via API');
+      console.log('🔔 Manual daily alerts job triggered via API');
+      console.log('📊 Checking for price drop alerts...');
+      
+      const startTime = new Date();
       const alertCount = await processPriceAlerts();
+      const endTime = new Date();
+      const duration = endTime.getTime() - startTime.getTime();
+
+      console.log(`✅ Daily alerts job completed in ${duration}ms`);
+      console.log(`📧 Total alerts processed: ${alertCount}`);
 
       res.json({
         success: true,
         message: 'Daily alerts job completed successfully',
         alertsProcessed: alertCount,
-        timestamp: new Date().toISOString()
+        timestamp: endTime.toISOString(),
+        duration: `${duration}ms`
       });
 
     } catch (error: any) {
-      console.error('Daily alerts job failed:', error);
+      console.error('❌ Daily alerts job failed:', error);
       res.status(500).json({
         success: false,
         error: 'Daily alerts job failed',

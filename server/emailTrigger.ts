@@ -35,11 +35,22 @@ export async function processPriceAlerts(): Promise<number> {
     const trackedProducts = await storage.getAllTrackedProductsWithDetails();
     let alertCount = 0;
 
+    console.log(`🔍 Found ${trackedProducts.length} tracked products to check for alerts`);
+
     for (const trackedProduct of trackedProducts) {
       try {
+        const shouldAlert = shouldTriggerAlert(trackedProduct.product, trackedProduct);
+        
+        console.log(`📋 Checking product ${trackedProduct.product.asin}:`);
+        console.log(`   Title: ${trackedProduct.product.title}`);
+        console.log(`   Current Price: $${trackedProduct.product.currentPrice}`);
+        console.log(`   Target Price: $${trackedProduct.targetPrice}`);
+        console.log(`   Already Notified: ${trackedProduct.notified}`);
+        console.log(`   Should Alert: ${shouldAlert}`);
+
         // Check if this tracked product requires an alert
-        if (shouldTriggerAlert(trackedProduct.product, trackedProduct)) {
-          console.log(`Preparing to send alert for product ${trackedProduct.product.asin}`);
+        if (shouldAlert) {
+          console.log(`🚨 Preparing to send alert for product ${trackedProduct.product.asin} to ${trackedProduct.email}`);
 
           // Send the notification
           const success = await sendPriceDropAlert(
@@ -49,22 +60,25 @@ export async function processPriceAlerts(): Promise<number> {
           );
 
           if (success) {
-            console.log(`Successfully sent price drop alert to ${trackedProduct.email} for ${trackedProduct.product.title}`);
+            console.log(`✅ Successfully sent price drop alert to ${trackedProduct.email} for ${trackedProduct.product.title}`);
             // Mark as notified to prevent duplicate emails
             await storage.updateTrackedProduct(trackedProduct.id, { notified: true });
             alertCount++;
           } else {
-            console.error(`Failed to send price drop alert to ${trackedProduct.email}`);
+            console.error(`❌ Failed to send price drop alert to ${trackedProduct.email}`);
           }
+        } else {
+          console.log(`⏭️  No alert needed for product ${trackedProduct.product.asin}`);
         }
       } catch (error) {
-        console.error(`Error processing alert for product ${trackedProduct.productId}:`, error);
+        console.error(`❌ Error processing alert for product ${trackedProduct.productId}:`, error);
       }
     }
 
+    console.log(`📊 Processing complete: ${alertCount} alerts sent out of ${trackedProducts.length} tracked products`);
     return alertCount;
   } catch (error) {
-    console.error('Error processing price alerts:', error);
+    console.error('❌ Error processing price alerts:', error);
     return 0;
   }
 }
