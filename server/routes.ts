@@ -373,9 +373,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       // Get the tracked product with product details
       const trackedProduct = await db.select()
-        .from(trackedProducts)
-        .leftJoin(products, eq(trackedProducts.productId, products.id))
-        .where(eq(trackedProducts.id, trackedProductId))
+        .from(productTracking)
+        .leftJoin(products, eq(productTracking.productId, products.id))
+        .where(eq(productTracking.id, trackedProductId))
         .limit(1);
 
       if (trackedProduct.length === 0) {
@@ -400,18 +400,19 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const oldTargetPrice = tracked.targetPrice;
 
       // Update the tracked product
-      await db.update(trackedProducts)
+      await db.update(productTracking)
         .set({
           targetPrice: newTargetPrice,
           notified: false
         })
-        .where(eq(trackedProducts.id, trackedProductId));
+        .where(eq(productTracking.id, trackedProductId));
 
-      console.log(`QA TEST: Updated tracked product ${trackedProductId}`);
-      console.log(`  - Product: ${product.title} (ASIN: ${product.asin})`);
-      console.log(`  - Current Price: $${product.currentPrice}`);
-      console.log(`  - Target Price: $${oldTargetPrice} → $${newTargetPrice}`);
-      console.log(`  - Notified: true → false`);
+      console.log(`🧪 QA TEST: Updated tracked product ${trackedProductId}`);
+      console.log(`  📦 Product: ${product.title} (ASIN: ${product.asin})`);
+      console.log(`  💰 Current Price: $${product.currentPrice}`);
+      console.log(`  🎯 Target Price: $${oldTargetPrice} → $${newTargetPrice}`);
+      console.log(`  🔔 Notified: true → false`);
+      console.log(`  📧 Email: ${tracked.email}`);
 
       res.json({
         success: true,
