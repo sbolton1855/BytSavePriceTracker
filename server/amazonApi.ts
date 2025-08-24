@@ -514,9 +514,10 @@ export async function searchAmazonProducts(keyword: string) {
   headersToSign['Authorization'] =
     `AWS4-HMAC-SHA256 Credential=${accessKey}/${credentialScope}, SignedHeaders=${signedHeaders}, Signature=${signature}`;
 
-  const fullUrl = `https://${host}${path}`;
+  // Construct the full URL explicitly
+  const url = `https://${host}${path}`;
   console.log(`[DEBUG] ===== AMAZON PA-API REQUEST DETAILS =====`);
-  console.log(`[DEBUG] Full URL: ${fullUrl}`);
+  console.log(`[DEBUG] Full URL: ${url}`);
   console.log(`[DEBUG] Host: ${host}`);
   console.log(`[DEBUG] Path: ${path}`);
   console.log(`[DEBUG] Method: POST`);
@@ -526,57 +527,57 @@ export async function searchAmazonProducts(keyword: string) {
   console.log(`[DEBUG] ============================================`);
 
   try {
-    console.log(`[DEBUG] About to make axios request to: ${fullUrl}`);
-    const response = await axios({
+    console.log(`[DEBUG] About to make request to: ${url}`);
+    
+    // Use fetch instead of axios for more explicit URL control
+    const response = await fetch(url, {
       method: 'POST',
-      url: fullUrl,
       headers: headersToSign,
-      data: payloadJson,
-      transformRequest: [(data) => data],
-      validateStatus: () => true  // Don't throw on non-2xx status codes
+      body: payloadJson
     });
-    console.log(`[DEBUG] Axios request completed successfully`);
+    console.log(`[DEBUG] Fetch request completed successfully`);
 
     console.log(`[DEBUG] ===== AMAZON PA-API RESPONSE DETAILS =====`);
     console.log(`[DEBUG] Response status: ${response.status}`);
     console.log(`[DEBUG] Response status text: ${response.statusText}`);
-    console.log(`[DEBUG] Content-Type: ${response.headers['content-type']}`);
-    console.log(`[DEBUG] Content-Length: ${response.headers['content-length']}`);
-    console.log(`[DEBUG] Server: ${response.headers['server']}`);
-    console.log(`[DEBUG] All response headers:`, JSON.stringify(response.headers, null, 2));
+    console.log(`[DEBUG] Content-Type: ${response.headers.get('content-type')}`);
+    console.log(`[DEBUG] Content-Length: ${response.headers.get('content-length')}`);
+    console.log(`[DEBUG] Server: ${response.headers.get('server')}`);
     
-    // Always log the raw response for debugging
-    const rawResponseText = typeof response.data === 'string' ? response.data : JSON.stringify(response.data);
-    console.log(`[DEBUG] Response data type: ${typeof response.data}`);
+    // Get the raw response text first
+    const rawResponseText = await response.text();
     console.log(`[DEBUG] Raw response length: ${rawResponseText.length}`);
     console.log(`[DEBUG] Raw response (first 2000 chars):`);
     console.log(rawResponseText.slice(0, 2000));
     console.log(`[DEBUG] ===========================================`);
     
-    // Log raw response for debugging
-    if (typeof response.data === 'string') {
-      console.log(`[DEBUG] Amazon returned string (likely HTML error): ${response.data.slice(0, 300)}...`);
-      console.log(`[DEBUG] Full string response length:`, response.data.length);
+    // Check if it's HTML instead of JSON
+    if (rawResponseText.includes('<!DOCTYPE') || rawResponseText.includes('<html')) {
+      console.log(`[ERROR] Amazon PA-API returned HTML page instead of JSON`);
+      console.log(`[ERROR] This suggests either:
+        1. Wrong endpoint URL
+        2. Authentication/signature failure
+        3. Amazon service temporarily down
+        4. Network routing issue`);
       
-      // Check if it's actually an HTML response
-      if (response.data.includes('<!DOCTYPE') || response.data.includes('<html')) {
-        console.log(`[ERROR] Amazon PA-API returned HTML page instead of JSON`);
-        console.log(`[ERROR] This suggests either:
-          1. Wrong endpoint URL
-          2. Authentication/signature failure
-          3. Amazon service temporarily down
-          4. Network routing issue`);
-      }
-      
-      throw new Error(`Amazon returned HTML instead of JSON. Status: ${response.status}`);
+      throw new Error(`Amazon returned HTML instead of JSON. Status: ${response.status}. Response: ${rawResponseText.slice(0, 500)}`);
     }
 
     if (response.status !== 200) {
-      console.log(`[DEBUG] Amazon PA-API error response:`, response.data);
-      throw new Error(`Amazon PA-API returned status ${response.status}: ${JSON.stringify(response.data)}`);
+      console.log(`[DEBUG] Amazon PA-API error response:`, rawResponseText);
+      throw new Error(`Amazon PA-API returned status ${response.status}: ${rawResponseText}`);
     }
 
-    const items = response.data.SearchResult?.Items || [];
+    // Parse JSON from the raw text
+    let responseData;
+    try {
+      responseData = JSON.parse(rawResponseText);
+    } catch (parseError) {
+      console.log(`[ERROR] Failed to parse Amazon response as JSON:`, parseError);
+      throw new Error(`Amazon returned invalid JSON. Raw response: ${rawResponseText.slice(0, 500)}`);
+    }
+
+    const items = responseData.SearchResult?.Items || [];
     console.log(`[DEBUG] Amazon PA-API returned ${items.length} items`);
     
     return items;
@@ -584,24 +585,14 @@ export async function searchAmazonProducts(keyword: string) {
     console.error(`[ERROR] ===== AMAZON PA-API ERROR DETAILS =====`);
     console.error(`[ERROR] Error type: ${error.constructor.name}`);
     console.error(`[ERROR] Error message: ${error.message}`);
+    console.error(`[ERROR] Attempted URL: ${url}`);
     
-    if (error.response) {
-      console.error(`[ERROR] HTTP Response Error:`);
-      console.error(`  - Status: ${error.response.status}`);
-      console.error(`  - Status Text: ${error.response.statusText}`);
-      console.error(`  - Headers:`, JSON.stringify(error.response.headers, null, 2));
-      
-      const errorResponseText = typeof error.response.data === 'string' ? error.response.data : JSON.stringify(error.response.data);
-      console.error(`  - Response data type: ${typeof error.response.data}`);
-      console.error(`  - Response data (first 1000 chars): ${errorResponseText.slice(0, 1000)}`);
-    } else if (error.request) {
-      console.error(`[ERROR] Network/Request Error (no response received):`);
-      console.error(`  - Request config URL: ${error.config?.url}`);
-      console.error(`  - Request config method: ${error.config?.method}`);
-      console.error(`  - Error code: ${error.code}`);
-      console.error(`  - Error syscall: ${error.syscall}`);
+    if (error.name === 'TypeError') {
+      console.error(`[ERROR] Network/Fetch Error (likely DNS or connection issue):`);
+      console.error(`  - URL: ${url}`);
+      console.error(`  - Error: ${error.message}`);
     } else {
-      console.error(`[ERROR] Setup/Configuration Error:`, error.message);
+      console.error(`[ERROR] Other error:`, error);
     }
     console.error(`[ERROR] ==========================================`);
     throw error;
