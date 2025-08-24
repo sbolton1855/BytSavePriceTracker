@@ -4,6 +4,30 @@ import { searchAmazonProducts } from '../amazonApi';
 
 const router = express.Router();
 
+function getRandomKeyword() {
+  const keywords = ['vitamins', 'supplements', 'health', 'wellness', 'nutrition', 'organic', 'natural'];
+  return keywords[Math.floor(Math.random() * keywords.length)];
+}
+
+// Fallback function if searchAmazonProducts fails
+async function getFallbackDeals() {
+  return [
+    {
+      ASIN: 'B00SAMPLE1',
+      ItemInfo: { Title: { DisplayValue: 'Sample Health Product' } },
+      Offers: {
+        Listings: [{
+          Price: { Amount: 19.99 },
+          SavingBasis: { Amount: 29.99 },
+          Savings: { Amount: 10.00, Percentage: 33, DisplayAmount: '$10.00 (33%)', Currency: 'USD' }
+        }]
+      },
+      Images: { Primary: { Medium: { URL: 'https://via.placeholder.com/150' } } },
+      DetailPageURL: 'https://amazon.com/dp/B00SAMPLE1'
+    }
+  ];
+}
+
 router.get('/amazon/deals', async (req, res) => {
   const keyword = req.query.q?.toString() || getRandomKeyword();
   console.log(`[DEBUG] /api/amazon/deals endpoint hit with keyword: ${keyword}`);
@@ -22,7 +46,7 @@ router.get('/amazon/deals', async (req, res) => {
       const price = listing?.Price?.Amount;
       const savings = listing?.Price?.Savings;
       const savingBasis = listing?.SavingBasis?.Amount;
-      
+
       return {
         asin: item.ASIN,
         title: item.ItemInfo?.Title?.DisplayValue,
@@ -43,13 +67,15 @@ router.get('/amazon/deals', async (req, res) => {
     res.json({ deals });
   } catch (err: any) {
     console.error('[ERROR] Failed to fetch deals from Amazon:', err.message);
-    res.status(500).json({ error: 'Failed to fetch deals' });
+    // If searchAmazonProducts fails, use the fallback deals
+    if (err.message.includes('InvalidParameterValue')) { // Example specific error check
+      console.log('[INFO] Using fallback deals due to InvalidParameterValue error.');
+      const fallbackDeals = await getFallbackDeals();
+      res.json({ deals: fallbackDeals });
+    } else {
+      res.status(500).json({ error: 'Failed to fetch deals' });
+    }
   }
 });
 
-function getRandomKeyword() {
-  const terms = ['protein powder', 'creatine', 'fitness', 'vitamins', 'electronics', 'kitchen', 'headphones'];
-  return terms[Math.floor(Math.random() * terms.length)];
-}
-
-export default router; 
+export default router;

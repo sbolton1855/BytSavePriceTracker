@@ -1,4 +1,3 @@
-
 import express from 'express';
 import { Request, Response } from 'express';
 import { db } from './db';
@@ -47,17 +46,17 @@ router.use('/test', testRoutes);
 router.get('/user', requireAdmin, async (req: Request, res: Response) => {
   try {
     const email = req.query.email as string;
-    
+
     if (!email) {
       return res.status(400).json({ error: 'Email parameter is required' });
     }
-    
+
     if (!db) {
       return res.status(500).json({ error: 'Database not available' });
     }
 
     const user = await db.select().from(users).where(eq(users.email, email.toUpperCase())).limit(1);
-    
+
     if (user.length === 0) {
       return res.status(404).json({ error: 'User not found' });
     }
@@ -72,11 +71,11 @@ router.get('/user', requireAdmin, async (req: Request, res: Response) => {
 router.get('/user/products', requireAdmin, async (req: Request, res: Response) => {
   try {
     const email = req.query.email as string;
-    
+
     if (!email) {
       return res.status(400).json({ error: 'Email parameter is required' });
     }
-    
+
     if (!db) {
       return res.status(500).json({ error: 'Database not available' });
     }
@@ -101,7 +100,7 @@ router.get('/user/products', requireAdmin, async (req: Request, res: Response) =
 router.post('/user/alerts', requireAdmin, async (req: Request, res: Response) => {
   try {
     const { email, asin, targetPrice } = req.body;
-    
+
     if (!email || !asin || !targetPrice) {
       return res.status(400).json({ error: 'Email, ASIN and target price are required' });
     }
@@ -112,7 +111,7 @@ router.post('/user/alerts', requireAdmin, async (req: Request, res: Response) =>
 
     // Check if product exists, if not fetch from Amazon
     let product = await db.select().from(products).where(eq(products.asin, asin)).limit(1);
-    
+
     if (product.length === 0) {
       // Fetch product from Amazon
       try {
@@ -158,7 +157,7 @@ router.post('/user/alerts', requireAdmin, async (req: Request, res: Response) =>
         .update(trackedProducts)
         .set({ targetPrice: parseFloat(targetPrice) })
         .where(eq(trackedProducts.id, existingAlert[0].id));
-      
+
       res.json({ message: 'Alert updated successfully' });
     } else {
       // Create new alert
@@ -171,7 +170,7 @@ router.post('/user/alerts', requireAdmin, async (req: Request, res: Response) =>
         notified: false,
         createdAt: new Date().toISOString()
       });
-      
+
       res.json({ message: 'Alert created successfully' });
     }
   } catch (error) {
@@ -184,11 +183,11 @@ router.delete('/user/alerts/:alertId', requireAdmin, async (req: Request, res: R
   try {
     const email = req.query.email as string;
     const alertId = parseInt(req.params.alertId);
-    
+
     if (!email) {
       return res.status(400).json({ error: 'Email parameter is required' });
     }
-    
+
     if (!db) {
       return res.status(500).json({ error: 'Database not available' });
     }

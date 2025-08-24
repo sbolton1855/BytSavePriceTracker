@@ -12,15 +12,34 @@ type Deal = {
 };
 
 export default function LiveDealsPreview() {
-  const { data, isLoading } = useQuery<{ deals: Deal[] }>({
+  const { data, isLoading, error } = useQuery<{ deals: Deal[] }>({
     queryKey: ["amazonDealsPreview"],
     queryFn: async () => {
+      console.log("[LiveDealsPreview] Fetching deals from /api/amazon/deals");
       const res = await fetch("/api/amazon/deals");
-      if (!res.ok) throw new Error("Failed to fetch deals");
-      return res.json();
+      
+      if (!res.ok) {
+        const errorText = await res.text();
+        console.error("[LiveDealsPreview] API error:", res.status, errorText);
+        throw new Error(`Failed to fetch deals: ${res.status}`);
+      }
+      
+      const contentType = res.headers.get('content-type');
+      console.log("[LiveDealsPreview] Response content-type:", contentType);
+      
+      if (!contentType?.includes('application/json')) {
+        const responseText = await res.text();
+        console.error("[LiveDealsPreview] Expected JSON but got:", responseText.substring(0, 200));
+        throw new Error("Server returned HTML instead of JSON");
+      }
+      
+      const jsonData = await res.json();
+      console.log("[LiveDealsPreview] Successfully parsed JSON:", jsonData);
+      return jsonData;
     },
     staleTime: 60000,
     refetchOnWindowFocus: false,
+    retry: 2,
   });
 
   console.log("[LiveDealsPreview] Raw API response:", data);
@@ -45,11 +64,20 @@ export default function LiveDealsPreview() {
     console.log("[LiveDealsPreview] No deals available to render.");
   }
 
+  if (error) {
+    console.error("[LiveDealsPreview] Query error:", error);
+  }
+
   return (
     <div className="bg-white border rounded-xl shadow-sm p-4">
       <h3 className="text-sm font-semibold mb-2">Live Deals Right Now</h3>
       {isLoading && <div className="text-sm text-muted-foreground">Loading deals...</div>}
-      {!isLoading && deals.length === 0 && (
+      {error && (
+        <div className="text-sm text-red-500 p-2 bg-red-50 rounded">
+          Error loading deals: {error.message}
+        </div>
+      )}
+      {!isLoading && !error && deals.length === 0 && (
         <div className="text-sm text-muted-foreground">
           No deals available at this moment.
         </div>
