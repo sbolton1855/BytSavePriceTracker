@@ -40,25 +40,7 @@ router.get('/amazon/deals', async (req, res) => {
   try {
     console.log('[DEBUG] About to call searchAmazonProducts...');
     
-    // Add a direct test of the Amazon API response to see what we're getting
-    const testResponse = await fetch(`https://webservices.amazon.com/paapi5/searchitems`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'User-Agent': 'Node.js Amazon API Test'
-      },
-      body: JSON.stringify({ test: 'probe' })
-    }).catch(err => {
-      console.log('[DEBUG] Direct Amazon test fetch failed:', err.message);
-      return null;
-    });
-
-    if (testResponse) {
-      console.log('[DEBUG] Direct Amazon test response status:', testResponse.status);
-      console.log('[DEBUG] Direct Amazon test response headers:', testResponse.headers.get('content-type'));
-      const testText = await testResponse.text();
-      console.log('[DEBUG] Direct Amazon test response body (first 500 chars):', testText.slice(0, 500));
-    }
+    // Remove the direct test fetch that was causing issues
 
     const items = await searchAmazonProducts(keyword);
     console.log(`[DEBUG] searchAmazonProducts returned ${items ? items.length : 'null'} items`);

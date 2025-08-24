@@ -451,6 +451,8 @@ const region = 'us-east-1';
 const path = '/paapi5/searchitems';
 const service = 'ProductAdvertisingAPI';
 
+console.log(`[DEBUG] Amazon API configuration - host: ${host}, path: ${path}`);
+
 export async function searchAmazonProducts(keyword: string) {
   console.log(`[DEBUG] searchAmazonProducts called with keyword: ${keyword}`);
   
@@ -512,13 +514,14 @@ export async function searchAmazonProducts(keyword: string) {
   headersToSign['Authorization'] =
     `AWS4-HMAC-SHA256 Credential=${accessKey}/${credentialScope}, SignedHeaders=${signedHeaders}, Signature=${signature}`;
 
-  console.log(`[DEBUG] Making Amazon PA-API request to: https://${host}${path}`);
+  const fullUrl = `https://${host}${path}`;
+  console.log(`[DEBUG] Making Amazon PA-API request to: ${fullUrl}`);
   console.log(`[DEBUG] Request headers:`, Object.keys(headersToSign));
 
   try {
     const response = await axios({
       method: 'POST',
-      url: `https://${host}${path}`,
+      url: fullUrl,
       headers: headersToSign,
       data: payloadJson,
       transformRequest: [(data) => data],
