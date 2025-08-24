@@ -23,6 +23,14 @@ import testRoutes from './routes/test';
 
 const router = express.Router();
 
+// Debug middleware to log all API requests
+router.use('*', (req: Request, res: Response, next) => {
+  console.log(`[DEBUG] API Request: ${req.method} ${req.originalUrl}`);
+  console.log(`[DEBUG] API Request path: ${req.path}`);
+  console.log(`[DEBUG] API Request base URL: ${req.baseUrl}`);
+  next();
+});
+
 // Health check
 router.get('/health', (req: Request, res: Response) => {
   res.json({ status: 'ok', timestamp: new Date().toISOString() });
@@ -36,6 +44,7 @@ router.use('/admin/tools', adminToolsRoutes);
 router.use('/admin/force-alerts', adminForceAlertsRoutes);
 router.use('/amazon', amazonRoutes);
 console.log('>>> [DEBUG] Amazon routes mounted at /amazon');
+console.log('>>> [DEBUG] This means /api/amazon/deals should work');
 router.use('/deals', dealsRoutes);
 router.use('/affiliate', affiliateRoutes);
 router.use('/analytics', analyticsRoutes);

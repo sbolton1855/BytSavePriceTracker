@@ -527,10 +527,27 @@ export async function searchAmazonProducts(keyword: string) {
 
     console.log(`[DEBUG] Amazon PA-API response status: ${response.status}`);
     console.log(`[DEBUG] Amazon PA-API response headers:`, response.headers['content-type']);
+    console.log(`[DEBUG] Amazon PA-API response headers (all):`, JSON.stringify(response.headers, null, 2));
+    
+    // Always log the raw response for debugging
+    const rawResponseText = typeof response.data === 'string' ? response.data : JSON.stringify(response.data);
+    console.log(`[DEBUG] Amazon PA-API raw response (first 1000 chars):`, rawResponseText.slice(0, 1000));
     
     // Log raw response for debugging
     if (typeof response.data === 'string') {
       console.log(`[DEBUG] Amazon returned string (likely HTML error): ${response.data.slice(0, 300)}...`);
+      console.log(`[DEBUG] Full string response length:`, response.data.length);
+      
+      // Check if it's actually an HTML response
+      if (response.data.includes('<!DOCTYPE') || response.data.includes('<html')) {
+        console.log(`[ERROR] Amazon PA-API returned HTML page instead of JSON`);
+        console.log(`[ERROR] This suggests either:
+          1. Wrong endpoint URL
+          2. Authentication/signature failure
+          3. Amazon service temporarily down
+          4. Network routing issue`);
+      }
+      
       throw new Error(`Amazon returned HTML instead of JSON. Status: ${response.status}`);
     }
 

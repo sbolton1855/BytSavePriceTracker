@@ -31,12 +31,35 @@ async function getFallbackDeals() {
 router.get('/amazon/deals', async (req, res) => {
   const keyword = req.query.q?.toString() || getRandomKeyword();
   console.log(`[DEBUG] /api/amazon/deals endpoint hit with keyword: ${keyword}`);
+  console.log(`[DEBUG] Request URL: ${req.originalUrl}`);
+  console.log(`[DEBUG] Request headers:`, req.headers);
 
   // Ensure we always send JSON response
   res.setHeader('Content-Type', 'application/json');
 
   try {
     console.log('[DEBUG] About to call searchAmazonProducts...');
+    
+    // Add a direct test of the Amazon API response to see what we're getting
+    const testResponse = await fetch(`https://webservices.amazon.com/paapi5/searchitems`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'User-Agent': 'Node.js Amazon API Test'
+      },
+      body: JSON.stringify({ test: 'probe' })
+    }).catch(err => {
+      console.log('[DEBUG] Direct Amazon test fetch failed:', err.message);
+      return null;
+    });
+
+    if (testResponse) {
+      console.log('[DEBUG] Direct Amazon test response status:', testResponse.status);
+      console.log('[DEBUG] Direct Amazon test response headers:', testResponse.headers.get('content-type'));
+      const testText = await testResponse.text();
+      console.log('[DEBUG] Direct Amazon test response body (first 500 chars):', testText.slice(0, 500));
+    }
+
     const items = await searchAmazonProducts(keyword);
     console.log(`[DEBUG] searchAmazonProducts returned ${items ? items.length : 'null'} items`);
 
