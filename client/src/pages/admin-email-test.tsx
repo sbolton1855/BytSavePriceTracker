@@ -1,36 +1,30 @@
 
-import { useState, useEffect } from "react";
+import { useState, useRef, useEffect } from 'react';
+import { useQuery } from '@tanstack/react-query';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Checkbox } from "@/components/ui/checkbox";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Loader2, Send, Eye, AlertCircle, LogOut } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
-import { Loader2, LogOut } from "lucide-react";
+import { Textarea } from '@/components/ui/textarea';
+import AdminLayout from "@/components/AdminLayout";
+import { AdminAuth } from "@/lib/admin-auth";
 
 interface Template {
   id: string;
   name: string;
   description: string;
-}
-
-interface AdminSession {
-  email: string;
-  roles: string[];
+  subject: string;
+  previewData: Record<string, any>;
 }
 
 export default function AdminEmailTest() {
   const { toast } = useToast();
   
-  // Login state
-  const [loginData, setLoginData] = useState({
-    email: '',
-    password: ''
-  });
-  const [isLoggedIn, setIsLoggedIn] = useState(false);
-  const [adminSession, setAdminSession] = useState<AdminSession | null>(null);
-  const [isLoggingIn, setIsLoggingIn] = useState(false);
+  // Check authentication status
+  const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [isCheckingAuth, setIsCheckingAuth] = useState(true);
 
   // Email form state
@@ -41,127 +35,57 @@ export default function AdminEmailTest() {
   const [isLoadingTemplates, setIsLoadingTemplates] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
-  // CSRF token
-  const [csrfToken, setCsrfToken] = useState('');
+  // Preview iframe ref
+  const iframeRef = useRef<HTMLIFrameElement>(null);
 
-  // Check if already authenticated on load
+  // Check authentication on mount
   useEffect(() => {
     checkAuthStatus();
   }, []);
 
   const checkAuthStatus = async () => {
+    setIsCheckingAuth(true);
     try {
-      const response = await fetch('/admin/api/me', {
-        credentials: 'include'
-      });
-      
-      if (response.ok) {
-        const session = await response.json();
-        setAdminSession(session);
-        setIsLoggedIn(true);
+      const authenticated = await AdminAuth.isAuthenticated();
+      setIsAuthenticated(authenticated);
+      if (authenticated) {
         loadTemplates();
-        // Get CSRF token
-        const csrfResponse = await fetch('/admin/api/csrf-token', {
-          credentials: 'include'
-        });
-        if (csrfResponse.ok) {
-          const { csrfToken } = await csrfResponse.json();
-          setCsrfToken(csrfToken);
-        }
       }
     } catch (error) {
       console.error('Auth check failed:', error);
+      setIsAuthenticated(false);
     } finally {
       setIsCheckingAuth(false);
     }
   };
 
-  const handleLogin = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setIsLoggingIn(true);
-
-    try {
-      const response = await fetch('/admin/api/login', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        credentials: 'include',
-        body: JSON.stringify(loginData)
-      });
-
-      const result = await response.json();
-
-      if (response.ok) {
-        setAdminSession(result.admin);
-        setIsLoggedIn(true);
-        setCsrfToken(result.csrfToken);
-        loadTemplates();
-        toast({
-          title: "Login successful",
-          description: `Welcome back, ${result.admin.email}!`
-        });
-      } else {
-        toast({
-          title: "Login failed",
-          description: result.error || 'Invalid credentials',
-          variant: "destructive"
-        });
-      }
-    } catch (error) {
-      toast({
-        title: "Login error",
-        description: 'Failed to connect to server',
-        variant: "destructive"
-      });
-    } finally {
-      setIsLoggingIn(false);
-    }
-  };
-
-  const handleLogout = async () => {
-    try {
-      await fetch('/admin/api/logout', {
-        method: 'POST',
-        credentials: 'include'
-      });
-      
-      setIsLoggedIn(false);
-      setAdminSession(null);
-      setTemplates([]);
-      setPreviewHtml('');
-      setCsrfToken('');
-      
-      toast({
-        title: "Logged out",
-        description: "You have been logged out successfully"
-      });
-    } catch (error) {
-      console.error('Logout error:', error);
-    }
+  const handleLogout = () => {
+    AdminAuth.logout();
+    setIsAuthenticated(false);
+    toast({ title: "Logged out", description: "You have been logged out successfully" });
   };
 
   const loadTemplates = async () => {
     setIsLoadingTemplates(true);
     try {
-      const response = await fetch('/admin/api/email/templates', {
-        credentials: 'include'
+      const token = AdminAuth.getToken();
+      const response = await fetch('/api/admin/email/templates', {
+        headers: {
+          'Authorization': `Bearer ${token}`
+        }
       });
-      
-      if (response.ok) {
-        const data = await response.json();
-        setTemplates(data.templates);
-      } else {
-        toast({
-          title: "Error",
-          description: "Failed to load email templates",
-          variant: "destructive"
-        });
+
+      if (!response.ok) {
+        throw new Error('Failed to load templates');
       }
+
+      const data = await response.json();
+      setTemplates(data.templates || []);
     } catch (error) {
+      console.error('Failed to load templates:', error);
       toast({
         title: "Error",
-        description: "Failed to connect to server",
+        description: "Failed to load email templates",
         variant: "destructive"
       });
     } finally {
@@ -170,27 +94,39 @@ export default function AdminEmailTest() {
   };
 
   const handlePreviewTemplate = async () => {
-    if (!selectedTemplate) return;
-
-    try {
-      const response = await fetch(`/admin/api/email/preview/${selectedTemplate}`, {
-        credentials: 'include'
-      });
-      
-      if (response.ok) {
-        const data = await response.json();
-        setPreviewHtml(data.previewHtml);
-      } else {
-        toast({
-          title: "Error",
-          description: "Failed to load template preview",
-          variant: "destructive"
-        });
-      }
-    } catch (error) {
+    if (!selectedTemplate) {
       toast({
         title: "Error",
-        description: "Failed to load preview",
+        description: "Please select a template first",
+        variant: "destructive"
+      });
+      return;
+    }
+
+    try {
+      const token = AdminAuth.getToken();
+      const response = await fetch('/api/admin/email/preview', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
+        body: JSON.stringify({
+          templateId: selectedTemplate
+        })
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to preview template');
+      }
+
+      const data = await response.json();
+      setPreviewHtml(data.html);
+    } catch (error) {
+      console.error('Preview failed:', error);
+      toast({
+        title: "Error",
+        description: "Failed to preview template",
         variant: "destructive"
       });
     }
@@ -198,39 +134,42 @@ export default function AdminEmailTest() {
 
   const handleSendTestEmail = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!selectedTemplate || !csrfToken) return;
+    
+    if (!testEmail || !selectedTemplate) {
+      toast({
+        title: "Error",
+        description: "Please select a template and enter an email address",
+        variant: "destructive"
+      });
+      return;
+    }
 
     setIsSubmitting(true);
-
     try {
-      const response = await fetch('/admin/api/email/test', {
+      const token = AdminAuth.getToken();
+      const response = await fetch('/api/admin/email/send-test', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          'X-CSRF-Token': csrfToken
+          'Authorization': `Bearer ${token}`
         },
-        credentials: 'include',
         body: JSON.stringify({
           templateId: selectedTemplate,
-          to: testEmail || undefined
+          email: testEmail
         })
       });
 
-      const result = await response.json();
-
-      if (response.ok) {
-        toast({
-          title: "Test email sent!",
-          description: result.message
-        });
-      } else {
-        toast({
-          title: "Failed to send email",
-          description: result.error || 'Unknown error',
-          variant: "destructive"
-        });
+      if (!response.ok) {
+        throw new Error('Failed to send test email');
       }
+
+      const result = await response.json();
+      toast({
+        title: "Success",
+        description: result.message || "Test email sent successfully"
+      });
     } catch (error) {
+      console.error('Send failed:', error);
       toast({
         title: "Error",
         description: "Failed to send test email",
@@ -243,63 +182,46 @@ export default function AdminEmailTest() {
 
   if (isCheckingAuth) {
     return (
-      <div className="container mx-auto px-4 py-8 text-center">
-        <Loader2 className="h-8 w-8 animate-spin mx-auto mb-4" />
-        <p>Checking authentication...</p>
+      <div className="container mx-auto px-4 py-8">
+        <div className="flex items-center justify-center min-h-screen">
+          <Loader2 className="h-8 w-8 animate-spin" />
+        </div>
       </div>
     );
   }
 
-  if (!isLoggedIn) {
+  if (!isAuthenticated) {
     return (
-      <div className="container mx-auto px-4 py-8">
-        <div className="max-w-md mx-auto">
-          <Card>
-            <CardHeader>
-              <CardTitle>Admin Login</CardTitle>
-              <CardDescription>Login to access email testing tools</CardDescription>
-            </CardHeader>
-            <CardContent>
-              <form onSubmit={handleLogin} className="space-y-4">
-                <div>
-                  <Label htmlFor="email">Email</Label>
-                  <Input
-                    id="email"
-                    type="email"
-                    value={loginData.email}
-                    onChange={(e) => setLoginData(prev => ({ ...prev, email: e.target.value }))}
-                    required
-                  />
-                </div>
-                <div>
-                  <Label htmlFor="password">Password</Label>
-                  <Input
-                    id="password"
-                    type="password"
-                    value={loginData.password}
-                    onChange={(e) => setLoginData(prev => ({ ...prev, password: e.target.value }))}
-                    required
-                  />
-                </div>
-                <Button type="submit" className="w-full" disabled={isLoggingIn}>
-                  {isLoggingIn && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                  Login
-                </Button>
-              </form>
-            </CardContent>
-          </Card>
-        </div>
-      </div>
+      <AdminLayout
+        title="Email Testing Center"
+        description="Please log in to access email testing tools"
+      >
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <AlertCircle className="h-5 w-5 text-yellow-500" />
+              Authentication Required
+            </CardTitle>
+            <CardDescription>
+              You need to be logged in as an admin to access this page.
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <Button onClick={() => window.location.href = '/admin'}>
+              Go to Admin Login
+            </Button>
+          </CardContent>
+        </Card>
+      </AdminLayout>
     );
   }
 
   return (
-    <div className="container mx-auto px-4 py-8">
-      <div className="flex justify-between items-center mb-8">
-        <div>
-          <h1 className="text-3xl font-bold">Admin Email Test</h1>
-          <p className="text-gray-600">Logged in as: {adminSession?.email}</p>
-        </div>
+    <AdminLayout
+      title="Email Testing Center"
+      description="Test and preview email templates for BytSave notifications"
+    >
+      <div className="flex justify-end mb-6">
         <Button variant="outline" onClick={handleLogout}>
           <LogOut className="mr-2 h-4 w-4" />
           Logout
@@ -337,57 +259,64 @@ export default function AdminEmailTest() {
                 </Select>
               </div>
 
-              {selectedTemplate && (
-                <div>
-                  <Button 
-                    type="button" 
-                    variant="outline" 
-                    onClick={handlePreviewTemplate}
-                    className="w-full mb-4"
-                  >
-                    Preview Template
-                  </Button>
-                </div>
-              )}
-
               <div>
-                <Label htmlFor="testEmail">Test Email (optional)</Label>
+                <Label htmlFor="testEmail">Test Email Address</Label>
                 <Input
                   id="testEmail"
                   type="email"
                   value={testEmail}
                   onChange={(e) => setTestEmail(e.target.value)}
-                  placeholder={`Leave empty to use ${adminSession?.email}`}
+                  placeholder="admin@example.com"
+                  required
                 />
               </div>
 
-              <Button 
-                type="submit" 
-                className="w-full"
-                disabled={!selectedTemplate || isSubmitting}
-              >
-                {isSubmitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                Send Test Email
-              </Button>
+              <div className="flex gap-2">
+                <Button 
+                  type="button" 
+                  variant="outline" 
+                  onClick={handlePreviewTemplate}
+                  disabled={!selectedTemplate}
+                >
+                  <Eye className="mr-2 h-4 w-4" />
+                  Preview
+                </Button>
+                <Button 
+                  type="submit" 
+                  disabled={isSubmitting || !selectedTemplate || !testEmail}
+                >
+                  {isSubmitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                  <Send className="mr-2 h-4 w-4" />
+                  Send Test Email
+                </Button>
+              </div>
             </form>
           </CardContent>
         </Card>
-        
-        {previewHtml && (
-          <Card>
-            <CardHeader>
-              <CardTitle>Email Preview</CardTitle>
-              <CardDescription>How the email will look</CardDescription>
-            </CardHeader>
-            <CardContent>
-              <div 
-                className="border rounded p-4 bg-white max-h-96 overflow-y-auto"
-                dangerouslySetInnerHTML={{ __html: previewHtml }}
-              />
-            </CardContent>
-          </Card>
-        )}
+
+        <Card>
+          <CardHeader>
+            <CardTitle>Email Preview</CardTitle>
+            <CardDescription>Live preview of the selected template</CardDescription>
+          </CardHeader>
+          <CardContent>
+            {previewHtml ? (
+              <div className="border rounded-lg overflow-hidden">
+                <iframe
+                  ref={iframeRef}
+                  srcDoc={previewHtml}
+                  className="w-full h-[400px]"
+                  sandbox="allow-same-origin"
+                />
+              </div>
+            ) : (
+              <div className="border-2 border-dashed border-gray-300 rounded-lg h-[400px] flex items-center justify-center text-gray-500">
+                Select a template and click "Preview" to see the email
+              </div>
+            )}
+          </CardContent>
+        </Card>
       </div>
-    </div>
+    </AdminLayout>
   );
 }

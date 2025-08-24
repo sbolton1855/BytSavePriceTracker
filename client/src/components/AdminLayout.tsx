@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { AdminAuth } from '@/lib/admin-auth';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -44,7 +43,7 @@ export default function AdminLayout({ children, title = "Admin Panel", descripti
 
     setIsValidating(true);
     const success = await AdminAuth.login(adminToken.trim());
-    
+
     if (success) {
       setIsAuthenticated(true);
       setAdminToken('');
