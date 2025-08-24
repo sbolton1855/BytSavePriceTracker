@@ -107,6 +107,8 @@ router.get('/amazon/deals', async (req, res) => {
   } catch (err: any) {
     console.error('[ERROR] Failed to fetch deals from Amazon:', err);
     console.error('[ERROR] Error stack:', err.stack);
+    console.error('[ERROR] Error type:', typeof err);
+    console.error('[ERROR] Error name:', err.name);
     
     // Always return JSON, never let it fall through to HTML error pages
     try {
@@ -118,7 +120,8 @@ router.get('/amazon/deals', async (req, res) => {
       res.status(500).json({ 
         error: 'Failed to fetch deals', 
         details: err.message,
-        fallbackError: fallbackErr.message 
+        fallbackError: fallbackErr.message,
+        timestamp: new Date().toISOString()
       });
     }
   }
