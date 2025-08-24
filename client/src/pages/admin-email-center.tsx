@@ -1,18 +1,19 @@
+
 import { useState, useRef, useEffect } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Table, TableBody, TableCell, TableHeader, TableRow } from '@/components/ui/table';
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { Badge } from '@/components/ui/badge';
-import { Loader2, Send, Eye, AlertCircle, ChevronLeft, ChevronRight, CheckCircle, XCircle } from "lucide-react";
+import { Loader2, Send, Eye, AlertCircle, ChevronLeft, ChevronRight, CheckCircle, XCircle, RefreshCw } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { Textarea } from '@/components/ui/textarea';
 import AdminLayout from "@/components/AdminLayout";
+import AdminSubTabNav from "@/components/AdminSubTabNav";
 import { AdminAuth } from "@/lib/admin-auth";
 
 interface EmailLog {
@@ -34,35 +35,75 @@ interface EmailLogsResponse {
   totalPages: number;
 }
 
+interface EmailTemplate {
+  id: string;
+  name: string;
+  subject: string;
+  description?: string;
+}
+
 export default function AdminEmailCenter() {
   const { toast } = useToast();
 
+  // Get sub-tab from URL params
+  const getSubTabFromUrl = () => {
+    const urlParams = new URLSearchParams(window.location.search);
+    return urlParams.get('sub') || 'templates';
+  };
+
+  const [activeSubTab, setActiveSubTab] = useState(getSubTabFromUrl());
+
+  // Update URL when sub-tab changes
+  const handleSubTabChange = (subTab: string) => {
+    setActiveSubTab(subTab);
+    const newUrl = `/admin/email-center?sub=${subTab}`;
+    window.history.pushState({}, '', newUrl);
+  };
+
+  // Listen for browser back/forward navigation
+  useEffect(() => {
+    const handlePopState = () => {
+      setActiveSubTab(getSubTabFromUrl());
+    };
+    
+    window.addEventListener('popstate', handlePopState);
+    return () => window.removeEventListener('popstate', handlePopState);
+  }, []);
+
   // Form states for different email types
+  const [selectedTemplate, setSelectedTemplate] = useState('price-drop');
+  const [testEmail, setTestEmail] = useState('');
   const [priceDropForm, setPriceDropForm] = useState({
     asin: 'B01DJGLYZQ',
     productTitle: 'TRUEplus - Insulin Syringes 31g 0.3cc 5/16" (Pack of 100)',
     oldPrice: '22.99',
-    newPrice: '15.99',
-    email: ''
+    newPrice: '15.99'
   });
 
   const [passwordResetForm, setPasswordResetForm] = useState({
     email: ''
   });
 
-  const [genericEmailForm, setGenericEmailForm] = useState({
-    email: ''
+  // Settings state
+  const [settings, setSettings] = useState({
+    fromAddress: 'alerts@bytsave.com',
+    qaSubjectTag: '[QA-TEST]'
   });
 
   // UI states
-  const [isLoading, setIsLoading] = useState(false);
-  const [previewHtml, setPreviewHtml] = useState<string>('');
+  const [isLoading, setIsLoading] = useState<Record<string, boolean>>({});
+  const [previewData, setPreviewData] = useState<string>('');
   const [results, setResults] = useState<Record<string, any>>({});
   const [currentPage, setCurrentPage] = useState(1);
   const [statusFilter, setStatusFilter] = useState<string>('');
   const [typeFilter, setTypeFilter] = useState<string>('');
-  const iframeRef = useRef<HTMLIFrameElement>(null);
 
+  // Mock templates data
+  const templates: EmailTemplate[] = [
+    { id: 'price-drop', name: 'Price Drop Alert', subject: 'Price Drop Alert: {{productTitle}}', description: 'Notify users when product prices drop' },
+    { id: 'password-reset', name: 'Password Reset', subject: 'Reset Your Password', description: 'Password reset email template' },
+    { id: 'welcome', name: 'Welcome Email', subject: 'Welcome to BytSave!', description: 'Welcome new users' }
+  ];
 
   // Query for email logs
   const { data: emailLogs, isLoading: logsLoading, refetch: refetchLogs } = useQuery<EmailLogsResponse>({
@@ -94,31 +135,37 @@ export default function AdminEmailCenter() {
       }
       return response.json();
     },
-    enabled: AdminAuth.getToken() !== null,
+    enabled: activeSubTab === 'logs' && AdminAuth.getToken() !== null,
   });
 
-
-  // Helper function to update loading state
-  const setLoadingState = (key: string, value: boolean) => {
-    setIsLoading(prev => ({ ...prev, [key]: value }));
-  };
-
-  // Helper function to update results
-  const setResult = (key: string, value: any) => {
-    setResults(prev => ({ ...prev, [key]: value }));
-  };
-
-  // Price Drop Alert handlers
-  const handlePriceDropPreview = async () => {
+  // Template preview handler
+  const handleTemplatePreview = async (templateId: string) => {
     const token = AdminAuth.getToken();
     if (!token) {
       toast({ title: "Authentication Required", description: "Please authenticate first", variant: "destructive" });
       return;
     }
 
-    setLoadingState('priceDropPreview', true);
+    setIsLoading(prev => ({ ...prev, [`${templateId}_preview`]: true }));
     try {
-      const response = await fetch(`/api/dev/preview-email?token=${token}&asin=${priceDropForm.asin}&productTitle=${encodeURIComponent(priceDropForm.productTitle)}&oldPrice=${priceDropForm.oldPrice}&newPrice=${priceDropForm.newPrice}`);
+      let response;
+      
+      if (templateId === 'price-drop') {
+        response = await fetch(`/api/dev/preview-email?token=${token}&asin=${priceDropForm.asin}&productTitle=${encodeURIComponent(priceDropForm.productTitle)}&oldPrice=${priceDropForm.oldPrice}&newPrice=${priceDropForm.newPrice}`);
+      } else if (templateId === 'password-reset') {
+        const params = new URLSearchParams({
+          email: passwordResetForm.email || 'test@example.com',
+          token: token
+        });
+        response = await fetch(`/api/admin/test-reset?${params}`);
+      } else {
+        // Generic template preview
+        response = await fetch(`/api/admin/email/preview/${templateId}`, {
+          headers: {
+            'x-admin-token': token
+          }
+        });
+      }
 
       if (!response.ok) {
         if (response.status === 403) {
@@ -126,36 +173,64 @@ export default function AdminEmailCenter() {
           AdminAuth.clearToken();
           return;
         }
-        throw new Error('Failed to preview price drop email');
+        throw new Error('Failed to preview template');
       }
 
-      const htmlContent = await response.text();
-      setResult('priceDropPreview', htmlContent);
-      toast({ title: "Success", description: "Price drop email preview generated" });
+      let htmlContent;
+      if (templateId === 'password-reset') {
+        const result = await response.json();
+        htmlContent = result.previewHtml || '';
+      } else if (templateId === 'price-drop') {
+        htmlContent = await response.text();
+      } else {
+        const result = await response.json();
+        htmlContent = result.html || '';
+      }
+
+      setPreviewData(htmlContent);
+      toast({ title: "Success", description: "Template preview generated" });
     } catch (error) {
-      console.error('Price drop preview error:', error);
-      toast({ title: "Error", description: "Failed to preview price drop email", variant: "destructive" });
+      console.error('Template preview error:', error);
+      toast({ title: "Error", description: "Failed to preview template", variant: "destructive" });
     } finally {
-      setLoadingState('priceDropPreview', false);
+      setIsLoading(prev => ({ ...prev, [`${templateId}_preview`]: false }));
     }
   };
 
-  const handlePriceDropSend = async () => {
+  // Send test email handler
+  const handleSendTestEmail = async () => {
     const token = AdminAuth.getToken();
-    if (!token) {
-      toast({ title: "Authentication Required", description: "Please authenticate first", variant: "destructive" });
+    if (!token || !testEmail) {
+      toast({ title: "Error", description: "Please provide email address and authenticate", variant: "destructive" });
       return;
     }
 
-    if (!priceDropForm.asin || !priceDropForm.oldPrice || !priceDropForm.newPrice) {
-      toast({ title: "Error", description: "Please fill in all required fields", variant: "destructive" });
-      return;
-    }
-
-    setLoadingState('priceDropSend', true);
+    setIsLoading(prev => ({ ...prev, 'send_test': true }));
     try {
-      const testEmail = priceDropForm.email || 'test@example.com';
-      const response = await fetch(`/api/dev/preview-email?asin=${priceDropForm.asin}&productTitle=${encodeURIComponent(priceDropForm.productTitle)}&oldPrice=${priceDropForm.oldPrice}&newPrice=${priceDropForm.newPrice}&email=${encodeURIComponent(testEmail)}&send=true&token=${token}`);
+      let response;
+
+      if (selectedTemplate === 'price-drop') {
+        response = await fetch(`/api/dev/preview-email?asin=${priceDropForm.asin}&productTitle=${encodeURIComponent(priceDropForm.productTitle)}&oldPrice=${priceDropForm.oldPrice}&newPrice=${priceDropForm.newPrice}&email=${encodeURIComponent(testEmail)}&send=true&token=${token}`);
+      } else if (selectedTemplate === 'password-reset') {
+        const params = new URLSearchParams({
+          email: testEmail,
+          token: token,
+          send: 'true'
+        });
+        response = await fetch(`/api/admin/test-reset?${params}`);
+      } else {
+        response = await fetch('/api/admin/send-test-email', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'x-admin-token': token
+          },
+          body: JSON.stringify({
+            email: testEmail,
+            templateId: selectedTemplate
+          })
+        });
+      }
 
       if (!response.ok) {
         if (response.status === 403) {
@@ -164,149 +239,34 @@ export default function AdminEmailCenter() {
           return;
         }
         const errorData = await response.json();
-        throw new Error(errorData.error || 'Failed to send price drop email');
+        throw new Error(errorData.error || 'Failed to send test email');
       }
 
       const data = await response.json();
-      toast({ title: "Success", description: data.message || "Price drop email sent successfully!" });
-      setResult('priceDropSend', data);
-    } catch (error) {
-      console.error('Price drop send error:', error);
-      toast({ title: "Error", description: error.message || "Failed to send price drop email", variant: "destructive" });
-    } finally {
-      setLoadingState('priceDropSend', false);
-    }
-  };
-
-  // Password Reset handlers
-  const handlePasswordResetPreview = async () => {
-    const token = AdminAuth.getToken();
-    if (!token || !passwordResetForm.email) {
-      toast({ title: "Authentication Required", description: "Please authenticate and provide email", variant: "destructive" });
-      return;
-    }
-
-    setLoadingState('passwordResetPreview', true);
-    try {
-      const params = new URLSearchParams({
-        email: passwordResetForm.email,
-        token: token
-      });
-
-      const response = await fetch(`/api/admin/test-reset?${params}`);
-
-      if (!response.ok) {
-        if (response.status === 403) {
-          toast({ title: "Unauthorized", description: "Invalid admin token.", variant: "destructive" });
-          AdminAuth.clearToken();
-          return;
-        }
-        const errorData = await response.json();
-        throw new Error(errorData.error || `HTTP ${response.status}`);
+      toast({ title: "Success", description: data.message || "Test email sent successfully!" });
+      setResults(prev => ({ ...prev, 'send_test': data }));
+      
+      // Refresh logs if on logs tab
+      if (activeSubTab === 'logs') {
+        refetchLogs();
       }
-
-      const result = await response.json();
-      setResult('passwordResetPreview', result.previewHtml || '');
-      toast({ title: "Success", description: "Password reset preview generated" });
-
     } catch (error) {
-      toast({ title: "Error", description: "Failed to generate preview", variant: "destructive" });
-      console.error(error);
+      console.error('Send test email error:', error);
+      toast({ title: "Error", description: error.message || "Failed to send test email", variant: "destructive" });
     } finally {
-      setLoadingState('passwordResetPreview', false);
-    }
-  };
-
-  const handlePasswordResetSend = async () => {
-    const token = AdminAuth.getToken();
-    if (!token || !passwordResetForm.email) {
-      toast({ title: "Authentication Required", description: "Please authenticate and provide email", variant: "destructive" });
-      return;
-    }
-
-    setLoadingState('passwordResetSend', true);
-    try {
-      const params = new URLSearchParams({
-        email: passwordResetForm.email,
-        token: token,
-        send: 'true'
-      });
-
-      const response = await fetch(`/api/admin/test-reset?${params}`);
-
-      if (!response.ok) {
-        if (response.status === 403) {
-          toast({ title: "Unauthorized", description: "Invalid admin token.", variant: "destructive" });
-          AdminAuth.clearToken();
-          return;
-        }
-        const errorData = await response.json();
-        throw new Error(errorData.error || `HTTP ${response.status}`);
-      }
-
-      const result = await response.json();
-      setResult('passwordResetSend', result);
-      toast({ title: "Success", description: result.message || "Email sent successfully" });
-    } catch (error) {
-      toast({ title: "Error", description: "Failed to send email", variant: "destructive" });
-      console.error(error);
-    } finally {
-      setLoadingState('passwordResetSend', false);
-    }
-  };
-
-  // Generic Test Email handler
-  const handleGenericTestSend = async () => {
-    const token = AdminAuth.getToken();
-    if (!token || !genericEmailForm.email) {
-      toast({ title: "Authentication Required", description: "Please authenticate and provide email", variant: "destructive" });
-      return;
-    }
-
-    setLoadingState('genericTest', true);
-    try {
-      const response = await fetch('/api/admin/email/test', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`
-        },
-        body: JSON.stringify({
-          to: genericEmailForm.email,
-          templateId: 'welcome'
-        })
-      });
-
-      if (!response.ok) {
-        if (response.status === 403) {
-          toast({ title: "Unauthorized", description: "Invalid admin token.", variant: "destructive" });
-          AdminAuth.clearToken();
-          return;
-        }
-        const errorData = await response.json();
-        throw new Error(errorData.error || `HTTP ${response.status}`);
-      }
-
-      const result = await response.json();
-      setResult('genericTest', result);
-      toast({ title: "Success", description: result.message || "Test email sent successfully" });
-    } catch (error) {
-      toast({ title: "Error", description: "Failed to send test email", variant: "destructive" });
-      console.error(error);
-    } finally {
-      setLoadingState('genericTest', false);
+      setIsLoading(prev => ({ ...prev, 'send_test': false }));
     }
   };
 
   // Function to render status badge
   const renderStatusBadge = (status: EmailLog['status']) => {
     return status === 'success' ? (
-      <Badge variant="success" className="flex items-center gap-1">
-        <CheckCircle className="h-4 w-4" /> Success
+      <Badge variant="secondary" className="flex items-center gap-1 bg-green-100 text-green-800">
+        <CheckCircle className="h-3 w-3" /> Success
       </Badge>
     ) : (
       <Badge variant="destructive" className="flex items-center gap-1">
-        <XCircle className="h-4 w-4" /> Fail
+        <XCircle className="h-3 w-3" /> Fail
       </Badge>
     );
   };
@@ -320,221 +280,185 @@ export default function AdminEmailCenter() {
     }
   };
 
-  return (
-    <AdminLayout
-      title="Email Testing Center"
-      description="Test and preview email templates for BytSave notifications"
-    >
-      {/* Email Testing Tabs */}
-      <Tabs defaultValue="price-drop" className="space-y-6">
-        <TabsList className="grid w-full grid-cols-4">
-          <TabsTrigger value="price-drop">Price Drop Alerts</TabsTrigger>
-          <TabsTrigger value="password-reset">Password Reset</TabsTrigger>
-          <TabsTrigger value="generic-test">Generic Test</TabsTrigger>
-          <TabsTrigger value="email-logs">Email Logs</TabsTrigger>
-        </TabsList>
+  // Render sub-tab content
+  const renderSubTabContent = () => {
+    switch (activeSubTab) {
+      case 'templates':
+        return (
+          <div className="space-y-6">
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+              {/* Template List */}
+              <Card>
+                <CardHeader>
+                  <CardTitle>Email Templates</CardTitle>
+                  <CardDescription>Select a template to preview</CardDescription>
+                </CardHeader>
+                <CardContent className="space-y-4">
+                  {templates.map((template) => (
+                    <div key={template.id} className="p-4 border rounded-lg">
+                      <div className="flex justify-between items-start mb-2">
+                        <div>
+                          <h3 className="font-medium">{template.name}</h3>
+                          <p className="text-sm text-gray-600">{template.description}</p>
+                          <p className="text-sm text-gray-500 mt-1">Subject: {template.subject}</p>
+                        </div>
+                        <Button
+                          onClick={() => handleTemplatePreview(template.id)}
+                          variant="outline"
+                          size="sm"
+                          disabled={isLoading[`${template.id}_preview`]}
+                        >
+                          {isLoading[`${template.id}_preview`] && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                          <Eye className="mr-2 h-4 w-4" />
+                          Preview
+                        </Button>
+                      </div>
+                    </div>
+                  ))}
+                </CardContent>
+              </Card>
 
-        {/* Price Drop Alerts Tab */}
-        <TabsContent value="price-drop">
+              {/* Template Data Forms */}
+              <Card>
+                <CardHeader>
+                  <CardTitle>Template Data</CardTitle>
+                  <CardDescription>Configure template variables for preview</CardDescription>
+                </CardHeader>
+                <CardContent className="space-y-4">
+                  {/* Price Drop Form */}
+                  <div className="space-y-3">
+                    <h4 className="font-medium">Price Drop Template Data</h4>
+                    <div className="grid grid-cols-2 gap-3">
+                      <div>
+                        <Label htmlFor="asin">ASIN</Label>
+                        <Input
+                          id="asin"
+                          value={priceDropForm.asin}
+                          onChange={(e) => setPriceDropForm(prev => ({ ...prev, asin: e.target.value }))}
+                          placeholder="B08N5WRWNW"
+                        />
+                      </div>
+                      <div>
+                        <Label htmlFor="oldPrice">Old Price</Label>
+                        <Input
+                          id="oldPrice"
+                          type="number"
+                          step="0.01"
+                          value={priceDropForm.oldPrice}
+                          onChange={(e) => setPriceDropForm(prev => ({ ...prev, oldPrice: e.target.value }))}
+                          placeholder="29.99"
+                        />
+                      </div>
+                    </div>
+                    <div>
+                      <Label htmlFor="productTitle">Product Title</Label>
+                      <Input
+                        id="productTitle"
+                        value={priceDropForm.productTitle}
+                        onChange={(e) => setPriceDropForm(prev => ({ ...prev, productTitle: e.target.value }))}
+                        placeholder="Test Product Name"
+                      />
+                    </div>
+                    <div>
+                      <Label htmlFor="newPrice">New Price</Label>
+                      <Input
+                        id="newPrice"
+                        type="number"
+                        step="0.01"
+                        value={priceDropForm.newPrice}
+                        onChange={(e) => setPriceDropForm(prev => ({ ...prev, newPrice: e.target.value }))}
+                        placeholder="19.99"
+                      />
+                    </div>
+                  </div>
+
+                  {/* Password Reset Form */}
+                  <div className="space-y-3 border-t pt-4">
+                    <h4 className="font-medium">Password Reset Template Data</h4>
+                    <div>
+                      <Label htmlFor="resetEmail">Test Email</Label>
+                      <Input
+                        id="resetEmail"
+                        type="email"
+                        value={passwordResetForm.email}
+                        onChange={(e) => setPasswordResetForm(prev => ({ ...prev, email: e.target.value }))}
+                        placeholder="test@example.com"
+                      />
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+            </div>
+
+            {/* Preview */}
+            {previewData && (
+              <Card>
+                <CardHeader>
+                  <CardTitle>Template Preview</CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <iframe
+                    srcDoc={previewData}
+                    className="w-full h-96 border rounded"
+                    title="Email Template Preview"
+                  />
+                </CardContent>
+              </Card>
+            )}
+          </div>
+        );
+
+      case 'send':
+        return (
           <Card>
             <CardHeader>
-              <CardTitle>Price Drop Alert Testing</CardTitle>
-              <CardDescription>Test price drop email templates</CardDescription>
+              <CardTitle>Send Test Email</CardTitle>
+              <CardDescription>Send test emails using available templates</CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div>
-                  <Label htmlFor="asin">ASIN *</Label>
-                  <Input
-                    id="asin"
-                    value={priceDropForm.asin}
-                    onChange={(e) => setPriceDropForm(prev => ({ ...prev, asin: e.target.value }))}
-                    placeholder="B08N5WRWNW"
-                  />
+                  <Label htmlFor="template">Email Template</Label>
+                  <Select value={selectedTemplate} onValueChange={setSelectedTemplate}>
+                    <SelectTrigger>
+                      <SelectValue placeholder="Select template" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {templates.map((template) => (
+                        <SelectItem key={template.id} value={template.id}>
+                          {template.name}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
                 </div>
                 <div>
-                  <Label htmlFor="productTitle">Product Title</Label>
+                  <Label htmlFor="testEmailAddress">Recipient Email</Label>
                   <Input
-                    id="productTitle"
-                    value={priceDropForm.productTitle}
-                    onChange={(e) => setPriceDropForm(prev => ({ ...prev, productTitle: e.target.value }))}
-                    placeholder="Test Product Name"
-                  />
-                </div>
-                <div>
-                  <Label htmlFor="oldPrice">Old Price *</Label>
-                  <Input
-                    id="oldPrice"
-                    type="number"
-                    step="0.01"
-                    value={priceDropForm.oldPrice}
-                    onChange={(e) => setPriceDropForm(prev => ({ ...prev, oldPrice: e.target.value }))}
-                    placeholder="29.99"
-                  />
-                </div>
-                <div>
-                  <Label htmlFor="newPrice">New Price *</Label>
-                  <Input
-                    id="newPrice"
-                    type="number"
-                    step="0.01"
-                    value={priceDropForm.newPrice}
-                    onChange={(e) => setPriceDropForm(prev => ({ ...prev, newPrice: e.target.value }))}
-                    placeholder="19.99"
-                  />
-                </div>
-                <div className="md:col-span-2">
-                  <Label htmlFor="priceDropEmail">Target Email (optional)</Label>
-                  <Input
-                    id="priceDropEmail"
+                    id="testEmailAddress"
                     type="email"
-                    value={priceDropForm.email}
-                    onChange={(e) => setPriceDropForm(prev => ({ ...prev, email: e.target.value }))}
-                    placeholder="test@example.com (leave empty for default)"
+                    value={testEmail}
+                    onChange={(e) => setTestEmail(e.target.value)}
+                    placeholder="test@example.com"
                   />
                 </div>
-              </div>
-
-              <div className="flex gap-2">
-                <Button
-                  onClick={handlePriceDropPreview}
-                  variant="outline"
-                >
-                  {isLoading.priceDropPreview && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                  <Eye className="mr-2 h-4 w-4" />
-                  Preview
-                </Button>
-                <Button
-                  onClick={handlePriceDropSend}
-                >
-                  {isLoading.priceDropSend && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                  <Send className="mr-2 h-4 w-4" />
-                  Send Email
-                </Button>
-              </div>
-
-              {/* Price Drop Results */}
-              {results.priceDropPreview && (
-                <div className="mt-6">
-                  <Label>Email Preview</Label>
-                  <iframe
-                    srcDoc={results.priceDropPreview}
-                    className="w-full h-96 border rounded"
-                    title="Price Drop Email Preview"
-                  />
-                </div>
-              )}
-
-              {results.priceDropSend && (
-                <div className="mt-6">
-                  <Label>Send Result</Label>
-                  <Textarea
-                    value={JSON.stringify(results.priceDropSend, null, 2)}
-                    readOnly
-                    className="mt-2 h-24"
-                  />
-                </div>
-              )}
-            </CardContent>
-          </Card>
-        </TabsContent>
-
-        {/* Password Reset Tab */}
-        <TabsContent value="password-reset">
-          <Card>
-            <CardHeader>
-              <CardTitle>Password Reset Testing</CardTitle>
-              <CardDescription>Test password reset email templates</CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              <div>
-                <Label htmlFor="passwordResetEmail">Target Email *</Label>
-                <Input
-                  id="passwordResetEmail"
-                  type="email"
-                  value={passwordResetForm.email}
-                  onChange={(e) => setPasswordResetForm(prev => ({ ...prev, email: e.target.value }))}
-                  placeholder="test@example.com"
-                />
-              </div>
-
-              <div className="flex gap-2">
-                <Button
-                  onClick={handlePasswordResetPreview}
-                  variant="outline"
-                >
-                  {isLoading.passwordResetPreview && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                  <Eye className="mr-2 h-4 w-4" />
-                  Preview
-                </Button>
-                <Button
-                  onClick={handlePasswordResetSend}
-                >
-                  {isLoading.passwordResetSend && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                  <Send className="mr-2 h-4 w-4" />
-                  Send Email
-                </Button>
-              </div>
-
-              {/* Password Reset Results */}
-              {results.passwordResetPreview && (
-                <div className="mt-6">
-                  <Label>Email Preview</Label>
-                  <iframe
-                    srcDoc={results.passwordResetPreview}
-                    className="w-full h-96 border rounded"
-                    title="Password Reset Email Preview"
-                  />
-                </div>
-              )}
-
-              {results.passwordResetSend && (
-                <div className="mt-6">
-                  <Label>Send Result</Label>
-                  <Textarea
-                    value={JSON.stringify(results.passwordResetSend, null, 2)}
-                    readOnly
-                    className="mt-2 h-24"
-                  />
-                </div>
-              )}
-            </CardContent>
-          </Card>
-        </TabsContent>
-
-        {/* Generic Test Tab */}
-        <TabsContent value="generic-test">
-          <Card>
-            <CardHeader>
-              <CardTitle>Generic Test Email</CardTitle>
-              <CardDescription>Send a basic test email to verify email system</CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              <div>
-                <Label htmlFor="genericEmail">Target Email *</Label>
-                <Input
-                  id="genericEmail"
-                  type="email"
-                  value={genericEmailForm.email}
-                  onChange={(e) => setGenericEmailForm(prev => ({ ...prev, email: e.target.value }))}
-                  placeholder="test@example.com"
-                />
               </div>
 
               <Button
-                onClick={handleGenericTestSend}
+                onClick={handleSendTestEmail}
+                disabled={isLoading.send_test || !testEmail || !selectedTemplate}
               >
-                {isLoading.genericTest && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                {isLoading.send_test && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
                 <Send className="mr-2 h-4 w-4" />
                 Send Test Email
               </Button>
 
-              {/* Generic Test Results */}
-              {results.genericTest && (
+              {/* Send Results */}
+              {results.send_test && (
                 <div className="mt-6">
                   <Label>Send Result</Label>
                   <Textarea
-                    value={JSON.stringify(results.genericTest, null, 2)}
+                    value={JSON.stringify(results.send_test, null, 2)}
                     readOnly
                     className="mt-2 h-24"
                   />
@@ -542,17 +466,17 @@ export default function AdminEmailCenter() {
               )}
             </CardContent>
           </Card>
-        </TabsContent>
+        );
 
-        {/* Email Logs Tab */}
-        <TabsContent value="email-logs">
+      case 'logs':
+        return (
           <Card>
             <CardHeader>
               <CardTitle>Email Logs</CardTitle>
-              <CardDescription>View a history of sent emails</CardDescription>
+              <CardDescription>View history of sent emails</CardDescription>
             </CardHeader>
             <CardContent>
-              {/* Filters */}
+              {/* Filters and Refresh */}
               <div className="flex justify-between items-center mb-4">
                 <div className="flex gap-4">
                   <div className="flex items-center gap-2">
@@ -586,8 +510,9 @@ export default function AdminEmailCenter() {
                 <Button onClick={() => {
                   setCurrentPage(1);
                   refetchLogs();
-                }}>
-                  Apply Filters
+                }} disabled={logsLoading}>
+                  {logsLoading ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : <RefreshCw className="h-4 w-4 mr-2" />}
+                  Refresh
                 </Button>
               </div>
 
@@ -614,30 +539,31 @@ export default function AdminEmailCenter() {
                         <TableRow key={log.id}>
                           <TableCell>{new Date(log.createdAt).toLocaleString()}</TableCell>
                           <TableCell>{log.recipientEmail}</TableCell>
-                          <TableCell>{log.subject}</TableCell>
+                          <TableCell className="max-w-xs truncate">{log.subject}</TableCell>
                           <TableCell>{log.type}</TableCell>
                           <TableCell>{renderStatusBadge(log.status)}</TableCell>
                           <TableCell>
                             <Dialog>
                               <DialogTrigger asChild>
-                                <Button variant="outline" size="sm" onClick={() => setResult('emailBody', log.previewHtml)}>
-                                  <Eye className="h-4 w-4" /> View Details
+                                <Button variant="outline" size="sm">
+                                  <Eye className="h-4 w-4 mr-2" />
+                                  View
                                 </Button>
                               </DialogTrigger>
                               <DialogContent className="sm:max-w-[700px]">
                                 <DialogHeader>
                                   <DialogTitle>Email Details</DialogTitle>
-                                  <DialogDescription>
-                                    <strong>Sent:</strong> {new Date(log.createdAt).toLocaleString()} <br />
-                                    <strong>To:</strong> {log.recipientEmail} <br />
-                                    <strong>Subject:</strong> {log.subject} <br />
-                                    <strong>Status:</strong> {renderStatusBadge(log.status)} <br />
-                                    <strong>Type:</strong> {log.type}
-                                  </DialogDescription>
                                 </DialogHeader>
+                                <div className="space-y-2 text-sm">
+                                  <p><strong>Sent:</strong> {new Date(log.createdAt).toLocaleString()}</p>
+                                  <p><strong>To:</strong> {log.recipientEmail}</p>
+                                  <p><strong>Subject:</strong> {log.subject}</p>
+                                  <p><strong>Status:</strong> {renderStatusBadge(log.status)}</p>
+                                  <p><strong>Type:</strong> {log.type}</p>
+                                </div>
                                 <iframe
                                   srcDoc={log.previewHtml}
-                                  className="w-full h-[500px] border rounded"
+                                  className="w-full h-[500px] border rounded mt-4"
                                   title={`Email Preview - ${log.subject}`}
                                 />
                               </DialogContent>
@@ -655,7 +581,7 @@ export default function AdminEmailCenter() {
                       onClick={() => handlePageChange('prev')}
                       disabled={currentPage === 1 || logsLoading}
                     >
-                      <ChevronLeft className="h-4 w-4" /> Previous
+                      <ChevronLeft className="h-4 w-4 mr-2" /> Previous
                     </Button>
                     <span>Page {currentPage} of {emailLogs.totalPages}</span>
                     <Button
@@ -663,7 +589,7 @@ export default function AdminEmailCenter() {
                       onClick={() => handlePageChange('next')}
                       disabled={currentPage === emailLogs.totalPages || logsLoading}
                     >
-                      Next <ChevronRight className="h-4 w-4" />
+                      Next <ChevronRight className="h-4 w-4 ml-2" />
                     </Button>
                   </div>
                 </>
@@ -674,8 +600,65 @@ export default function AdminEmailCenter() {
               )}
             </CardContent>
           </Card>
-        </TabsContent>
-      </Tabs>
+        );
+
+      case 'settings':
+        return (
+          <Card>
+            <CardHeader>
+              <CardTitle>Email Settings</CardTitle>
+              <CardDescription>Configure email system settings</CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div>
+                <Label htmlFor="fromAddress">From Address</Label>
+                <Input
+                  id="fromAddress"
+                  value={settings.fromAddress}
+                  onChange={(e) => setSettings(prev => ({ ...prev, fromAddress: e.target.value }))}
+                  placeholder="alerts@bytsave.com"
+                />
+                <p className="text-sm text-gray-500 mt-1">Default sender email address</p>
+              </div>
+              <div>
+                <Label htmlFor="qaSubjectTag">QA Subject Tag</Label>
+                <Input
+                  id="qaSubjectTag"
+                  value={settings.qaSubjectTag}
+                  onChange={(e) => setSettings(prev => ({ ...prev, qaSubjectTag: e.target.value }))}
+                  placeholder="[QA-TEST]"
+                />
+                <p className="text-sm text-gray-500 mt-1">Tag added to test email subjects</p>
+              </div>
+              <Button
+                onClick={() => toast({ title: "Settings", description: "Settings saved (memory only)" })}
+              >
+                Save Settings
+              </Button>
+              <p className="text-sm text-yellow-600">
+                Note: Settings are persisted in memory only and will reset on server restart.
+              </p>
+            </CardContent>
+          </Card>
+        );
+
+      default:
+        return null;
+    }
+  };
+
+  return (
+    <AdminLayout
+      title="Email Center"
+      description="Comprehensive email template testing and management"
+    >
+      <div className="space-y-6">
+        {/* Sub-tab Navigation */}
+        <AdminSubTabNav activeSubTab={activeSubTab} onSubTabChange={handleSubTabChange} />
+
+        {/* Sub-tab Content */}
+        {renderSubTabContent()}
+      </div>
     </AdminLayout>
   );
 }

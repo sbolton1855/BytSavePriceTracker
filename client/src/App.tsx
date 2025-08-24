@@ -37,6 +37,9 @@ function Router() {
       <Route path="/admin/api-monitor">
         <ApiMonitor />
       </Route>
+      <Route path="/admin/email-center">
+        <AdminEmailCenter />
+      </Route>
       <Route path="/admin/email-test">
         <AdminEmailTest />
       </Route>
@@ -45,9 +48,6 @@ function Router() {
       </Route>
       <Route path="/admin/force-alerts">
         <AdminForceAlerts />
-      </Route>
-      <Route path="/admin/email-center">
-        <AdminEmailCenter />
       </Route>
       <Route path="/admin/products">
         <AdminProducts />
