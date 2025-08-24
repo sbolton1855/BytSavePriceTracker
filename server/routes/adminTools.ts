@@ -2,6 +2,9 @@ import express from 'express';
 import { cache } from '../lib/cache';
 import { metrics } from '../lib/metrics';
 import { getProductInfo } from '../amazonApi';
+import { requireAdmin } from '../middleware/requireAdmin';
+import { sendEmail } from '../sendEmail';
+import { logEmail } from '../email/logEmail';
 
 const router = express.Router();
 
@@ -75,7 +78,7 @@ router.get('/admin/asin/:asin', async (req, res) => {
 router.post('/admin/recheck-prices', async (req, res) => {
   try {
     const { asins } = req.body as { asins: string[] };
-    
+
     if (!Array.isArray(asins)) {
       return res.status(400).json({ error: 'asins must be an array' });
     }
@@ -105,4 +108,56 @@ router.post('/admin/recheck-prices', async (req, res) => {
   }
 });
 
-export default router; 
+// Test email sending
+router.post('/admin/test-email', requireAdmin, async (req, res) => {
+  try {
+    const { email, subject, htmlContent, templateId } = req.body as { email: string; subject: string; htmlContent: string; templateId: string };
+    const qaSubjectTag = process.env.QA_EMAIL_SUBJECT_TAG || '';
+
+    const result = await sendEmail({
+      to: email,
+      subject: qaSubjectTag + subject,
+      html: htmlContent,
+    });
+
+    // Log the test email
+    await logEmail({
+      recipientEmail: email,
+      templateId: templateId,
+      subject: qaSubjectTag + subject,
+      status: 'success',
+      isTest: true,
+      previewHtml: htmlContent,
+      type: 'test'
+    });
+
+    res.json({
+      success: true,
+      message: `Test email sent to ${email}`,
+      messageId: result.messageId
+    });
+  } catch (error) {
+    console.error('Send test email error:', error);
+
+    // Log failed email attempt
+    try {
+      await logEmail({
+        recipientEmail: email,
+        templateId: templateId,
+        subject: `${qaSubjectTag}Test Email Failed`,
+        status: 'fail',
+        isTest: true,
+        type: 'test'
+      });
+    } catch (logError) {
+      console.error('Failed to log email error:', logError);
+    }
+
+    res.status(500).json({
+      success: false,
+      error: error.message || 'Failed to send test email'
+    });
+  }
+});
+
+export default router;

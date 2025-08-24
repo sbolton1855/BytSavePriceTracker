@@ -59,15 +59,24 @@ export const sessions = pgTable("sessions", {
 	index("IDX_session_expire").using("btree", table.expire.asc().nullsLast().op("timestamp_ops")),
 ]);
 
-export const affiliateClicks = pgTable('affiliate_clicks', {
-  id: serial('id').primaryKey(),
-  userId: text('user_id'),
-  asin: text('asin').notNull(),
-  clickedAt: timestamp('clicked_at').defaultNow().notNull(),
-  userAgent: text('user_agent'),
-  ipAddress: text('ip_address'),
-  referrer: text('referrer')
+export const affiliateClicks = pgTable("affiliate_clicks", {
+  id: serial("id").primaryKey(),
+  asin: varchar("asin", { length: 20 }).notNull(),
+  clickedAt: timestamp("clicked_at").defaultNow().notNull(),
+  userAgent: text("user_agent"),
+  referrer: text("referrer"),
+  ipAddress: varchar("ip_address", { length: 45 }),
 });
 
-export const emailLogs = pgTable('email_logs', {
+export const emailLogs = pgTable("email_logs", {
+  id: serial("id").primaryKey(),
+  recipientEmail: varchar("recipient_email", { length: 255 }).notNull(),
+  templateId: varchar("template_id", { length: 100 }),
+  subject: varchar("subject", { length: 500 }).notNull(),
+  status: varchar("status", { length: 50 }).default('success').notNull(),
+  isTest: boolean("is_test").default(false).notNull(),
+  previewHtml: text("preview_html"),
+  type: varchar("type", { length: 50 }).default('other'),
+  sentAt: timestamp("sent_at").defaultNow(),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
 });

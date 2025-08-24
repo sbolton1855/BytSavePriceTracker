@@ -598,13 +598,13 @@ export default function AdminEmailCenter() {
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div>
                   <Label htmlFor="template">Email Template</Label>
-                  <Select value={selectedTemplate || undefined} onValueChange={setSelectedTemplate}>
+                  <Select value={selectedTemplate} onValueChange={setSelectedTemplate}>
                     <SelectTrigger>
                       <SelectValue placeholder="Select template" />
                     </SelectTrigger>
                     <SelectContent>
-                      {templates.filter(template => template.id).map((template) => (
-                        <SelectItem key={template.id} value={String(template.id)}>
+                      {templates.map((template) => (
+                        <SelectItem key={template.id} value={template.id}>
                           {template.name}
                         </SelectItem>
                       ))}
@@ -660,7 +660,7 @@ export default function AdminEmailCenter() {
                 <div className="flex gap-4">
                   <div className="flex items-center gap-2">
                     <Label htmlFor="statusFilter">Status:</Label>
-                    <Select value={statusFilter || undefined} onValueChange={(value) => setStatusFilter(value === 'all' ? undefined : value)}>
+                    <Select value={statusFilter || 'all'} onValueChange={(value) => setStatusFilter(value === 'all' ? undefined : value)}>
                       <SelectTrigger className="w-[180px]">
                         <SelectValue placeholder="All" />
                       </SelectTrigger>
@@ -673,7 +673,7 @@ export default function AdminEmailCenter() {
                   </div>
                   <div className="flex items-center gap-2">
                     <Label htmlFor="typeFilter">Type:</Label>
-                    <Select value={typeFilter || undefined} onValueChange={(value) => setTypeFilter(value === 'all' ? undefined : value)}>
+                    <Select value={typeFilter || 'all'} onValueChange={(value) => setTypeFilter(value === 'all' ? undefined : value)}>
                       <SelectTrigger className="w-[180px]">
                         <SelectValue placeholder="All" />
                       </SelectTrigger>
@@ -681,7 +681,7 @@ export default function AdminEmailCenter() {
                         <SelectItem value="all">All</SelectItem>
                         <SelectItem value="price-drop">Price Drop</SelectItem>
                         <SelectItem value="reset">Password Reset</SelectItem>
-                        <SelectItem value="test">Generic Test</SelectItem>
+                        <SelectItem value="test">Test</SelectItem>
                       </SelectContent>
                     </Select>
                   </div>
@@ -840,13 +840,13 @@ export default function AdminEmailCenter() {
                   </div>
                   <div>
                     <Label htmlFor="smokeTestTemplate">Template</Label>
-                    <Select value={smokeTestTemplate || undefined} onValueChange={setSmokeTestTemplate}>
+                    <Select value={smokeTestTemplate} onValueChange={setSmokeTestTemplate}>
                       <SelectTrigger>
                         <SelectValue placeholder="Select template" />
                       </SelectTrigger>
                       <SelectContent>
-                        {templates.filter(template => template.id).map((template) => (
-                          <SelectItem key={template.id} value={String(template.id)}>
+                        {templates.map((template) => (
+                          <SelectItem key={template.id} value={template.id}>
                             {template.name}
                           </SelectItem>
                         ))}

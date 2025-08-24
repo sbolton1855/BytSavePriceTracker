@@ -171,3 +171,87 @@ router.post('/logs/test', requireAdmin, async (req, res) => {
 });
 
 export default router;
+import { Router } from 'express';
+import { eq, desc, and, like, sql } from 'drizzle-orm';
+import { db } from '../db';
+import { emailLogs } from '../../migrations/schema';
+import { requireAdmin } from '../middleware/requireAdmin';
+
+const router = Router();
+
+// GET /api/admin/email-logs - Fetch email logs with filtering and pagination
+router.get('/email-logs', requireAdmin, async (req, res) => {
+  try {
+    const {
+      page = '1',
+      pageSize = '25',
+      status,
+      isTest,
+      to,
+      templateId
+    } = req.query;
+
+    const pageNum = parseInt(page as string, 10);
+    const pageSizeNum = Math.min(parseInt(pageSize as string, 10), 100);
+    const offset = (pageNum - 1) * pageSizeNum;
+
+    // Build where conditions
+    const conditions = [];
+    
+    if (status && status !== 'all') {
+      conditions.push(eq(emailLogs.status, status as string));
+    }
+    
+    if (isTest && isTest !== 'all') {
+      conditions.push(eq(emailLogs.isTest, isTest === 'true'));
+    }
+    
+    if (to) {
+      conditions.push(like(emailLogs.recipientEmail, `%${to}%`));
+    }
+    
+    if (templateId) {
+      conditions.push(eq(emailLogs.templateId, templateId as string));
+    }
+
+    const whereClause = conditions.length > 0 ? and(...conditions) : undefined;
+
+    // Get total count
+    const [{ count }] = await db
+      .select({ count: sql<number>`count(*)` })
+      .from(emailLogs)
+      .where(whereClause);
+
+    // Get paginated results
+    const items = await db
+      .select({
+        id: emailLogs.id,
+        recipientEmail: emailLogs.recipientEmail,
+        templateId: emailLogs.templateId,
+        subject: emailLogs.subject,
+        status: emailLogs.status,
+        isTest: emailLogs.isTest,
+        createdAt: emailLogs.createdAt,
+        previewHtml: emailLogs.previewHtml,
+        type: emailLogs.type
+      })
+      .from(emailLogs)
+      .where(whereClause)
+      .orderBy(desc(emailLogs.createdAt))
+      .limit(pageSizeNum)
+      .offset(offset);
+
+    res.json({
+      logs: items,
+      total: count,
+      page: pageNum,
+      pageSize: pageSizeNum,
+      totalPages: Math.ceil(count / pageSizeNum)
+    });
+  } catch (error) {
+    console.error('[email-logs] fetch_failed', { query: req.query, err: error.message });
+    res.status(500).json({ error: 'Failed to fetch email logs' });
+  }
+});
+
+export default router;
