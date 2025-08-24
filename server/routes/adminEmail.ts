@@ -13,6 +13,24 @@ const router = express.Router();
 import dotenv from 'dotenv';
 dotenv.config();
 
+// Debug endpoint to verify routes are working
+router.get('/debug-routes', (req, res) => {
+  console.log('🔍 Debug routes endpoint hit');
+  console.log('Original URL:', req.originalUrl);
+  console.log('Base URL:', req.baseUrl);
+  console.log('Path:', req.path);
+  console.log('Route path:', req.route?.path);
+  
+  res.json({
+    message: 'Route debugging info',
+    originalUrl: req.originalUrl,
+    baseUrl: req.baseUrl,
+    path: req.path,
+    routePath: req.route?.path,
+    adminSecret: process.env.ADMIN_SECRET ? 'DEFINED' : 'UNDEFINED'
+  });
+});
+
 // Affiliate Link Helper
 function buildAffiliateLink(asin: string): string {
   const tag = process.env.AMAZON_AFFILIATE_TAG;
@@ -66,17 +84,23 @@ const testEmailSchema = z.object({
 router.get('/email-templates', (req, res) => {
   const { token } = req.query;
   
-  console.log('Email templates request received');
+  console.log('=== EMAIL TEMPLATES DEBUG ===');
+  console.log('Full URL:', req.originalUrl);
+  console.log('Route path:', req.route?.path);
   console.log('Request token:', token);
   console.log('Expected ADMIN_SECRET:', process.env.ADMIN_SECRET);
+  console.log('Token type:', typeof token);
+  console.log('ADMIN_SECRET type:', typeof process.env.ADMIN_SECRET);
+  console.log('Tokens match:', token === process.env.ADMIN_SECRET);
+  console.log('===============================');
   
   // Check admin token for query-based auth (frontend compatibility)
   if (!token || token !== process.env.ADMIN_SECRET) {
-    console.log('Authentication failed - token mismatch or missing');
+    console.log('❌ Authentication failed - token mismatch or missing');
     return res.status(403).json({ error: 'Invalid admin token' });
   }
 
-  console.log('Authentication successful, returning templates');
+  console.log('✅ Authentication successful, returning templates');
   
   const templates = Object.values(EMAIL_TEMPLATES).map(template => ({
     id: template.id,
