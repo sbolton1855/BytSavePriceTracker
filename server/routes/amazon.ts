@@ -30,12 +30,28 @@ async function getFallbackDeals() {
 
 router.get('/amazon/deals', async (req, res) => {
   const keyword = req.query.q?.toString() || getRandomKeyword();
+  const testMode = req.query.test === 'httpbin';
+  
   console.log(`[DEBUG] /api/amazon/deals endpoint hit with keyword: ${keyword}`);
   console.log(`[DEBUG] Request URL: ${req.originalUrl}`);
-  console.log(`[DEBUG] Request headers:`, req.headers);
+  console.log(`[DEBUG] Test mode: ${testMode}`);
 
   // Ensure we always send JSON response
   res.setHeader('Content-Type', 'application/json');
+
+  // Test with httpbin first to prove routing works
+  if (testMode) {
+    try {
+      const testUrl = 'https://httpbin.org/get';
+      console.log('[DEBUG] Testing route with httpbin:', testUrl);
+      const response = await fetch(testUrl);
+      const text = await response.text();
+      return res.json({ test: 'httpbin', raw: text.slice(0, 200), status: 'success' });
+    } catch (err: any) {
+      console.error('[ERROR] Httpbin test failed:', err.message);
+      return res.json({ test: 'httpbin', error: err.message, status: 'failed' });
+    }
+  }
 
   try {
     console.log('[DEBUG] About to call searchAmazonProducts...');

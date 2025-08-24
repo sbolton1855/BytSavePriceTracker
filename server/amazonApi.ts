@@ -526,9 +526,11 @@ export async function searchAmazonProducts(keyword: string) {
   console.log(`[DEBUG] Authorization header present:`, !!headersToSign['Authorization']);
   console.log(`[DEBUG] ============================================`);
 
-  // Construct the full URL explicitly before try block
+  // Force the full Amazon URL construction
+  const host = 'webservices.amazon.com';
+  const path = '/paapi5/searchitems';
   const fullUrl = `https://${host}${path}`;
-  console.log(`[DEBUG] About to make request to: ${fullUrl}`);
+  
   console.log(`[DEBUG] Full Amazon URL: ${fullUrl}`);
 
   try {
@@ -538,21 +540,12 @@ export async function searchAmazonProducts(keyword: string) {
       headers: headersToSign,
       body: payloadJson
     });
-    console.log(`[DEBUG] Fetch request completed successfully`);
 
-    console.log(`[DEBUG] ===== AMAZON PA-API RESPONSE DETAILS =====`);
+    const text = await response.text();
+    console.log(`[DEBUG] Amazon raw response:`, text.slice(0, 200));
+    
     console.log(`[DEBUG] Response status: ${response.status}`);
     console.log(`[DEBUG] Response status text: ${response.statusText}`);
-    console.log(`[DEBUG] Content-Type: ${response.headers.get('content-type')}`);
-    console.log(`[DEBUG] Content-Length: ${response.headers.get('content-length')}`);
-    console.log(`[DEBUG] Server: ${response.headers.get('server')}`);
-    
-    // Get the raw response text first
-    const rawResponseText = await response.text();
-    console.log(`[DEBUG] Raw response length: ${rawResponseText.length}`);
-    console.log(`[DEBUG] Raw response (first 2000 chars):`);
-    console.log(rawResponseText.slice(0, 2000));
-    console.log(`[DEBUG] ===========================================`);
     
     // Check if it's HTML instead of JSON
     if (rawResponseText.includes('<!DOCTYPE') || rawResponseText.includes('<html')) {
