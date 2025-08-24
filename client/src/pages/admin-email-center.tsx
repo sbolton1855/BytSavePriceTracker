@@ -125,12 +125,16 @@ export default function AdminEmailCenter() {
         const token = AdminAuth.getToken();
         if (!token) return;
 
+        console.log('[admin-email-center] Loading templates...');
         const data = await adminApi.getEmailTemplates();
-        setTemplates(data.templates || []);
+        console.log('[admin-email-center] Templates loaded:', data);
+        
+        const templatesList = data.templates || data || [];
+        setTemplates(templatesList);
 
         // Set default template if none selected
-        if (!selectedTemplateId && data.templates?.length > 0) {
-          setSelectedTemplateId(data.templates[0].id);
+        if (!selectedTemplateId && templatesList.length > 0) {
+          setSelectedTemplateId(templatesList[0].id);
         }
       } catch (error) {
         console.error('Error loading templates:', error);
@@ -138,8 +142,10 @@ export default function AdminEmailCenter() {
       }
     };
 
-    loadTemplates();
-  }, [AdminAuth.getToken(), toast, selectedTemplateId]);
+    if (activeSubTab === 'templates') {
+      loadTemplates();
+    }
+  }, [activeSubTab, toast]);
 
 
   // Query for email logs - MUST be declared before useEffects that reference refetchLogs
@@ -233,10 +239,11 @@ export default function AdminEmailCenter() {
 
   // Auto-preview when template is selected in templates tab
   useEffect(() => {
-    if (activeSubTab === 'templates' && selectedTemplateId) {
+    if (activeSubTab === 'templates' && selectedTemplateId && templates.length > 0) {
       // Initialize form data with template defaults if not already set
       const template = templates.find(t => t.id === selectedTemplateId);
       if (template && template.defaults && !formData[selectedTemplateId]) {
+        console.log('[admin-email-center] Initializing form data for template:', selectedTemplateId, template.defaults);
         setFormData(prev => ({
           ...prev,
           [selectedTemplateId]: { ...template.defaults }

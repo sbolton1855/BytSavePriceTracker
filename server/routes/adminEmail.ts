@@ -5,123 +5,20 @@ import { db } from '../db';
 import { emailLogs } from '../../migrations/schema';
 import { eq, desc, and, like, count } from 'drizzle-orm';
 
-// Mock functions for email template handling (replace with actual implementation)
-const getEmailTemplate = (templateId: string) => {
-  const templates = {
-    welcome: {
-      id: 'welcome',
-      name: 'Welcome Email',
-      description: 'Welcome new users to BytSave',
-      subject: 'Welcome to BytSave - Start Saving on Amazon!',
-      variables: ['userName', 'email'],
-      previewData: {
-        userName: 'John Doe',
-        email: 'john.doe@example.com'
-      }
-    },
-    'price-drop': {
-      id: 'price-drop',
-      name: 'Price Drop Alert',
-      description: 'Notify users when tracked product prices drop',
-      subject: 'Price Drop Alert - {{productName}} is now {{newPrice}}!',
-      variables: ['userName', 'productName', 'oldPrice', 'newPrice', 'productUrl', 'savingsAmount', 'savingsPercentage'],
-      previewData: {
-        userName: 'Jane Smith',
-        productName: 'Amazon Echo Dot (4th Gen)',
-        oldPrice: '$49.99',
-        newPrice: '$29.99',
-        productUrl: 'https://amazon.com/dp/B07XJ8C8F5',
-        savingsAmount: '$20.00',
-        savingsPercentage: '40%'
-      }
-    },
-    'daily-digest': {
-      id: 'daily-digest',
-      name: 'Daily Price Summary',
-      description: 'Daily summary of all tracked products',
-      subject: 'Your Daily Price Update from BytSave',
-      variables: ['userName', 'trackedProductsCount', 'priceDropsCount', 'products'],
-      previewData: {
-        userName: 'Bob Johnson',
-        trackedProductsCount: 5,
-        priceDropsCount: 2,
-        products: [
-          { name: 'Product 1', oldPrice: '$99.99', newPrice: '$79.99' },
-          { name: 'Product 2', oldPrice: '$49.99', newPrice: '$39.99' }
-        ]
-      }
-    },
-    selftest: {
-      id: 'selftest',
-      name: 'Self-Test Email',
-      description: 'Used for internal system testing',
-      subject: 'BytSave System Test',
-      variables: ['timestamp', 'environment'],
-      previewData: {
-        timestamp: new Date().toISOString(),
-        environment: process.env.NODE_ENV || 'development'
-      }
-    }
-  };
-  return templates[templateId as keyof typeof templates];
-};
+// Import actual templates from templates.ts
+import { getEmailTemplate, getAllEmailTemplates, renderTemplate as renderTemplateFromModule } from '../email/templates';
 
 const renderTemplate = (templateId: string, data?: Record<string, any>) => {
-  const template = getEmailTemplate(templateId);
-  if (!template) return null;
-
-  let subject = template.subject;
-  let html = `
-    <html>
-      <head><title>Email Preview - ${template.name}</title></head>
-      <body style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px;">
-        <h2>${template.name}</h2>
-        <p>${template.description}</p>
-        <div style="border: 1px solid #ddd; padding: 20px; margin: 20px 0;">
-          <h3>Sample Content:</h3>
-          <p>Hello ${data?.userName || 'there'},</p>
-          <p>This is a sample email for the "${template.name}" template.</p>
-          ${templateId === 'price-drop' ? `
-            <p>We noticed a price drop for <strong>${data?.productName || 'a product'}</strong>. It's now ${data?.newPrice || '$XX.XX'}!</p>
-            <p><a href="${data?.productUrl || '#'}">View Product</a></p>
-          ` : ''}
-          ${templateId === 'daily-digest' ? `
-            <p>You are tracking ${data?.trackedProductsCount || 0} products, and we found ${data?.priceDropsCount || 0} price drops today.</p>
-            <ul>
-              ${(data?.products || []).map((p: any) => `<li>${p.name}: ${p.newPrice} (was ${p.oldPrice})</li>`).join('')}
-            </ul>
-          ` : ''}
-          <p><em>This is a preview. Actual emails will use real user and product data.</em></p>
-        </div>
-      </body>
-    </html>
-  `;
-
-  // Simple variable replacement (e.g., {{userName}})
-  if (data) {
-    Object.keys(data).forEach(key => {
-      const regex = new RegExp(`\\{\\{${key}\\}\\}`, 'g');
-      subject = subject.replace(regex, data[key]);
-      html = html.replace(regex, data[key]);
-    });
-  }
-
+  const result = renderTemplateFromModule(templateId, data);
+  if (!result) return null;
+  
   return {
     templateId,
-    subject,
-    html,
+    subject: result.subject,
+    html: result.html,
     text: 'Plain text version of the email.', // Placeholder
-    variables: template.variables
+    variables: Object.keys(data || {})
   };
-};
-
-const getAllEmailTemplates = () => {
-  return [
-    getEmailTemplate('welcome'),
-    getEmailTemplate('price-drop'),
-    getEmailTemplate('daily-digest'),
-    getEmailTemplate('selftest')
-  ].filter(Boolean); // Filter out nulls if getEmailTemplate fails
 };
 
 const router = Router();
@@ -166,7 +63,7 @@ router.get('/preview/:id', requireAdmin, async (req: Request, res: Response) => 
       return res.status(404).json({ error: 'template_not_found' });
     }
 
-    const rendered = renderTemplate(templateId, template.previewData);
+    const rendered = renderTemplate(templateId, template.previewData || template.defaults);
     if (!rendered) {
       return res.status(500).json({ error: 'Failed to render template' });
     }
@@ -195,8 +92,9 @@ router.post('/preview', requireAdmin, async (req: Request, res: Response) => {
       return res.status(404).json({ error: 'template_not_found' });
     }
 
-    // Merge template's previewData with provided data
-    const mergedData = { ...template.previewData, ...(data || {}) };
+    // Merge template's defaults/previewData with provided data
+    const baseData = template.previewData || template.defaults;
+    const mergedData = { ...baseData, ...(data || {}) };
     const rendered = renderTemplate(templateId, mergedData);
 
     if (!rendered) {
@@ -214,7 +112,7 @@ router.post('/preview', requireAdmin, async (req: Request, res: Response) => {
 // Send test email endpoint
 router.post('/send-test-email', requireAdmin, async (req: Request, res: Response) => {
   try {
-    const { templateId, to, testData } = req.body;
+    const { templateId, to, data } = req.body;
 
     if (!templateId || !to) {
       return res.status(400).json({ error: 'Template ID and recipient email are required' });
@@ -227,10 +125,10 @@ router.post('/send-test-email', requireAdmin, async (req: Request, res: Response
     const result = await emailService.sendTemplate({
       to,
       templateId,
-      data: testData,
+      data: data,
       isTest: true,
       meta: { 
-        path: 'test',
+        path: 'admin-test',
         adminUser: 'admin' // Could be enhanced with actual admin user info
       }
     });

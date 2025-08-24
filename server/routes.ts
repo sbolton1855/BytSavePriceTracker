@@ -2528,7 +2528,7 @@ Respond with just the analysis text, no JSON needed.
   app.use('/api/admin', adminAuthRoutes);
 
   // Admin routes - email center (includes /api/admin/email-logs)
-  app.use('/api/admin', adminEmailRoutes);
+  app.use('/api/admin/email', adminEmailRoutes);
 
   app.use('/api/admin', adminToolsRoutes);
 
