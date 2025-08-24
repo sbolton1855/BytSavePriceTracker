@@ -515,10 +515,18 @@ export async function searchAmazonProducts(keyword: string) {
     `AWS4-HMAC-SHA256 Credential=${accessKey}/${credentialScope}, SignedHeaders=${signedHeaders}, Signature=${signature}`;
 
   const fullUrl = `https://${host}${path}`;
-  console.log(`[DEBUG] Making Amazon PA-API request to: ${fullUrl}`);
+  console.log(`[DEBUG] ===== AMAZON PA-API REQUEST DETAILS =====`);
+  console.log(`[DEBUG] Full URL: ${fullUrl}`);
+  console.log(`[DEBUG] Host: ${host}`);
+  console.log(`[DEBUG] Path: ${path}`);
+  console.log(`[DEBUG] Method: POST`);
+  console.log(`[DEBUG] Payload:`, payloadJson);
   console.log(`[DEBUG] Request headers:`, Object.keys(headersToSign));
+  console.log(`[DEBUG] Authorization header present:`, !!headersToSign['Authorization']);
+  console.log(`[DEBUG] ============================================`);
 
   try {
+    console.log(`[DEBUG] About to make axios request to: ${fullUrl}`);
     const response = await axios({
       method: 'POST',
       url: fullUrl,
@@ -527,14 +535,23 @@ export async function searchAmazonProducts(keyword: string) {
       transformRequest: [(data) => data],
       validateStatus: () => true  // Don't throw on non-2xx status codes
     });
+    console.log(`[DEBUG] Axios request completed successfully`);
 
-    console.log(`[DEBUG] Amazon PA-API response status: ${response.status}`);
-    console.log(`[DEBUG] Amazon PA-API response headers:`, response.headers['content-type']);
-    console.log(`[DEBUG] Amazon PA-API response headers (all):`, JSON.stringify(response.headers, null, 2));
+    console.log(`[DEBUG] ===== AMAZON PA-API RESPONSE DETAILS =====`);
+    console.log(`[DEBUG] Response status: ${response.status}`);
+    console.log(`[DEBUG] Response status text: ${response.statusText}`);
+    console.log(`[DEBUG] Content-Type: ${response.headers['content-type']}`);
+    console.log(`[DEBUG] Content-Length: ${response.headers['content-length']}`);
+    console.log(`[DEBUG] Server: ${response.headers['server']}`);
+    console.log(`[DEBUG] All response headers:`, JSON.stringify(response.headers, null, 2));
     
     // Always log the raw response for debugging
     const rawResponseText = typeof response.data === 'string' ? response.data : JSON.stringify(response.data);
-    console.log(`[DEBUG] Amazon PA-API raw response (first 1000 chars):`, rawResponseText.slice(0, 1000));
+    console.log(`[DEBUG] Response data type: ${typeof response.data}`);
+    console.log(`[DEBUG] Raw response length: ${rawResponseText.length}`);
+    console.log(`[DEBUG] Raw response (first 2000 chars):`);
+    console.log(rawResponseText.slice(0, 2000));
+    console.log(`[DEBUG] ===========================================`);
     
     // Log raw response for debugging
     if (typeof response.data === 'string') {
@@ -564,13 +581,29 @@ export async function searchAmazonProducts(keyword: string) {
     
     return items;
   } catch (error: any) {
+    console.error(`[ERROR] ===== AMAZON PA-API ERROR DETAILS =====`);
+    console.error(`[ERROR] Error type: ${error.constructor.name}`);
+    console.error(`[ERROR] Error message: ${error.message}`);
+    
     if (error.response) {
-      console.error(`[ERROR] Amazon PA-API HTTP error:`, error.response.status, error.response.data);
+      console.error(`[ERROR] HTTP Response Error:`);
+      console.error(`  - Status: ${error.response.status}`);
+      console.error(`  - Status Text: ${error.response.statusText}`);
+      console.error(`  - Headers:`, JSON.stringify(error.response.headers, null, 2));
+      
+      const errorResponseText = typeof error.response.data === 'string' ? error.response.data : JSON.stringify(error.response.data);
+      console.error(`  - Response data type: ${typeof error.response.data}`);
+      console.error(`  - Response data (first 1000 chars): ${errorResponseText.slice(0, 1000)}`);
     } else if (error.request) {
-      console.error(`[ERROR] Amazon PA-API network error:`, error.message);
+      console.error(`[ERROR] Network/Request Error (no response received):`);
+      console.error(`  - Request config URL: ${error.config?.url}`);
+      console.error(`  - Request config method: ${error.config?.method}`);
+      console.error(`  - Error code: ${error.code}`);
+      console.error(`  - Error syscall: ${error.syscall}`);
     } else {
-      console.error(`[ERROR] Amazon PA-API error:`, error.message);
+      console.error(`[ERROR] Setup/Configuration Error:`, error.message);
     }
+    console.error(`[ERROR] ==========================================`);
     throw error;
   }
 }

@@ -39,8 +39,13 @@ router.get('/amazon/deals', async (req, res) => {
 
   try {
     console.log('[DEBUG] About to call searchAmazonProducts...');
+    console.log('[DEBUG] Keyword being used:', keyword);
     
-    // Remove the direct test fetch that was causing issues
+    // Log the environment variables to ensure they're loaded
+    console.log('[DEBUG] Environment check:');
+    console.log('  - AMAZON_ACCESS_KEY present:', !!process.env.AMAZON_ACCESS_KEY);
+    console.log('  - AMAZON_SECRET_KEY present:', !!process.env.AMAZON_SECRET_KEY);
+    console.log('  - AMAZON_PARTNER_TAG present:', !!process.env.AMAZON_PARTNER_TAG);
 
     const items = await searchAmazonProducts(keyword);
     console.log(`[DEBUG] searchAmazonProducts returned ${items ? items.length : 'null'} items`);
