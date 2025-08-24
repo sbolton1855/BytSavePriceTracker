@@ -1,4 +1,3 @@
-
 import { useState, useRef, useEffect } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -14,7 +13,7 @@ import { useToast } from "@/hooks/use-toast";
 import { Textarea } from '@/components/ui/textarea';
 import AdminLayout from "@/components/AdminLayout";
 import AdminSubTabNav from "@/components/AdminSubTabNav";
-import { AdminAuth } from "@/lib/admin-auth";
+import { AdminAuth, adminApi } from "@/lib/admin-auth";
 
 interface EmailLog {
   id: number;
@@ -67,13 +66,19 @@ export default function AdminEmailCenter() {
     const handlePopState = () => {
       setActiveSubTab(getSubTabFromUrl());
     };
-    
+
     window.addEventListener('popstate', handlePopState);
     return () => window.removeEventListener('popstate', handlePopState);
   }, []);
 
   // Form states for different email types
-  const [selectedTemplate, setSelectedTemplate] = useState<string | undefined>('price-drop');
+  const [selectedTemplateId, setSelectedTemplateId] = useState<string>('');
+  const [templates, setTemplates] = useState<EmailTemplate[]>([]);
+  const [previewContent, setPreviewContent] = useState<string>('');
+  const [previewLoading, setPreviewLoading] = useState(false);
+  const [sendLoading, setSendLoading] = useState(false);
+  const [formData, setFormData] = useState<Record<string, Record<string, any>>>({});
+
   const [testEmail, setTestEmail] = useState('');
   const [priceDropForm, setPriceDropForm] = useState({
     asin: 'B01DJGLYZQ',
@@ -94,7 +99,6 @@ export default function AdminEmailCenter() {
 
   // UI states
   const [isLoading, setIsLoading] = useState<Record<string, boolean>>({});
-  const [previewData, setPreviewData] = useState<string>('');
   const [results, setResults] = useState<Record<string, any>>({});
   const [currentPage, setCurrentPage] = useState(1);
   const [statusFilter, setStatusFilter] = useState<string | undefined>(undefined);
@@ -114,12 +118,37 @@ export default function AdminEmailCenter() {
   // Auto-refresh for logs
   const [autoRefreshEnabled, setAutoRefreshEnabled] = useState(false);
 
-  // Mock templates data
-  const templates: EmailTemplate[] = [
-    { id: 'price-drop', name: 'Price Drop Alert', subject: 'Price Drop Alert: {{productTitle}}', description: 'Notify users when product prices drop' },
-    { id: 'password-reset', name: 'Password Reset', subject: 'Reset Your Password', description: 'Password reset email template' },
-    { id: 'welcome', name: 'Welcome Email', subject: 'Welcome to BytSave!', description: 'Welcome new users' }
-  ];
+  // Load templates from API
+  useEffect(() => {
+    const loadTemplates = async () => {
+      try {
+        const token = AdminAuth.getToken();
+        if (!token) return;
+
+        const response = await fetch('/api/admin/email/templates', {
+          headers: { 'x-admin-token': token }
+        });
+
+        if (!response.ok) {
+          throw new Error('Failed to load templates');
+        }
+
+        const data = await response.json();
+        setTemplates(data.templates || []);
+
+        // Set default template if none selected
+        if (!selectedTemplateId && data.templates?.length > 0) {
+          setSelectedTemplateId(data.templates[0].id);
+        }
+      } catch (error) {
+        console.error('Error loading templates:', error);
+        toast({ title: "Error", description: "Failed to load email templates", variant: "destructive" });
+      }
+    };
+
+    loadTemplates();
+  }, [AdminAuth.getToken(), toast, selectedTemplateId]);
+
 
   // Query for email logs - MUST be declared before useEffects that reference refetchLogs
   const { data: emailLogs, isLoading: logsLoading, refetch: refetchLogs } = useQuery<EmailLogsResponse>({
@@ -144,11 +173,11 @@ export default function AdminEmailCenter() {
             'x-admin-token': token
           }
         });
-        
+
         if (!response.ok) {
           const errorText = await response.text();
           console.error('[email-logs] fetch failed:', response.status, errorText);
-          
+
           if (response.status === 403) {
             toast({ title: "Unauthorized", description: "Invalid admin token.", variant: "destructive" });
             AdminAuth.clearToken();
@@ -156,17 +185,17 @@ export default function AdminEmailCenter() {
             console.error('[email-logs] non-200 response:', response.status, errorText);
             // Don't show error toast for non-200, just return empty
           }
-          
+
           return { logs: [], total: 0, page: 1, pageSize: 20, totalPages: 1 };
         }
-        
+
         const data = await response.json();
-        
+
         // Handle fallback response
         if (data.note === 'fallback_empty_due_to_error') {
           console.log('[email-logs] received fallback response due to server error');
         }
-        
+
         return {
           logs: data.items || [],
           total: data.total || 0,
@@ -193,11 +222,11 @@ export default function AdminEmailCenter() {
   // Auto-refresh logs when on logs tab
   useEffect(() => {
     if (activeSubTab !== 'logs' || !autoRefreshEnabled) return;
-    
+
     const interval = setInterval(() => {
       refetchLogs();
     }, 5000);
-    
+
     return () => clearInterval(interval);
   }, [activeSubTab, autoRefreshEnabled, refetchLogs]);
 
@@ -212,119 +241,57 @@ export default function AdminEmailCenter() {
 
   // Auto-preview when template is selected in templates tab
   useEffect(() => {
-    if (activeSubTab === 'templates' && selectedTemplate) {
-      handleTemplatePreview(selectedTemplate);
+    if (activeSubTab === 'templates' && selectedTemplateId) {
+      handlePreview();
     }
-  }, [activeSubTab, selectedTemplate]);
+  }, [activeSubTab, selectedTemplateId]);
 
   // Template preview handler
-  const handleTemplatePreview = async (templateId: string) => {
-    const token = AdminAuth.getToken();
-    if (!token) {
-      toast({ title: "Authentication Required", description: "Please authenticate first", variant: "destructive" });
-      return;
-    }
+  const handlePreview = async () => {
+    if (!selectedTemplateId) return;
 
-    setIsLoading(prev => ({ ...prev, [`${templateId}_preview`]: true }));
     try {
-      let response;
-      
-      if (templateId === 'price-drop') {
-        response = await fetch(`/api/dev/preview-email?token=${token}&asin=${priceDropForm.asin}&productTitle=${encodeURIComponent(priceDropForm.productTitle)}&oldPrice=${priceDropForm.oldPrice}&newPrice=${priceDropForm.newPrice}`);
-      } else if (templateId === 'password-reset') {
-        const params = new URLSearchParams({
-          email: passwordResetForm.email || 'test@example.com',
-          token: token
-        });
-        response = await fetch(`/api/admin/test-reset?${params}`);
-      } else {
-        // Generic template preview
-        response = await fetch(`/api/admin/email/preview/${templateId}`, {
-          headers: {
-            'x-admin-token': token
-          }
-        });
-      }
+      setPreviewLoading(true);
 
-      if (!response.ok) {
-        if (response.status === 403) {
-          toast({ title: "Unauthorized", description: "Invalid admin token.", variant: "destructive" });
-          AdminAuth.clearToken();
-          return;
-        }
-        throw new Error('Failed to preview template');
-      }
+      // Get current form data for the selected template
+      const currentFormData = formData[selectedTemplateId] || {};
 
-      let htmlContent;
-      if (templateId === 'password-reset') {
-        const result = await response.json();
-        htmlContent = result.previewHtml || '';
-      } else if (templateId === 'price-drop') {
-        htmlContent = await response.text();
-      } else {
-        const result = await response.json();
-        htmlContent = result.html || '';
-      }
+      // Use POST method with form data
+      const response = await adminApi.previewTemplatePOST(selectedTemplateId, currentFormData);
 
-      setPreviewData(htmlContent);
-      toast({ title: "Success", description: "Template preview generated" });
+      setPreviewContent(response.html);
+      toast({ title: "Success", description: "Template preview loaded" });
     } catch (error) {
-      console.error('Template preview error:', error);
+      console.error('Preview error:', error);
       toast({ title: "Error", description: "Failed to preview template", variant: "destructive" });
     } finally {
-      setIsLoading(prev => ({ ...prev, [`${templateId}_preview`]: false }));
+      setPreviewLoading(false);
     }
   };
 
   // Send test email handler
   const handleSendTestEmail = async () => {
     const token = AdminAuth.getToken();
-    if (!token || !testEmail) {
-      toast({ title: "Error", description: "Please provide email address and authenticate", variant: "destructive" });
+    if (!token || !testEmail || !selectedTemplateId) {
+      toast({ title: "Error", description: "Please provide recipient email and select a template", variant: "destructive" });
       return;
     }
 
-    setIsLoading(prev => ({ ...prev, 'send_test': true }));
+    setSendLoading(true);
     try {
-      let response;
+      // Get current form data for the selected template
+      const currentFormData = formData[selectedTemplateId] || {};
+      const emailData = {
+        to: testEmail,
+        templateId: selectedTemplateId,
+        data: currentFormData
+      };
 
-      if (selectedTemplate === 'price-drop') {
-        response = await fetch(`/api/dev/preview-email?asin=${priceDropForm.asin}&productTitle=${encodeURIComponent(priceDropForm.productTitle)}&oldPrice=${priceDropForm.oldPrice}&newPrice=${priceDropForm.newPrice}&email=${encodeURIComponent(testEmail)}&send=true&token=${token}`);
-      } else if (selectedTemplate === 'password-reset') {
-        const params = new URLSearchParams({
-          email: testEmail,
-          token: token,
-          send: 'true'
-        });
-        response = await fetch(`/api/admin/test-reset?${params}`);
-      } else {
-        response = await fetch('/api/admin/send-test-email', {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            'x-admin-token': token
-          },
-          body: JSON.stringify({
-            email: testEmail,
-            templateId: selectedTemplate
-          })
-        });
-      }
+      const response = await adminApi.sendTestEmailPOST(emailData);
 
-      if (!response.ok) {
-        if (response.status === 403) {
-          toast({ title: "Unauthorized", description: "Invalid admin token.", variant: "destructive" });
-          AdminAuth.clearToken();
-          return;
-        }
-        const errorData = await response.json();
-        throw new Error(errorData.error || 'Failed to send test email');
-      }
+      toast({ title: "Success", description: response.message || "Test email sent successfully!" });
+      setResults(prev => ({ ...prev, 'send_test': response }));
 
-      const data = await response.json();
-      toast({ title: "Success", description: data.message || "Test email sent successfully!" });
-      setResults(prev => ({ ...prev, 'send_test': data }));
-      
       // Refresh logs if on logs tab
       if (activeSubTab === 'logs') {
         refetchLogs();
@@ -333,7 +300,7 @@ export default function AdminEmailCenter() {
       console.error('Send test email error:', error);
       toast({ title: "Error", description: error.message || "Failed to send test email", variant: "destructive" });
     } finally {
-      setIsLoading(prev => ({ ...prev, 'send_test': false }));
+      setSendLoading(false);
     }
   };
 
@@ -362,8 +329,8 @@ export default function AdminEmailCenter() {
   // QA Smoke Test function
   const runQASmokeTest = async () => {
     const token = AdminAuth.getToken();
-    if (!token || !smokeTestEmail) {
-      toast({ title: "Error", description: "Please provide email address and authenticate", variant: "destructive" });
+    if (!token || !smokeTestEmail || !smokeTestTemplate) {
+      toast({ title: "Error", description: "Please provide recipient email and select a template", variant: "destructive" });
       return;
     }
 
@@ -372,58 +339,17 @@ export default function AdminEmailCenter() {
 
     try {
       // Step 1: Preview API test
-      let previewResponse;
-      if (smokeTestTemplate === 'price-drop') {
-        previewResponse = await fetch(`/api/dev/preview-email?token=${token}&asin=${priceDropForm.asin}&productTitle=${encodeURIComponent(priceDropForm.productTitle)}&oldPrice=${priceDropForm.oldPrice}&newPrice=${priceDropForm.newPrice}`);
-      } else if (smokeTestTemplate === 'password-reset') {
-        const params = new URLSearchParams({
-          email: smokeTestEmail,
-          token: token
-        });
-        previewResponse = await fetch(`/api/admin/test-reset?${params}`);
-      } else {
-        previewResponse = await fetch(`/api/admin/email/preview/${smokeTestTemplate}`, {
-          headers: {
-            'x-admin-token': token
-          }
-        });
-      }
-
-      if (!previewResponse.ok) {
-        throw new Error('Preview API failed');
-      }
-
+      const currentFormData = formData[smokeTestTemplate] || {};
+      await adminApi.previewTemplatePOST(smokeTestTemplate, currentFormData);
       setSmokeTestStatus(prev => ({ ...prev, preview: true }));
 
       // Step 2: Send test email
-      let sendResponse;
-      if (smokeTestTemplate === 'price-drop') {
-        sendResponse = await fetch(`/api/dev/preview-email?asin=${priceDropForm.asin}&productTitle=${encodeURIComponent(priceDropForm.productTitle)}&oldPrice=${priceDropForm.oldPrice}&newPrice=${priceDropForm.newPrice}&email=${encodeURIComponent(smokeTestEmail)}&send=true&token=${token}`);
-      } else if (smokeTestTemplate === 'password-reset') {
-        const params = new URLSearchParams({
-          email: smokeTestEmail,
-          token: token,
-          send: 'true'
-        });
-        sendResponse = await fetch(`/api/admin/test-reset?${params}`);
-      } else {
-        sendResponse = await fetch('/api/admin/send-test-email', {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            'x-admin-token': token
-          },
-          body: JSON.stringify({
-            email: smokeTestEmail,
-            templateId: smokeTestTemplate
-          })
-        });
-      }
-
-      if (!sendResponse.ok) {
-        throw new Error('Send test email failed');
-      }
-
+      const emailData = {
+        to: smokeTestEmail,
+        templateId: smokeTestTemplate,
+        data: currentFormData
+      };
+      await adminApi.sendTestEmailPOST(emailData);
       setSmokeTestStatus(prev => ({ ...prev, send: true }));
 
       // Step 3: Poll for email logs
@@ -431,21 +357,23 @@ export default function AdminEmailCenter() {
       const pollInterval = setInterval(async () => {
         try {
           const params = new URLSearchParams({
-            token: token,
             page: '1',
             pageSize: '5',
             status: '',
             type: ''
           });
 
-          const logsResponse = await fetch(`/api/admin/logs?${params}`);
+          const logsResponse = await fetch(`/api/admin/email-logs?${params}`, {
+            headers: { 'x-admin-token': token }
+          });
+
           if (logsResponse.ok) {
             const logsData = await logsResponse.json();
-            
+
             // Check if there's a new test email log for this recipient
-            const recentTestLog = logsData.logs.find((log: EmailLog) => 
-              log.recipientEmail.toLowerCase() === smokeTestEmail.toLowerCase() &&
-              log.type === 'test' &&
+            const recentTestLog = logsData.logs.find((log: EmailLog) =>
+              log.recipientEmail?.toLowerCase() === smokeTestEmail.toLowerCase() &&
+              log.templateId === smokeTestTemplate &&
               new Date(log.createdAt).getTime() > (pollStartTime - 10000) // Within last 10 seconds + some buffer
             );
 
@@ -462,9 +390,13 @@ export default function AdminEmailCenter() {
           if (Date.now() - pollStartTime > 20000) {
             clearInterval(pollInterval);
             setSmokeTestStatus(prev => ({ ...prev, error: 'Timeout: Log entry not found within 20 seconds' }));
+            toast({ title: "QA Smoke Test Failed", description: "Timeout: Log entry not found within 20 seconds", variant: "destructive" });
           }
         } catch (error) {
           console.error('Polling error:', error);
+          clearInterval(pollInterval); // Stop polling on error
+          setSmokeTestStatus(prev => ({ ...prev, error: error.message || 'Polling failed' }));
+          toast({ title: "QA Smoke Test Failed", description: error.message || "Polling failed", variant: "destructive" });
         }
       }, 2000);
 
@@ -483,29 +415,25 @@ export default function AdminEmailCenter() {
       case 'templates':
         return (
           <div className="space-y-6">
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+            <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
               {/* Template List */}
-              <Card>
+              <Card className="lg:col-span-1">
                 <CardHeader>
                   <CardTitle>Email Templates</CardTitle>
-                  <CardDescription>Select a template to preview</CardDescription>
+                  <CardDescription>Select a template to preview and test</CardDescription>
                 </CardHeader>
-                <CardContent className="space-y-4">
+                <CardContent className="space-y-4 max-h-96 overflow-y-auto">
                   {templates.map((template) => (
-                    <div key={template.id} className="p-4 border rounded-lg">
+                    <div
+                      key={template.id}
+                      className={`p-4 border rounded-lg cursor-pointer transition-colors ${selectedTemplateId === template.id ? 'border-blue-500 bg-blue-50' : 'hover:bg-gray-50'}`}
+                      onClick={() => setSelectedTemplateId(template.id)}
+                    >
                       <div className="flex justify-between items-start mb-2">
                         <div className="flex-1">
                           <div className="flex items-center gap-2">
-                            <input
-                              type="radio"
-                              id={`template-${template.id}`}
-                              name="template-selection"
-                              checked={selectedTemplate === template.id}
-                              onChange={() => setSelectedTemplate(template.id)}
-                              className="mr-2"
-                            />
                             <h3 className="font-medium">{template.name}</h3>
-                            {selectedTemplate === template.id && (
+                            {selectedTemplateId === template.id && (
                               <Badge variant="secondary" className="text-xs">Selected</Badge>
                             )}
                           </div>
@@ -513,12 +441,15 @@ export default function AdminEmailCenter() {
                           <p className="text-sm text-gray-500 mt-1">Subject: {template.subject}</p>
                         </div>
                         <Button
-                          onClick={() => handleTemplatePreview(template.id)}
+                          onClick={(e) => {
+                            e.stopPropagation(); // Prevent selecting the template when clicking preview
+                            handlePreview();
+                          }}
                           variant="outline"
                           size="sm"
-                          disabled={isLoading[`${template.id}_preview`]}
+                          disabled={previewLoading || !selectedTemplateId}
                         >
-                          {isLoading[`${template.id}_preview`] && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                          {previewLoading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
                           <Eye className="mr-2 h-4 w-4" />
                           Preview
                         </Button>
@@ -529,92 +460,175 @@ export default function AdminEmailCenter() {
               </Card>
 
               {/* Template Data Forms */}
-              <Card>
+              <Card className="lg:col-span-2">
                 <CardHeader>
-                  <CardTitle>Template Data</CardTitle>
-                  <CardDescription>Configure template variables for preview</CardDescription>
+                  <CardTitle>Template Data & Preview</CardTitle>
+                  <CardDescription>Configure template variables below and preview the result.</CardDescription>
                 </CardHeader>
-                <CardContent className="space-y-4">
-                  {/* Price Drop Form */}
-                  <div className="space-y-3">
-                    <h4 className="font-medium">Price Drop Template Data</h4>
-                    <div className="grid grid-cols-2 gap-3">
-                      <div>
-                        <Label htmlFor="asin">ASIN</Label>
-                        <Input
-                          id="asin"
-                          value={priceDropForm.asin}
-                          onChange={(e) => setPriceDropForm(prev => ({ ...prev, asin: e.target.value }))}
-                          placeholder="B08N5WRWNW"
-                        />
-                      </div>
-                      <div>
-                        <Label htmlFor="oldPrice">Old Price</Label>
-                        <Input
-                          id="oldPrice"
-                          type="number"
-                          step="0.01"
-                          value={priceDropForm.oldPrice}
-                          onChange={(e) => setPriceDropForm(prev => ({ ...prev, oldPrice: e.target.value }))}
-                          placeholder="29.99"
-                        />
-                      </div>
-                    </div>
-                    <div>
-                      <Label htmlFor="productTitle">Product Title</Label>
-                      <Input
-                        id="productTitle"
-                        value={priceDropForm.productTitle}
-                        onChange={(e) => setPriceDropForm(prev => ({ ...prev, productTitle: e.target.value }))}
-                        placeholder="Test Product Name"
-                      />
-                    </div>
-                    <div>
-                      <Label htmlFor="newPrice">New Price</Label>
-                      <Input
-                        id="newPrice"
-                        type="number"
-                        step="0.01"
-                        value={priceDropForm.newPrice}
-                        onChange={(e) => setPriceDropForm(prev => ({ ...prev, newPrice: e.target.value }))}
-                        placeholder="19.99"
-                      />
-                    </div>
-                  </div>
+                <CardContent className="space-y-6">
+                  {/* Template Fields */}
+                  {selectedTemplateId && (
+                    <div className="space-y-4">
+                      <h4 className="font-medium">Template Data</h4>
+                      <div className="space-y-3">
+                        <div>
+                          <Label htmlFor="recipient">Recipient Email</Label>
+                          <Input
+                            id="recipient"
+                            type="email"
+                            placeholder="test@example.com"
+                            value={testEmail}
+                            onChange={(e) => setTestEmail(e.target.value)}
+                          />
+                        </div>
 
-                  {/* Password Reset Form */}
-                  <div className="space-y-3 border-t pt-4">
-                    <h4 className="font-medium">Password Reset Template Data</h4>
-                    <div>
-                      <Label htmlFor="resetEmail">Test Email</Label>
-                      <Input
-                        id="resetEmail"
-                        type="email"
-                        value={passwordResetForm.email}
-                        onChange={(e) => setPasswordResetForm(prev => ({ ...prev, email: e.target.value }))}
-                        placeholder="test@example.com"
+                        {/* Price Drop Template Fields */}
+                        {selectedTemplateId === 'price-drop' && (
+                          <>
+                            <div>
+                              <Label htmlFor="asin">ASIN</Label>
+                              <Input
+                                id="asin"
+                                placeholder="B01DJGLYZQ"
+                                value={formData[selectedTemplateId]?.asin || ''}
+                                onChange={(e) => setFormData(prev => ({
+                                  ...prev,
+                                  [selectedTemplateId]: { ...prev[selectedTemplateId], asin: e.target.value }
+                                }))}
+                              />
+                            </div>
+                            <div>
+                              <Label htmlFor="productTitle">Product Title</Label>
+                              <Input
+                                id="productTitle"
+                                placeholder="Product Name"
+                                value={formData[selectedTemplateId]?.productTitle || ''}
+                                onChange={(e) => setFormData(prev => ({
+                                  ...prev,
+                                  [selectedTemplateId]: { ...prev[selectedTemplateId], productTitle: e.target.value }
+                                }))}
+                              />
+                            </div>
+                            <div className="grid grid-cols-2 gap-3">
+                              <div>
+                                <Label htmlFor="oldPrice">Old Price</Label>
+                                <Input
+                                  id="oldPrice"
+                                  placeholder="22.99"
+                                  value={formData[selectedTemplateId]?.oldPrice || ''}
+                                  onChange={(e) => setFormData(prev => ({
+                                    ...prev,
+                                    [selectedTemplateId]: { ...prev[selectedTemplateId], oldPrice: e.target.value }
+                                  }))}
+                                />
+                              </div>
+                              <div>
+                                <Label htmlFor="newPrice">New Price</Label>
+                                <Input
+                                  id="newPrice"
+                                  placeholder="15.99"
+                                  value={formData[selectedTemplateId]?.newPrice || ''}
+                                  onChange={(e) => setFormData(prev => ({
+                                    ...prev,
+                                    [selectedTemplateId]: { ...prev[selectedTemplateId], newPrice: e.target.value }
+                                  }))}
+                                />
+                              </div>
+                            </div>
+                            <div>
+                              <Label htmlFor="productUrl">Product URL</Label>
+                              <Input
+                                id="productUrl"
+                                placeholder="https://www.amazon.com/dp/B01DJGLYZQ"
+                                value={formData[selectedTemplateId]?.productUrl || ''}
+                                onChange={(e) => setFormData(prev => ({
+                                  ...prev,
+                                  [selectedTemplateId]: { ...prev[selectedTemplateId], productUrl: e.target.value }
+                                }))}
+                              />
+                            </div>
+                          </>
+                        )}
+
+                        {/* Password Reset Template Fields */}
+                        {selectedTemplateId === 'password-reset' && (
+                          <>
+                            <div>
+                              <Label htmlFor="firstName">First Name</Label>
+                              <Input
+                                id="firstName"
+                                placeholder="John"
+                                value={formData[selectedTemplateId]?.firstName || ''}
+                                onChange={(e) => setFormData(prev => ({
+                                  ...prev,
+                                  [selectedTemplateId]: { ...prev[selectedTemplateId], firstName: e.target.value }
+                                }))}
+                              />
+                            </div>
+                            <div>
+                              <Label htmlFor="resetLink">Reset Link</Label>
+                              <Input
+                                id="resetLink"
+                                placeholder="https://example.com/reset-password?token=example123"
+                                value={formData[selectedTemplateId]?.resetLink || ''}
+                                onChange={(e) => setFormData(prev => ({
+                                  ...prev,
+                                  [selectedTemplateId]: { ...prev[selectedTemplateId], resetLink: e.target.value }
+                                }))}
+                              />
+                            </div>
+                          </>
+                        )}
+
+                        {/* Welcome Template Fields */}
+                        {selectedTemplateId === 'welcome' && (
+                          <div>
+                            <Label htmlFor="firstName">First Name</Label>
+                            <Input
+                              id="firstName"
+                              placeholder="Sarah"
+                              value={formData[selectedTemplateId]?.firstName || ''}
+                              onChange={(e) => setFormData(prev => ({
+                                ...prev,
+                                [selectedTemplateId]: { ...prev[selectedTemplateId], firstName: e.target.value }
+                              }))}
+                            />
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Preview Section */}
+                  {previewContent && (
+                    <div className="mt-6 border-t pt-6">
+                      <h4 className="font-medium mb-3">Template Preview</h4>
+                      <iframe
+                        srcDoc={previewContent}
+                        className="w-full h-96 border rounded"
+                        title="Email Template Preview"
                       />
                     </div>
+                  )}
+
+                  <div className="flex justify-end gap-4 pt-4 border-t">
+                    <Button variant="outline" onClick={() => {
+                      setPreviewContent(''); // Clear preview
+                      setTestEmail(''); // Clear recipient email
+                      setFormData({}); // Clear form data
+                      setSelectedTemplateId(''); // Deselect template
+                    }}>
+                      Reset
+                    </Button>
+                    <Button onClick={handleSendTestEmail} disabled={sendLoading || !testEmail || !selectedTemplateId}>
+                      {sendLoading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                      <Send className="mr-2 h-4 w-4" />
+                      Send Test Email
+                    </Button>
                   </div>
                 </CardContent>
               </Card>
             </div>
-
-            {/* Preview */}
-            {previewData && (
-              <Card>
-                <CardHeader>
-                  <CardTitle>Template Preview</CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <iframe
-                    srcDoc={previewData}
-                    className="w-full h-96 border rounded"
-                    title="Email Template Preview"
-                  />
-                </CardContent>
-              </Card>
-            )}
           </div>
         );
 
@@ -629,7 +643,7 @@ export default function AdminEmailCenter() {
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div>
                   <Label htmlFor="template">Email Template</Label>
-                  <Select value={selectedTemplate} onValueChange={setSelectedTemplate}>
+                  <Select value={selectedTemplateId} onValueChange={setSelectedTemplateId}>
                     <SelectTrigger>
                       <SelectValue placeholder="Select template" />
                     </SelectTrigger>
@@ -656,9 +670,9 @@ export default function AdminEmailCenter() {
 
               <Button
                 onClick={handleSendTestEmail}
-                disabled={isLoading.send_test || !testEmail || !selectedTemplate}
+                disabled={sendLoading || !testEmail || !selectedTemplateId}
               >
-                {isLoading.send_test && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                {sendLoading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
                 <Send className="mr-2 h-4 w-4" />
                 Send Test Email
               </Button>
