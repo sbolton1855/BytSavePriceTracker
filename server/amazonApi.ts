@@ -527,10 +527,13 @@ export async function searchAmazonProducts(keyword: string) {
   console.log(`[DEBUG] ============================================`);
 
   try {
-    console.log(`[DEBUG] About to make request to: ${url}`);
+    // Construct the full URL explicitly
+    const fullUrl = `https://${host}${path}`;
+    console.log(`[DEBUG] About to make request to: ${fullUrl}`);
+    console.log(`[DEBUG] Full Amazon URL: ${fullUrl}`);
     
-    // Use fetch instead of axios for more explicit URL control
-    const response = await fetch(url, {
+    // Use fetch with the complete URL
+    const response = await fetch(fullUrl, {
       method: 'POST',
       headers: headersToSign,
       body: payloadJson
@@ -585,7 +588,7 @@ export async function searchAmazonProducts(keyword: string) {
     console.error(`[ERROR] ===== AMAZON PA-API ERROR DETAILS =====`);
     console.error(`[ERROR] Error type: ${error.constructor.name}`);
     console.error(`[ERROR] Error message: ${error.message}`);
-    console.error(`[ERROR] Attempted URL: ${url}`);
+    console.error(`[ERROR] Attempted URL: ${fullUrl}`);
     
     if (error.name === 'TypeError') {
       console.error(`[ERROR] Network/Fetch Error (likely DNS or connection issue):`);
