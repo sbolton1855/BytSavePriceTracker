@@ -8,7 +8,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { Badge } from '@/components/ui/badge';
-import { Loader2, Send, Eye, AlertCircle, ChevronLeft, ChevronRight, CheckCircle, XCircle, RefreshCw } from "lucide-react";
+import { Loader2, Send, Eye, AlertCircle, ChevronLeft, ChevronRight, CheckCircle, XCircle, RefreshCw, Clock } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { Textarea } from '@/components/ui/textarea';
 import AdminLayout from "@/components/AdminLayout";
@@ -128,7 +128,7 @@ export default function AdminEmailCenter() {
         console.log('[admin-email-center] Loading templates...');
         const data = await adminApi.getEmailTemplates();
         console.log('[admin-email-center] Templates loaded:', data);
-        
+
         const templatesList = data.templates || data || [];
         setTemplates(templatesList);
 
@@ -160,10 +160,19 @@ export default function AdminEmailCenter() {
 
       const params = new URLSearchParams({
         page: currentPage.toString(),
-        pageSize: '20',
-        ...(statusFilter && statusFilter !== 'all' && { status: statusFilter }),
-        ...(typeFilter && typeFilter !== 'all' && { isTest: typeFilter === 'test' ? 'true' : 'false' })
+        pageSize: '20'
       });
+
+      // Fix filter mapping
+      if (statusFilter && statusFilter !== 'all') {
+        params.set('status', statusFilter);
+      }
+
+      if (typeFilter && typeFilter !== 'all') {
+        params.set('isTest', typeFilter === 'test' ? 'true' : 'false');
+      }
+
+      console.log('[email-logs] query params:', Object.fromEntries(params.entries()));
 
       try {
         const response = await fetch(`/api/admin/email-logs?${params}`, {
@@ -194,6 +203,14 @@ export default function AdminEmailCenter() {
           console.log('[email-logs] received fallback response due to server error');
         }
 
+        console.log('[email-logs] received data:', { 
+          itemsCount: data.items?.length, 
+          total: data.total, 
+          page: data.page,
+          note: data.note,
+          firstItem: data.items?.[0]
+        });
+
         return {
           logs: data.items || [],
           total: data.total || 0,
@@ -203,11 +220,28 @@ export default function AdminEmailCenter() {
         };
       } catch (error) {
         console.error('[email-logs] fetch error:', error);
-        // Don't throw - return empty results to prevent UI crash
+        toast({ title: "Error", description: "Failed to load email logs", variant: "destructive" });
         return { logs: [], total: 0, page: 1, pageSize: 20, totalPages: 1 };
       }
     },
-    enabled: activeSubTab === 'logs' && AdminAuth.getToken() !== null,
+    enabled: activeSubTab === 'logs',
+    refetchInterval: 5000, // Auto-refresh every 5 seconds
+    staleTime: 0 // Always consider stale to ensure fresh data
+  });
+
+  // Debug query for counts
+  const { data: debugCounts } = useQuery({
+    queryKey: ['debug-email-logs-counts'],
+    queryFn: async () => {
+      try {
+        return await adminApi.getEmailLogsDebugCounts();
+      } catch (error) {
+        console.error('[debug-counts] Error:', error);
+        return null;
+      }
+    },
+    enabled: activeSubTab === 'logs',
+    refetchInterval: 10000 // Check every 10 seconds
   });
 
   // Initialize smoke test email when settings change
@@ -836,6 +870,33 @@ export default function AdminEmailCenter() {
                       Next <ChevronRight className="h-4 w-4 ml-2" />
                     </Button>
                   </div>
+
+                  {/* Debug Info Section */}
+                  {debugCounts && (
+                    <div className="mt-8 p-4 border rounded bg-gray-50">
+                      <h4 className="font-semibold mb-3 flex items-center gap-2">
+                        <Clock className="h-5 w-5 text-blue-600" /> Debug Email Log Counts
+                      </h4>
+                      <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
+                        <div>
+                          <p className="text-gray-600">Total Sent:</p>
+                          <p className="font-bold text-lg">{debugCounts.totalSent}</p>
+                        </div>
+                        <div>
+                          <p className="text-gray-600">Successful:</p>
+                          <p className="font-bold text-lg text-green-600">{debugCounts.successCount}</p>
+                        </div>
+                        <div>
+                          <p className="text-gray-600">Failed:</p>
+                          <p className="font-bold text-lg text-red-600">{debugCounts.failCount}</p>
+                        </div>
+                        <div>
+                          <p className="text-gray-600">Pending/Other:</p>
+                          <p className="font-bold text-lg">{debugCounts.pendingCount}</p>
+                        </div>
+                      </div>
+                    </div>
+                  )}
                 </>
               ) : (
                 <div className="flex justify-center items-center h-64">

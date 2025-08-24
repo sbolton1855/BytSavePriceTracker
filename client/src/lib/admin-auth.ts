@@ -47,11 +47,15 @@ export class AdminAuth {
 }
 
 export const adminApi = {
-  async getEmailLogs(filters = {}) {
+  async getEmailLogs(filters: { page?: number; pageSize?: number; status?: string; isTest?: string; to?: string; templateId?: string }) {
     const params = new URLSearchParams();
-    Object.entries(filters).forEach(([key, value]) => {
-      if (value) params.append(key, String(value));
-    });
+
+    if (filters.page) params.set('page', filters.page.toString());
+    if (filters.pageSize) params.set('pageSize', filters.pageSize.toString());
+    if (filters.status && filters.status !== 'all') params.set('status', filters.status);
+    if (filters.isTest && filters.isTest !== 'all') params.set('isTest', filters.isTest === 'test' ? 'true' : 'false');
+    if (filters.to) params.set('to', filters.to);
+    if (filters.templateId) params.set('templateId', filters.templateId);
 
     const response = await fetch(`/api/admin/email-logs?${params}`, {
       headers: { 'x-admin-token': AdminAuth.getToken() }
@@ -109,6 +113,18 @@ export const adminApi = {
       const errorText = await response.text();
       console.error('[sendTestEmailPOST] Failed:', response.status, errorText);
       throw new Error(`Send test email failed: ${response.status}`);
+    }
+
+    return response.json();
+  },
+
+  async getEmailLogsDebugCounts() {
+    const response = await fetch('/api/admin/email/_debug/email-logs-counts', {
+      headers: { 'x-admin-token': AdminAuth.getToken() }
+    });
+
+    if (!response.ok) {
+      throw new Error('Failed to fetch debug counts');
     }
 
     return response.json();

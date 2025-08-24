@@ -65,30 +65,58 @@ export async function logEmail(options: LogEmailOptions): Promise<void> {
       console.log(`[email-log] Logged email to database: ${options.status} - ${options.to} (${options.provider})`);
     } else {
       // Fallback to in-memory logging if no database
-      if (!global.emailLogs) {
-        global.emailLogs = [];
-      }
-
-      // Check for existing entry by logId
-      if (options.logId) {
-        const existingIndex = global.emailLogs.findIndex((log: any) => log.logId === options.logId);
-        if (existingIndex >= 0) {
-          // Update existing
-          global.emailLogs[existingIndex] = {
-            ...global.emailLogs[existingIndex],
-            ...logEntry,
-            id: global.emailLogs[existingIndex].id // Keep original ID
-          };
-          console.log(`[email-log] Updated in-memory log: ${options.logId} - ${options.status}`);
-          return;
+      const app = global.app || require('../index').app;
+      if (app && app.locals) {
+        if (!app.locals.emailLogs) {
+          app.locals.emailLogs = [];
         }
-      }
 
-      // Create new
-      global.emailLogs.unshift({ id: Date.now(), ...logEntry });
-      console.log(`[email-log] Logged email in-memory: ${options.status} - ${options.to} (${options.provider})`);
+        // Check for existing entry by logId
+        if (options.logId) {
+          const existingIndex = app.locals.emailLogs.findIndex((log: any) => log.logId === options.logId);
+          if (existingIndex >= 0) {
+            // Update existing
+            app.locals.emailLogs[existingIndex] = {
+              ...app.locals.emailLogs[existingIndex],
+              ...logEntry,
+              id: app.locals.emailLogs[existingIndex].id // Keep original ID
+            };
+            console.log(`[email-log] Updated in-memory log: ${options.logId} - ${options.status}`);
+            return;
+          }
+        }
+
+        // Create new
+        app.locals.emailLogs.unshift({ id: Date.now(), ...logEntry });
+        console.log(`[email-log] Logged email in-memory: ${options.status} - ${options.to} (${options.provider})`);
+      } else {
+        // Last resort - use global object
+        if (!global.emailLogs) {
+          global.emailLogs = [];
+        }
+
+        // Check for existing entry by logId
+        if (options.logId) {
+          const existingIndex = global.emailLogs.findIndex((log: any) => log.logId === options.logId);
+          if (existingIndex >= 0) {
+            // Update existing
+            global.emailLogs[existingIndex] = {
+              ...global.emailLogs[existingIndex],
+              ...logEntry,
+              id: global.emailLogs[existingIndex].id // Keep original ID
+            };
+            console.log(`[email-log] Updated global in-memory log: ${options.logId} - ${options.status}`);
+            return;
+          }
+        }
+
+        // Create new
+        global.emailLogs.unshift({ id: Date.now(), ...logEntry });
+        console.log(`[email-log] Logged email in global memory: ${options.status} - ${options.to} (${options.provider})`);
+      }
     }
   } catch (error) {
-    console.error('[email-log] Failed to log email:', error);
+    console.error('[email-log] Failed to log email (non-throwing):', error);
+    // Never throw from logEmail to avoid breaking the email sending process
   }
 }

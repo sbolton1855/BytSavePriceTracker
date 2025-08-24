@@ -169,7 +169,7 @@ router.get('/email-logs', requireAdmin, async (req: Request, res: Response) => {
   try {
     const page = parseInt(req.query.page as string) || 1;
     const pageSize = Math.min(parseInt(req.query.pageSize as string) || 25, 100);
-    const status = req.query.status as string; // sent|failed|stubbed|all (default all)
+    const status = req.query.status as string; // sent|failed|processed|all (default all)
     const isTest = req.query.isTest as string; // true|false|all (default all)
     const to = req.query.to as string;
     const templateId = req.query.templateId as string;
@@ -184,18 +184,39 @@ router.get('/email-logs', requireAdmin, async (req: Request, res: Response) => {
         app.locals.emailLogs = [];
       }
 
-      const items = app.locals.emailLogs.slice(0, pageSize);
-      console.log('[email-logs] ok', { count: items.length, total: app.locals.emailLogs.length });
+      let items = [...app.locals.emailLogs];
+
+      // Apply filters for in-memory data
+      if (status && status !== 'all') {
+        items = items.filter(item => item.status === status);
+      }
+      if (isTest && isTest !== 'all') {
+        const testFilter = isTest === 'true';
+        items = items.filter(item => item.isTest === testFilter);
+      }
+      if (to) {
+        items = items.filter(item => item.to && item.to.toLowerCase().includes(to.toLowerCase()));
+      }
+      if (templateId) {
+        items = items.filter(item => item.templateId === templateId);
+      }
+
+      // Apply pagination
+      const total = items.length;
+      const offset = (page - 1) * pageSize;
+      items = items.slice(offset, offset + pageSize);
+
+      console.log('[email-logs] ok', { count: items.length, total, source: 'memory' });
 
       return res.json({
         items,
         page,
         pageSize,
-        total: app.locals.emailLogs.length
+        total
       });
     }
 
-    // Build where conditions
+    // Build where conditions for database
     const conditions = [];
 
     if (status && status !== 'all') {
@@ -230,7 +251,7 @@ router.get('/email-logs', requireAdmin, async (req: Request, res: Response) => {
       .limit(pageSize)
       .offset(offset);
 
-    console.log('[email-logs] ok', { count: items.length, total });
+    console.log('[email-logs] ok', { count: items.length, total, source: 'db' });
 
     res.json({
       items,
@@ -248,6 +269,76 @@ router.get('/email-logs', requireAdmin, async (req: Request, res: Response) => {
       pageSize: Math.min(parseInt(req.query.pageSize as string) || 25, 100),
       total: 0,
       note: 'fallback_empty_due_to_error'
+    });
+  }
+});
+
+// Debug endpoint to check email logs counts
+router.get('/_debug/email-logs-counts', requireAdmin, async (req: Request, res: Response) => {
+  console.log('[debug-logs] hit', req.originalUrl);
+  
+  try {
+    let dbCount = 0;
+    let memCount = 0;
+    let latest = null;
+
+    // Check database
+    if (db) {
+      try {
+        const dbResult = await db.select({ count: count() }).from(emailLogs);
+        dbCount = dbResult[0]?.count || 0;
+
+        if (dbCount > 0) {
+          const latestDb = await db
+            .select({
+              to: emailLogs.to,
+              templateId: emailLogs.templateId,
+              status: emailLogs.status,
+              createdAt: emailLogs.createdAt
+            })
+            .from(emailLogs)
+            .orderBy(desc(emailLogs.createdAt))
+            .limit(1);
+          
+          if (latestDb.length > 0) {
+            latest = latestDb[0];
+          }
+        }
+      } catch (dbError) {
+        console.error('[debug-logs] DB error:', dbError);
+      }
+    }
+
+    // Check in-memory
+    const app = req.app;
+    if (app && app.locals && app.locals.emailLogs) {
+      memCount = app.locals.emailLogs.length;
+      
+      if (memCount > 0 && !latest) {
+        const latestMem = app.locals.emailLogs[0];
+        latest = {
+          to: latestMem.to,
+          templateId: latestMem.templateId,
+          status: latestMem.status,
+          createdAt: latestMem.createdAt
+        };
+      }
+    }
+
+    console.log('[debug-logs] ok', { dbCount, memCount, latest });
+
+    res.json({
+      dbCount,
+      memCount,
+      latest,
+      hasDatabase: !!db,
+      timestamp: new Date().toISOString()
+    });
+  } catch (error) {
+    console.error('[debug-logs] fail', error);
+    res.status(500).json({
+      error: 'Debug endpoint failed',
+      details: error instanceof Error ? error.message : 'Unknown error'
     });
   }
 });

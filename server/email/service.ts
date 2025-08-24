@@ -53,14 +53,7 @@ export async function sendTemplate(options: SendTemplateOptions): Promise<SendRe
   const { to, templateId, data = {}, isTest = false, meta = {} } = options;
   
   const logId = uuid();
-  const logData = {
-    to,
-    templateId,
-    isTest,
-    provider: 'sendgrid' as const,
-    logId,
-    meta: { ...meta, templateKey: templateId }
-  };
+  console.log(`[email-send] Starting template send: ${templateId} to ${to} (test: ${isTest})`);
 
   // Check if we have a SendGrid template ID for this template
   const sgTemplateId = SG_TEMPLATE_MAP[templateId];
@@ -70,6 +63,19 @@ export async function sendTemplate(options: SendTemplateOptions): Promise<SendRe
     console.log(`[email-service] Sending template ${templateId} via SendGrid (ID: ${sgTemplateId})`);
     
     try {
+      // Log email as 'processed' before sending
+      await logEmail({
+        logId,
+        to,
+        subject: `Template: ${templateId}`,
+        templateId,
+        status: 'processed',
+        isTest,
+        provider: 'sendgrid',
+        meta: { ...meta, templateKey: templateId }
+      });
+      console.log(`[email-send] Logged as processed: ${logId}`);
+
       const msg: any = {
         to,
         from: SENDGRID_FROM,
@@ -95,13 +101,6 @@ export async function sendTemplate(options: SendTemplateOptions): Promise<SendRe
         console.log(`[email-service] Test email - sandbox mode enabled`);
       }
 
-      // Log email as 'processed' before sending
-      await logEmail({
-        ...logData,
-        subject: `Template: ${templateId}`,
-        status: 'processed'
-      });
-
       const [response] = await sgMail.send(msg);
       const sgMessageId = response.headers?.['x-message-id'] || response.messageId;
 
@@ -109,11 +108,17 @@ export async function sendTemplate(options: SendTemplateOptions): Promise<SendRe
 
       // Update log with success and messageId
       await logEmail({
-        ...logData,
+        logId,
+        to,
         subject: `Template: ${templateId}`,
+        templateId,
         status: 'sent',
-        sgMessageId
+        isTest,
+        provider: 'sendgrid',
+        sgMessageId,
+        meta: { ...meta, templateKey: templateId, sgMessageId }
       });
+      console.log(`[email-send] Logged as sent: ${logId}`);
 
       return {
         success: true,
@@ -127,12 +132,22 @@ export async function sendTemplate(options: SendTemplateOptions): Promise<SendRe
       console.error(`[email-service] SendGrid error:`, error);
       
       // Log the failure
-      await logEmail({
-        ...logData,
-        subject: `Template: ${templateId}`,
-        status: 'failed',
-        error: error instanceof Error ? error.message : 'Unknown error'
-      });
+      try {
+        await logEmail({
+          logId,
+          to,
+          subject: `Template: ${templateId}`,
+          templateId,
+          status: 'failed',
+          isTest,
+          provider: 'sendgrid',
+          error: error instanceof Error ? error.message : 'Unknown error',
+          meta: { ...meta, templateKey: templateId }
+        });
+        console.log(`[email-send] Logged as failed: ${logId}`);
+      } catch (logError) {
+        console.error(`[email-send] Failed to log error: ${logError}`);
+      }
 
       return {
         success: false,
@@ -150,12 +165,22 @@ export async function sendTemplate(options: SendTemplateOptions): Promise<SendRe
       const error = `Template ${templateId} not found in local templates`;
       console.error(`[email-service] ${error}`);
       
-      await logEmail({
-        ...logData,
-        subject: `Template: ${templateId}`,
-        status: 'failed',
-        error
-      });
+      try {
+        await logEmail({
+          logId,
+          to,
+          subject: `Template: ${templateId}`,
+          templateId,
+          status: 'failed',
+          isTest,
+          provider: 'fallback',
+          error,
+          meta: { ...meta, templateKey: templateId }
+        });
+        console.log(`[email-send] Logged template not found: ${logId}`);
+      } catch (logError) {
+        console.error(`[email-send] Failed to log template error: ${logError}`);
+      }
 
       return {
         success: false,
@@ -170,12 +195,22 @@ export async function sendTemplate(options: SendTemplateOptions): Promise<SendRe
       const error = `Failed to render template ${templateId}`;
       console.error(`[email-service] ${error}`);
       
-      await logEmail({
-        ...logData,
-        subject: `Template: ${templateId}`,
-        status: 'failed',
-        error
-      });
+      try {
+        await logEmail({
+          logId,
+          to,
+          subject: `Template: ${templateId}`,
+          templateId,
+          status: 'failed',
+          isTest,
+          provider: 'fallback',
+          error,
+          meta: { ...meta, templateKey: templateId }
+        });
+        console.log(`[email-send] Logged render failure: ${logId}`);
+      } catch (logError) {
+        console.error(`[email-send] Failed to log render error: ${logError}`);
+      }
 
       return {
         success: false,
@@ -199,21 +234,26 @@ export async function sendRaw(options: SendRawOptions): Promise<SendResult> {
   const { to, subject, html, isTest = false, meta = {} } = options;
   
   const logId = uuid();
-  const logData = {
-    to,
-    subject,
-    html,
-    isTest,
-    provider: 'sendgrid' as const,
-    logId,
-    meta
-  };
+  console.log(`[email-send] Starting raw email send to ${to} (test: ${isTest})`);
 
   if (SENDGRID_API_KEY) {
     // Use SendGrid for raw HTML email
     console.log(`[email-service] Sending raw HTML email via SendGrid`);
     
     try {
+      // Log email as 'processed' before sending
+      await logEmail({
+        logId,
+        to,
+        subject,
+        html,
+        status: 'processed',
+        isTest,
+        provider: 'sendgrid',
+        meta
+      });
+      console.log(`[email-send] Logged as processed: ${logId}`);
+
       const msg: any = {
         to,
         from: SENDGRID_FROM,
@@ -238,12 +278,6 @@ export async function sendRaw(options: SendRawOptions): Promise<SendResult> {
         console.log(`[email-service] Test email - sandbox mode enabled`);
       }
 
-      // Log email as 'processed' before sending
-      await logEmail({
-        ...logData,
-        status: 'processed'
-      });
-
       const [response] = await sgMail.send(msg);
       const sgMessageId = response.headers?.['x-message-id'] || response.messageId;
 
@@ -251,10 +285,17 @@ export async function sendRaw(options: SendRawOptions): Promise<SendResult> {
 
       // Update log with success and messageId
       await logEmail({
-        ...logData,
+        logId,
+        to,
+        subject,
+        html,
         status: 'sent',
-        sgMessageId
+        isTest,
+        provider: 'sendgrid',
+        sgMessageId,
+        meta: { ...meta, sgMessageId }
       });
+      console.log(`[email-send] Logged as sent: ${logId}`);
 
       return {
         success: true,
@@ -268,11 +309,22 @@ export async function sendRaw(options: SendRawOptions): Promise<SendResult> {
       console.error(`[email-service] SendGrid raw email error:`, error);
       
       // Log the failure
-      await logEmail({
-        ...logData,
-        status: 'failed',
-        error: error instanceof Error ? error.message : 'Unknown error'
-      });
+      try {
+        await logEmail({
+          logId,
+          to,
+          subject,
+          html,
+          status: 'failed',
+          isTest,
+          provider: 'sendgrid',
+          error: error instanceof Error ? error.message : 'Unknown error',
+          meta
+        });
+        console.log(`[email-send] Logged as failed: ${logId}`);
+      } catch (logError) {
+        console.error(`[email-send] Failed to log error: ${logError}`);
+      }
 
       return {
         success: false,
@@ -290,10 +342,16 @@ export async function sendRaw(options: SendRawOptions): Promise<SendResult> {
       
       // Log email as 'processed' before sending
       await logEmail({
-        ...logData,
+        logId,
+        to,
+        subject,
+        html,
+        status: 'processed',
+        isTest,
         provider: 'fallback',
-        status: 'processed'
+        meta
       });
+      console.log(`[email-send] Logged as processed (fallback): ${logId}`);
 
       await sendEmail({ to, subject, html });
 
@@ -301,10 +359,16 @@ export async function sendRaw(options: SendRawOptions): Promise<SendResult> {
 
       // Update log with success
       await logEmail({
-        ...logData,
+        logId,
+        to,
+        subject,
+        html,
+        status: 'sent',
+        isTest,
         provider: 'fallback',
-        status: 'sent'
+        meta
       });
+      console.log(`[email-send] Logged as sent (fallback): ${logId}`);
 
       return {
         success: true,
@@ -316,12 +380,22 @@ export async function sendRaw(options: SendRawOptions): Promise<SendResult> {
       console.error(`[email-service] Fallback email error:`, error);
       
       // Log the failure
-      await logEmail({
-        ...logData,
-        provider: 'fallback',
-        status: 'failed',
-        error: error instanceof Error ? error.message : 'Unknown error'
-      });
+      try {
+        await logEmail({
+          logId,
+          to,
+          subject,
+          html,
+          status: 'failed',
+          isTest,
+          provider: 'fallback',
+          error: error instanceof Error ? error.message : 'Unknown error',
+          meta
+        });
+        console.log(`[email-send] Logged as failed (fallback): ${logId}`);
+      } catch (logError) {
+        console.error(`[email-send] Failed to log fallback error: ${logError}`);
+      }
 
       return {
         success: false,
