@@ -38,7 +38,7 @@ export default function AdminEmailTest() {
         throw new Error('No admin token available');
       }
 
-      const response = await fetch(`/api/admin/email/templates?token=${encodeURIComponent(adminToken)}`);
+      const response = await fetch(`/api/admin/email-templates?token=${encodeURIComponent(adminToken)}`);
 
       if (!response.ok) {
         const errorData = await response.json().catch(() => ({}));
