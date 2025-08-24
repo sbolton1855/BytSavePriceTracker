@@ -2,7 +2,7 @@
 import express from 'express';
 import { Request, Response } from 'express';
 import { db } from './db';
-import { products, users, alerts, affiliateClicks } from '../migrations/schema';
+import { products, users, trackedProducts, affiliateClicks } from '../migrations/schema';
 import { eq, and, desc, asc } from 'drizzle-orm';
 import { addDays, isAfter, isBefore } from 'date-fns';
 import * as amazonApi from './lib/amazonApi';
@@ -75,13 +75,13 @@ router.get('/user/products', authenticateUser, async (req: Request, res: Respons
 
     const userAlerts = await db
       .select({
-        alert: alerts,
+        alert: trackedProducts,
         product: products
       })
-      .from(alerts)
-      .leftJoin(products, eq(alerts.productId, products.id))
-      .where(eq(alerts.email, email.toUpperCase()))
-      .orderBy(desc(alerts.createdAt));
+      .from(trackedProducts)
+      .leftJoin(products, eq(trackedProducts.productId, products.id))
+      .where(eq(trackedProducts.email, email.toUpperCase()))
+      .orderBy(desc(trackedProducts.createdAt));
 
     res.json(userAlerts);
   } catch (error) {
@@ -138,30 +138,31 @@ router.post('/user/alerts', authenticateUser, async (req: Request, res: Response
     // Check if alert already exists
     const existingAlert = await db
       .select()
-      .from(alerts)
+      .from(trackedProducts)
       .where(and(
-        eq(alerts.email, email.toUpperCase()),
-        eq(alerts.productId, product[0].id)
+        eq(trackedProducts.email, email.toUpperCase()),
+        eq(trackedProducts.productId, product[0].id)
       ))
       .limit(1);
 
     if (existingAlert.length > 0) {
       // Update existing alert
       await db
-        .update(alerts)
+        .update(trackedProducts)
         .set({ targetPrice: parseFloat(targetPrice) })
-        .where(eq(alerts.id, existingAlert[0].id));
+        .where(eq(trackedProducts.id, existingAlert[0].id));
       
       res.json({ message: 'Alert updated successfully' });
     } else {
       // Create new alert
-      await db.insert(alerts).values({
+      await db.insert(trackedProducts).values({
         email: email.toUpperCase(),
         productId: product[0].id,
         targetPrice: parseFloat(targetPrice),
         percentageAlert: false,
         percentageThreshold: null,
-        notified: false
+        notified: false,
+        createdAt: new Date().toISOString()
       });
       
       res.json({ message: 'Alert created successfully' });
@@ -184,10 +185,10 @@ router.delete('/user/alerts/:alertId', authenticateUser, async (req: Request, re
     // Verify the alert belongs to the user
     const alert = await db
       .select()
-      .from(alerts)
+      .from(trackedProducts)
       .where(and(
-        eq(alerts.id, alertId),
-        eq(alerts.email, email.toUpperCase())
+        eq(trackedProducts.id, alertId),
+        eq(trackedProducts.email, email.toUpperCase())
       ))
       .limit(1);
 
@@ -195,7 +196,7 @@ router.delete('/user/alerts/:alertId', authenticateUser, async (req: Request, re
       return res.status(404).json({ error: 'Alert not found' });
     }
 
-    await db.delete(alerts).where(eq(alerts.id, alertId));
+    await db.delete(trackedProducts).where(eq(trackedProducts.id, alertId));
     res.json({ message: 'Alert deleted successfully' });
   } catch (error) {
     console.error('Error deleting alert:', error);
