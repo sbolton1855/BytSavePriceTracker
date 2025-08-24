@@ -62,8 +62,15 @@ const testEmailSchema = z.object({
   customData: z.record(z.any()).optional()
 });
 
-// GET /admin/api/email/templates
+// GET /api/admin/email/templates - for frontend compatibility
 router.get('/templates', (req, res) => {
+  const { token } = req.query;
+  
+  // Check admin token for query-based auth (frontend compatibility)
+  if (token && token !== process.env.ADMIN_SECRET) {
+    return res.status(403).json({ error: 'Invalid admin token' });
+  }
+
   const templates = Object.values(EMAIL_TEMPLATES).map(template => ({
     id: template.id,
     name: template.name,
@@ -216,7 +223,96 @@ router.get('/test-reset', async (req, res) => {
   }
 });
 
-// POST /admin/api/email/test
+// POST /api/admin/send-test-email - for frontend compatibility
+router.post('/send-test-email', async (req, res) => {
+  try {
+    const { to, templateId, token } = req.body;
+
+    // Check admin token
+    if (!token || token !== process.env.ADMIN_SECRET) {
+      return res.status(403).json({ error: 'Invalid admin token' });
+    }
+
+    if (!to || !templateId) {
+      return res.status(400).json({ 
+        error: 'Missing required fields: to, templateId' 
+      });
+    }
+
+    const template = EMAIL_TEMPLATES[templateId as keyof typeof EMAIL_TEMPLATES];
+    if (!template) {
+      return res.status(404).json({ error: 'Template not found' });
+    }
+
+    let emailHtml = '';
+    
+    // Generate email content based on template
+    switch (templateId) {
+      case 'price-drop':
+        const mockProduct = {
+          id: 1,
+          asin: 'B01DJGLYZQ',
+          title: 'Sample Product - Price Drop Alert Test',
+          url: buildAffiliateLink('B01DJGLYZQ'),
+          imageUrl: 'https://m.media-amazon.com/images/I/41example.jpg',
+          currentPrice: 15.99,
+          originalPrice: 22.99,
+          lastChecked: new Date(),
+          lowestPrice: 15.99,
+          highestPrice: 22.99,
+          priceDropped: true,
+          createdAt: new Date(),
+          updatedAt: new Date(),
+          affiliateUrl: buildAffiliateLink('B01DJGLYZQ')
+        };
+
+        const mockTrackedProduct = {
+          id: 1,
+          userId: '1',
+          email: to,
+          productId: 1,
+          targetPrice: 16.00,
+          percentageAlert: false,
+          percentageThreshold: null,
+          notified: false,
+          createdAt: new Date()
+        };
+
+        const emailData = createPriceDropEmail(to, mockProduct as any, mockTrackedProduct as any);
+        emailHtml = emailData.html;
+        break;
+      
+      case 'welcome':
+        emailHtml = generateEmailHtml('welcome', { firstName: 'Test User', email: to });
+        break;
+      
+      default:
+        emailHtml = '<p>Template preview not available</p>';
+    }
+
+    // Send the email
+    await sendEmail({
+      to: to,
+      subject: `[TEST] ${template.subject.replace('{{productTitle}}', 'Sample Product')}`,
+      html: emailHtml,
+      templateId: templateId
+    });
+
+    res.json({
+      success: true,
+      message: `Test email sent successfully to ${to}`
+    });
+
+  } catch (error) {
+    console.error('Send test email error:', error);
+    res.status(500).json({ 
+      error: 'Failed to send test email',
+      details: error instanceof Error ? error.message : 'Unknown error'
+    });
+  }
+});
+
+// POST /admin/api/email/test - original endpoint with CSRF protection
 router.post('/test', csrfProtection, async (req, res) => {
   try {
     const validation = testEmailSchema.safeParse(req.body);

@@ -30,23 +30,27 @@ export default function AdminEmailTest() {
   const iframeRef = useRef<HTMLIFrameElement>(null);
 
   // Load templates using React Query
-  const { data: templates = [], isLoading: isLoadingTemplates } = useQuery<Template[]>({
+  const { data: templates = [], isLoading: isLoadingTemplates, error: templatesError } = useQuery<Template[]>({
     queryKey: ['email-templates'],
     queryFn: async () => {
-      const response = await fetch('/api/admin/email/templates', {
-        headers: {
-          'Authorization': `Bearer ${AdminAuth.getToken()}`
-        }
-      });
+      const adminToken = AdminAuth.getToken();
+      if (!adminToken) {
+        throw new Error('No admin token available');
+      }
+
+      const response = await fetch(`/api/admin/email/templates?token=${encodeURIComponent(adminToken)}`);
 
       if (!response.ok) {
-        throw new Error('Failed to load templates');
+        const errorData = await response.json().catch(() => ({}));
+        throw new Error(errorData.error || `HTTP ${response.status}: Failed to load templates`);
       }
 
       const data = await response.json();
       return data.templates || [];
     },
     enabled: !!AdminAuth.getToken(),
+    retry: 2,
+    retryDelay: 1000,
   });
 
   const handlePreviewTemplate = async () => {
@@ -60,14 +64,16 @@ export default function AdminEmailTest() {
     }
 
     try {
-      const response = await fetch(`/api/admin/email/preview/${selectedTemplate}`, {
-        headers: {
-          'Authorization': `Bearer ${AdminAuth.getToken()}`
-        }
-      });
+      const adminToken = AdminAuth.getToken();
+      if (!adminToken) {
+        throw new Error('No admin token available');
+      }
+
+      const response = await fetch(`/api/admin/email/preview/${selectedTemplate}?token=${encodeURIComponent(adminToken)}`);
 
       if (!response.ok) {
-        throw new Error('Failed to preview template');
+        const errorData = await response.json().catch(() => ({}));
+        throw new Error(errorData.error || 'Failed to preview template');
       }
 
       const data = await response.json();
@@ -76,7 +82,7 @@ export default function AdminEmailTest() {
       console.error('Preview failed:', error);
       toast({
         title: "Error",
-        description: "Failed to preview template",
+        description: error instanceof Error ? error.message : "Failed to preview template",
         variant: "destructive"
       });
     }
@@ -96,20 +102,26 @@ export default function AdminEmailTest() {
 
     setIsSubmitting(true);
     try {
-      const response = await fetch('/api/admin/email/test', {
+      const adminToken = AdminAuth.getToken();
+      if (!adminToken) {
+        throw new Error('No admin token available');
+      }
+
+      const response = await fetch('/api/admin/send-test-email', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          'Authorization': `Bearer ${AdminAuth.getToken()}`
         },
         body: JSON.stringify({
           to: testEmail,
-          templateId: selectedTemplate
+          templateId: selectedTemplate,
+          token: adminToken
         })
       });
 
       if (!response.ok) {
-        throw new Error('Failed to send test email');
+        const errorData = await response.json().catch(() => ({}));
+        throw new Error(errorData.error || `HTTP ${response.status}: Failed to send test email`);
       }
 
       const result = await response.json();
@@ -121,7 +133,7 @@ export default function AdminEmailTest() {
       console.error('Send failed:', error);
       toast({
         title: "Error",
-        description: "Failed to send test email",
+        description: error instanceof Error ? error.message : "Failed to send test email",
         variant: "destructive"
       });
     } finally {
@@ -142,6 +154,14 @@ export default function AdminEmailTest() {
             <CardDescription>Preview and send test emails</CardDescription>
           </CardHeader>
           <CardContent>
+            {templatesError && (
+              <div className="mb-4 p-3 bg-red-50 border border-red-200 rounded-md">
+                <p className="text-red-700 text-sm">
+                  Error loading templates: {templatesError instanceof Error ? templatesError.message : 'Unknown error'}
+                </p>
+              </div>
+            )}
+            
             <form onSubmit={handleSendTestEmail} className="space-y-4">
               <div>
                 <Label htmlFor="template">Email Template</Label>
@@ -154,7 +174,13 @@ export default function AdminEmailTest() {
                   disabled={isLoadingTemplates}
                 >
                   <SelectTrigger>
-                    <SelectValue placeholder="Select a template" />
+                    <SelectValue placeholder={
+                      isLoadingTemplates 
+                        ? "Loading templates..." 
+                        : templates.length === 0 
+                          ? "No templates available"
+                          : "Select a template"
+                    } />
                   </SelectTrigger>
                   <SelectContent>
                     {templates.map((template) => (
@@ -183,14 +209,14 @@ export default function AdminEmailTest() {
                   type="button" 
                   variant="outline" 
                   onClick={handlePreviewTemplate}
-                  disabled={!selectedTemplate}
+                  disabled={!selectedTemplate || isLoadingTemplates}
                 >
                   <Eye className="mr-2 h-4 w-4" />
                   Preview
                 </Button>
                 <Button 
                   type="submit" 
-                  disabled={isSubmitting || !selectedTemplate || !testEmail}
+                  disabled={isSubmitting || !selectedTemplate || !testEmail || isLoadingTemplates}
                 >
                   {isSubmitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
                   <Send className="mr-2 h-4 w-4" />
@@ -218,7 +244,14 @@ export default function AdminEmailTest() {
               </div>
             ) : (
               <div className="border-2 border-dashed border-gray-300 rounded-lg h-[400px] flex items-center justify-center text-gray-500">
-                Select a template and click "Preview" to see the email
+                {isLoadingTemplates ? (
+                  <div className="flex items-center gap-2">
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                    Loading templates...
+                  </div>
+                ) : (
+                  "Select a template and click \"Preview\" to see the email"
+                )}
               </div>
             )}
           </CardContent>
