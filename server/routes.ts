@@ -183,7 +183,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.post('/api/admin/validate-token', async (req: Request, res: Response) => {
     try {
       const { token } = req.body;
-      
+
       if (!token || typeof token !== 'string') {
         return res.status(400).json({ error: 'Token is required' });
       }
@@ -2559,7 +2559,9 @@ Respond with just the analysis text, no JSON needed.
   // Import routes
   app.use('/api/admin', adminDashboardRoutes);
   app.use('/api/admin', adminAuthRoutes);
-  app.use('/api/admin', adminEmailRoutes);
+  // Admin email routes
+  const adminEmailRoutes = require('./routes/adminEmail').default;
+  app.use('/api/admin/email', adminEmailRoutes);
   app.use('/api/admin', adminToolsRoutes);
 
   // Admin affiliate routes

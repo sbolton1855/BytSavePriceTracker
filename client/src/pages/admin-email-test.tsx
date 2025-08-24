@@ -1,14 +1,13 @@
 
-import { useState, useRef, useEffect } from 'react';
+import { useState, useRef } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Loader2, Send, Eye, AlertCircle, LogOut } from "lucide-react";
+import { Loader2, Send, Eye } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
-import { Textarea } from '@/components/ui/textarea';
 import AdminLayout from "@/components/AdminLayout";
 import { AdminAuth } from "@/lib/admin-auth";
 
@@ -16,62 +15,27 @@ interface Template {
   id: string;
   name: string;
   description: string;
-  subject: string;
-  previewData: Record<string, any>;
 }
 
 export default function AdminEmailTest() {
   const { toast } = useToast();
   
-  // Check authentication status
-  const [isAuthenticated, setIsAuthenticated] = useState(false);
-  const [isCheckingAuth, setIsCheckingAuth] = useState(true);
-
   // Email form state
-  const [templates, setTemplates] = useState<Template[]>([]);
   const [selectedTemplate, setSelectedTemplate] = useState('');
   const [testEmail, setTestEmail] = useState('');
   const [previewHtml, setPreviewHtml] = useState('');
-  const [isLoadingTemplates, setIsLoadingTemplates] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   // Preview iframe ref
   const iframeRef = useRef<HTMLIFrameElement>(null);
 
-  // Check authentication on mount
-  useEffect(() => {
-    checkAuthStatus();
-  }, []);
-
-  const checkAuthStatus = async () => {
-    setIsCheckingAuth(true);
-    try {
-      const authenticated = await AdminAuth.isAuthenticated();
-      setIsAuthenticated(authenticated);
-      if (authenticated) {
-        loadTemplates();
-      }
-    } catch (error) {
-      console.error('Auth check failed:', error);
-      setIsAuthenticated(false);
-    } finally {
-      setIsCheckingAuth(false);
-    }
-  };
-
-  const handleLogout = () => {
-    AdminAuth.logout();
-    setIsAuthenticated(false);
-    toast({ title: "Logged out", description: "You have been logged out successfully" });
-  };
-
-  const loadTemplates = async () => {
-    setIsLoadingTemplates(true);
-    try {
-      const token = AdminAuth.getToken();
+  // Load templates using React Query
+  const { data: templates = [], isLoading: isLoadingTemplates } = useQuery<Template[]>({
+    queryKey: ['email-templates'],
+    queryFn: async () => {
       const response = await fetch('/api/admin/email/templates', {
         headers: {
-          'Authorization': `Bearer ${token}`
+          'Authorization': `Bearer ${AdminAuth.getToken()}`
         }
       });
 
@@ -80,18 +44,10 @@ export default function AdminEmailTest() {
       }
 
       const data = await response.json();
-      setTemplates(data.templates || []);
-    } catch (error) {
-      console.error('Failed to load templates:', error);
-      toast({
-        title: "Error",
-        description: "Failed to load email templates",
-        variant: "destructive"
-      });
-    } finally {
-      setIsLoadingTemplates(false);
-    }
-  };
+      return data.templates || [];
+    },
+    enabled: !!AdminAuth.getToken(),
+  });
 
   const handlePreviewTemplate = async () => {
     if (!selectedTemplate) {
@@ -104,16 +60,10 @@ export default function AdminEmailTest() {
     }
 
     try {
-      const token = AdminAuth.getToken();
-      const response = await fetch('/api/admin/email/preview', {
-        method: 'POST',
+      const response = await fetch(`/api/admin/email/preview/${selectedTemplate}`, {
         headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`
-        },
-        body: JSON.stringify({
-          templateId: selectedTemplate
-        })
+          'Authorization': `Bearer ${AdminAuth.getToken()}`
+        }
       });
 
       if (!response.ok) {
@@ -121,7 +71,7 @@ export default function AdminEmailTest() {
       }
 
       const data = await response.json();
-      setPreviewHtml(data.html);
+      setPreviewHtml(data.previewHtml);
     } catch (error) {
       console.error('Preview failed:', error);
       toast({
@@ -146,16 +96,15 @@ export default function AdminEmailTest() {
 
     setIsSubmitting(true);
     try {
-      const token = AdminAuth.getToken();
-      const response = await fetch('/api/admin/email/send-test', {
+      const response = await fetch('/api/admin/email/test', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`
+          'Authorization': `Bearer ${AdminAuth.getToken()}`
         },
         body: JSON.stringify({
-          templateId: selectedTemplate,
-          email: testEmail
+          to: testEmail,
+          templateId: selectedTemplate
         })
       });
 
@@ -180,53 +129,11 @@ export default function AdminEmailTest() {
     }
   };
 
-  if (isCheckingAuth) {
-    return (
-      <div className="container mx-auto px-4 py-8">
-        <div className="flex items-center justify-center min-h-screen">
-          <Loader2 className="h-8 w-8 animate-spin" />
-        </div>
-      </div>
-    );
-  }
-
-  if (!isAuthenticated) {
-    return (
-      <AdminLayout
-        title="Email Testing Center"
-        description="Please log in to access email testing tools"
-      >
-        <Card>
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <AlertCircle className="h-5 w-5 text-yellow-500" />
-              Authentication Required
-            </CardTitle>
-            <CardDescription>
-              You need to be logged in as an admin to access this page.
-            </CardDescription>
-          </CardHeader>
-          <CardContent>
-            <Button onClick={() => window.location.href = '/admin'}>
-              Go to Admin Login
-            </Button>
-          </CardContent>
-        </Card>
-      </AdminLayout>
-    );
-  }
-
   return (
     <AdminLayout
       title="Email Testing Center"
       description="Test and preview email templates for BytSave notifications"
     >
-      <div className="flex justify-end mb-6">
-        <Button variant="outline" onClick={handleLogout}>
-          <LogOut className="mr-2 h-4 w-4" />
-          Logout
-        </Button>
-      </div>
       
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
         <Card>
