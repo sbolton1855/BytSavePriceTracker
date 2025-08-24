@@ -36,12 +36,23 @@ export default function AdminEmailCenter() {
   const [adminToken, setAdminToken] = useState(() => 
     localStorage.getItem('adminToken') || ''
   );
+  const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [results, setResults] = useState<Record<string, any>>({});
   const [currentPage, setCurrentPage] = useState(1);
   const [statusFilter, setStatusFilter] = useState<string>('');
   const [typeFilter, setTypeFilter] = useState<string>('');
   const iframeRef = useRef<HTMLIFrameElement>(null);
   const { toast } = useToast();
+
+  // Check authentication when admin token changes
+  useEffect(() => {
+    if (adminToken && adminToken.length > 0) {
+      localStorage.setItem('adminToken', adminToken);
+      setIsAuthenticated(true);
+    } else {
+      setIsAuthenticated(false);
+    }
+  }, [adminToken]);
 
   // Query for email logs
   const { data: emailLogs, isLoading: logsLoading, refetch: refetchLogs } = useQuery<EmailLogsResponse>({
@@ -59,6 +70,7 @@ export default function AdminEmailCenter() {
       if (!response.ok) {
         if (response.status === 403) {
           toast({ title: "Unauthorized", description: "Invalid admin token.", variant: "destructive" });
+          setIsAuthenticated(false);
         } else {
           toast({ title: "Error", description: "Failed to fetch email logs.", variant: "destructive" });
         }
@@ -66,7 +78,7 @@ export default function AdminEmailCenter() {
       }
       return response.json();
     },
-    enabled: !!adminToken,
+    enabled: !!adminToken && isAuthenticated,
   });
 
 
@@ -286,43 +298,79 @@ export default function AdminEmailCenter() {
     }
   };
 
+  // Show login form if not authenticated
+  if (!isAuthenticated) {
+    return (
+      <div className="container mx-auto px-4 py-8">
+        <div className="max-w-md mx-auto">
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center">
+                <Mail className="mr-3 h-8 w-8" />
+                Admin Email Center
+              </CardTitle>
+              <CardDescription>Enter your admin secret token to access email testing</CardDescription>
+            </CardHeader>
+            <CardContent>
+              <div className="space-y-4">
+                <div>
+                  <Label htmlFor="adminToken">Admin Secret Token</Label>
+                  <Input
+                    id="adminToken"
+                    type="password"
+                    value={adminToken}
+                    onChange={(e) => setAdminToken(e.target.value)}
+                    placeholder="Enter ADMIN_SECRET token"
+                    onKeyPress={(e) => {
+                      if (e.key === 'Enter' && adminToken) {
+                        setIsAuthenticated(true);
+                      }
+                    }}
+                  />
+                </div>
+                <Button 
+                  onClick={() => {
+                    if (adminToken) {
+                      setIsAuthenticated(true);
+                    } else {
+                      toast({ title: "Error", description: "Please enter admin token", variant: "destructive" });
+                    }
+                  }}
+                  className="w-full"
+                >
+                  Access Email Center
+                </Button>
+              </div>
+            </CardContent>
+          </Card>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="container mx-auto px-4 py-8">
       <div className="mb-8">
-        <h1 className="text-3xl font-bold mb-2 flex items-center">
-          <Mail className="mr-3 h-8 w-8" />
-          Admin Email Center
-        </h1>
-        <p className="text-gray-600">Test and manage email functionality</p>
-      </div>
-
-      {/* Admin Token Input */}
-      <Card className="mb-6">
-        <CardHeader>
-          <CardTitle className="flex items-center">
-            <AlertCircle className="mr-2 h-5 w-5" />
-            Authentication
-          </CardTitle>
-          <CardDescription>Enter your admin secret token to access email testing</CardDescription>
-        </CardHeader>
-        <CardContent>
-          <div className="flex gap-4">
-            <div className="flex-1">
-              <Label htmlFor="adminToken">Admin Secret Token</Label>
-              <Input
-                id="adminToken"
-                type="password"
-                value={adminToken}
-                onChange={(e) => {
-                  setAdminToken(e.target.value);
-                  refetchLogs(); // Refetch logs when token changes
-                }}
-                placeholder="Enter ADMIN_SECRET token"
-              />
-            </div>
+        <div className="flex justify-between items-center">
+          <div>
+            <h1 className="text-3xl font-bold mb-2 flex items-center">
+              <Mail className="mr-3 h-8 w-8" />
+              Admin Email Center
+            </h1>
+            <p className="text-gray-600">Test and manage email functionality</p>
           </div>
-        </CardContent>
-      </Card>
+          <Button 
+            variant="outline" 
+            onClick={() => {
+              setAdminToken('');
+              setIsAuthenticated(false);
+              localStorage.removeItem('adminToken');
+            }}
+          >
+            Logout
+          </Button>
+        </div>
+      </div>
 
       {/* Email Testing Tabs */}
       <Tabs defaultValue="price-drop" className="space-y-6">
