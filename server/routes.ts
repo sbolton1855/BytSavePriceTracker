@@ -2559,8 +2559,7 @@ Respond with just the analysis text, no JSON needed.
   // Import routes
   app.use('/api/admin', adminDashboardRoutes);
   app.use('/api/admin', adminAuthRoutes);
-  // Admin email routes
-  const adminEmailRoutes = require('./routes/adminEmail').default;
+  // Admin email routes - already imported at top
   app.use('/api/admin/email', adminEmailRoutes);
   app.use('/api/admin', adminToolsRoutes);
 
