@@ -526,12 +526,12 @@ export async function searchAmazonProducts(keyword: string) {
   console.log(`[DEBUG] Authorization header present:`, !!headersToSign['Authorization']);
   console.log(`[DEBUG] ============================================`);
 
+  // Construct the full URL explicitly before try block
+  const fullUrl = `https://${host}${path}`;
+  console.log(`[DEBUG] About to make request to: ${fullUrl}`);
+  console.log(`[DEBUG] Full Amazon URL: ${fullUrl}`);
+
   try {
-    // Construct the full URL explicitly
-    const fullUrl = `https://${host}${path}`;
-    console.log(`[DEBUG] About to make request to: ${fullUrl}`);
-    console.log(`[DEBUG] Full Amazon URL: ${fullUrl}`);
-    
     // Use fetch with the complete URL
     const response = await fetch(fullUrl, {
       method: 'POST',

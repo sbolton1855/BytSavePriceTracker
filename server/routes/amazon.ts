@@ -40,6 +40,7 @@ router.get('/amazon/deals', async (req, res) => {
   try {
     console.log('[DEBUG] About to call searchAmazonProducts...');
     console.log('[DEBUG] Keyword being used:', keyword);
+    console.log('[DEBUG] searchAmazonProducts function location:', searchAmazonProducts.toString().substring(0, 200));
     
     // Log the environment variables to ensure they're loaded
     console.log('[DEBUG] Environment check:');

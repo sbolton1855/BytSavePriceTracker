@@ -45,6 +45,7 @@ router.use('/admin/force-alerts', adminForceAlertsRoutes);
 router.use('/amazon', amazonRoutes);
 console.log('>>> [DEBUG] Amazon routes mounted at /amazon');
 console.log('>>> [DEBUG] This means /api/amazon/deals should work');
+console.log('>>> [DEBUG] Amazon routes module loaded from:', __dirname + '/routes/amazon.ts');
 router.use('/deals', dealsRoutes);
 router.use('/affiliate', affiliateRoutes);
 router.use('/analytics', analyticsRoutes);
