@@ -193,10 +193,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     res.sendFile(path.join(__dirname, '../client/forgot-password.html'));
   });
 
-  // Admin email testing route
-  app.get('/admin/email-test', requireAdminToken, (req, res) => {
-    res.sendFile(path.join(process.cwd(), 'client/admin-email-test.html'));
-  });
+  // Removed problematic admin email test route - using React component instead
 
   // Admin email logs route
   app.get('/admin/email-logs', async (req, res) => {
@@ -2299,8 +2296,8 @@ Respond with just the analysis text, no JSON needed.
         });
       }
 
-      // Otherwise, return the HTML preview
-      res.setHeader('Content-Type', 'text/html');
+      // Otherwise, return the HTML preview as text (not HTML headers)
+      res.setHeader('Content-Type', 'text/plain');
       res.send(emailHtml);
     } catch (error) {
       console.error('Error in preview-email route:', error);

@@ -6,8 +6,8 @@ import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
+import { Table, TableBody, TableCell, TableHeader, TableRow } from '@/components/ui/table';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
 import { Badge } from '@/components/ui/badge';
 import { Loader2, Mail, Send, Eye, AlertCircle, ChevronLeft, ChevronRight, CheckCircle, XCircle } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
@@ -111,37 +111,24 @@ export default function AdminEmailCenter() {
   // Price Drop Alert handlers
   const handlePriceDropPreview = async () => {
     if (!adminToken) {
-      toast({ title: "Error", description: "Admin token required", variant: "destructive" });
-      return;
-    }
-
-    if (!priceDropForm.asin || !priceDropForm.oldPrice || !priceDropForm.newPrice) {
-      toast({ title: "Error", description: "ASIN, old price, and new price are required", variant: "destructive" });
+      toast({ title: "Error", description: "Admin token is required", variant: "destructive" });
       return;
     }
 
     setLoadingState('priceDropPreview', true);
     try {
-      const params = new URLSearchParams({
-        asin: priceDropForm.asin,
-        productTitle: priceDropForm.productTitle,
-        oldPrice: priceDropForm.oldPrice,
-        newPrice: priceDropForm.newPrice,
-        token: adminToken
-      });
+      const response = await fetch(`/api/dev/preview-email?asin=${priceDropForm.asin}&productTitle=${encodeURIComponent(priceDropForm.productTitle)}&oldPrice=${priceDropForm.oldPrice}&newPrice=${priceDropForm.newPrice}&token=${adminToken}`);
 
-      const response = await fetch(`/api/dev/preview-email?${params}`);
-      const html = await response.text();
-
-      if (response.ok) {
-        setResult('priceDropPreview', html);
-        toast({ title: "Success", description: "Price drop preview generated" });
-      } else {
-        throw new Error(`HTTP ${response.status}`);
+      if (!response.ok) {
+        throw new Error('Failed to preview price drop email');
       }
+
+      const htmlContent = await response.text();
+      setResult('priceDropPreview', htmlContent);
+      toast({ title: "Success", description: "Price drop email preview generated" });
     } catch (error) {
-      toast({ title: "Error", description: "Failed to generate preview", variant: "destructive" });
-      console.error(error);
+      console.error('Price drop preview error:', error);
+      toast({ title: "Error", description: "Failed to preview price drop email", variant: "destructive" });
     } finally {
       setLoadingState('priceDropPreview', false);
     }
@@ -149,39 +136,31 @@ export default function AdminEmailCenter() {
 
   const handlePriceDropSend = async () => {
     if (!adminToken) {
-      toast({ title: "Error", description: "Admin token required", variant: "destructive" });
+      toast({ title: "Error", description: "Admin token is required", variant: "destructive" });
       return;
     }
 
     if (!priceDropForm.asin || !priceDropForm.oldPrice || !priceDropForm.newPrice) {
-      toast({ title: "Error", description: "ASIN, old price, and new price are required", variant: "destructive" });
+      toast({ title: "Error", description: "Please fill in all required fields", variant: "destructive" });
       return;
     }
 
     setLoadingState('priceDropSend', true);
     try {
-      const params = new URLSearchParams({
-        asin: priceDropForm.asin,
-        productTitle: priceDropForm.productTitle,
-        oldPrice: priceDropForm.oldPrice,
-        newPrice: priceDropForm.newPrice,
-        token: adminToken,
-        send: 'true',
-        ...(priceDropForm.email && { email: priceDropForm.email })
-      });
+      const testEmail = priceDropForm.email || 'test@example.com';
+      const response = await fetch(`/api/dev/preview-email?asin=${priceDropForm.asin}&productTitle=${encodeURIComponent(priceDropForm.productTitle)}&oldPrice=${priceDropForm.oldPrice}&newPrice=${priceDropForm.newPrice}&email=${encodeURIComponent(testEmail)}&send=true&token=${adminToken}`);
 
-      const response = await fetch(`/api/dev/preview-email?${params}`);
-      const result = await response.json();
-
-      if (response.ok) {
-        setResult('priceDropSend', result);
-        toast({ title: "Success", description: result.message || "Email sent successfully" });
-      } else {
-        throw new Error(result.error || `HTTP ${response.status}`);
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || 'Failed to send price drop email');
       }
+
+      const data = await response.json();
+      toast({ title: "Success", description: data.message || "Price drop email sent successfully!" });
+      setResult('priceDropSend', data);
     } catch (error) {
-      toast({ title: "Error", description: "Failed to send email", variant: "destructive" });
-      console.error(error);
+      console.error('Price drop send error:', error);
+      toast({ title: "Error", description: error.message || "Failed to send price drop email", variant: "destructive" });
     } finally {
       setLoadingState('priceDropSend', false);
     }
