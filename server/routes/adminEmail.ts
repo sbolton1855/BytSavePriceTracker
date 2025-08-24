@@ -144,12 +144,9 @@ router.get('/test', (req: Request, res: Response) => {
 // Email templates endpoint
 router.get('/templates', requireAdmin, async (req: Request, res: Response) => {
   try {
-    const templates = getAllEmailTemplates().map(template => ({
-      id: template.id,
-      name: template.name,
-      description: template.description,
-      subject: template.subject
-    }));
+    const { listTemplates } = await import('../email/templates');
+    const templates = listTemplates();
+    console.log('[email-templates] ok', { count: templates.length });
     res.json({ templates });
   } catch (error) {
     console.error('[email-templates] Error:', error);

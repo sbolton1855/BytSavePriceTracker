@@ -125,15 +125,7 @@ export default function AdminEmailCenter() {
         const token = AdminAuth.getToken();
         if (!token) return;
 
-        const response = await fetch('/api/admin/email/templates', {
-          headers: { 'x-admin-token': token }
-        });
-
-        if (!response.ok) {
-          throw new Error('Failed to load templates');
-        }
-
-        const data = await response.json();
+        const data = await adminApi.getEmailTemplates();
         setTemplates(data.templates || []);
 
         // Set default template if none selected
@@ -242,9 +234,17 @@ export default function AdminEmailCenter() {
   // Auto-preview when template is selected in templates tab
   useEffect(() => {
     if (activeSubTab === 'templates' && selectedTemplateId) {
+      // Initialize form data with template defaults if not already set
+      const template = templates.find(t => t.id === selectedTemplateId);
+      if (template && template.defaults && !formData[selectedTemplateId]) {
+        setFormData(prev => ({
+          ...prev,
+          [selectedTemplateId]: { ...template.defaults }
+        }));
+      }
       handlePreview();
     }
-  }, [activeSubTab, selectedTemplateId]);
+  }, [activeSubTab, selectedTemplateId, templates]);
 
   // Template preview handler
   const handlePreview = async () => {
@@ -613,10 +613,16 @@ export default function AdminEmailCenter() {
 
                   <div className="flex justify-end gap-4 pt-4 border-t">
                     <Button variant="outline" onClick={() => {
-                      setPreviewContent(''); // Clear preview
-                      setTestEmail(''); // Clear recipient email
-                      setFormData({}); // Clear form data
-                      setSelectedTemplateId(''); // Deselect template
+                      if (selectedTemplateId) {
+                        const template = templates.find(t => t.id === selectedTemplateId);
+                        if (template && template.defaults) {
+                          setFormData(prev => ({
+                            ...prev,
+                            [selectedTemplateId]: { ...template.defaults }
+                          }));
+                          handlePreview(); // Re-preview with defaults
+                        }
+                      }
                     }}>
                       Reset
                     </Button>

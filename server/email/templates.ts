@@ -5,6 +5,7 @@ interface EmailTemplate {
   description: string;
   subject: string;
   previewData: Record<string, any>;
+  defaults: Record<string, any>;
   html: (data: Record<string, any>) => string;
 }
 
@@ -21,6 +22,14 @@ export const EMAIL_TEMPLATES: Record<string, EmailTemplate> = {
       oldPrice: '22.99',
       productUrl: 'https://www.amazon.com/dp/B01DJGLYZQ?tag=bytsave-20',
       imageUrl: 'https://m.media-amazon.com/images/I/41example._SL160_.jpg'
+    },
+    defaults: {
+      asin: 'B01DJGLYZQ',
+      productTitle: 'TRUEplus - Insulin Syringes 31g 0.3cc 5/16" (Pack of 100)',
+      newPrice: '15.99',
+      oldPrice: '22.99',
+      productUrl: 'https://www.amazon.com/dp/B01DJGLYZQ?tag=bytsave-20',
+      imageUrl: 'https://via.placeholder.com/600x300'
     },
     html: (data) => `
       <!DOCTYPE html>
@@ -81,6 +90,10 @@ export const EMAIL_TEMPLATES: Record<string, EmailTemplate> = {
       firstName: 'John',
       resetLink: 'https://example.com/reset-password?token=example123'
     },
+    defaults: {
+      firstName: 'Jordan',
+      resetLink: 'https://app.example.com/reset?token=DEMO'
+    },
     html: (data) => `
       <!DOCTYPE html>
       <html>
@@ -134,6 +147,9 @@ export const EMAIL_TEMPLATES: Record<string, EmailTemplate> = {
     subject: 'Welcome to BytSave Price Tracker!',
     previewData: {
       firstName: 'Sarah'
+    },
+    defaults: {
+      firstName: 'Jordan'
     },
     html: (data) => `
       <!DOCTYPE html>
@@ -200,6 +216,16 @@ export function getEmailTemplate(id: string): EmailTemplate | null {
 
 export function getAllEmailTemplates(): EmailTemplate[] {
   return Object.values(EMAIL_TEMPLATES);
+}
+
+export function listTemplates() {
+  return Object.values(EMAIL_TEMPLATES).map(template => ({
+    id: template.id,
+    name: template.name,
+    description: template.description,
+    subject: template.subject,
+    defaults: template.defaults
+  }));
 }
 
 export function renderTemplate(templateId: string, data: Record<string, any> = {}): { subject: string; html: string } | null {
