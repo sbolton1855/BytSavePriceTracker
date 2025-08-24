@@ -112,44 +112,6 @@ export default function AdminEmailCenter() {
   // Auto-refresh for logs
   const [autoRefreshEnabled, setAutoRefreshEnabled] = useState(false);
 
-  // Initialize smoke test email when settings change
-  useEffect(() => {
-    if (!smokeTestEmail && settings.fromAddress !== 'alerts@bytsave.com') {
-      setSmokeTestEmail(settings.fromAddress);
-    }
-  }, [settings.fromAddress, smokeTestEmail]);
-
-  // Auto-refresh logs when on logs tab
-  useEffect(() => {
-    let interval: NodeJS.Timeout;
-    
-    if (activeSubTab === 'logs' && autoRefreshEnabled) {
-      interval = setInterval(() => {
-        refetchLogs();
-      }, 5000);
-    }
-    
-    return () => {
-      if (interval) clearInterval(interval);
-    };
-  }, [activeSubTab, autoRefreshEnabled, refetchLogs]);
-
-  // Enable auto-refresh when entering logs tab
-  useEffect(() => {
-    if (activeSubTab === 'logs') {
-      setAutoRefreshEnabled(true);
-    } else {
-      setAutoRefreshEnabled(false);
-    }
-  }, [activeSubTab]);
-
-  // Auto-preview when template is selected in templates tab
-  useEffect(() => {
-    if (activeSubTab === 'templates' && selectedTemplate) {
-      handleTemplatePreview(selectedTemplate);
-    }
-  }, [activeSubTab, selectedTemplate]);
-
   // Mock templates data
   const templates: EmailTemplate[] = [
     { id: 'price-drop', name: 'Price Drop Alert', subject: 'Price Drop Alert: {{productTitle}}', description: 'Notify users when product prices drop' },
@@ -157,7 +119,7 @@ export default function AdminEmailCenter() {
     { id: 'welcome', name: 'Welcome Email', subject: 'Welcome to BytSave!', description: 'Welcome new users' }
   ];
 
-  // Query for email logs
+  // Query for email logs - MUST be declared before useEffects that reference refetchLogs
   const { data: emailLogs, isLoading: logsLoading, refetch: refetchLogs } = useQuery<EmailLogsResponse>({
     queryKey: ['admin-email-logs', currentPage, statusFilter, typeFilter],
     queryFn: async () => {
@@ -189,6 +151,40 @@ export default function AdminEmailCenter() {
     },
     enabled: activeSubTab === 'logs' && AdminAuth.getToken() !== null,
   });
+
+  // Initialize smoke test email when settings change
+  useEffect(() => {
+    if (!smokeTestEmail && settings.fromAddress !== 'alerts@bytsave.com') {
+      setSmokeTestEmail(settings.fromAddress);
+    }
+  }, [settings.fromAddress, smokeTestEmail]);
+
+  // Auto-refresh logs when on logs tab
+  useEffect(() => {
+    if (activeSubTab !== 'logs' || !autoRefreshEnabled) return;
+    
+    const interval = setInterval(() => {
+      refetchLogs();
+    }, 5000);
+    
+    return () => clearInterval(interval);
+  }, [activeSubTab, autoRefreshEnabled, refetchLogs]);
+
+  // Enable auto-refresh when entering logs tab
+  useEffect(() => {
+    if (activeSubTab === 'logs') {
+      setAutoRefreshEnabled(true);
+    } else {
+      setAutoRefreshEnabled(false);
+    }
+  }, [activeSubTab]);
+
+  // Auto-preview when template is selected in templates tab
+  useEffect(() => {
+    if (activeSubTab === 'templates' && selectedTemplate) {
+      handleTemplatePreview(selectedTemplate);
+    }
+  }, [activeSubTab, selectedTemplate]);
 
   // Template preview handler
   const handleTemplatePreview = async (templateId: string) => {
