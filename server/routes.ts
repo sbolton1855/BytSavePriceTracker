@@ -2561,14 +2561,10 @@ Respond with just the analysis text, no JSON needed.
   // Import routes
   app.use('/api/admin', adminDashboardRoutes);
   app.use('/api/admin', adminAuthRoutes);
-  // Admin email routes - mount both with and without /email prefix for compatibility
-  console.log('🔧 Mounting admin email routes...');
-  console.log('Route 1: /api/admin/email -> adminEmailRoutes');
-  console.log('Route 2: /api/admin -> adminEmailRoutes');
-
-  app.use('/api/admin/email', adminEmailRoutes);
+  
+  // Admin email routes - mount at /api/admin for direct access
+  console.log('🔧 Mounting admin email routes at /api/admin...');
   app.use('/api/admin', adminEmailRoutes);
-
   console.log('✅ Admin email routes mounted successfully');
 
   app.use('/api/admin', adminToolsRoutes);

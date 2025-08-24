@@ -1,4 +1,4 @@
-import express from 'express';
+import express, { Request, Response } from 'express';
 import { requireAdmin } from '../middleware/requireAdmin';
 import { csrfProtection } from '../middleware/adminSecurity';
 import { sendEmail, createPriceDropEmail } from '../emailService';
@@ -13,13 +13,15 @@ const router = express.Router();
 import dotenv from 'dotenv';
 dotenv.config();
 
-// Debug endpoint to verify routes are working
+// Debug endpoint to verify routes are working - NO AUTH REQUIRED
 router.get('/debug-routes', (req, res) => {
   console.log('🔍 Debug routes endpoint hit');
   console.log('Original URL:', req.originalUrl);
   console.log('Base URL:', req.baseUrl);
   console.log('Path:', req.path);
   console.log('Route path:', req.route?.path);
+  console.log('Query token:', req.query.token);
+  console.log('Admin session:', !!req.session?.admin);
   
   res.json({
     message: 'Route debugging info',
@@ -27,7 +29,17 @@ router.get('/debug-routes', (req, res) => {
     baseUrl: req.baseUrl,
     path: req.path,
     routePath: req.route?.path,
-    adminSecret: process.env.ADMIN_SECRET ? 'DEFINED' : 'UNDEFINED'
+    adminSecret: process.env.ADMIN_SECRET ? 'DEFINED' : 'UNDEFINED',
+    queryToken: req.query.token ? 'PROVIDED' : 'MISSING',
+    adminSession: !!req.session?.admin,
+    expectedToken: process.env.ADMIN_SECRET,
+    availableRoutes: [
+      'GET /api/admin/debug-routes',
+      'GET /api/admin/email-templates?token=...',
+      'GET /api/admin/templates?token=...',
+      'GET /api/admin/preview/:templateId?token=...',
+      'POST /api/admin/send-test-email'
+    ]
   });
 });
 
@@ -43,8 +55,7 @@ function buildAffiliateLink(asin: string): string {
 
 const AFFILIATE_DISCLOSURE = "As an Amazon Associate, BytSave earns from qualifying purchases.";
 
-// All routes require admin authentication
-router.use(requireAdmin);
+// NOTE: We handle admin authentication per route for query-based compatibility
 
 // Email template definitions
 const EMAIL_TEMPLATES = {
@@ -80,7 +91,7 @@ const testEmailSchema = z.object({
   customData: z.record(z.any()).optional()
 });
 
-// GET /api/admin/email-templates and /api/admin/email/templates - for frontend compatibility
+// GET /api/admin/email-templates - for frontend compatibility
 router.get('/email-templates', (req, res) => {
   const { token } = req.query;
   
@@ -92,12 +103,16 @@ router.get('/email-templates', (req, res) => {
   console.log('Token type:', typeof token);
   console.log('ADMIN_SECRET type:', typeof process.env.ADMIN_SECRET);
   console.log('Tokens match:', token === process.env.ADMIN_SECRET);
+  console.log('Has admin session:', !!req.session?.admin);
   console.log('===============================');
   
-  // Check admin token for query-based auth (frontend compatibility)
-  if (!token || token !== process.env.ADMIN_SECRET) {
-    console.log('❌ Authentication failed - token mismatch or missing');
-    return res.status(403).json({ error: 'Invalid admin token' });
+  // Check admin token for query-based auth OR session-based auth
+  const hasValidToken = token && token === process.env.ADMIN_SECRET;
+  const hasValidSession = req.session?.admin;
+  
+  if (!hasValidToken && !hasValidSession) {
+    console.log('❌ Authentication failed - no valid token or session');
+    return res.status(403).json({ error: 'unauthorized' });
   }
 
   console.log('✅ Authentication successful, returning templates');
@@ -111,18 +126,22 @@ router.get('/email-templates', (req, res) => {
   res.json({ templates });
 });
 
-// GET /api/admin/email/templates - for frontend compatibility
+// GET /api/admin/templates - for frontend compatibility  
 router.get('/templates', (req, res) => {
   const { token } = req.query;
   
   console.log('Templates request received (alternate route)');
   console.log('Request token:', token);
   console.log('Expected ADMIN_SECRET:', process.env.ADMIN_SECRET);
+  console.log('Has admin session:', !!req.session?.admin);
   
-  // Check admin token for query-based auth (frontend compatibility)
-  if (!token || token !== process.env.ADMIN_SECRET) {
-    console.log('Authentication failed - token mismatch or missing');
-    return res.status(403).json({ error: 'Invalid admin token' });
+  // Check admin token for query-based auth OR session-based auth
+  const hasValidToken = token && token === process.env.ADMIN_SECRET;
+  const hasValidSession = req.session?.admin;
+  
+  if (!hasValidToken && !hasValidSession) {
+    console.log('Authentication failed - no valid token or session');
+    return res.status(403).json({ error: 'unauthorized' });
   }
 
   console.log('Authentication successful, returning templates');
@@ -136,9 +155,20 @@ router.get('/templates', (req, res) => {
   res.json({ templates });
 });
 
-// GET /admin/api/email/preview/:templateId
+// GET /api/admin/email/preview/:templateId
 router.get('/preview/:templateId', (req, res) => {
+  const { token } = req.query;
   const { templateId } = req.params;
+  
+  // Check admin token for query-based auth OR session-based auth
+  const hasValidToken = token && token === process.env.ADMIN_SECRET;
+  const hasValidSession = req.session?.admin;
+  
+  if (!hasValidToken && !hasValidSession) {
+    console.log('Preview authentication failed - no valid token or session');
+    return res.status(403).json({ error: 'unauthorized' });
+  }
+  
   const template = EMAIL_TEMPLATES[templateId as keyof typeof EMAIL_TEMPLATES];
 
   if (!template) {
@@ -284,9 +314,13 @@ router.post('/send-test-email', async (req, res) => {
   try {
     const { to, templateId, token } = req.body;
 
-    // Check admin token
-    if (!token || token !== process.env.ADMIN_SECRET) {
-      return res.status(403).json({ error: 'Invalid admin token' });
+    // Check admin token for query-based auth OR session-based auth
+    const hasValidToken = token && token === process.env.ADMIN_SECRET;
+    const hasValidSession = req.session?.admin;
+    
+    if (!hasValidToken && !hasValidSession) {
+      console.log('Send test email authentication failed - no valid token or session');
+      return res.status(403).json({ error: 'unauthorized' });
     }
 
     if (!to || !templateId) {
