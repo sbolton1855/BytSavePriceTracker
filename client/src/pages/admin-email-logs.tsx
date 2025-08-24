@@ -6,7 +6,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Badge } from "@/components/ui/badge";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { ChevronLeft, ChevronRight, Eye, Download, Search } from "lucide-react";
+import { ChevronLeft, ChevronRight, Eye, Download, Search, Loader2, RefreshCw } from "lucide-react";
 import AdminLayout from "@/components/AdminLayout";
 import { AdminAuth } from "@/lib/admin-auth";
 
@@ -57,7 +57,7 @@ export default function AdminEmailLogs() {
       }
       return response.json();
     },
-    enabled: AdminAuth.isAuthenticated(),
+    enabled: !!AdminAuth.isAuthenticated(),
   });
 
   const handleSearch = () => {
