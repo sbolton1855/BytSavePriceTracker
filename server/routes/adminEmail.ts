@@ -62,6 +62,24 @@ const testEmailSchema = z.object({
   customData: z.record(z.any()).optional()
 });
 
+// GET /api/admin/email-templates and /api/admin/email/templates - for frontend compatibility
+router.get('/email-templates', (req, res) => {
+  const { token } = req.query;
+  
+  // Check admin token for query-based auth (frontend compatibility)
+  if (token && token !== process.env.ADMIN_SECRET) {
+    return res.status(403).json({ error: 'Invalid admin token' });
+  }
+
+  const templates = Object.values(EMAIL_TEMPLATES).map(template => ({
+    id: template.id,
+    name: template.name,
+    description: template.description
+  }));
+
+  res.json({ templates });
+});
+
 // GET /api/admin/email/templates - for frontend compatibility
 router.get('/templates', (req, res) => {
   const { token } = req.query;

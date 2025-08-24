@@ -1708,7 +1708,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   startPriceChecker();
 
   // Manual price check endpoint for debugging
-  app.post('/api/debug/run-price-check-manual', async (req: Request, res: Response) => {
+  app.post('/api/debug/run-price-check-manual', async (req, res) => {
     try {
       // console.log('Running manual price check...');
       await checkPricesAndNotify();
