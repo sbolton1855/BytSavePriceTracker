@@ -66,11 +66,18 @@ const testEmailSchema = z.object({
 router.get('/email-templates', (req, res) => {
   const { token } = req.query;
   
+  console.log('Email templates request received');
+  console.log('Request token:', token);
+  console.log('Expected ADMIN_SECRET:', process.env.ADMIN_SECRET);
+  
   // Check admin token for query-based auth (frontend compatibility)
-  if (token && token !== process.env.ADMIN_SECRET) {
+  if (!token || token !== process.env.ADMIN_SECRET) {
+    console.log('Authentication failed - token mismatch or missing');
     return res.status(403).json({ error: 'Invalid admin token' });
   }
 
+  console.log('Authentication successful, returning templates');
+  
   const templates = Object.values(EMAIL_TEMPLATES).map(template => ({
     id: template.id,
     name: template.name,
@@ -84,11 +91,18 @@ router.get('/email-templates', (req, res) => {
 router.get('/templates', (req, res) => {
   const { token } = req.query;
   
+  console.log('Templates request received (alternate route)');
+  console.log('Request token:', token);
+  console.log('Expected ADMIN_SECRET:', process.env.ADMIN_SECRET);
+  
   // Check admin token for query-based auth (frontend compatibility)
-  if (token && token !== process.env.ADMIN_SECRET) {
+  if (!token || token !== process.env.ADMIN_SECRET) {
+    console.log('Authentication failed - token mismatch or missing');
     return res.status(403).json({ error: 'Invalid admin token' });
   }
 
+  console.log('Authentication successful, returning templates');
+  
   const templates = Object.values(EMAIL_TEMPLATES).map(template => ({
     id: template.id,
     name: template.name,
