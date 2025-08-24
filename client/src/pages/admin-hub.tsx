@@ -1,7 +1,9 @@
 import { useToast } from "@/hooks/use-toast";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
 import AdminLayout from "@/components/AdminLayout";
+import { Link } from "wouter";
 import { 
   Mail, 
   Send, 
@@ -13,7 +15,8 @@ import {
   Search,
   Settings,
   Users,
-  Package
+  Package,
+  AlertTriangle
 } from "lucide-react";
 
 export default function AdminHub() {
