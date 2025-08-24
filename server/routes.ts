@@ -169,7 +169,17 @@ const categoryFilters = {
   }
 };
 
-// Admin token validation endpoint
+// Middleware to check for admin token
+const requireAdminToken = (req: Request, res: Response, next: Function) => {
+  const token = req.query.token as string;
+  if (!token || token !== process.env.ADMIN_SECRET) {
+    return res.status(401).json({ error: 'Invalid admin token' });
+  }
+  next();
+};
+
+export async function registerRoutes(app: Express): Promise<Server> {
+  // Admin token validation endpoint
   app.post('/api/admin/validate-token', async (req: Request, res: Response) => {
     try {
       const { token } = req.body;
@@ -194,17 +204,6 @@ const categoryFilters = {
       return res.status(500).json({ error: 'Internal server error' });
     }
   });
-
-  // Middleware to check for admin token
-const requireAdminToken = (req: Request, res: Response, next: Function) => {
-  const token = req.query.token as string;
-  if (!token || token !== process.env.ADMIN_SECRET) {
-    return res.status(401).json({ error: 'Invalid admin token' });
-  }
-  next();
-};
-
-export async function registerRoutes(app: Express): Promise<Server> {
   // Setup authentication
   configureAuth(app);
 
