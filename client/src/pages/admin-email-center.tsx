@@ -71,7 +71,7 @@ export default function AdminEmailCenter() {
   }, []);
 
   // Form states for different email types
-  const [selectedTemplate, setSelectedTemplate] = useState('price-drop');
+  const [selectedTemplate, setSelectedTemplate] = useState<string | undefined>('price-drop');
   const [testEmail, setTestEmail] = useState('');
   const [priceDropForm, setPriceDropForm] = useState({
     asin: 'B01DJGLYZQ',
@@ -95,12 +95,12 @@ export default function AdminEmailCenter() {
   const [previewData, setPreviewData] = useState<string>('');
   const [results, setResults] = useState<Record<string, any>>({});
   const [currentPage, setCurrentPage] = useState(1);
-  const [statusFilter, setStatusFilter] = useState<string>('');
-  const [typeFilter, setTypeFilter] = useState<string>('');
+  const [statusFilter, setStatusFilter] = useState<string | undefined>(undefined);
+  const [typeFilter, setTypeFilter] = useState<string | undefined>(undefined);
 
   // QA Smoke Test states
   const [smokeTestEmail, setSmokeTestEmail] = useState('');
-  const [smokeTestTemplate, setSmokeTestTemplate] = useState('price-drop');
+  const [smokeTestTemplate, setSmokeTestTemplate] = useState<string | undefined>('price-drop');
   const [smokeTestStatus, setSmokeTestStatus] = useState<{
     preview: boolean;
     send: boolean;
@@ -133,8 +133,8 @@ export default function AdminEmailCenter() {
         token: token,
         page: currentPage.toString(),
         pageSize: '20',
-        ...(statusFilter && { status: statusFilter }),
-        ...(typeFilter && { type: typeFilter })
+        ...(statusFilter && statusFilter !== 'all' && { status: statusFilter }),
+        ...(typeFilter && typeFilter !== 'all' && { type: typeFilter })
       });
 
       const response = await fetch(`/api/admin/logs?${params}`);
@@ -598,13 +598,13 @@ export default function AdminEmailCenter() {
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div>
                   <Label htmlFor="template">Email Template</Label>
-                  <Select value={selectedTemplate} onValueChange={setSelectedTemplate}>
+                  <Select value={selectedTemplate || undefined} onValueChange={setSelectedTemplate}>
                     <SelectTrigger>
                       <SelectValue placeholder="Select template" />
                     </SelectTrigger>
                     <SelectContent>
-                      {templates.map((template) => (
-                        <SelectItem key={template.id} value={template.id}>
+                      {templates.filter(template => template.id).map((template) => (
+                        <SelectItem key={template.id} value={String(template.id)}>
                           {template.name}
                         </SelectItem>
                       ))}
@@ -660,12 +660,12 @@ export default function AdminEmailCenter() {
                 <div className="flex gap-4">
                   <div className="flex items-center gap-2">
                     <Label htmlFor="statusFilter">Status:</Label>
-                    <Select value={statusFilter} onValueChange={setStatusFilter}>
+                    <Select value={statusFilter || undefined} onValueChange={(value) => setStatusFilter(value === 'all' ? undefined : value)}>
                       <SelectTrigger className="w-[180px]">
                         <SelectValue placeholder="All" />
                       </SelectTrigger>
                       <SelectContent>
-                        <SelectItem value="">All</SelectItem>
+                        <SelectItem value="all">All</SelectItem>
                         <SelectItem value="success">Success</SelectItem>
                         <SelectItem value="fail">Fail</SelectItem>
                       </SelectContent>
@@ -673,12 +673,12 @@ export default function AdminEmailCenter() {
                   </div>
                   <div className="flex items-center gap-2">
                     <Label htmlFor="typeFilter">Type:</Label>
-                    <Select value={typeFilter} onValueChange={setTypeFilter}>
+                    <Select value={typeFilter || undefined} onValueChange={(value) => setTypeFilter(value === 'all' ? undefined : value)}>
                       <SelectTrigger className="w-[180px]">
                         <SelectValue placeholder="All" />
                       </SelectTrigger>
                       <SelectContent>
-                        <SelectItem value="">All</SelectItem>
+                        <SelectItem value="all">All</SelectItem>
                         <SelectItem value="price-drop">Price Drop</SelectItem>
                         <SelectItem value="reset">Password Reset</SelectItem>
                         <SelectItem value="test">Generic Test</SelectItem>
@@ -840,13 +840,13 @@ export default function AdminEmailCenter() {
                   </div>
                   <div>
                     <Label htmlFor="smokeTestTemplate">Template</Label>
-                    <Select value={smokeTestTemplate} onValueChange={setSmokeTestTemplate}>
+                    <Select value={smokeTestTemplate || undefined} onValueChange={setSmokeTestTemplate}>
                       <SelectTrigger>
                         <SelectValue placeholder="Select template" />
                       </SelectTrigger>
                       <SelectContent>
-                        {templates.map((template) => (
-                          <SelectItem key={template.id} value={template.id}>
+                        {templates.filter(template => template.id).map((template) => (
+                          <SelectItem key={template.id} value={String(template.id)}>
                             {template.name}
                           </SelectItem>
                         ))}
