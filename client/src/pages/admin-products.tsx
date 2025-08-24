@@ -1,13 +1,12 @@
-
-import { useState, useEffect } from 'react';
-import { useSearchParams } from 'react-router-dom';
+import { useState, useEffect } from "react";
+import { useToast } from "@/hooks/use-toast";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { useToast } from "@/hooks/use-toast";
-import { RefreshCw, AlertTriangle, Check, X, Loader2 } from "lucide-react";
+import { Loader2, RefreshCw, AlertTriangle, Check, X } from "lucide-react";
+import AdminLayout from "@/components/AdminLayout";
+import { AdminAuth } from "@/lib/admin-auth";
 
 interface TrackedProductWithDetails {
   id: number;
@@ -37,35 +36,41 @@ interface TrackedProductWithDetails {
 }
 
 export default function AdminProducts() {
-  const [searchParams] = useSearchParams();
   const { toast } = useToast();
-  const [adminToken, setAdminToken] = useState(searchParams.get('token') || '');
+
   const [products, setProducts] = useState<TrackedProductWithDetails[]>([]);
   const [loading, setLoading] = useState(false);
   const [loadingActions, setLoadingActions] = useState<Record<number, string>>({});
   const [searchFilter, setSearchFilter] = useState('');
 
+  // Auto-load products on mount
+  useEffect(() => {
+    fetchProducts();
+  }, []);
+
   const fetchProducts = async () => {
-    if (!adminToken) {
-      toast({ 
-        title: "Admin token required", 
-        description: "Please enter your admin token to continue.",
-        variant: "destructive" 
+    const token = AdminAuth.getToken();
+    if (!token) {
+      toast({
+        title: "Authentication Required",
+        description: "Please authenticate first",
+        variant: "destructive",
       });
       return;
     }
 
     setLoading(true);
     try {
-      const response = await fetch(`/api/admin/products?token=${adminToken}`);
-      
+      const response = await fetch(`/api/admin/products?token=${token}`);
+
       if (!response.ok) {
         if (response.status === 403) {
-          toast({ 
-            title: "Unauthorized", 
-            description: "Invalid admin token.", 
-            variant: "destructive" 
+          toast({
+            title: "Unauthorized",
+            description: "Invalid admin token.",
+            variant: "destructive"
           });
+          AdminAuth.clearToken(); // Clear token if unauthorized
           return;
         }
         throw new Error('Failed to fetch products');
@@ -73,16 +78,16 @@ export default function AdminProducts() {
 
       const data = await response.json();
       setProducts(data);
-      toast({ 
-        title: "Products loaded", 
-        description: `Found ${data.length} tracked products.` 
+      toast({
+        title: "Products loaded",
+        description: `Found ${data.length} tracked products.`
       });
     } catch (error) {
       console.error('Error fetching products:', error);
-      toast({ 
-        title: "Error", 
-        description: "Failed to fetch products.", 
-        variant: "destructive" 
+      toast({
+        title: "Error",
+        description: "Failed to fetch products.",
+        variant: "destructive"
       });
     } finally {
       setLoading(false);
@@ -90,10 +95,20 @@ export default function AdminProducts() {
   };
 
   const handleResetNotified = async (productId: number) => {
+    const token = AdminAuth.getToken();
+    if (!token) {
+      toast({
+        title: "Authentication Required",
+        description: "Please authenticate first",
+        variant: "destructive",
+      });
+      return;
+    }
+
     setLoadingActions(prev => ({ ...prev, [productId]: 'reset' }));
-    
+
     try {
-      const response = await fetch(`/api/admin/products/${productId}/reset-notified?token=${adminToken}`, {
+      const response = await fetch(`/api/admin/products/${productId}/reset-notified?token=${token}`, {
         method: 'POST',
       });
 
@@ -102,20 +117,20 @@ export default function AdminProducts() {
       }
 
       // Update the local state
-      setProducts(prev => prev.map(p => 
+      setProducts(prev => prev.map(p =>
         p.id === productId ? { ...p, notified: false } : p
       ));
 
-      toast({ 
-        title: "Success", 
-        description: "Notification status reset successfully." 
+      toast({
+        title: "Success",
+        description: "Notification status reset successfully."
       });
     } catch (error) {
       console.error('Error resetting notification:', error);
-      toast({ 
-        title: "Error", 
-        description: "Failed to reset notification status.", 
-        variant: "destructive" 
+      toast({
+        title: "Error",
+        description: "Failed to reset notification status.",
+        variant: "destructive"
       });
     } finally {
       setLoadingActions(prev => {
@@ -126,10 +141,20 @@ export default function AdminProducts() {
   };
 
   const handleForceAlert = async (productId: number) => {
+    const token = AdminAuth.getToken();
+    if (!token) {
+      toast({
+        title: "Authentication Required",
+        description: "Please authenticate first",
+        variant: "destructive",
+      });
+      return;
+    }
+
     setLoadingActions(prev => ({ ...prev, [productId]: 'alert' }));
-    
+
     try {
-      const response = await fetch(`/api/admin/products/${productId}/force-alert?token=${adminToken}`, {
+      const response = await fetch(`/api/admin/products/${productId}/force-alert?token=${token}`, {
         method: 'POST',
       });
 
@@ -138,20 +163,20 @@ export default function AdminProducts() {
       }
 
       const result = await response.json();
-      
-      toast({ 
-        title: "Alert triggered", 
-        description: result.message || "Force alert executed successfully." 
+
+      toast({
+        title: "Alert triggered",
+        description: result.message || "Force alert executed successfully."
       });
 
       // Refresh the products list
       fetchProducts();
     } catch (error) {
       console.error('Error forcing alert:', error);
-      toast({ 
-        title: "Error", 
-        description: "Failed to trigger alert.", 
-        variant: "destructive" 
+      toast({
+        title: "Error",
+        description: "Failed to trigger alert.",
+        variant: "destructive"
       });
     } finally {
       setLoadingActions(prev => {
@@ -161,12 +186,6 @@ export default function AdminProducts() {
     }
   };
 
-  useEffect(() => {
-    if (adminToken) {
-      fetchProducts();
-    }
-  }, [adminToken]);
-
   const filteredProducts = products.filter(product =>
     product.product.title.toLowerCase().includes(searchFilter.toLowerCase()) ||
     product.product.asin.toLowerCase().includes(searchFilter.toLowerCase()) ||
@@ -174,43 +193,11 @@ export default function AdminProducts() {
   );
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 p-4">
-      <div className="mx-auto max-w-7xl space-y-6">
-        {/* Header */}
-        <div className="text-center">
-          <h1 className="text-3xl font-bold tracking-tight text-gray-900">
-            Admin Products Management
-          </h1>
-          <p className="mt-2 text-lg text-gray-600">
-            View and manage all tracked products
-          </p>
-        </div>
-
-        {/* Admin Token Input */}
-        <Card>
-          <CardHeader>
-            <CardTitle>Admin Authentication</CardTitle>
-            <CardDescription>
-              Enter your admin token to access the products management interface.
-            </CardDescription>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            <div className="flex space-x-2">
-              <Input
-                type="password"
-                placeholder="Enter admin token"
-                value={adminToken}
-                onChange={(e) => setAdminToken(e.target.value)}
-                className="flex-1"
-              />
-              <Button onClick={fetchProducts} disabled={!adminToken || loading}>
-                {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : <RefreshCw className="h-4 w-4" />}
-                {loading ? 'Loading...' : 'Load Products'}
-              </Button>
-            </div>
-          </CardContent>
-        </Card>
-
+    <AdminLayout
+      title="Products Management"
+      description="View and manage all tracked products in the system"
+    >
+      <div className="space-y-6">
         {/* Search and Stats */}
         {products.length > 0 && (
           <Card>
@@ -262,8 +249,8 @@ export default function AdminProducts() {
                         <TableCell>
                           <div className="flex items-center space-x-3">
                             {item.product.imageUrl && (
-                              <img 
-                                src={item.product.imageUrl} 
+                              <img
+                                src={item.product.imageUrl}
                                 alt={item.product.title}
                                 className="w-12 h-12 object-cover rounded"
                               />
@@ -293,8 +280,8 @@ export default function AdminProducts() {
                         </TableCell>
                         <TableCell>
                           <span className={`font-medium ${
-                            item.product.currentPrice <= item.targetPrice 
-                              ? 'text-green-600' 
+                            item.product.currentPrice <= item.targetPrice
+                              ? 'text-green-600'
                               : 'text-gray-900'
                           }`}>
                             ${item.targetPrice}
@@ -352,7 +339,7 @@ export default function AdminProducts() {
         )}
 
         {/* Empty State */}
-        {!loading && filteredProducts.length === 0 && products.length === 0 && adminToken && (
+        {!loading && filteredProducts.length === 0 && products.length === 0 && (
           <Card>
             <CardContent className="text-center py-8">
               <p className="text-gray-500">No tracked products found.</p>
@@ -360,6 +347,6 @@ export default function AdminProducts() {
           </Card>
         )}
       </div>
-    </div>
+    </AdminLayout>
   );
 }

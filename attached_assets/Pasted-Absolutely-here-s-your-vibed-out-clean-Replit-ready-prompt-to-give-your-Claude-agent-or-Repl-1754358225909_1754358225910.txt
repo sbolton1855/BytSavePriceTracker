@@ -1,0 +1,65 @@
+Absolutely — here's your **vibed-out, clean, Replit-ready prompt** to give your Claude agent or Replit AI to build the `/admin/email-logs` admin interface:
+
+---
+
+## 🧠 AI Prompt: Build Email Logs Viewer (Admin Tool)
+
+> You're working in a Node.js/Express/Drizzle ORM environment with an existing `.env`-protected admin system. I want to build a secure admin-only route to view email logs.
+
+### 🎯 Objective:
+
+Create a **web-based email log viewer** at `/admin/email-logs` that displays the most recent emails sent by the system. Pull data from the `email_logs` table, which already exists and includes fields like:
+
+* `id`
+* `to` (email)
+* `subject`
+* `html` (full HTML body)
+* `createdAt` (timestamp)
+
+### ✅ Requirements:
+
+1. **Admin-only Access**
+
+   * Use `ADMIN_SECRET` from `.env` as query param/token check.
+
+2. **Paginated UI**
+
+   * Display 10–20 logs per page
+   * Show newest emails first
+
+3. **Fields to Display:**
+
+   * Recipient email
+   * Subject line
+   * Date sent (formatted)
+   * A button to preview the email content (HTML)
+
+4. **Live HTML Preview Modal**
+
+   * When user clicks “Preview,” show full HTML email in a modal/iframe (don’t break layout)
+
+5. **Tech Constraints:**
+
+   * Keep it minimal — no React or frontend frameworks.
+   * Use Express route + EJS or pure HTML template with Tailwind or inline styles
+   * If needed, reuse your existing frontend layout (like `/admin/email-test`)
+
+6. **Route Spec:**
+
+   * `GET /admin/email-logs`
+   * Optional query param `?token=your_admin_token_here` for auth
+   * Optional `?page=1` for pagination
+
+### 🔐 Security:
+
+* Use basic token auth via `ADMIN_SECRET`
+* Do not expose raw SMTP passwords, HTML headers, etc.
+
+### 💡 Bonus (Optional):
+
+* Filter by recipient email (`?email=example@site.com`)
+* Export button to download logs as CSV (keep it basic)
+
+---
+
+Let me know if you want the **follow-up prompt** for the actual force-trigger price drop testing page. This lets you simulate live alerts for QA.

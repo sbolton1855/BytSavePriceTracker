@@ -1,0 +1,50 @@
+You're acting as a backend developer inside a Replit Typescript Express project.
+
+📦 Goal: Build an admin-only route that allows me to preview and optionally send price-drop alert emails.
+
+🔐 Requirements:
+- The route must be accessible only with a secret token passed as a query string (`?token=...`)
+- Use method: `GET`
+- Path: `/api/dev/preview-email`
+
+📨 Email Logic:
+- Use existing Nodemailer config (SMTP settings from `.env`)
+- If `send=true` is passed in the query, send the rendered email using `sendEmail.ts`
+- Otherwise, just return the rendered HTML preview as the response
+
+📄 Input Parameters (via query string):
+- `email` (string) — recipient email address (optional; fallback to `process.env.TEST_ADMIN_EMAIL`)
+- `asin` (string) — Amazon product ASIN
+- `productTitle` (string) — Product name/title
+- `oldPrice` (float)
+- `newPrice` (float)
+- `send` (boolean) — if true, send the email; otherwise just preview
+- `token` (string) — must match `process.env.ADMIN_SECRET`
+
+🧠 Template:
+- Create an HTML template for the price drop alert, placed in `emailTemplates.ts`
+- Highlight:
+  - Product name
+  - Old price (strike-through)
+  - New price (highlight in green)
+  - Link to Amazon: `https://www.amazon.com/dp/{asin}`
+
+🧪 Validation & Defaults:
+- If `asin`, `oldPrice`, or `newPrice` are missing, return 400
+- Fallback productTitle to “Unnamed Product”
+- If `email` is missing and `send=true`, fallback to `process.env.TEST_ADMIN_EMAIL`
+
+📂 File Breakdown:
+- `server/routes.ts`: Add the route `/api/dev/preview-email`
+- `server/emailTemplates.ts`: Export `renderPriceDropTemplate({ asin, productTitle, oldPrice, newPrice })`
+- `server/sendEmail.ts`: Wrap nodemailer send logic (if not already available)
+
+📌 Output:
+- If `send=false`: Render and return the email HTML inline
+- If `send=true`: Send email, return `{ success: true, message: "Test email sent" }`
+- On failure: Return 400 or 500 with clear error
+
+💬 Example usage:
+`GET /api/dev/preview-email?asin=B08N1JGJ7P&productTitle=Water%20Bottle&oldPrice=24.99&newPrice=14.99&email=test@bytsave.com&token=xyz&send=true`
+
+Build this so I can rapidly test email formatting and behavior with zero database dependency. Keep it clean and reusable.

@@ -9,9 +9,11 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Table, TableBody, TableCell, TableHeader, TableRow } from '@/components/ui/table';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
 import { Badge } from '@/components/ui/badge';
-import { Loader2, Mail, Send, Eye, AlertCircle, ChevronLeft, ChevronRight, CheckCircle, XCircle } from "lucide-react";
+import { Loader2, Send, Eye, AlertCircle, ChevronLeft, ChevronRight, CheckCircle, XCircle } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { Textarea } from '@/components/ui/textarea';
+import AdminLayout from "@/components/AdminLayout";
+import { AdminAuth } from "@/lib/admin-auth";
 
 interface EmailLog {
   id: number;
@@ -33,34 +35,47 @@ interface EmailLogsResponse {
 }
 
 export default function AdminEmailCenter() {
-  const [adminToken, setAdminToken] = useState('');
-  const [isAuthenticated, setIsAuthenticated] = useState(false);
+  const { toast } = useToast();
+
+  // Form states for different email types
+  const [priceDropForm, setPriceDropForm] = useState({
+    asin: 'B01DJGLYZQ',
+    productTitle: 'TRUEplus - Insulin Syringes 31g 0.3cc 5/16" (Pack of 100)',
+    oldPrice: '22.99',
+    newPrice: '15.99',
+    email: ''
+  });
+
+  const [passwordResetForm, setPasswordResetForm] = useState({
+    email: ''
+  });
+
+  const [genericEmailForm, setGenericEmailForm] = useState({
+    email: ''
+  });
+
+  // UI states
+  const [isLoading, setIsLoading] = useState(false);
+  const [previewHtml, setPreviewHtml] = useState<string>('');
   const [results, setResults] = useState<Record<string, any>>({});
   const [currentPage, setCurrentPage] = useState(1);
   const [statusFilter, setStatusFilter] = useState<string>('');
   const [typeFilter, setTypeFilter] = useState<string>('');
   const iframeRef = useRef<HTMLIFrameElement>(null);
-  const { toast } = useToast();
 
-  // Check authentication when admin token changes
-  useEffect(() => {
-    // This effect now solely manages the authenticated state based on the token's presence.
-    // The actual validation of the token happens implicitly in the query's enabled state.
-    if (adminToken && adminToken.length > 0) {
-      localStorage.setItem('adminToken', adminToken); // Persist token
-      setIsAuthenticated(true);
-    } else {
-      setIsAuthenticated(false);
-      localStorage.removeItem('adminToken'); // Clear token if empty
-    }
-  }, [adminToken]);
 
   // Query for email logs
   const { data: emailLogs, isLoading: logsLoading, refetch: refetchLogs } = useQuery<EmailLogsResponse>({
-    queryKey: ['admin-email-logs', adminToken, currentPage, statusFilter, typeFilter],
+    queryKey: ['admin-email-logs', currentPage, statusFilter, typeFilter],
     queryFn: async () => {
+      const token = AdminAuth.getToken();
+      if (!token) {
+        toast({ title: "Unauthorized", description: "Invalid admin token.", variant: "destructive" });
+        return { logs: [], total: 0, page: 1, pageSize: 20, totalPages: 1 };
+      }
+
       const params = new URLSearchParams({
-        token: adminToken,
+        token: token,
         page: currentPage.toString(),
         pageSize: '20',
         ...(statusFilter && { status: statusFilter }),
@@ -71,9 +86,7 @@ export default function AdminEmailCenter() {
       if (!response.ok) {
         if (response.status === 403) {
           toast({ title: "Unauthorized", description: "Invalid admin token.", variant: "destructive" });
-          setIsAuthenticated(false); // Mark as not authenticated on 403
-          setAdminToken(''); // Clear invalid token
-          localStorage.removeItem('adminToken');
+          AdminAuth.clearToken();
         } else {
           toast({ title: "Error", description: "Failed to fetch email logs.", variant: "destructive" });
         }
@@ -81,37 +94,9 @@ export default function AdminEmailCenter() {
       }
       return response.json();
     },
-    enabled: !!adminToken && isAuthenticated, // Only run if token exists and is considered authenticated
+    enabled: AdminAuth.getToken() !== null,
   });
 
-
-  // Price Drop Alert form state
-  const [priceDropForm, setPriceDropForm] = useState({
-    asin: '',
-    productTitle: 'Test Product',
-    oldPrice: '',
-    newPrice: '',
-    email: ''
-  });
-
-  // Password Reset form state
-  const [passwordResetForm, setPasswordResetForm] = useState({
-    email: ''
-  });
-
-  // Generic Test Email form state
-  const [genericEmailForm, setGenericEmailForm] = useState({
-    email: ''
-  });
-
-  // Loading states
-  const [isLoading, setIsLoading] = useState({
-    priceDropPreview: false,
-    priceDropSend: false,
-    passwordResetPreview: false,
-    passwordResetSend: false,
-    genericTest: false
-  });
 
   // Helper function to update loading state
   const setLoadingState = (key: string, value: boolean) => {
@@ -125,22 +110,21 @@ export default function AdminEmailCenter() {
 
   // Price Drop Alert handlers
   const handlePriceDropPreview = async () => {
-    if (!adminToken) {
-      toast({ title: "Error", description: "Admin token is required", variant: "destructive" });
+    const token = AdminAuth.getToken();
+    if (!token) {
+      toast({ title: "Authentication Required", description: "Please authenticate first", variant: "destructive" });
       return;
     }
 
     setLoadingState('priceDropPreview', true);
     try {
-      const response = await fetch(`/api/dev/preview-email?asin=${priceDropForm.asin}&productTitle=${encodeURIComponent(priceDropForm.productTitle)}&oldPrice=${priceDropForm.oldPrice}&newPrice=${priceDropForm.newPrice}&token=${adminToken}`);
+      const response = await fetch(`/api/dev/preview-email?token=${token}&asin=${priceDropForm.asin}&productTitle=${encodeURIComponent(priceDropForm.productTitle)}&oldPrice=${priceDropForm.oldPrice}&newPrice=${priceDropForm.newPrice}`);
 
       if (!response.ok) {
         if (response.status === 403) {
           toast({ title: "Unauthorized", description: "Invalid admin token.", variant: "destructive" });
-          setIsAuthenticated(false);
-          setAdminToken('');
-          localStorage.removeItem('adminToken');
-          return; // Stop execution if unauthorized
+          AdminAuth.clearToken();
+          return;
         }
         throw new Error('Failed to preview price drop email');
       }
@@ -157,8 +141,9 @@ export default function AdminEmailCenter() {
   };
 
   const handlePriceDropSend = async () => {
-    if (!adminToken) {
-      toast({ title: "Error", description: "Admin token is required", variant: "destructive" });
+    const token = AdminAuth.getToken();
+    if (!token) {
+      toast({ title: "Authentication Required", description: "Please authenticate first", variant: "destructive" });
       return;
     }
 
@@ -170,14 +155,12 @@ export default function AdminEmailCenter() {
     setLoadingState('priceDropSend', true);
     try {
       const testEmail = priceDropForm.email || 'test@example.com';
-      const response = await fetch(`/api/dev/preview-email?asin=${priceDropForm.asin}&productTitle=${encodeURIComponent(priceDropForm.productTitle)}&oldPrice=${priceDropForm.oldPrice}&newPrice=${priceDropForm.newPrice}&email=${encodeURIComponent(testEmail)}&send=true&token=${adminToken}`);
+      const response = await fetch(`/api/dev/preview-email?asin=${priceDropForm.asin}&productTitle=${encodeURIComponent(priceDropForm.productTitle)}&oldPrice=${priceDropForm.oldPrice}&newPrice=${priceDropForm.newPrice}&email=${encodeURIComponent(testEmail)}&send=true&token=${token}`);
 
       if (!response.ok) {
         if (response.status === 403) {
           toast({ title: "Unauthorized", description: "Invalid admin token.", variant: "destructive" });
-          setIsAuthenticated(false);
-          setAdminToken('');
-          localStorage.removeItem('adminToken');
+          AdminAuth.clearToken();
           return;
         }
         const errorData = await response.json();
@@ -197,8 +180,9 @@ export default function AdminEmailCenter() {
 
   // Password Reset handlers
   const handlePasswordResetPreview = async () => {
-    if (!adminToken || !passwordResetForm.email) {
-      toast({ title: "Error", description: "Admin token and email are required", variant: "destructive" });
+    const token = AdminAuth.getToken();
+    if (!token || !passwordResetForm.email) {
+      toast({ title: "Authentication Required", description: "Please authenticate and provide email", variant: "destructive" });
       return;
     }
 
@@ -206,23 +190,21 @@ export default function AdminEmailCenter() {
     try {
       const params = new URLSearchParams({
         email: passwordResetForm.email,
-        token: adminToken
+        token: token
       });
 
       const response = await fetch(`/api/admin/test-reset?${params}`);
-      
+
       if (!response.ok) {
         if (response.status === 403) {
           toast({ title: "Unauthorized", description: "Invalid admin token.", variant: "destructive" });
-          setIsAuthenticated(false);
-          setAdminToken('');
-          localStorage.removeItem('adminToken');
+          AdminAuth.clearToken();
           return;
         }
         const errorData = await response.json();
         throw new Error(errorData.error || `HTTP ${response.status}`);
       }
-      
+
       const result = await response.json();
       setResult('passwordResetPreview', result.previewHtml || '');
       toast({ title: "Success", description: "Password reset preview generated" });
@@ -236,8 +218,9 @@ export default function AdminEmailCenter() {
   };
 
   const handlePasswordResetSend = async () => {
-    if (!adminToken || !passwordResetForm.email) {
-      toast({ title: "Error", description: "Admin token and email are required", variant: "destructive" });
+    const token = AdminAuth.getToken();
+    if (!token || !passwordResetForm.email) {
+      toast({ title: "Authentication Required", description: "Please authenticate and provide email", variant: "destructive" });
       return;
     }
 
@@ -245,24 +228,22 @@ export default function AdminEmailCenter() {
     try {
       const params = new URLSearchParams({
         email: passwordResetForm.email,
-        token: adminToken,
+        token: token,
         send: 'true'
       });
 
       const response = await fetch(`/api/admin/test-reset?${params}`);
-      
+
       if (!response.ok) {
         if (response.status === 403) {
           toast({ title: "Unauthorized", description: "Invalid admin token.", variant: "destructive" });
-          setIsAuthenticated(false);
-          setAdminToken('');
-          localStorage.removeItem('adminToken');
+          AdminAuth.clearToken();
           return;
         }
         const errorData = await response.json();
         throw new Error(errorData.error || `HTTP ${response.status}`);
       }
-      
+
       const result = await response.json();
       setResult('passwordResetSend', result);
       toast({ title: "Success", description: result.message || "Email sent successfully" });
@@ -276,8 +257,9 @@ export default function AdminEmailCenter() {
 
   // Generic Test Email handler
   const handleGenericTestSend = async () => {
-    if (!adminToken || !genericEmailForm.email) {
-      toast({ title: "Error", description: "Admin token and email are required", variant: "destructive" });
+    const token = AdminAuth.getToken();
+    if (!token || !genericEmailForm.email) {
+      toast({ title: "Authentication Required", description: "Please authenticate and provide email", variant: "destructive" });
       return;
     }
 
@@ -287,20 +269,18 @@ export default function AdminEmailCenter() {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          'Authorization': `Bearer ${adminToken}` // Added Bearer token
+          'Authorization': `Bearer ${token}`
         },
         body: JSON.stringify({
           to: genericEmailForm.email,
-          templateId: 'welcome' // Assuming 'welcome' is a valid template ID
+          templateId: 'welcome'
         })
       });
 
       if (!response.ok) {
         if (response.status === 403) {
           toast({ title: "Unauthorized", description: "Invalid admin token.", variant: "destructive" });
-          setIsAuthenticated(false);
-          setAdminToken('');
-          localStorage.removeItem('adminToken');
+          AdminAuth.clearToken();
           return;
         }
         const errorData = await response.json();
@@ -340,87 +320,18 @@ export default function AdminEmailCenter() {
     }
   };
 
-  // Show login form if not authenticated
-  if (!isAuthenticated) {
-    return (
-      <div className="container mx-auto px-4 py-8">
-        <div className="max-w-md mx-auto">
-          <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center">
-                <Mail className="mr-3 h-8 w-8" />
-                Admin Email Center
-              </CardTitle>
-              <CardDescription>Enter your admin secret token to access email testing</CardDescription>
-            </CardHeader>
-            <CardContent>
-              <div className="space-y-4">
-                <div>
-                  <Label htmlFor="adminToken">Admin Secret Token</Label>
-                  <Input
-                    id="adminToken"
-                    type="password"
-                    value={adminToken}
-                    onChange={(e) => setAdminToken(e.target.value)}
-                    placeholder="Enter ADMIN_SECRET token"
-                    onKeyPress={(e) => {
-                      if (e.key === 'Enter' && adminToken) {
-                        setIsAuthenticated(true); // Attempt to authenticate on Enter press
-                      }
-                    }}
-                  />
-                </div>
-                <Button 
-                  onClick={() => {
-                    if (adminToken) {
-                      setIsAuthenticated(true); // Set authenticated state
-                    } else {
-                      toast({ title: "Error", description: "Please enter admin token", variant: "destructive" });
-                    }
-                  }}
-                  className="w-full"
-                >
-                  Access Email Center
-                </Button>
-              </div>
-            </CardContent>
-          </Card>
-        </div>
-      </div>
-    );
-  }
-
   return (
-    <div className="container mx-auto px-4 py-8">
-      <div className="mb-8">
-        <div className="flex justify-between items-center">
-          <div>
-            <h1 className="text-3xl font-bold mb-2 flex items-center">
-              <Mail className="mr-3 h-8 w-8" />
-              Admin Email Center
-            </h1>
-            <p className="text-gray-600">Test and manage email functionality</p>
-          </div>
-          <Button 
-            variant="outline" 
-            onClick={() => {
-              setAdminToken(''); // Clear token from state
-              setIsAuthenticated(false); // Set as not authenticated
-              localStorage.removeItem('adminToken'); // Remove from local storage
-            }}
-          >
-            Logout
-          </Button>
-        </div>
-      </div>
-
+    <AdminLayout
+      title="Email Testing Center"
+      description="Test and preview email templates for BytSave notifications"
+    >
       {/* Email Testing Tabs */}
       <Tabs defaultValue="price-drop" className="space-y-6">
-        <TabsList className="grid w-full grid-cols-4"> {/* Increased columns to 4 */}
+        <TabsList className="grid w-full grid-cols-4">
           <TabsTrigger value="price-drop">Price Drop Alerts</TabsTrigger>
           <TabsTrigger value="password-reset">Password Reset</TabsTrigger>
           <TabsTrigger value="generic-test">Generic Test</TabsTrigger>
-          <TabsTrigger value="email-logs">Email Logs</TabsTrigger> {/* New Tab */}
+          <TabsTrigger value="email-logs">Email Logs</TabsTrigger>
         </TabsList>
 
         {/* Price Drop Alerts Tab */}
@@ -485,18 +396,16 @@ export default function AdminEmailCenter() {
               </div>
 
               <div className="flex gap-2">
-                <Button 
-                  onClick={handlePriceDropPreview} 
+                <Button
+                  onClick={handlePriceDropPreview}
                   variant="outline"
-                  disabled={isLoading.priceDropPreview || !adminToken} // Disable if no token
                 >
                   {isLoading.priceDropPreview && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
                   <Eye className="mr-2 h-4 w-4" />
                   Preview
                 </Button>
-                <Button 
+                <Button
                   onClick={handlePriceDropSend}
-                  disabled={isLoading.priceDropSend || !adminToken} // Disable if no token
                 >
                   {isLoading.priceDropSend && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
                   <Send className="mr-2 h-4 w-4" />
@@ -550,18 +459,16 @@ export default function AdminEmailCenter() {
               </div>
 
               <div className="flex gap-2">
-                <Button 
-                  onClick={handlePasswordResetPreview} 
+                <Button
+                  onClick={handlePasswordResetPreview}
                   variant="outline"
-                  disabled={isLoading.passwordResetPreview || !adminToken} // Disable if no token
                 >
                   {isLoading.passwordResetPreview && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
                   <Eye className="mr-2 h-4 w-4" />
                   Preview
                 </Button>
-                <Button 
+                <Button
                   onClick={handlePasswordResetSend}
-                  disabled={isLoading.passwordResetSend || !adminToken} // Disable if no token
                 >
                   {isLoading.passwordResetSend && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
                   <Send className="mr-2 h-4 w-4" />
@@ -614,9 +521,8 @@ export default function AdminEmailCenter() {
                 />
               </div>
 
-              <Button 
+              <Button
                 onClick={handleGenericTestSend}
-                disabled={isLoading.genericTest || !adminToken} // Disable if no token
               >
                 {isLoading.genericTest && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
                 <Send className="mr-2 h-4 w-4" />
@@ -678,9 +584,9 @@ export default function AdminEmailCenter() {
                   </div>
                 </div>
                 <Button onClick={() => {
-                  setCurrentPage(1); // Reset to first page on filter change
+                  setCurrentPage(1);
                   refetchLogs();
-                }} disabled={!adminToken}> {/* Disabled if no token */}
+                }}>
                   Apply Filters
                 </Button>
               </div>
@@ -770,6 +676,6 @@ export default function AdminEmailCenter() {
           </Card>
         </TabsContent>
       </Tabs>
-    </div>
+    </AdminLayout>
   );
 }

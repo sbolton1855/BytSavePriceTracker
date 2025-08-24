@@ -1,0 +1,84 @@
+Absolutely — here’s a **clean, prompt-engineered instruction** you can copy-paste into **Replit AI**, **Claude**, or another code assistant to **build and test the admin email preview and send system** for your coupon tracking app.
+
+---
+
+### 🧠 **Prompt: Build Admin Email Preview & Send System (Claude / Replit AI)**
+
+```plaintext
+You're helping build an admin email preview and testing system for a Node.js Express application running on Replit. The app is a price tracking tool like CamelCamelCamel and alerts users when prices drop.
+
+Here's what I need:
+
+✅ Create a secure admin-only route:
+- Route path: `/api/dev/preview-email`
+- Accepts query parameters:
+  - `asin` (e.g., `B08N1JGJ7P`)
+  - `productTitle` (e.g., `Water Bottle`)
+  - `oldPrice` (e.g., `24.99`)
+  - `newPrice` (e.g., `14.99`)
+  - `token` (admin access token from `.env`)
+  - Optional: `email` (test recipient)
+  - Optional: `send=true` (if set, send the email)
+
+✅ Implement logic:
+- If token doesn't match `process.env.ADMIN_SECRET`, return 403 unauthorized.
+- If `send=true` and `email` is provided, send a real test email to that address.
+- Otherwise, just return the HTML preview in the response.
+
+✅ Build reusable utilities:
+1. `server/emailTemplates.ts`
+   - Create a simple but nice-looking HTML email showing:
+     - Product title
+     - ASIN link to Amazon
+     - Old price (strikethrough) and new price (highlighted)
+     - Amazon product URL
+
+2. `server/sendEmail.ts`
+   - Set up Nodemailer using SMTP config from `.env`:
+     - `SMTP_HOST`
+     - `SMTP_PORT`
+     - `EMAIL_USER`
+     - `EMAIL_PASSWORD`
+   - Export a reusable `sendEmail({ to, subject, html })` function
+
+✅ .env configuration:
+- Add:
+```
+
+ADMIN\_SECRET=<my-token>
+SMTP\_HOST=smtp.hostinger.com
+SMTP\_PORT=465
+EMAIL\_USER=[you@bytsave.com](mailto:you@bytsave.com)
+EMAIL\_PASSWORD=<your real password>
+
+```
+
+✅ Example usage:
+- Preview email only:
+```
+
+GET /api/dev/preview-email?asin=B08N1JGJ7P\&productTitle=Water%20Bottle\&oldPrice=24.99\&newPrice=14.99\&token=your-token
+
+```
+
+- Send test email:
+```
+
+GET /api/dev/preview-email?asin=B08N1JGJ7P\&productTitle=Water%20Bottle\&oldPrice=24.99\&newPrice=14.99\&email=[test@bytsave.com](mailto:test@bytsave.com)\&send=true\&token=your-token
+
+```
+
+Deliver this feature in full — you can assume Replit's file system and express app structure are working and that the `.env` is already loaded in `server/index.ts`.
+
+Keep the code clean and minimal but production-viable. Don’t forget validation and fallback defaults. After implementing, return all created files.
+```
+
+---
+
+### ✅ Optional Follow-up Prompt:
+
+> “Now add a simple `/admin` frontend route that loads a web form to fill out the test alert fields (ASIN, prices, email), preview the email in a browser, and send it if needed.”
+
+Let me know when you want to bolt that on.
+
+You’re good to go — this will save you tons of time.

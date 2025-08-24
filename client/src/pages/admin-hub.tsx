@@ -1,61 +1,23 @@
-import { useState } from "react";
-import { Link } from "wouter";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
+import { useToast } from "@/hooks/use-toast";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import AdminLayout from "@/components/AdminLayout";
 import { 
   Mail, 
+  Send, 
+  FileText, 
+  Zap, 
   BarChart3, 
-  Settings, 
+  Activity, 
   Database, 
-  AlertTriangle, 
-  Send,
   Search,
-  FileText,
-  Activity,
-  Shield,
-  Zap,
+  Settings,
+  Users,
   Package
 } from "lucide-react";
 
 export default function AdminHub() {
-  const [adminToken, setAdminToken] = useState('');
-  const [isAuthenticated, setIsAuthenticated] = useState(false);
-
-  const handleLogin = () => {
-    if (adminToken) {
-      setIsAuthenticated(true);
-    }
-  };
-
-  if (!isAuthenticated) {
-    return (
-      <div className="max-w-md mx-auto mt-16 p-6">
-        <Card>
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <Shield className="h-5 w-5" />
-              Admin Access
-            </CardTitle>
-            <CardDescription>Enter admin token to access system tools</CardDescription>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            <Input
-              type="password"
-              placeholder="Admin Token"
-              value={adminToken}
-              onChange={(e) => setAdminToken(e.target.value)}
-              onKeyPress={(e) => e.key === 'Enter' && handleLogin()}
-            />
-            <Button onClick={handleLogin} className="w-full">
-              Access Admin Hub
-            </Button>
-          </CardContent>
-        </Card>
-      </div>
-    );
-  }
+  const { toast } = useToast();
 
   const adminTools = [
     {
@@ -66,21 +28,21 @@ export default function AdminHub() {
         {
           name: "Email Testing",
           description: "Test email templates and sending",
-          href: `/admin/email-test?token=${adminToken}`,
+          href: `/admin/email-test`,
           icon: Send,
           badge: "Core"
         },
         {
           name: "Email Logs",
           description: "View sent email history",
-          href: `/admin/email-logs?token=${adminToken}`,
+          href: `/admin/email-logs`,
           icon: FileText,
           badge: "Logs"
         },
         {
           name: "Force Alerts",
           description: "Manually trigger price drop alerts",
-          href: `/admin/force-alerts?token=${adminToken}`,
+          href: `/admin/force-alerts`,
           icon: Zap,
           badge: "Testing"
         }
@@ -115,14 +77,14 @@ export default function AdminHub() {
         {
           name: "ASIN Inspector",
           description: "Inspect individual product data",
-          href: `/admin/asin-inspector?token=${adminToken}`,
+          href: `/admin/asin-inspector`,
           icon: Search,
           badge: "Debug"
         },
         {
           name: "Cache Management",
           description: "Manage system cache",
-          href: `/admin/cache?token=${adminToken}`,
+          href: `/admin/cache`,
           icon: Database,
           badge: "System"
         }
@@ -131,12 +93,10 @@ export default function AdminHub() {
   ];
 
   return (
-    <div className="container mx-auto px-4 py-8">
-      <div className="mb-8">
-        <h1 className="text-3xl font-bold mb-2">Admin Hub</h1>
-        <p className="text-gray-600">Central access to all administrative tools and system monitoring</p>
-      </div>
-
+    <AdminLayout 
+      title="Admin Hub" 
+      description="Comprehensive administrative control panel for BytSave system management"
+    >
       <div className="grid gap-8">
         {adminTools.map((section, sectionIndex) => (
           <Card key={sectionIndex}>
@@ -185,7 +145,7 @@ export default function AdminHub() {
         <CardContent>
           <div className="flex flex-wrap gap-3">
             <Button variant="outline" asChild>
-              <Link href={`/admin/email-test?token=${adminToken}`}>
+              <Link href={`/admin/email-test`}>
                 <Mail className="h-4 w-4 mr-2" />
                 Test Email
               </Link>
@@ -197,7 +157,7 @@ export default function AdminHub() {
               </Link>
             </Button>
             <Button variant="outline" asChild>
-              <Link href={`/admin/email-logs?token=${adminToken}`}>
+              <Link href={`/admin/email-logs`}>
                 <FileText className="h-4 w-4 mr-2" />
                 Email Logs
               </Link>
@@ -237,7 +197,7 @@ export default function AdminHub() {
         <CardContent>
           <div className="flex flex-wrap gap-3">
             <Button variant="outline" asChild>
-              <Link href={`/admin/products?token=${adminToken}`}>
+              <Link href={`/admin/products`}>
                 <Package className="h-4 w-4 mr-2" />
                 Manage Products
               </Link>
@@ -246,5 +206,6 @@ export default function AdminHub() {
         </CardContent>
       </Card>
     </div>
+    </AdminLayout>
   );
 }

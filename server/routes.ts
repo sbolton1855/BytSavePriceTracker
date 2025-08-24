@@ -169,7 +169,33 @@ const categoryFilters = {
   }
 };
 
-// Middleware to check for admin token
+// Admin token validation endpoint
+  app.post('/api/admin/validate-token', async (req: Request, res: Response) => {
+    try {
+      const { token } = req.body;
+      
+      if (!token || typeof token !== 'string') {
+        return res.status(400).json({ error: 'Token is required' });
+      }
+
+      const adminSecret = process.env.ADMIN_SECRET;
+      if (!adminSecret) {
+        console.error('ADMIN_SECRET not configured');
+        return res.status(500).json({ error: 'Server configuration error' });
+      }
+
+      if (token === adminSecret) {
+        return res.status(200).json({ valid: true });
+      } else {
+        return res.status(401).json({ error: 'Invalid token' });
+      }
+    } catch (error) {
+      console.error('Token validation error:', error);
+      return res.status(500).json({ error: 'Internal server error' });
+    }
+  });
+
+  // Middleware to check for admin token
 const requireAdminToken = (req: Request, res: Response, next: Function) => {
   const token = req.query.token as string;
   if (!token || token !== process.env.ADMIN_SECRET) {

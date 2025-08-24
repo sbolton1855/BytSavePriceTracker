@@ -1,0 +1,109 @@
+Perfect — you're stable and ready to build. Here’s a **rapid-fire, AI-driven feature sprint** — no fluff, no backstory, just **clear, focused features** you can execute in the next 30–60 minutes. These will **enhance usability, admin control, and readiness for real users.**
+
+---
+
+### 🚀 1. **Admin UI for Email Preview & Send**
+
+**Feature:** Basic frontend `/admin/email-test` route to test email alerts
+**Tech:** HTML form + fetch call to `/api/dev/preview-email`
+**AI Prompt:**
+
+```plaintext
+Create an Express route `/admin/email-test` that serves an HTML form:
+- Fields: ASIN, Title, Old Price, New Price, Email, Checkbox for Send
+- On submit, sends fetch GET request to `/api/dev/preview-email` with proper query parameters
+- Shows the returned email preview or confirmation inline
+```
+
+---
+
+### 🔔 2. **Live Email Preview as You Type**
+
+**Feature:** Preview updates in real-time before sending
+**Tech:** Client-side JS + Live rendering
+**AI Prompt:**
+
+```plaintext
+Enhance the /admin/email-test form with JavaScript:
+- As user types in ASIN, prices, or title, show a live preview of the HTML email below the form
+- Use the same emailTemplates.ts renderer on the server (via fetch)
+```
+
+---
+
+### 👀 3. **Track Sent Emails**
+
+**Feature:** Add logging when an alert is sent
+**Tech:** Drizzle ORM insert into `email_logs` table
+**AI Prompt:**
+
+```plaintext
+Create a table `email_logs` with:
+- id, recipientEmail, productId, sentAt, subject, previewHtml
+
+In sendEmail.ts:
+- After sending, insert a log into the email_logs table
+```
+
+---
+
+### 📦 4. **Add Product Thumbnails to Emails**
+
+**Feature:** Improve visuals in alert email
+**Tech:** Use imageUrl from product data
+**AI Prompt:**
+
+```plaintext
+Update the email template to include product image at the top:
+- Use a placeholder if no imageUrl
+- Keep it responsive and clean
+```
+
+---
+
+### 📉 5. **Trigger Manual Price Drop Test**
+
+**Feature:** One-click route to force price below target for testing
+**Tech:** Dev-only route
+**AI Prompt:**
+
+```plaintext
+Add route `/api/dev/drop-price/:id` that:
+- Sets the current price of tracked_products.id = :id to below its targetPrice
+- Sets notified = false
+- Returns updated row
+```
+
+---
+
+### 💡 Bonus: Smart Subject Lines
+
+**Feature:** Dynamic subject like: “🔥 Price Dropped: Water Bottle now \$14.99 (was \$24.99)”
+**AI Prompt:**
+
+```plaintext
+Update email template or sendEmail.ts to generate a dynamic subject line using:
+- productTitle, newPrice, oldPrice
+```
+
+---
+
+### ✅ Ready for Deployment?
+
+When done, prompt the AI with:
+
+```plaintext
+Create a Replit production checklist:
+- Env variables
+- Health check route
+- Logging config
+- .env defaults
+- Admin email route lockdown
+```
+
+---
+
+When you want more bling, type:
+**→ Next Batch of Features**
+
+Want conversion tracking, affiliate booster tools, coupon dashboards, etc.? They’re queued up.

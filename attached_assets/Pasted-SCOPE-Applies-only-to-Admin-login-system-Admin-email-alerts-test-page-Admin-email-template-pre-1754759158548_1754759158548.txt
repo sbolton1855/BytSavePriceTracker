@@ -1,0 +1,154 @@
+SCOPE
+Applies only to:
+
+Admin login system.
+
+Admin email alerts test page.
+
+Admin email template preview.
+
+Must not affect:
+
+/api/amazon/*, /amazon/* routes.
+
+Any files under server/services/amazon/**, server/routes/amazon/**, or Amazon job/cron code.
+
+GOALS
+Replace URL token authentication for admin email features with secure, session-based auth.
+
+Allow authenticated admins to:
+
+View a list of available alert email templates.
+
+Preview templates before sending.
+
+Send test alert emails using existing email service/template system.
+
+Keep all security middleware scoped to /admin paths.
+
+SERVER IMPLEMENTATION
+Dependencies
+bash
+Copy
+Edit
+npm i express-session connect-redis ioredis cookie-parser helmet csurf argon2 zod rate-limiter-flexible
+Env (.env)
+ini
+Copy
+Edit
+SESSION_SECRET=<long random>
+REDIS_URL=redis://...
+COOKIE_NAME=admin.sid
+SESSION_TTL_SECONDS=1800
+ADMIN_EMAIL=<bootstrap admin email>
+ADMIN_PASSWORD_HASH=<argon2 hash>
+NODE_ENV=production
+TRUST_PROXY=1
+Middleware: server/middleware/adminSession.ts
+Redis store via connect-redis.
+
+express-session config:
+
+name: from COOKIE_NAME
+
+Cookie: httpOnly:true, secure:(NODE_ENV==='production'), sameSite:'lax', path:'/admin', maxAge: SESSION_TTL_SECONDS*1000
+
+rolling:true, resave:false, saveUninitialized:false
+
+Attach req.admin = req.session.admin || null.
+
+Middleware: server/middleware/requireAdmin.ts
+If !req.session?.admin, return 401 {error:'unauthorized'}.
+
+Middleware: server/middleware/adminSecurity.ts
+helmet() (can be app-wide).
+
+cookie-parser().
+
+csurf() for POST/PUT/PATCH/DELETE under /admin/api/email/* only.
+
+Rate-limit /admin/api/login → 5 attempts/15 min per IP + username.
+
+ROUTES
+Auth Routes: server/routes/adminAuth.ts (mount at /admin/api)
+POST /login:
+
+Validate { email, password } with zod.
+
+Rate-limit check.
+
+Compare email to ADMIN_EMAIL.
+
+Verify password with argon2.verify vs ADMIN_PASSWORD_HASH.
+
+On success: req.session.admin = { email, roles:['admin'] }.
+
+POST /logout: Destroy session, clear cookie.
+
+GET /me: Return { authenticated: !!req.session.admin, admin: req.session.admin || null }.
+
+GET /csrf: Return CSRF token.
+
+Email Admin Routes: server/routes/adminEmail.ts (mount at /admin/api/email)
+Protect all routes with requireAdmin.
+
+GET /templates:
+
+List available email templates (names, IDs, description).
+
+GET /preview/:templateId:
+
+Render HTML of selected template with dummy data for preview.
+
+POST /test:
+
+Body: { to?: string, templateId: string }
+
+Send test alert email to to or admin email using existing email sending service/template system.
+
+Rate-limit: 5 per 15 min per admin.
+
+FRONTEND
+Hook: client/src/hooks/use-admin-auth.tsx
+Functions: login, logout, me.
+
+Calls /admin/api endpoints with credentials:'include'.
+
+Hook: client/src/hooks/use-admin-email.tsx
+Functions: getTemplates, getTemplatePreview(templateId), sendTestEmail({to?, templateId}).
+
+Calls /admin/api/email/* with credentials:'include'.
+
+Component: client/src/components/AdminLayout.tsx
+Wraps admin pages.
+
+Redirect/login prompt if isAuthenticated=false.
+
+Page: client/src/pages/admin-email-test.tsx
+Shows template list (getTemplates()).
+
+Preview area (loads /preview/:id HTML in iframe or div).
+
+Form to send test email using selected template.
+
+NON-INTERFERENCE RULES
+Cookies: path:'/admin' only.
+
+CSRF: only on /admin/api/email/* write routes.
+
+No global session middleware — scope to /admin.
+
+No edits to Amazon API code or routes.
+
+ACCEPTANCE CRITERIA
+ /admin/email-test requires login.
+
+ Admin session works only under /admin paths.
+
+ Template list + preview works.
+
+ Test email sends via existing email system.
+
+ Amazon APIs remain fully functional and unchanged.
+
+ No URL tokens used anywhere.

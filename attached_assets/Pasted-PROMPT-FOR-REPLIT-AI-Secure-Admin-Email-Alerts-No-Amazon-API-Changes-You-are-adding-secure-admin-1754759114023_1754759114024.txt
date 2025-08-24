@@ -1,0 +1,84 @@
+PROMPT FOR REPLIT AI — Secure Admin Email Alerts (No Amazon API Changes)
+You are adding secure admin access for sending and testing alert emails in this app.
+Do not touch or alter any Amazon API code, data, routes, or integrations.
+
+Scope
+Feature applies only to admin UI and backend routes related to email alerts (e.g., admin email test page).
+
+Must not affect /api/amazon/*, /amazon/*, Amazon queues, cron jobs, or price tracking services.
+
+Goals
+Replace URL token authentication in admin email features with secure session-based auth.
+
+Provide a safe way for authenticated admins to:
+
+Send a test alert email to themselves.
+
+Trigger or preview existing alert templates.
+
+Keep cookies, CSRF, and sessions scoped to /admin paths only.
+
+Requirements
+Server
+Mount all admin email alert endpoints under /admin/api/email/*.
+
+Protect with:
+
+Redis-backed express-session (connect-redis).
+
+helmet() security headers.
+
+HTTP-only cookies (path:'/admin').
+
+CSRF tokens for POST/PUT/PATCH/DELETE in /admin/api/email/*.
+
+Rate-limit /admin/api/email/test to 5 calls per 15 minutes per admin.
+
+New routes in server/routes/adminEmail.ts:
+
+POST /test: body { to?:string } → sends a test alert email using existing email sending service/template.
+
+GET /templates: returns list of available email alert templates (safe preview info).
+
+Reuse the existing email provider code for sending — do not modify Amazon integrations.
+
+Frontend
+Create client/src/hooks/use-admin-email.tsx:
+
+sendTestEmail(to?:string)
+
+getTemplates()
+
+Uses credentials:'include' with fetch to /admin/api/email/*.
+
+Update client/src/pages/admin-email-test.tsx:
+
+Remove URL token logic.
+
+Require admin session from new secure auth.
+
+Show template list (from getTemplates()).
+
+Form to send test email with selected template.
+
+Non-Interference Rules
+Cookies: path:'/admin' only.
+
+CSRF middleware: applied only to /admin/api/email/* write routes.
+
+No global middleware changes that could impact Amazon API routes.
+
+Do not edit files under server/services/amazon/**, server/routes/amazon/**, or any Amazon-specific logic.
+
+Acceptance Criteria
+ Visiting /admin/email-test unauthenticated → login prompt.
+
+ Admin login session works only under /admin paths.
+
+ /admin/api/email/test sends a test email to the logged-in admin using the same alert template system.
+
+ Amazon APIs continue to work unchanged.
+
+ No URL tokens in use anywhere for admin email test.
+
+ Rate limit and CSRF protection active for test email endpoint.
