@@ -70,6 +70,37 @@ export default function AdminEmailCenter() {
     return () => window.removeEventListener('popstate', handlePopState);
   }, []);
 
+  // Auto-refresh logs when on logs tab
+  useEffect(() => {
+    let interval: NodeJS.Timeout;
+    
+    if (activeSubTab === 'logs' && autoRefreshEnabled) {
+      interval = setInterval(() => {
+        refetchLogs();
+      }, 5000);
+    }
+    
+    return () => {
+      if (interval) clearInterval(interval);
+    };
+  }, [activeSubTab, autoRefreshEnabled, refetchLogs]);
+
+  // Enable auto-refresh when entering logs tab
+  useEffect(() => {
+    if (activeSubTab === 'logs') {
+      setAutoRefreshEnabled(true);
+    } else {
+      setAutoRefreshEnabled(false);
+    }
+  }, [activeSubTab]);
+
+  // Auto-preview when template is selected in templates tab
+  useEffect(() => {
+    if (activeSubTab === 'templates' && selectedTemplate) {
+      handleTemplatePreview(selectedTemplate);
+    }
+  }, [activeSubTab, selectedTemplate]);
+
   // Form states for different email types
   const [selectedTemplate, setSelectedTemplate] = useState('price-drop');
   const [testEmail, setTestEmail] = useState('');
@@ -90,6 +121,13 @@ export default function AdminEmailCenter() {
     qaSubjectTag: '[QA-TEST]'
   });
 
+  // Initialize smoke test email when settings change
+  useEffect(() => {
+    if (!smokeTestEmail && settings.fromAddress !== 'alerts@bytsave.com') {
+      setSmokeTestEmail(settings.fromAddress);
+    }
+  }, [settings.fromAddress, smokeTestEmail]);
+
   // UI states
   const [isLoading, setIsLoading] = useState<Record<string, boolean>>({});
   const [previewData, setPreviewData] = useState<string>('');
@@ -97,6 +135,20 @@ export default function AdminEmailCenter() {
   const [currentPage, setCurrentPage] = useState(1);
   const [statusFilter, setStatusFilter] = useState<string>('');
   const [typeFilter, setTypeFilter] = useState<string>('');
+
+  // QA Smoke Test states
+  const [smokeTestEmail, setSmokeTestEmail] = useState('');
+  const [smokeTestTemplate, setSmokeTestTemplate] = useState('price-drop');
+  const [smokeTestStatus, setSmokeTestStatus] = useState<{
+    preview: boolean;
+    send: boolean;
+    log: boolean;
+    error?: string;
+  }>({ preview: false, send: false, log: false });
+  const [isSmokeTestRunning, setIsSmokeTestRunning] = useState(false);
+
+  // Auto-refresh for logs
+  const [autoRefreshEnabled, setAutoRefreshEnabled] = useState(false);
 
   // Mock templates data
   const templates: EmailTemplate[] = [
@@ -280,6 +332,124 @@ export default function AdminEmailCenter() {
     }
   };
 
+  // QA Smoke Test function
+  const runQASmokeTest = async () => {
+    const token = AdminAuth.getToken();
+    if (!token || !smokeTestEmail) {
+      toast({ title: "Error", description: "Please provide email address and authenticate", variant: "destructive" });
+      return;
+    }
+
+    setIsSmokeTestRunning(true);
+    setSmokeTestStatus({ preview: false, send: false, log: false });
+
+    try {
+      // Step 1: Preview API test
+      let previewResponse;
+      if (smokeTestTemplate === 'price-drop') {
+        previewResponse = await fetch(`/api/dev/preview-email?token=${token}&asin=${priceDropForm.asin}&productTitle=${encodeURIComponent(priceDropForm.productTitle)}&oldPrice=${priceDropForm.oldPrice}&newPrice=${priceDropForm.newPrice}`);
+      } else if (smokeTestTemplate === 'password-reset') {
+        const params = new URLSearchParams({
+          email: smokeTestEmail,
+          token: token
+        });
+        previewResponse = await fetch(`/api/admin/test-reset?${params}`);
+      } else {
+        previewResponse = await fetch(`/api/admin/email/preview/${smokeTestTemplate}`, {
+          headers: {
+            'x-admin-token': token
+          }
+        });
+      }
+
+      if (!previewResponse.ok) {
+        throw new Error('Preview API failed');
+      }
+
+      setSmokeTestStatus(prev => ({ ...prev, preview: true }));
+
+      // Step 2: Send test email
+      let sendResponse;
+      if (smokeTestTemplate === 'price-drop') {
+        sendResponse = await fetch(`/api/dev/preview-email?asin=${priceDropForm.asin}&productTitle=${encodeURIComponent(priceDropForm.productTitle)}&oldPrice=${priceDropForm.oldPrice}&newPrice=${priceDropForm.newPrice}&email=${encodeURIComponent(smokeTestEmail)}&send=true&token=${token}`);
+      } else if (smokeTestTemplate === 'password-reset') {
+        const params = new URLSearchParams({
+          email: smokeTestEmail,
+          token: token,
+          send: 'true'
+        });
+        sendResponse = await fetch(`/api/admin/test-reset?${params}`);
+      } else {
+        sendResponse = await fetch('/api/admin/send-test-email', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'x-admin-token': token
+          },
+          body: JSON.stringify({
+            email: smokeTestEmail,
+            templateId: smokeTestTemplate
+          })
+        });
+      }
+
+      if (!sendResponse.ok) {
+        throw new Error('Send test email failed');
+      }
+
+      setSmokeTestStatus(prev => ({ ...prev, send: true }));
+
+      // Step 3: Poll for email logs
+      const pollStartTime = Date.now();
+      const pollInterval = setInterval(async () => {
+        try {
+          const params = new URLSearchParams({
+            token: token,
+            page: '1',
+            pageSize: '5',
+            status: '',
+            type: ''
+          });
+
+          const logsResponse = await fetch(`/api/admin/logs?${params}`);
+          if (logsResponse.ok) {
+            const logsData = await logsResponse.json();
+            
+            // Check if there's a new test email log for this recipient
+            const recentTestLog = logsData.logs.find((log: EmailLog) => 
+              log.recipientEmail.toLowerCase() === smokeTestEmail.toLowerCase() &&
+              log.type === 'test' &&
+              new Date(log.createdAt).getTime() > (pollStartTime - 10000) // Within last 10 seconds + some buffer
+            );
+
+            if (recentTestLog) {
+              setSmokeTestStatus(prev => ({ ...prev, log: true }));
+              clearInterval(pollInterval);
+              toast({ title: "QA Smoke Test Success", description: "All steps completed successfully!" });
+              refetchLogs(); // Refresh the logs display
+              return;
+            }
+          }
+
+          // Timeout after 20 seconds
+          if (Date.now() - pollStartTime > 20000) {
+            clearInterval(pollInterval);
+            setSmokeTestStatus(prev => ({ ...prev, error: 'Timeout: Log entry not found within 20 seconds' }));
+          }
+        } catch (error) {
+          console.error('Polling error:', error);
+        }
+      }, 2000);
+
+    } catch (error) {
+      console.error('QA Smoke Test error:', error);
+      setSmokeTestStatus(prev => ({ ...prev, error: error.message || 'Test failed' }));
+      toast({ title: "QA Smoke Test Failed", description: error.message || "Test failed", variant: "destructive" });
+    } finally {
+      setIsSmokeTestRunning(false);
+    }
+  };
+
   // Render sub-tab content
   const renderSubTabContent = () => {
     switch (activeSubTab) {
@@ -297,8 +467,21 @@ export default function AdminEmailCenter() {
                   {templates.map((template) => (
                     <div key={template.id} className="p-4 border rounded-lg">
                       <div className="flex justify-between items-start mb-2">
-                        <div>
-                          <h3 className="font-medium">{template.name}</h3>
+                        <div className="flex-1">
+                          <div className="flex items-center gap-2">
+                            <input
+                              type="radio"
+                              id={`template-${template.id}`}
+                              name="template-selection"
+                              checked={selectedTemplate === template.id}
+                              onChange={() => setSelectedTemplate(template.id)}
+                              className="mr-2"
+                            />
+                            <h3 className="font-medium">{template.name}</h3>
+                            {selectedTemplate === template.id && (
+                              <Badge variant="secondary" className="text-xs">Selected</Badge>
+                            )}
+                          </div>
                           <p className="text-sm text-gray-600">{template.description}</p>
                           <p className="text-sm text-gray-500 mt-1">Subject: {template.subject}</p>
                         </div>
@@ -604,42 +787,132 @@ export default function AdminEmailCenter() {
 
       case 'settings':
         return (
-          <Card>
-            <CardHeader>
-              <CardTitle>Email Settings</CardTitle>
-              <CardDescription>Configure email system settings</CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              <div>
-                <Label htmlFor="fromAddress">From Address</Label>
-                <Input
-                  id="fromAddress"
-                  value={settings.fromAddress}
-                  onChange={(e) => setSettings(prev => ({ ...prev, fromAddress: e.target.value }))}
-                  placeholder="alerts@bytsave.com"
-                />
-                <p className="text-sm text-gray-500 mt-1">Default sender email address</p>
-              </div>
-              <div>
-                <Label htmlFor="qaSubjectTag">QA Subject Tag</Label>
-                <Input
-                  id="qaSubjectTag"
-                  value={settings.qaSubjectTag}
-                  onChange={(e) => setSettings(prev => ({ ...prev, qaSubjectTag: e.target.value }))}
-                  placeholder="[QA-TEST]"
-                />
-                <p className="text-sm text-gray-500 mt-1">Tag added to test email subjects</p>
-              </div>
-              <Button
-                onClick={() => toast({ title: "Settings", description: "Settings saved (memory only)" })}
-              >
-                Save Settings
-              </Button>
-              <p className="text-sm text-yellow-600">
-                Note: Settings are persisted in memory only and will reset on server restart.
-              </p>
-            </CardContent>
-          </Card>
+          <div className="space-y-6">
+            <Card>
+              <CardHeader>
+                <CardTitle>Email Settings</CardTitle>
+                <CardDescription>Configure email system settings</CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <div>
+                  <Label htmlFor="fromAddress">From Address</Label>
+                  <Input
+                    id="fromAddress"
+                    value={settings.fromAddress}
+                    onChange={(e) => setSettings(prev => ({ ...prev, fromAddress: e.target.value }))}
+                    placeholder="alerts@bytsave.com"
+                  />
+                  <p className="text-sm text-gray-500 mt-1">Default sender email address</p>
+                </div>
+                <div>
+                  <Label htmlFor="qaSubjectTag">QA Subject Tag</Label>
+                  <Input
+                    id="qaSubjectTag"
+                    value={settings.qaSubjectTag}
+                    onChange={(e) => setSettings(prev => ({ ...prev, qaSubjectTag: e.target.value }))}
+                    placeholder="[QA-TEST]"
+                  />
+                  <p className="text-sm text-gray-500 mt-1">Tag added to test email subjects</p>
+                </div>
+                <Button
+                  onClick={() => toast({ title: "Settings", description: "Settings saved (memory only)" })}
+                >
+                  Save Settings
+                </Button>
+                <p className="text-sm text-yellow-600">
+                  Note: Settings are persisted in memory only and will reset on server restart.
+                </p>
+              </CardContent>
+            </Card>
+
+            <Card>
+              <CardHeader>
+                <CardTitle>QA Smoke Test</CardTitle>
+                <CardDescription>End-to-end validation: Preview → Send → Log verification</CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div>
+                    <Label htmlFor="smokeTestEmail">Test Recipient Email</Label>
+                    <Input
+                      id="smokeTestEmail"
+                      type="email"
+                      value={smokeTestEmail}
+                      onChange={(e) => setSmokeTestEmail(e.target.value)}
+                      placeholder={settings.fromAddress || "test@example.com"}
+                    />
+                  </div>
+                  <div>
+                    <Label htmlFor="smokeTestTemplate">Template</Label>
+                    <Select value={smokeTestTemplate} onValueChange={setSmokeTestTemplate}>
+                      <SelectTrigger>
+                        <SelectValue placeholder="Select template" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {templates.map((template) => (
+                          <SelectItem key={template.id} value={template.id}>
+                            {template.name}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                </div>
+
+                {/* Test Status Display */}
+                <div className="border rounded-lg p-4 bg-gray-50">
+                  <h4 className="font-medium mb-3">Test Status</h4>
+                  <div className="space-y-2">
+                    <div className="flex items-center gap-2">
+                      {smokeTestStatus.preview ? (
+                        <CheckCircle className="h-4 w-4 text-green-600" />
+                      ) : (
+                        <div className="h-4 w-4 rounded-full border-2 border-gray-300" />
+                      )}
+                      <span className={smokeTestStatus.preview ? "text-green-600" : "text-gray-500"}>
+                        Preview API Test
+                      </span>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      {smokeTestStatus.send ? (
+                        <CheckCircle className="h-4 w-4 text-green-600" />
+                      ) : (
+                        <div className="h-4 w-4 rounded-full border-2 border-gray-300" />
+                      )}
+                      <span className={smokeTestStatus.send ? "text-green-600" : "text-gray-500"}>
+                        Send Test Email
+                      </span>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      {smokeTestStatus.log ? (
+                        <CheckCircle className="h-4 w-4 text-green-600" />
+                      ) : (
+                        <div className="h-4 w-4 rounded-full border-2 border-gray-300" />
+                      )}
+                      <span className={smokeTestStatus.log ? "text-green-600" : "text-gray-500"}>
+                        Log Entry Verification
+                      </span>
+                    </div>
+                  </div>
+                  {smokeTestStatus.error && (
+                    <div className="mt-3 p-2 bg-red-100 border border-red-300 rounded text-red-700 text-sm">
+                      <AlertCircle className="h-4 w-4 inline mr-1" />
+                      {smokeTestStatus.error}
+                    </div>
+                  )}
+                </div>
+
+                <Button
+                  onClick={runQASmokeTest}
+                  disabled={isSmokeTestRunning || !smokeTestEmail || !smokeTestTemplate}
+                  className="w-full"
+                >
+                  {isSmokeTestRunning && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                  Run QA Smoke Test
+                </Button>
+              </CardContent>
+            </Card>
+          </div>
         );
 
       default:
