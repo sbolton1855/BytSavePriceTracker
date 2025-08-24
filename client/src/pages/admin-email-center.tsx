@@ -11,6 +11,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from 
 import { Badge } from '@/components/ui/badge';
 import { Loader2, Mail, Send, Eye, AlertCircle, ChevronLeft, ChevronRight, CheckCircle, XCircle } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
+import { Textarea } from '@/components/ui/textarea';
 
 interface EmailLog {
   id: number;
@@ -651,15 +652,13 @@ export default function AdminEmailCenter() {
                               <DialogContent className="sm:max-w-[700px]">
                                 <DialogHeader>
                                   <DialogTitle>Email Details</DialogTitle>
-                                </DialogHeader>
-                                <DialogHeader>
                                   <DialogDescription>
+                                    <strong>Sent:</strong> {new Date(log.createdAt).toLocaleString()} <br />
                                     <strong>To:</strong> {log.recipientEmail} <br />
                                     <strong>Subject:</strong> {log.subject} <br />
-                                    <strong>Sent At:</strong> {new Date(log.createdAt).toLocaleString()} <br />
                                     <strong>Status:</strong> {renderStatusBadge(log.status)} <br />
                                     <strong>Type:</strong> {log.type}
-                                  </DialogHeader>
+                                  </DialogDescription>
                                 </DialogHeader>
                                 <iframe
                                   srcDoc={log.previewHtml}
