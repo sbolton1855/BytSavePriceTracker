@@ -6,7 +6,7 @@ import { products, users, trackedProducts, affiliateClicks } from '../migrations
 import { eq, and, desc, asc } from 'drizzle-orm';
 import { addDays, isAfter, isBefore } from 'date-fns';
 import * as amazonApi from './lib/amazonApi';
-import { authenticateUser } from './middleware/adminSecurity';
+import { requireAdmin } from './middleware/requireAdmin';
 
 // Import route modules
 import adminAuthRoutes from './routes/adminAuth';
@@ -44,15 +44,19 @@ router.use('/email-test', emailTestRoutes);
 router.use('/test', testRoutes);
 
 // Legacy user routes (keep for backward compatibility)
-router.get('/user', authenticateUser, async (req: Request, res: Response) => {
+router.get('/user', requireAdmin, async (req: Request, res: Response) => {
   try {
-    const { email } = req.user!;
+    const email = req.query.email as string;
+    
+    if (!email) {
+      return res.status(400).json({ error: 'Email parameter is required' });
+    }
     
     if (!db) {
       return res.status(500).json({ error: 'Database not available' });
     }
 
-    const user = await db.select().from(users).where(eq(users.email, email)).limit(1);
+    const user = await db.select().from(users).where(eq(users.email, email.toUpperCase())).limit(1);
     
     if (user.length === 0) {
       return res.status(404).json({ error: 'User not found' });
@@ -65,9 +69,13 @@ router.get('/user', authenticateUser, async (req: Request, res: Response) => {
   }
 });
 
-router.get('/user/products', authenticateUser, async (req: Request, res: Response) => {
+router.get('/user/products', requireAdmin, async (req: Request, res: Response) => {
   try {
-    const { email } = req.user!;
+    const email = req.query.email as string;
+    
+    if (!email) {
+      return res.status(400).json({ error: 'Email parameter is required' });
+    }
     
     if (!db) {
       return res.status(500).json({ error: 'Database not available' });
@@ -90,13 +98,12 @@ router.get('/user/products', authenticateUser, async (req: Request, res: Respons
   }
 });
 
-router.post('/user/alerts', authenticateUser, async (req: Request, res: Response) => {
+router.post('/user/alerts', requireAdmin, async (req: Request, res: Response) => {
   try {
-    const { email } = req.user!;
-    const { asin, targetPrice } = req.body;
+    const { email, asin, targetPrice } = req.body;
     
-    if (!asin || !targetPrice) {
-      return res.status(400).json({ error: 'ASIN and target price are required' });
+    if (!email || !asin || !targetPrice) {
+      return res.status(400).json({ error: 'Email, ASIN and target price are required' });
     }
 
     if (!db) {
@@ -173,10 +180,14 @@ router.post('/user/alerts', authenticateUser, async (req: Request, res: Response
   }
 });
 
-router.delete('/user/alerts/:alertId', authenticateUser, async (req: Request, res: Response) => {
+router.delete('/user/alerts/:alertId', requireAdmin, async (req: Request, res: Response) => {
   try {
-    const { email } = req.user!;
+    const email = req.query.email as string;
     const alertId = parseInt(req.params.alertId);
+    
+    if (!email) {
+      return res.status(400).json({ error: 'Email parameter is required' });
+    }
     
     if (!db) {
       return res.status(500).json({ error: 'Database not available' });
