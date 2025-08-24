@@ -3,7 +3,7 @@ import { Router, Request, Response } from 'express';
 import { requireAdmin } from '../middleware/requireAdmin';
 import { emailService } from '../email/service';
 import { db } from '../db';
-import { userProducts, products } from '../../migrations/schema';
+import { trackedProducts, products } from '../../migrations/schema';
 import { eq, and, lt } from 'drizzle-orm';
 
 const router = Router();
@@ -22,24 +22,24 @@ router.post('/force-alerts', requireAdmin, async (req: Request, res: Response) =
     // Build query conditions
     const conditions = [];
     if (email) {
-      conditions.push(eq(userProducts.email, email.toUpperCase()));
+      conditions.push(eq(trackedProducts.email, email.toUpperCase()));
     }
     if (asin) {
       conditions.push(eq(products.asin, asin));
     }
 
-    // Get qualifying user products (where current price <= target price)
+    // Get qualifying tracked products (where current price <= target price)
     const eligibleProducts = await db
       .select({
-        userProduct: userProducts,
+        trackedProduct: trackedProducts,
         product: products
       })
-      .from(userProducts)
-      .innerJoin(products, eq(userProducts.productId, products.id))
+      .from(trackedProducts)
+      .innerJoin(products, eq(trackedProducts.productId, products.id))
       .where(
         conditions.length > 0 
-          ? and(...conditions, lt(products.currentPrice, userProducts.targetPrice))
-          : lt(products.currentPrice, userProducts.targetPrice)
+          ? and(...conditions, lt(products.currentPrice, trackedProducts.targetPrice))
+          : lt(products.currentPrice, trackedProducts.targetPrice)
       )
       .limit(testMode ? 5 : 50);
 
@@ -47,21 +47,21 @@ router.post('/force-alerts', requireAdmin, async (req: Request, res: Response) =
     let errorCount = 0;
     const results = [];
 
-    for (const { userProduct, product } of eligibleProducts) {
+    for (const { trackedProduct, product } of eligibleProducts) {
       try {
         console.log('[email-send]', { 
-          to: userProduct.email, 
+          to: trackedProduct.email, 
           templateId: 'price-drop', 
           isTest: false, 
           path: 'force' 
         });
 
         const result = await emailService.sendTemplate({
-          to: userProduct.email,
+          to: trackedProduct.email,
           templateId: 'price-drop',
           data: {
             productTitle: product.title,
-            oldPrice: userProduct.targetPrice.toString(),
+            oldPrice: trackedProduct.targetPrice.toString(),
             newPrice: product.currentPrice.toString(),
             productUrl: product.url,
             imageUrl: product.imageUrl,
@@ -70,7 +70,7 @@ router.post('/force-alerts', requireAdmin, async (req: Request, res: Response) =
           isTest: false,
           meta: {
             path: 'force',
-            userProductId: userProduct.id,
+            trackedProductId: trackedProduct.id,
             productId: product.id,
             forcedBy: 'admin'
           }
@@ -79,7 +79,7 @@ router.post('/force-alerts', requireAdmin, async (req: Request, res: Response) =
         if (result.success) {
           successCount++;
           results.push({
-            email: userProduct.email,
+            email: trackedProduct.email,
             asin: product.asin,
             status: 'sent',
             messageId: result.messageId
@@ -87,17 +87,17 @@ router.post('/force-alerts', requireAdmin, async (req: Request, res: Response) =
         } else {
           errorCount++;
           results.push({
-            email: userProduct.email,
+            email: trackedProduct.email,
             asin: product.asin,
             status: 'failed',
             error: result.error
           });
         }
       } catch (error) {
-        console.error('[force-alerts] Error sending to:', userProduct.email, error);
+        console.error('[force-alerts] Error sending to:', trackedProduct.email, error);
         errorCount++;
         results.push({
-          email: userProduct.email,
+          email: trackedProduct.email,
           asin: product.asin,
           status: 'error',
           error: error instanceof Error ? error.message : 'Unknown error'
