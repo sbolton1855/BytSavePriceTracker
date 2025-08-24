@@ -236,6 +236,19 @@ export default function AdminHub() {
       description="Comprehensive administrative control panel for BytSave system management"
     >
       <div className="space-y-6">
+        {/* System Status Overview */}
+        <Card className="border-green-200 bg-green-50">
+          <CardContent className="pt-6">
+            <div className="flex items-center gap-2 text-green-700">
+              <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse"></div>
+              <span className="font-medium">System Status: Online</span>
+            </div>
+            <p className="text-sm text-green-600 mt-1">
+              All admin tools are accessible and functioning normally.
+            </p>
+          </CardContent>
+        </Card>
+
         {/* Tabbed Navigation */}
         <AdminTabNav activeTab={activeTab} onTabChange={handleTabChange} />
 
@@ -281,19 +294,7 @@ export default function AdminHub() {
           </CardContent>
         </Card>
 
-        {/* System Status Overview */}
-        <Card className="border-green-200 bg-green-50">
-          <CardContent className="pt-6">
-            <div className="flex items-center gap-2 text-green-700">
-              <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse"></div>
-              <span className="font-medium">System Status: Online</span>
-            </div>
-            <p className="text-sm text-green-600 mt-1">
-              All admin tools are accessible and functioning normally.
-            </p>
-          </CardContent>
-        </Card>
-      </div>
+        </div>
     </AdminLayout>
   );
 }
