@@ -70,6 +70,55 @@ export default function AdminEmailCenter() {
     return () => window.removeEventListener('popstate', handlePopState);
   }, []);
 
+  // Form states for different email types
+  const [selectedTemplate, setSelectedTemplate] = useState('price-drop');
+  const [testEmail, setTestEmail] = useState('');
+  const [priceDropForm, setPriceDropForm] = useState({
+    asin: 'B01DJGLYZQ',
+    productTitle: 'TRUEplus - Insulin Syringes 31g 0.3cc 5/16" (Pack of 100)',
+    oldPrice: '22.99',
+    newPrice: '15.99'
+  });
+
+  const [passwordResetForm, setPasswordResetForm] = useState({
+    email: ''
+  });
+
+  // Settings state
+  const [settings, setSettings] = useState({
+    fromAddress: 'alerts@bytsave.com',
+    qaSubjectTag: '[QA-TEST]'
+  });
+
+  // UI states
+  const [isLoading, setIsLoading] = useState<Record<string, boolean>>({});
+  const [previewData, setPreviewData] = useState<string>('');
+  const [results, setResults] = useState<Record<string, any>>({});
+  const [currentPage, setCurrentPage] = useState(1);
+  const [statusFilter, setStatusFilter] = useState<string>('');
+  const [typeFilter, setTypeFilter] = useState<string>('');
+
+  // QA Smoke Test states
+  const [smokeTestEmail, setSmokeTestEmail] = useState('');
+  const [smokeTestTemplate, setSmokeTestTemplate] = useState('price-drop');
+  const [smokeTestStatus, setSmokeTestStatus] = useState<{
+    preview: boolean;
+    send: boolean;
+    log: boolean;
+    error?: string;
+  }>({ preview: false, send: false, log: false });
+  const [isSmokeTestRunning, setIsSmokeTestRunning] = useState(false);
+
+  // Auto-refresh for logs
+  const [autoRefreshEnabled, setAutoRefreshEnabled] = useState(false);
+
+  // Initialize smoke test email when settings change
+  useEffect(() => {
+    if (!smokeTestEmail && settings.fromAddress !== 'alerts@bytsave.com') {
+      setSmokeTestEmail(settings.fromAddress);
+    }
+  }, [settings.fromAddress, smokeTestEmail]);
+
   // Auto-refresh logs when on logs tab
   useEffect(() => {
     let interval: NodeJS.Timeout;
@@ -100,55 +149,6 @@ export default function AdminEmailCenter() {
       handleTemplatePreview(selectedTemplate);
     }
   }, [activeSubTab, selectedTemplate]);
-
-  // Form states for different email types
-  const [selectedTemplate, setSelectedTemplate] = useState('price-drop');
-  const [testEmail, setTestEmail] = useState('');
-  const [priceDropForm, setPriceDropForm] = useState({
-    asin: 'B01DJGLYZQ',
-    productTitle: 'TRUEplus - Insulin Syringes 31g 0.3cc 5/16" (Pack of 100)',
-    oldPrice: '22.99',
-    newPrice: '15.99'
-  });
-
-  const [passwordResetForm, setPasswordResetForm] = useState({
-    email: ''
-  });
-
-  // Settings state
-  const [settings, setSettings] = useState({
-    fromAddress: 'alerts@bytsave.com',
-    qaSubjectTag: '[QA-TEST]'
-  });
-
-  // Initialize smoke test email when settings change
-  useEffect(() => {
-    if (!smokeTestEmail && settings.fromAddress !== 'alerts@bytsave.com') {
-      setSmokeTestEmail(settings.fromAddress);
-    }
-  }, [settings.fromAddress, smokeTestEmail]);
-
-  // UI states
-  const [isLoading, setIsLoading] = useState<Record<string, boolean>>({});
-  const [previewData, setPreviewData] = useState<string>('');
-  const [results, setResults] = useState<Record<string, any>>({});
-  const [currentPage, setCurrentPage] = useState(1);
-  const [statusFilter, setStatusFilter] = useState<string>('');
-  const [typeFilter, setTypeFilter] = useState<string>('');
-
-  // QA Smoke Test states
-  const [smokeTestEmail, setSmokeTestEmail] = useState('');
-  const [smokeTestTemplate, setSmokeTestTemplate] = useState('price-drop');
-  const [smokeTestStatus, setSmokeTestStatus] = useState<{
-    preview: boolean;
-    send: boolean;
-    log: boolean;
-    error?: string;
-  }>({ preview: false, send: false, log: false });
-  const [isSmokeTestRunning, setIsSmokeTestRunning] = useState(false);
-
-  // Auto-refresh for logs
-  const [autoRefreshEnabled, setAutoRefreshEnabled] = useState(false);
 
   // Mock templates data
   const templates: EmailTemplate[] = [
