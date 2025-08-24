@@ -2559,9 +2559,8 @@ Respond with just the analysis text, no JSON needed.
   });
 
   // Import routes
-  app.use('/api/admin', adminDashboardRoutes);
   app.use('/api/admin', adminAuthRoutes);
-  
+
   // Admin email routes - mount at /api/admin for direct access
   console.log('🔧 Mounting admin email routes at /api/admin...');
   app.use('/api/admin', adminEmailRoutes);

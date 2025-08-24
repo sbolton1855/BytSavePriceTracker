@@ -17,13 +17,63 @@ interface Template {
   description: string;
 }
 
+interface EmailPreview {
+  subject: string;
+  html: string;
+}
+
+// API helpers with header-based auth
+const getEmailTemplates = async (token: string): Promise<Template[]> => {
+  const response = await fetch('/api/admin/email-templates', {
+    headers: { 'x-admin-token': token }
+  });
+  
+  if (!response.ok) {
+    const errorData = await response.json().catch(() => ({}));
+    throw new Error(errorData.error || `HTTP ${response.status}: Failed to load templates`);
+  }
+  
+  return response.json();
+};
+
+const getEmailPreview = async (id: string, token: string): Promise<EmailPreview> => {
+  const response = await fetch(`/api/admin/email/preview/${id}`, {
+    headers: { 'x-admin-token': token }
+  });
+  
+  if (!response.ok) {
+    const errorData = await response.json().catch(() => ({}));
+    throw new Error(errorData.error || 'Failed to preview template');
+  }
+  
+  return response.json();
+};
+
+const sendTestEmail = async (data: { email: string; templateId: string; data?: any }, token: string) => {
+  const response = await fetch('/api/admin/send-test-email', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'x-admin-token': token
+    },
+    body: JSON.stringify(data)
+  });
+  
+  if (!response.ok) {
+    const errorData = await response.json().catch(() => ({}));
+    throw new Error(errorData.error || `HTTP ${response.status}: Failed to send test email`);
+  }
+  
+  return response.json();
+};
+
 export default function AdminEmailTest() {
   const { toast } = useToast();
   
   // Email form state
   const [selectedTemplate, setSelectedTemplate] = useState('');
   const [testEmail, setTestEmail] = useState('');
-  const [previewHtml, setPreviewHtml] = useState('');
+  const [previewData, setPreviewData] = useState<EmailPreview | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   // Preview iframe ref
@@ -37,16 +87,7 @@ export default function AdminEmailTest() {
       if (!adminToken) {
         throw new Error('No admin token available');
       }
-
-      const response = await fetch(`/api/admin/email-templates?token=${encodeURIComponent(adminToken)}`);
-
-      if (!response.ok) {
-        const errorData = await response.json().catch(() => ({}));
-        throw new Error(errorData.error || `HTTP ${response.status}: Failed to load templates`);
-      }
-
-      const data = await response.json();
-      return data.templates || [];
+      return getEmailTemplates(adminToken);
     },
     enabled: !!AdminAuth.getToken(),
     retry: 2,
@@ -69,15 +110,8 @@ export default function AdminEmailTest() {
         throw new Error('No admin token available');
       }
 
-      const response = await fetch(`/api/admin/preview/${selectedTemplate}?token=${encodeURIComponent(adminToken)}`);
-
-      if (!response.ok) {
-        const errorData = await response.json().catch(() => ({}));
-        throw new Error(errorData.error || 'Failed to preview template');
-      }
-
-      const data = await response.json();
-      setPreviewHtml(data.previewHtml);
+      const preview = await getEmailPreview(selectedTemplate, adminToken);
+      setPreviewData(preview);
     } catch (error) {
       console.error('Preview failed:', error);
       toast({
@@ -107,24 +141,11 @@ export default function AdminEmailTest() {
         throw new Error('No admin token available');
       }
 
-      const response = await fetch('/api/admin/send-test-email', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          to: testEmail,
-          templateId: selectedTemplate,
-          token: adminToken
-        })
-      });
-
-      if (!response.ok) {
-        const errorData = await response.json().catch(() => ({}));
-        throw new Error(errorData.error || `HTTP ${response.status}: Failed to send test email`);
-      }
-
-      const result = await response.json();
+      const result = await sendTestEmail({
+        email: testEmail,
+        templateId: selectedTemplate
+      }, adminToken);
+      
       toast({
         title: "Success",
         description: result.message || "Test email sent successfully"
@@ -169,7 +190,7 @@ export default function AdminEmailTest() {
                   value={selectedTemplate} 
                   onValueChange={(value) => {
                     setSelectedTemplate(value);
-                    setPreviewHtml('');
+                    setPreviewData(null);
                   }}
                   disabled={isLoadingTemplates}
                 >
@@ -230,14 +251,16 @@ export default function AdminEmailTest() {
         <Card>
           <CardHeader>
             <CardTitle>Email Preview</CardTitle>
-            <CardDescription>Live preview of the selected template</CardDescription>
+            <CardDescription>
+              {previewData ? `Subject: ${previewData.subject}` : 'Live preview of the selected template'}
+            </CardDescription>
           </CardHeader>
           <CardContent>
-            {previewHtml ? (
+            {previewData ? (
               <div className="border rounded-lg overflow-hidden">
                 <iframe
                   ref={iframeRef}
-                  srcDoc={previewHtml}
+                  srcDoc={previewData.html}
                   className="w-full h-[400px]"
                   sandbox="allow-same-origin"
                 />
