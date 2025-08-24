@@ -1,4 +1,4 @@
-import { useState, useRef } from 'react';
+import { useState, useRef, useEffect } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -66,7 +66,7 @@ export default function AdminEmailCenter() {
         ...(typeFilter && { type: typeFilter })
       });
 
-      const response = await fetch(`/api/admin/email-logs?${params}`);
+      const response = await fetch(`/api/admin/logs?${params}`);
       if (!response.ok) {
         if (response.status === 403) {
           toast({ title: "Unauthorized", description: "Invalid admin token.", variant: "destructive" });
@@ -249,14 +249,14 @@ export default function AdminEmailCenter() {
 
     setLoadingState('genericTest', true);
     try {
-      const response = await fetch('/api/admin/test-email', {
+      const response = await fetch('/api/admin/email/test', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json'
         },
         body: JSON.stringify({
-          email: genericEmailForm.email,
-          adminToken: adminToken
+          to: genericEmailForm.email,
+          templateId: 'welcome'
         })
       });
 
