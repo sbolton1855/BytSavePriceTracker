@@ -452,6 +452,8 @@ const path = '/paapi5/searchitems';
 const service = 'ProductAdvertisingAPI';
 
 export async function searchAmazonProducts(keyword: string) {
+  console.log(`[DEBUG] searchAmazonProducts called with keyword: ${keyword}`);
+  
   const payload = {
     Keywords: keyword,
     Marketplace: 'www.amazon.com',
@@ -510,15 +512,47 @@ export async function searchAmazonProducts(keyword: string) {
   headersToSign['Authorization'] =
     `AWS4-HMAC-SHA256 Credential=${accessKey}/${credentialScope}, SignedHeaders=${signedHeaders}, Signature=${signature}`;
 
-  const { data } = await axios({
-    method: 'POST',
-    url: `https://${host}${path}`,
-    headers: headersToSign,
-    data: payloadJson,
-    transformRequest: [(data) => data]
-  });
+  console.log(`[DEBUG] Making Amazon PA-API request to: https://${host}${path}`);
+  console.log(`[DEBUG] Request headers:`, Object.keys(headersToSign));
 
-  return data.SearchResult?.Items || [];
+  try {
+    const response = await axios({
+      method: 'POST',
+      url: `https://${host}${path}`,
+      headers: headersToSign,
+      data: payloadJson,
+      transformRequest: [(data) => data],
+      validateStatus: () => true  // Don't throw on non-2xx status codes
+    });
+
+    console.log(`[DEBUG] Amazon PA-API response status: ${response.status}`);
+    console.log(`[DEBUG] Amazon PA-API response headers:`, response.headers['content-type']);
+    
+    // Log raw response for debugging
+    if (typeof response.data === 'string') {
+      console.log(`[DEBUG] Amazon returned string (likely HTML error): ${response.data.slice(0, 300)}...`);
+      throw new Error(`Amazon returned HTML instead of JSON. Status: ${response.status}`);
+    }
+
+    if (response.status !== 200) {
+      console.log(`[DEBUG] Amazon PA-API error response:`, response.data);
+      throw new Error(`Amazon PA-API returned status ${response.status}: ${JSON.stringify(response.data)}`);
+    }
+
+    const items = response.data.SearchResult?.Items || [];
+    console.log(`[DEBUG] Amazon PA-API returned ${items.length} items`);
+    
+    return items;
+  } catch (error: any) {
+    if (error.response) {
+      console.error(`[ERROR] Amazon PA-API HTTP error:`, error.response.status, error.response.data);
+    } else if (error.request) {
+      console.error(`[ERROR] Amazon PA-API network error:`, error.message);
+    } else {
+      console.error(`[ERROR] Amazon PA-API error:`, error.message);
+    }
+    throw error;
+  }
 }
 
 export {

@@ -29,11 +29,13 @@ router.get('/health', (req: Request, res: Response) => {
 });
 
 // Mount route modules - SINGLE MOUNTS ONLY
+console.log('>>> [DEBUG] Mounting routes...');
 router.use('/admin/auth', adminAuthRoutes);
 router.use('/admin', adminEmailRoutes);  // Single mount for all admin email routes
 router.use('/admin/tools', adminToolsRoutes);
 router.use('/admin/force-alerts', adminForceAlertsRoutes);
 router.use('/amazon', amazonRoutes);
+console.log('>>> [DEBUG] Amazon routes mounted at /amazon');
 router.use('/deals', dealsRoutes);
 router.use('/affiliate', affiliateRoutes);
 router.use('/analytics', analyticsRoutes);

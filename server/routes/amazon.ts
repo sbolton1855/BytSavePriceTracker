@@ -32,11 +32,22 @@ router.get('/amazon/deals', async (req, res) => {
   const keyword = req.query.q?.toString() || getRandomKeyword();
   console.log(`[DEBUG] /api/amazon/deals endpoint hit with keyword: ${keyword}`);
 
+  // Ensure we always send JSON response
+  res.setHeader('Content-Type', 'application/json');
+
   try {
+    console.log('[DEBUG] About to call searchAmazonProducts...');
     const items = await searchAmazonProducts(keyword);
+    console.log(`[DEBUG] searchAmazonProducts returned ${items ? items.length : 'null'} items`);
 
     // Log raw Amazon response for inspection
-    console.log('[DEBUG] Raw items from Amazon:', JSON.stringify(items, null, 2));
+    if (items && items.length > 0) {
+      console.log('[DEBUG] First item from Amazon:', JSON.stringify(items[0], null, 2));
+    } else {
+      console.log('[DEBUG] No items returned from Amazon, using fallback');
+      const fallbackDeals = await getFallbackDeals();
+      return res.json({ deals: fallbackDeals });
+    }
 
     const deals = items.filter((item: any) => {
       const price = item?.Offers?.Listings?.[0]?.Price?.Amount;
@@ -64,16 +75,24 @@ router.get('/amazon/deals', async (req, res) => {
       };
     });
 
+    console.log(`[DEBUG] Processed ${deals.length} deals, sending response`);
     res.json({ deals });
   } catch (err: any) {
-    console.error('[ERROR] Failed to fetch deals from Amazon:', err.message);
-    // If searchAmazonProducts fails, use the fallback deals
-    if (err.message.includes('InvalidParameterValue')) { // Example specific error check
-      console.log('[INFO] Using fallback deals due to InvalidParameterValue error.');
+    console.error('[ERROR] Failed to fetch deals from Amazon:', err);
+    console.error('[ERROR] Error stack:', err.stack);
+    
+    // Always return JSON, never let it fall through to HTML error pages
+    try {
       const fallbackDeals = await getFallbackDeals();
+      console.log('[INFO] Using fallback deals due to error:', err.message);
       res.json({ deals: fallbackDeals });
-    } else {
-      res.status(500).json({ error: 'Failed to fetch deals' });
+    } catch (fallbackErr: any) {
+      console.error('[ERROR] Even fallback failed:', fallbackErr);
+      res.status(500).json({ 
+        error: 'Failed to fetch deals', 
+        details: err.message,
+        fallbackError: fallbackErr.message 
+      });
     }
   }
 });
