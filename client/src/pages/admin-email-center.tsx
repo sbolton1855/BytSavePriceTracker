@@ -128,7 +128,7 @@ export default function AdminEmailCenter() {
       const token = AdminAuth.getToken();
       if (!token) {
         toast({ title: "Unauthorized", description: "Invalid admin token.", variant: "destructive" });
-        return { items: [], total: 0, page: 1, pageSize: 20 };
+        return { logs: [], total: 0, page: 1, pageSize: 20, totalPages: 1 };
       }
 
       const params = new URLSearchParams({
@@ -138,30 +138,47 @@ export default function AdminEmailCenter() {
         ...(typeFilter && typeFilter !== 'all' && { isTest: typeFilter === 'test' ? 'true' : 'false' })
       });
 
-      const response = await fetch(`/api/admin/email-logs?${params}`, {
-        headers: {
-          'x-admin-token': token
+      try {
+        const response = await fetch(`/api/admin/email-logs?${params}`, {
+          headers: {
+            'x-admin-token': token
+          }
+        });
+        
+        if (!response.ok) {
+          const errorText = await response.text();
+          console.error('[email-logs] fetch failed:', response.status, errorText);
+          
+          if (response.status === 403) {
+            toast({ title: "Unauthorized", description: "Invalid admin token.", variant: "destructive" });
+            AdminAuth.clearToken();
+          } else {
+            console.error('[email-logs] non-200 response:', response.status, errorText);
+            // Don't show error toast for non-200, just return empty
+          }
+          
+          return { logs: [], total: 0, page: 1, pageSize: 20, totalPages: 1 };
         }
-      });
-      
-      if (!response.ok) {
-        if (response.status === 403) {
-          toast({ title: "Unauthorized", description: "Invalid admin token.", variant: "destructive" });
-          AdminAuth.clearToken();
-        } else {
-          toast({ title: "Error", description: "Failed to fetch email logs.", variant: "destructive" });
+        
+        const data = await response.json();
+        
+        // Handle fallback response
+        if (data.note === 'fallback_empty_due_to_error') {
+          console.log('[email-logs] received fallback response due to server error');
         }
-        throw new Error('Failed to fetch email logs');
+        
+        return {
+          logs: data.items || [],
+          total: data.total || 0,
+          page: data.page || 1,
+          pageSize: data.pageSize || 20,
+          totalPages: Math.ceil((data.total || 0) / (data.pageSize || 20))
+        };
+      } catch (error) {
+        console.error('[email-logs] fetch error:', error);
+        // Don't throw - return empty results to prevent UI crash
+        return { logs: [], total: 0, page: 1, pageSize: 20, totalPages: 1 };
       }
-      
-      const data = await response.json();
-      return {
-        logs: data.items || [],
-        total: data.total || 0,
-        page: data.page || 1,
-        pageSize: data.pageSize || 20,
-        totalPages: Math.ceil((data.total || 0) / (data.pageSize || 20))
-      };
     },
     enabled: activeSubTab === 'logs' && AdminAuth.getToken() !== null,
   });

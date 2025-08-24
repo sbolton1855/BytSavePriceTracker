@@ -27,7 +27,39 @@ export async function logEmail(data: EmailLogData) {
     console.log('[email-log] logged:', { id: result.id, to: data.to, subject: data.subject });
     return result;
   } catch (error) {
-    console.error('[email-log] failed:', { error: error.message, data });
-    throw error;
+    console.error('[email-log] failed, trying memory fallback:', { error: error.message, data });
+    
+    // Fallback to in-memory storage
+    try {
+      const memoryLog = {
+        id: Date.now(),
+        to: data.to,
+        templateId: data.templateId,
+        subject: data.subject,
+        status: data.status || 'success',
+        isTest: data.isTest || false,
+        previewHtml: data.previewHtml,
+        meta: data.meta,
+        createdAt: new Date().toISOString()
+      };
+      
+      // Store in app.locals if available (will be set by the route handler)
+      if (global.app?.locals) {
+        if (!global.app.locals.emailLogs) {
+          global.app.locals.emailLogs = [];
+        }
+        global.app.locals.emailLogs.unshift(memoryLog);
+        // Keep only last 100 entries in memory
+        if (global.app.locals.emailLogs.length > 100) {
+          global.app.locals.emailLogs = global.app.locals.emailLogs.slice(0, 100);
+        }
+      }
+      
+      console.log('[email-log] memory fallback logged:', { id: memoryLog.id, to: data.to, subject: data.subject });
+      return memoryLog;
+    } catch (memoryError) {
+      console.error('[email-log] memory fallback also failed:', memoryError);
+      throw error; // Throw original DB error
+    }
   }
 }

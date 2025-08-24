@@ -233,7 +233,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     res.sendFile(path.join(__dirname, '../client/index.html'));
   });
 
-  
+
 
   // Force price drop alerts (admin only)
   app.post('/api/dev/force-alerts', async (req, res) => {
@@ -2526,10 +2526,8 @@ Respond with just the analysis text, no JSON needed.
   // Import routes
   app.use('/api/admin', adminAuthRoutes);
 
-  // Admin email routes - mount at /api/admin for direct access
-  console.log('🔧 Mounting admin email routes at /api/admin...');
+  // Admin routes - email center (includes /api/admin/email-logs)
   app.use('/api/admin', adminEmailRoutes);
-  console.log('✅ Admin email routes mounted successfully');
 
   app.use('/api/admin', adminToolsRoutes);
 

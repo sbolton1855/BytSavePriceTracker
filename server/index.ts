@@ -12,6 +12,9 @@ import adminAuthRoutes from "./routes/adminAuth";
 import adminEmailRoutes from "./routes/adminEmail";
 import LiveDealsPreview from "@/components/LiveDealsPreview";
 const app = express();
+
+// Make app globally available for memory fallback
+(global as any).app = app;
 app.use(express.json());
 app.use(express.urlencoded({ extended: false }));
 
