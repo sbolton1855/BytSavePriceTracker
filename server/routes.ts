@@ -16,9 +16,9 @@ import { renderPriceDropTemplate } from "./emailTemplates";
 import { sendEmail } from "./sendEmail";
 import { emailLogs, users, products, trackedProducts } from "../shared/schema";
 import adminDashboardRoutes from './routes/analytics';
-import adminToolsRoutes from './routes/adminTools';
 import adminAuthRoutes from './routes/adminAuth';
 import adminEmailRoutes from './routes/adminEmail';
+import adminToolsRoutes from './routes/adminTools';
 import emailTestRoutes from './routes/emailTest';
 
 
@@ -330,6 +330,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
                   productId: record.products.id,
                   subject: `Price Drop Alert: ${emailData.productTitle}`,
                   previewHtml: emailHtml,
+                  sentAt: new Date(), // Add sentAt timestamp
                 });
 
                 emailsSent++;
@@ -1883,11 +1884,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
         'ALERT_TRIGGER_TOKEN'
       ];
 
-      const filteredEnvVars: Record<string, string> = {};
       const sensitiveVarsFound: string[] = [];
 
+      const filteredEnvVars: Record<string, string> = {};
       Object.keys(allEnvVars).forEach(key => {
-        if (sensitiveKeys.some(sensitive => key.includes(sensitive))) {
+        // Check if the key is considered sensitive
+        if (sensitiveKeys.some(sensitiveKey => key.toLowerCase().includes(sensitiveKey.toLowerCase()))) {
           sensitiveVarsFound.push(key);
           filteredEnvVars[key] = '[REDACTED]';
         } else {

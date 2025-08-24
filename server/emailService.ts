@@ -1,6 +1,8 @@
 
 import { sendEmail as sendGridEmail } from './email/sendgridService';
 import { addAffiliateTag } from './utils/affiliateLinks';
+import { db } from './db';
+import { emailLogs } from '@shared/schema';
 import type { Product, TrackedProduct } from '@shared/schema';
 
 // Default affiliate tag
@@ -89,6 +91,21 @@ async function sendPriceDropAlert(
     
     if (result.success) {
       console.log(`Price drop alert sent to ${to} via SendGrid - Message ID: ${result.messageId}`);
+      
+      // Log the email to database
+      try {
+        await db.insert(emailLogs).values({
+          recipientEmail: emailData.to,
+          subject: emailData.subject,
+          previewHtml: emailData.html,
+          sentAt: new Date(),
+          createdAt: new Date()
+        });
+        console.log(`Price drop alert logged to database for ${to}`);
+      } catch (logError) {
+        console.error('Failed to log price drop alert to database:', logError);
+      }
+      
       return true;
     } else {
       console.error(`Failed to send price drop alert via SendGrid: ${result.error}`);
@@ -114,6 +131,22 @@ async function sendEmail(options: EmailOptions): Promise<any> {
     
     if (result.success) {
       console.log(`Email sent to ${options.to} via SendGrid - Message ID: ${result.messageId}`);
+      
+      // Log the email to database
+      try {
+        await db.insert(emailLogs).values({
+          recipientEmail: options.to,
+          subject: options.subject,
+          previewHtml: options.html,
+          sentAt: new Date(),
+          createdAt: new Date()
+        });
+        console.log(`Email logged to database for ${options.to}`);
+      } catch (logError) {
+        console.error('Failed to log email to database:', logError);
+        // Don't fail the email send if logging fails
+      }
+      
       return { messageId: result.messageId };
     } else {
       throw new Error(result.error || 'SendGrid email failed');

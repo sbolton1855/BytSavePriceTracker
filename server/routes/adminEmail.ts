@@ -1,11 +1,11 @@
 import express from 'express';
 import { requireAdmin } from '../middleware/requireAdmin';
 import { csrfProtection } from '../middleware/adminSecurity';
-import { sendEmail } from '../emailService';
+import { sendEmail, createPriceDropEmail } from '../emailService';
 import { z } from 'zod';
-import { sql, desc, count, and } from 'drizzle-orm'; // Assuming you're using drizzle-orm and need these functions
-import { db } from '../db'; // Assuming you have a db instance initialized
-import { emailLogs, affiliateClicks } from '../../shared/schema'; // Import from correct schema location
+import { sql, desc, count, and, eq } from 'drizzle-orm';
+import { db } from '../db';
+import { emailLogs, affiliateClicks } from '../../shared/schema';
 
 const router = express.Router();
 
@@ -82,28 +82,42 @@ router.get('/preview/:templateId', (req, res) => {
     return res.status(404).json({ error: 'Template not found' });
   }
 
-  // Generate preview HTML based on template
   let previewHtml = '';
 
   switch (templateId) {
     case 'price-drop':
-      previewHtml = `
-        <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
-          <h2 style="color: #e74c3c;">🎉 Price Drop Alert!</h2>
-          <div style="border: 1px solid #ddd; padding: 20px; border-radius: 8px;">
-            <h3>${template.previewData.productTitle}</h3>
-            <p><strong>New Price:</strong> <span style="color: #e74c3c; font-size: 24px;">${template.previewData.currentPrice}</span></p>
-            <p><strong>Was:</strong> <span style="text-decoration: line-through;">${template.previewData.originalPrice}</span></p>
-            <p><strong>You Save:</strong> <span style="color: #27ae60; font-weight: bold;">${template.previewData.savings}</span></p>
-            <a href="${template.previewData.productUrl}" style="background-color: #3498db; color: white; padding: 12px 24px; text-decoration: none; border-radius: 4px; display: inline-block; margin-top: 15px;">
-              View Deal on Amazon
-            </a>
-          </div>
-          <p style="color: #666; font-size: 12px; margin-top: 20px;">This is a test email from BytSave Admin Panel.</p>
-          <hr style="margin: 20px 0; border: 0; border-top: 1px solid #eee;">
-          <p style="color: #999; font-size: 11px; font-style: italic;">${AFFILIATE_DISCLOSURE}</p>
-        </div>
-      `;
+      // Use the actual email service function to generate real template
+      const mockProduct = {
+        id: 1,
+        asin: 'B01DJGLYZQ',
+        title: template.previewData.productTitle,
+        url: template.previewData.productUrl,
+        imageUrl: 'https://m.media-amazon.com/images/I/41example.jpg',
+        currentPrice: 15.99,
+        originalPrice: 22.99,
+        lastChecked: new Date(),
+        lowestPrice: 15.99,
+        highestPrice: 22.99,
+        priceDropped: true,
+        createdAt: new Date(),
+        updatedAt: new Date(),
+        affiliateUrl: template.previewData.productUrl
+      };
+
+      const mockTrackedProduct = {
+        id: 1,
+        userId: '1',
+        email: 'admin@bytsave.com',
+        productId: 1,
+        targetPrice: 16.00,
+        percentageAlert: false,
+        percentageThreshold: null,
+        notified: false,
+        createdAt: new Date()
+      };
+
+      const emailData = createPriceDropEmail('admin@bytsave.com', mockProduct as any, mockTrackedProduct as any);
+      previewHtml = emailData.html;
       break;
     case 'welcome':
       previewHtml = `
