@@ -31,48 +31,67 @@ router.post('/send-test-email', requireAdmin, async (req, res) => {
     console.log('📤 Admin test email send requested:', { email, templateId });
 
     if (!email || !templateId) {
-      return res.status(400).json({ 
-        error: 'Missing required fields: email, templateId' 
+      return res.status(400).json({
+        error: 'Missing required fields: email, templateId'
       });
     }
 
-    const result = renderTemplate(templateId, data);
-    if (!result) {
+    const rendered = renderTemplate(templateId, data);
+    if (!rendered) {
       return res.status(404).json({ error: 'Template not found' });
     }
 
-    // Check if emailService is available
-    if (typeof sendEmail === 'function') {
-      await sendEmail({
+    let emailSent = false;
+    // Send the email
+    if (app.locals.emailService?.send) {
+      await app.locals.emailService.send({
         to: email,
-        subject: `[TEST] ${result.subject}`,
-        html: result.html,
-        templateId: templateId
+        from: 'alerts@bytsave.com',
+        subject: rendered.subject,
+        html: rendered.html
       });
-
-      console.log('✅ Test email sent successfully to:', email);
-      res.json({
-        success: true,
-        message: `Test email sent successfully to ${email}`
-      });
+      emailSent = true;
+      console.log(`✅ Test email sent to ${email} using template ${templateId}`);
     } else {
-      // Stub mode
-      console.log('📧 EMAIL STUB - Would send:', {
-        to: email,
-        subject: `[TEST] ${result.subject}`,
-        templateId: templateId,
-        htmlLength: result.html.length
-      });
-
-      res.json({
-        success: true,
-        message: `Test email rendered successfully (stub mode) for ${email}`
+      console.log(`📧 [STUB] Would send email to ${email}:`, {
+        subject: rendered.subject,
+        template: templateId
       });
     }
 
+    // Always log the email attempt to database
+    try {
+      const { db } = await import('../db');
+      const { emailLogs } = await import('../../shared/schema');
+      const emailLog = await db.insert(emailLogs).values({
+        toEmail: email,
+        fromEmail: 'alerts@bytsave.com',
+        subject: rendered.subject,
+        body: rendered.html,
+        templateId: templateId,
+        status: emailSent ? 'sent' : 'stubbed',
+        sentAt: new Date(),
+        metadata: JSON.stringify({
+          templateData: data || {},
+          adminTest: true,
+          emailService: emailSent ? 'sendgrid' : 'stub'
+        })
+      }).returning();
+
+      console.log(`📋 Email logged to database:`, emailLog[0]);
+    } catch (logError) {
+      console.error('❌ Failed to log email to database:', logError);
+    }
+
+    res.json({
+      success: true,
+      message: emailSent ? 'Test email sent successfully' : 'Email service not configured - stub mode',
+      logged: true
+    });
+
   } catch (error) {
     console.error('❌ Send test email error:', error);
-    res.status(500).json({ 
+    res.status(500).json({
       error: 'Failed to send test email',
       details: error instanceof Error ? error.message : 'Unknown error'
     });
