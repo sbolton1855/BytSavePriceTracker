@@ -43,7 +43,7 @@ export default function AdminEmailLogs() {
         ...(emailFilter && { email: emailFilter })
       });
 
-      const response = await fetch(`/admin/email-logs?${params}`);
+      const response = await fetch(`/api/admin/logs?${params}`);
       if (!response.ok) {
         throw new Error('Failed to fetch email logs');
       }
