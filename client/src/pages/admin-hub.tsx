@@ -208,7 +208,6 @@ export default function AdminHub() {
           </div>
         </CardContent>
       </Card>
-    </div>
     </AdminLayout>
   );
 }
