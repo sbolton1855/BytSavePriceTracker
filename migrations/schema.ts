@@ -71,15 +71,16 @@ export const affiliateClicks = pgTable("affiliate_clicks", {
 export const emailLogs = pgTable('email_logs', {
   id: serial('id').primaryKey(),
   to: varchar('to', { length: 255 }).notNull(),
-  templateId: varchar('template_id', { length: 100 }),
+  recipientEmail: varchar('recipient_email', { length: 255 }),
   subject: varchar('subject', { length: 500 }).notNull(),
-  status: varchar('status', { length: 20 }).default('success'),
-  isTest: boolean('is_test').default(false),
+  templateId: varchar('template_id', { length: 100 }),
+  status: varchar('status', { length: 50 }).notNull().default('sent'),
+  isTest: boolean('is_test').notNull().default(false),
   previewHtml: text('preview_html'),
-  meta: json('meta'),
+  meta: text('meta'),
+  error: text('error'),
+  provider: varchar('provider', { length: 50 }).default('fallback'),
+  sgMessageId: varchar('sg_message_id', { length: 255 }),
+  logId: varchar('log_id', { length: 255 }),
   createdAt: timestamp('created_at').defaultNow().notNull(),
-}, (table) => ({
-  toIdx: index('email_logs_to_idx').on(table.to),
-  createdAtIdx: index('email_logs_created_at_idx').on(table.createdAt),
-  isTestIdx: index('email_logs_is_test_idx').on(table.isTest),
-}));
+});

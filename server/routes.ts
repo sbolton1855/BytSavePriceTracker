@@ -21,6 +21,7 @@ import adminEmailRoutes from './routes/adminEmail';
 import adminToolsRoutes from './routes/adminTools';
 import emailTestRoutes from './routes/emailTest';
 import adminForceAlertsRoutes from './routes/adminForceAlerts';
+import sendgridWebhookRoutes from './routes/sendgridWebhook';
 
 
 const AFFILIATE_TAG = process.env.AMAZON_PARTNER_TAG || 'bytsave-20';
@@ -2545,6 +2546,9 @@ Respond with just the analysis text, no JSON needed.
 
   // Mount force alerts route
   app.use('/api/admin', adminForceAlertsRoutes);
+
+  // SendGrid webhook routes
+  app.use('/api/sendgrid', sendgridWebhookRoutes);
 
   app.use('/api', amazonRouter);
   // console.log(">>> [DEBUG] Registered amazonRouter at /api");

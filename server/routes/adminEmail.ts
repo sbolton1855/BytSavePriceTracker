@@ -7,6 +7,7 @@ import { eq, desc, and, like, count } from 'drizzle-orm';
 
 // Import actual templates from templates.ts
 import { getEmailTemplate, getAllEmailTemplates, renderTemplate as renderTemplateFromModule } from '../email/templates';
+import sendgridTemplatesRoutes from './sendgridTemplates';
 
 const renderTemplate = (templateId: string, data?: Record<string, any>) => {
   const result = renderTemplateFromModule(templateId, data);
@@ -118,18 +119,18 @@ router.post('/send-test-email', requireAdmin, async (req: Request, res: Response
       return res.status(400).json({ error: 'Template ID and recipient email are required' });
     }
 
-    // Import emailService
-    const { emailService } = await import('../email/service');
+    // Import new SendGrid service
+    const { sendTemplate } = await import('../email/service');
 
-    // Send test email using centralized service
-    const result = await emailService.sendTemplate({
+    // Send test email using centralized SendGrid service
+    const result = await sendTemplate({
       to,
       templateId,
-      data: data,
+      data: data || {},
       isTest: true,
       meta: { 
         path: 'admin-test',
-        adminUser: 'admin' // Could be enhanced with actual admin user info
+        adminUser: 'admin'
       }
     });
 
@@ -140,12 +141,16 @@ router.post('/send-test-email', requireAdmin, async (req: Request, res: Response
         success: true, 
         message: `Test email for template '${templateId}' sent successfully`,
         messageId: result.messageId,
+        sgMessageId: result.sgMessageId,
+        logId: result.logId,
+        provider: result.provider,
         timestamp: new Date().toISOString()
       });
     } else {
       res.status(500).json({ 
         error: 'Failed to send test email',
-        details: result.error 
+        details: result.error,
+        provider: result.provider
       });
     }
   } catch (error) {
@@ -295,5 +300,8 @@ router.post('/email-selftest', requireAdmin, async (req: Request, res: Response)
     res.status(500).json({ ok: false, error: 'Failed to send self-test email' });
   }
 });
+
+// Mount SendGrid template management routes
+router.use('/sendgrid', sendgridTemplatesRoutes);
 
 export default router;
