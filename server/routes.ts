@@ -14,7 +14,7 @@ import amazonRouter from './routes/amazon';
 import { eq, sql, desc } from "drizzle-orm";
 import { renderPriceDropTemplate } from "./emailTemplates";
 import { sendEmail } from "./sendEmail";
-import { emailLogs, users, products, trackedProducts as productTracking } from "../shared/schema";
+import { emailLogs, users, products, trackedProducts } from "../shared/schema";
 import adminDashboardRoutes from './routes/analytics';
 import adminToolsRoutes from './routes/adminTools';
 import adminAuthRoutes from './routes/adminAuth';
@@ -193,7 +193,20 @@ export async function registerRoutes(app: Express): Promise<Server> {
     res.sendFile(path.join(__dirname, '../client/forgot-password.html'));
   });
 
-  // Removed problematic admin email test route - using React component instead
+  // Admin Force Alerts Page
+  app.get('/admin/force-alerts', (req: Request, res: Response) => {
+    res.sendFile(path.join(__dirname, '../client/index.html'));
+  });
+
+  // Admin Email Logs Page
+  app.get('/admin/email-logs', (req: Request, res: Response) => {
+    res.sendFile(path.join(__dirname, '../client/index.html'));
+  });
+
+  // Admin Products Page
+  app.get('/admin/products', (req: Request, res: Response) => {
+    res.sendFile(path.join(__dirname, '../client/index.html'));
+  });
 
   // Admin email logs route
   app.get('/admin/email-logs', async (req, res) => {
@@ -353,18 +366,18 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       // Validate admin token
       if (!token || token !== process.env.ADMIN_SECRET) {
-        return res.status(403).json({ 
-          success: false, 
-          error: 'Unauthorized: Invalid admin token' 
+        return res.status(403).json({
+          success: false,
+          error: 'Unauthorized: Invalid admin token'
         });
       }
 
       // Validate tracked product ID
       const trackedProductId = parseInt(id, 10);
       if (isNaN(trackedProductId)) {
-        return res.status(400).json({ 
-          success: false, 
-          error: 'Invalid tracked product ID' 
+        return res.status(400).json({
+          success: false,
+          error: 'Invalid tracked product ID'
         });
       }
 
@@ -376,9 +389,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
         .limit(1);
 
       if (trackedProduct.length === 0) {
-        return res.status(404).json({ 
-          success: false, 
-          error: `Tracked product with ID ${trackedProductId} not found` 
+        return res.status(404).json({
+          success: false,
+          error: `Tracked product with ID ${trackedProductId} not found`
         });
       }
 
@@ -386,9 +399,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const product = trackedProduct[0].products;
 
       if (!product) {
-        return res.status(404).json({ 
-          success: false, 
-          error: 'Associated product not found' 
+        return res.status(404).json({
+          success: false,
+          error: 'Associated product not found'
         });
       }
 
@@ -686,7 +699,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       let product = await storage.getProductByAsin(productAsin);
 
       if (!product) {
-        // console.log('[ROUTE] Product not in database, fetching from Amazon API');
+        // console.log('[ROUTE] Product not in DB, fetching from Amazon API');
         // If not found in DB, try to fetch from Amazon API
         try {
           const amazonProduct = await getProductInfo(productAsin);
@@ -1714,7 +1727,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       console.log('🔔 Manual daily alerts job triggered via API');
       console.log('📊 Checking for price drop alerts...');
-      
+
       const startTime = new Date();
       const alertCount = await processPriceAlerts();
       const endTime = new Date();
@@ -2308,12 +2321,222 @@ Respond with just the analysis text, no JSON needed.
     }
   });
 
+  // Get email logs for admin
+  app.get('/api/admin/logs', async (req: Request, res: Response) => {
+    const { token } = req.query;
+
+    if (!token || token !== process.env.ADMIN_SECRET) {
+      return res.status(403).json({ error: 'Unauthorized' });
+    }
+
+    try {
+      const logs = await db.select().from(emailLogs)
+        .orderBy(desc(emailLogs.sentAt))
+        .limit(100);
+
+      res.json(logs);
+    } catch (error) {
+      console.error('Error fetching email logs:', error);
+      res.status(500).json({ error: 'Failed to fetch email logs' });
+    }
+  });
+
+  // Get all tracked products for admin
+  app.get('/api/admin/products', async (req: Request, res: Response) => {
+    const { token } = req.query;
+
+    if (!token || token !== process.env.ADMIN_SECRET) {
+      return res.status(403).json({ error: 'Unauthorized' });
+    }
+
+    try {
+      const trackedProductsList = await db
+        .select({
+          id: trackedProducts.id,
+          userId: trackedProducts.userId,
+          email: trackedProducts.email,
+          productId: trackedProducts.productId,
+          targetPrice: trackedProducts.targetPrice,
+          percentageAlert: trackedProducts.percentageAlert,
+          percentageThreshold: trackedProducts.percentageThreshold,
+          notified: trackedProducts.notified,
+          createdAt: trackedProducts.createdAt,
+          product: {
+            id: products.id,
+            asin: products.asin,
+            title: products.title,
+            url: products.url,
+            imageUrl: products.imageUrl,
+            currentPrice: products.currentPrice,
+            originalPrice: products.originalPrice,
+            lastChecked: products.lastChecked,
+            lowestPrice: products.lowestPrice,
+            highestPrice: products.highestPrice,
+            priceDropped: products.priceDropped,
+            createdAt: products.createdAt,
+            updatedAt: products.updatedAt
+          }
+        })
+        .from(trackedProducts)
+        .leftJoin(products, eq(trackedProducts.productId, products.id))
+        .orderBy(desc(trackedProducts.createdAt));
+
+      console.log(`Admin: Retrieved ${trackedProductsList.length} tracked products`);
+      res.json(trackedProductsList);
+    } catch (error) {
+      console.error('Error fetching tracked products for admin:', error);
+      res.status(500).json({ error: 'Failed to fetch tracked products' });
+    }
+  });
+
+  // Reset notified status for a tracked product
+  app.post('/api/admin/products/:id/reset-notified', async (req: Request, res: Response) => {
+    const { token } = req.query;
+    const { id } = req.params;
+
+    if (!token || token !== process.env.ADMIN_SECRET) {
+      return res.status(403).json({ error: 'Unauthorized' });
+    }
+
+    try {
+      const productId = parseInt(id, 10);
+      if (isNaN(productId)) {
+        return res.status(400).json({ error: 'Invalid product ID' });
+      }
+
+      const updated = await db
+        .update(trackedProducts)
+        .set({ notified: false })
+        .where(eq(trackedProducts.id, productId))
+        .returning();
+
+      if (updated.length === 0) {
+        return res.status(404).json({ error: 'Tracked product not found' });
+      }
+
+      console.log(`Admin: Reset notification status for tracked product ${productId}`);
+      res.json({
+        success: true,
+        message: 'Notification status reset successfully',
+        data: updated[0]
+      });
+    } catch (error) {
+      console.error('Error resetting notification status:', error);
+      res.status(500).json({ error: 'Failed to reset notification status' });
+    }
+  });
+
+  // Force alert for a tracked product
+  app.post('/api/admin/products/:id/force-alert', async (req: Request, res: Response) => {
+    const { token } = req.query;
+    const { id } = req.params;
+
+    if (!token || token !== process.env.ADMIN_SECRET) {
+      return res.status(403).json({ error: 'Unauthorized' });
+    }
+
+    try {
+      const productId = parseInt(id, 10);
+      if (isNaN(productId)) {
+        return res.status(400).json({ error: 'Invalid product ID' });
+      }
+
+      // Get the tracked product with product details
+      const trackedProduct = await db
+        .select({
+          id: trackedProducts.id,
+          userId: trackedProducts.userId,
+          email: trackedProducts.email,
+          productId: trackedProducts.productId,
+          targetPrice: trackedProducts.targetPrice,
+          percentageAlert: trackedProducts.percentageAlert,
+          percentageThreshold: trackedProducts.percentageThreshold,
+          notified: trackedProducts.notified,
+          createdAt: trackedProducts.createdAt,
+          product: {
+            id: products.id,
+            asin: products.asin,
+            title: products.title,
+            url: products.url,
+            imageUrl: products.imageUrl,
+            currentPrice: products.currentPrice,
+            originalPrice: products.originalPrice,
+            lastChecked: products.lastChecked,
+            lowestPrice: products.lowestPrice,
+            highestPrice: products.highestPrice,
+            priceDropped: products.priceDropped,
+            createdAt: products.createdAt,
+            updatedAt: products.updatedAt
+          }
+        })
+        .from(trackedProducts)
+        .leftJoin(products, eq(trackedProducts.productId, products.id))
+        .where(eq(trackedProducts.id, productId))
+        .limit(1);
+
+      if (trackedProduct.length === 0) {
+        return res.status(404).json({ error: 'Tracked product not found' });
+      }
+
+      const item = trackedProduct[0];
+      if (!item.product) {
+        return res.status(404).json({ error: 'Associated product not found' });
+      }
+
+      // Force trigger the alert by simulating a price drop
+      try {
+        console.log(`Admin: Force triggering alert for product ${item.product.asin} (tracked product ${productId})`);
+
+        // Import emailService dynamically to avoid circular dependencies
+        const emailService = await import('./emailService');
+
+        // Calculate savings
+        const originalPrice = item.product.originalPrice || item.product.currentPrice;
+        const savings = originalPrice - item.product.currentPrice;
+        const savingsPercentage = Math.round((savings / originalPrice) * 100);
+
+        await emailService.sendPriceDropAlert({
+          email: item.email,
+          productTitle: item.product.title,
+          asin: item.product.asin,
+          oldPrice: originalPrice,
+          newPrice: item.product.currentPrice,
+          targetPrice: item.targetPrice,
+          savings: `$${savings.toFixed(2)} (${savingsPercentage}%)`,
+          productUrl: addAffiliateTag(item.product.url, AFFILIATE_TAG),
+          imageUrl: item.product.imageUrl || undefined
+        });
+
+        // Mark as notified
+        await db
+          .update(trackedProducts)
+          .set({ notified: true })
+          .where(eq(trackedProducts.id, productId));
+
+        console.log(`Admin: Force alert sent successfully for product ${item.product.asin}`);
+        res.json({
+          success: true,
+          message: `Force alert sent to ${item.email} for ${item.product.title}`
+        });
+      } catch (emailError) {
+        console.error('Error sending force alert email:', emailError);
+        res.status(500).json({
+          error: 'Failed to send alert email',
+          details: emailError instanceof Error ? emailError.message : 'Unknown error'
+        });
+      }
+    } catch (error) {
+      console.error('Error forcing alert:', error);
+      res.status(500).json({ error: 'Failed to force alert' });
+    }
+  });
+
   // Import routes
   app.use('/api/admin', adminDashboardRoutes);
   app.use('/api/admin', adminAuthRoutes);
   app.use('/api/admin', adminEmailRoutes);
   app.use('/api/admin', adminToolsRoutes);
-  
+
   // Admin affiliate routes
   const adminAffiliateRoutes = await import('./routes/adminAffiliate');
   app.use('/api/admin/affiliate', adminAffiliateRoutes.default);

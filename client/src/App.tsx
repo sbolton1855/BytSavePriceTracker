@@ -23,6 +23,7 @@ import AdminEmailLogs from "@/pages/admin-email-logs";
 import AdminForceAlerts from "@/pages/admin-force-alerts";
 import AdminEmailCenter from "@/pages/admin-email-center";
 import AdminHub from "@/pages/admin-hub";
+import AdminProducts from "./pages/admin-products";
 
 function Router() {
   return (
@@ -47,6 +48,9 @@ function Router() {
       </Route>
       <Route path="/admin/email-center">
         <AdminEmailCenter />
+      </Route>
+      <Route path="/admin/products">
+        <AdminProducts />
       </Route>
       <Route path="/admin">
         <AdminHub />

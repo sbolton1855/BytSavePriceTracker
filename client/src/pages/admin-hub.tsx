@@ -1,4 +1,3 @@
-
 import { useState } from "react";
 import { Link } from "wouter";
 import { Button } from "@/components/ui/button";
@@ -16,7 +15,8 @@ import {
   FileText,
   Activity,
   Shield,
-  Zap
+  Zap,
+  Package
 } from "lucide-react";
 
 export default function AdminHub() {
@@ -222,6 +222,27 @@ export default function AdminHub() {
           <p className="text-sm text-green-600 mt-1">
             All admin tools are accessible and functioning normally.
           </p>
+        </CardContent>
+      </Card>
+
+      {/* New Section: Products Management */}
+      <Card className="mt-8">
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <Package className="h-5 w-5" />
+            Products Management
+          </CardTitle>
+          <CardDescription>View and manage all tracked products</CardDescription>
+        </CardHeader>
+        <CardContent>
+          <div className="flex flex-wrap gap-3">
+            <Button variant="outline" asChild>
+              <Link href={`/admin/products?token=${adminToken}`}>
+                <Package className="h-4 w-4 mr-2" />
+                Manage Products
+              </Link>
+            </Button>
+          </div>
         </CardContent>
       </Card>
     </div>
