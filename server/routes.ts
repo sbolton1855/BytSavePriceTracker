@@ -215,4 +215,9 @@ router.delete('/user/alerts/:alertId', requireAdmin, async (req: Request, res: R
   }
 });
 
+export function registerRoutes(app: any) {
+  app.use('/api', router);
+  return app;
+}
+
 export default router;
