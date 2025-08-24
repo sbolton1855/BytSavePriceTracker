@@ -20,6 +20,7 @@ import adminAuthRoutes from './routes/adminAuth';
 import adminEmailRoutes from './routes/adminEmail';
 import adminToolsRoutes from './routes/adminTools';
 import emailTestRoutes from './routes/emailTest';
+import adminForceAlertsRoutes from './routes/adminForceAlerts';
 
 
 const AFFILIATE_TAG = process.env.AMAZON_PARTNER_TAG || 'bytsave-20';
@@ -2541,6 +2542,9 @@ Respond with just the analysis text, no JSON needed.
   // Affiliate redirect routes
   const affiliateRoutes = await import('./routes/affiliate');
   app.use('/', affiliateRoutes.default);
+
+  // Mount force alerts route
+  app.use('/api/admin', adminForceAlertsRoutes);
 
   app.use('/api', amazonRouter);
   // console.log(">>> [DEBUG] Registered amazonRouter at /api");

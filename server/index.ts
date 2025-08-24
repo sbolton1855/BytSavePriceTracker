@@ -13,6 +13,9 @@ import adminEmailRoutes from "./routes/adminEmail";
 import LiveDealsPreview from "@/components/LiveDealsPreview";
 const app = express();
 
+// Make app available for email logging fallback
+module.exports = { app };
+
 // Make app globally available for memory fallback
 (global as any).app = app;
 app.use(express.json());

@@ -124,40 +124,38 @@ router.post('/send-test-email', requireAdmin, async (req: Request, res: Response
       return res.status(400).json({ error: 'Template ID and recipient email are required' });
     }
 
-    // Log the test email
-    await logEmail({
+    // Import emailService
+    const { emailService } = await import('../email/service');
+
+    // Send test email using centralized service
+    const result = await emailService.sendTemplate({
       to,
       templateId,
-      subject: `Test Email - ${templateId}`,
-      status: 'sent',
+      data: testData,
       isTest: true,
-      meta: { testData }
+      meta: { 
+        path: 'test',
+        adminUser: 'admin' // Could be enhanced with actual admin user info
+      }
     });
 
-    console.log(`[admin-email] Test email logged for template ${templateId} to ${to}`);
+    console.log(`[admin-email] Test email sent for template ${templateId} to ${to}:`, result.success);
 
-    res.json({ 
-      success: true, 
-      message: `Test email for template '${templateId}' logged successfully`,
-      timestamp: new Date().toISOString()
-    });
+    if (result.success) {
+      res.json({ 
+        success: true, 
+        message: `Test email for template '${templateId}' sent successfully`,
+        messageId: result.messageId,
+        timestamp: new Date().toISOString()
+      });
+    } else {
+      res.status(500).json({ 
+        error: 'Failed to send test email',
+        details: result.error 
+      });
+    }
   } catch (error) {
     console.error('[admin-email] Test email failed:', error);
-
-    // Log the failed attempt
-    try {
-      await logEmail({
-        to: req.body.to || 'unknown',
-        templateId: req.body.templateId || 'unknown',
-        subject: 'Test Email - Failed',
-        status: 'failed',
-        isTest: true,
-        meta: { error: error instanceof Error ? error.message : 'Unknown error' }
-      });
-    } catch (logError) {
-      console.error('[admin-email] Failed to log test email error:', logError);
-    }
-
     res.status(500).json({ error: 'Failed to send test email' });
   }
 });
@@ -172,8 +170,8 @@ router.get('/email-logs', requireAdmin, async (req: Request, res: Response) => {
   try {
     const page = parseInt(req.query.page as string) || 1;
     const pageSize = Math.min(parseInt(req.query.pageSize as string) || 25, 100);
-    const status = req.query.status as string;
-    const isTest = req.query.isTest as string;
+    const status = req.query.status as string; // sent|failed|stubbed|all (default all)
+    const isTest = req.query.isTest as string; // true|false|all (default all)
     const to = req.query.to as string;
     const templateId = req.query.templateId as string;
 
@@ -252,6 +250,55 @@ router.get('/email-logs', requireAdmin, async (req: Request, res: Response) => {
       total: 0,
       note: 'fallback_empty_due_to_error'
     });
+  }
+});
+
+// Email self-test endpoint
+router.post('/email-selftest', requireAdmin, async (req: Request, res: Response) => {
+  try {
+    const { to } = req.body;
+
+    if (!to) {
+      return res.status(400).json({ error: 'Recipient email is required' });
+    }
+
+    // Import emailService
+    const { emailService } = await import('../email/service');
+
+    // Send self-test email (non-test)
+    const result = await emailService.sendTemplate({
+      to,
+      templateId: 'selftest',
+      data: {
+        timestamp: new Date().toISOString(),
+        environment: process.env.NODE_ENV || 'development'
+      },
+      isTest: false, // This is a real operational test
+      meta: { 
+        path: 'selftest',
+        adminUser: 'admin'
+      }
+    });
+
+    console.log(`[admin-email] Self-test email sent to ${to}:`, result.success);
+
+    if (result.success) {
+      res.json({ 
+        ok: true,
+        message: `Self-test email sent successfully`,
+        messageId: result.messageId,
+        timestamp: new Date().toISOString()
+      });
+    } else {
+      res.status(500).json({ 
+        ok: false,
+        error: 'Failed to send self-test email',
+        details: result.error 
+      });
+    }
+  } catch (error) {
+    console.error('[admin-email] Self-test email failed:', error);
+    res.status(500).json({ ok: false, error: 'Failed to send self-test email' });
   }
 });
 

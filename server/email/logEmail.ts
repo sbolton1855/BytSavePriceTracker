@@ -43,15 +43,16 @@ export async function logEmail(data: EmailLogData) {
         createdAt: new Date().toISOString()
       };
       
-      // Store in app.locals if available (will be set by the route handler)
-      if (global.app?.locals) {
-        if (!global.app.locals.emailLogs) {
-          global.app.locals.emailLogs = [];
+      // Store in app.locals if available
+      const app = require('../index').app;
+      if (app?.locals) {
+        if (!app.locals.emailLogs) {
+          app.locals.emailLogs = [];
         }
-        global.app.locals.emailLogs.unshift(memoryLog);
+        app.locals.emailLogs.unshift(memoryLog);
         // Keep only last 100 entries in memory
-        if (global.app.locals.emailLogs.length > 100) {
-          global.app.locals.emailLogs = global.app.locals.emailLogs.slice(0, 100);
+        if (app.locals.emailLogs.length > 100) {
+          app.locals.emailLogs = app.locals.emailLogs.slice(0, 100);
         }
       }
       
