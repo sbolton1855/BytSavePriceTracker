@@ -155,10 +155,16 @@ router.get('/templates', (req, res) => {
   res.json({ templates });
 });
 
-// GET /api/admin/email/preview/:templateId
+// GET /api/admin/preview/:templateId
 router.get('/preview/:templateId', (req, res) => {
   const { token } = req.query;
   const { templateId } = req.params;
+  
+  console.log('=== PREVIEW REQUEST DEBUG ===');
+  console.log('Template ID:', templateId);
+  console.log('Token provided:', !!token);
+  console.log('Available templates:', Object.keys(EMAIL_TEMPLATES));
+  console.log('=============================');
   
   // Check admin token for query-based auth OR session-based auth
   const hasValidToken = token && token === process.env.ADMIN_SECRET;
