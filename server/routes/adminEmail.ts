@@ -149,6 +149,11 @@ router.post('/send-test-email', requireAdmin, async (req: Request, res: Response
 
 // Email logs endpoint
 router.get('/email-logs', requireAdmin, async (req: Request, res: Response) => {
+  console.log('[email-logs] hit', req.originalUrl, { 
+    token: !!req.headers['x-admin-token'] || !!req.query.token,
+    method: req.method
+  });
+
   try {
     const page = parseInt(req.query.page as string) || 1;
     const pageSize = Math.min(parseInt(req.query.pageSize as string) || 25, 100);
@@ -157,7 +162,7 @@ router.get('/email-logs', requireAdmin, async (req: Request, res: Response) => {
     const to = req.query.to as string;
     const templateId = req.query.templateId as string;
 
-    console.log('[email-logs] Query params:', { page, pageSize, status, isTest, to, templateId });
+    console.log('[email-logs] query', { page, pageSize, status, isTest, to, templateId });
 
     // Build where conditions
     const conditions = [];
@@ -194,7 +199,7 @@ router.get('/email-logs', requireAdmin, async (req: Request, res: Response) => {
       .limit(pageSize)
       .offset(offset);
 
-    console.log(`[email-logs] Found ${items.length} items, total: ${total}`);
+    console.log('[email-logs] ok', items.length, 'of', total);
 
     res.json({
       items,
@@ -203,7 +208,7 @@ router.get('/email-logs', requireAdmin, async (req: Request, res: Response) => {
       total
     });
   } catch (error) {
-    console.error('[email-logs] fetch_failed', { query: req.query, err: error instanceof Error ? error.message : 'Unknown error' });
+    console.error('[email-logs] fail', error instanceof Error ? error.message : 'Unknown error');
     res.status(500).json({ error: 'Failed to fetch email logs' });
   }
 });

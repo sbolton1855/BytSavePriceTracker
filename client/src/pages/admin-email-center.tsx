@@ -18,13 +18,15 @@ import { AdminAuth } from "@/lib/admin-auth";
 
 interface EmailLog {
   id: number;
-  recipientEmail: string;
+  to: string;
+  recipientEmail?: string;
+  templateId?: string;
   subject: string;
-  sentAt: string;
-  previewHtml: string;
+  status: 'success' | 'fail' | 'sent' | 'failed';
+  isTest: boolean;
+  previewHtml?: string;
+  meta?: any;
   createdAt: string;
-  status: 'success' | 'fail';
-  type: 'price-drop' | 'reset' | 'test' | 'other';
 }
 
 interface EmailLogsResponse {
@@ -32,7 +34,7 @@ interface EmailLogsResponse {
   total: number;
   page: number;
   pageSize: number;
-  totalPages: number;
+  totalPages?: number;
 }
 
 interface EmailTemplate {
@@ -126,18 +128,22 @@ export default function AdminEmailCenter() {
       const token = AdminAuth.getToken();
       if (!token) {
         toast({ title: "Unauthorized", description: "Invalid admin token.", variant: "destructive" });
-        return { logs: [], total: 0, page: 1, pageSize: 20, totalPages: 1 };
+        return { items: [], total: 0, page: 1, pageSize: 20 };
       }
 
       const params = new URLSearchParams({
-        token: token,
         page: currentPage.toString(),
         pageSize: '20',
         ...(statusFilter && statusFilter !== 'all' && { status: statusFilter }),
-        ...(typeFilter && typeFilter !== 'all' && { type: typeFilter })
+        ...(typeFilter && typeFilter !== 'all' && { isTest: typeFilter === 'test' ? 'true' : 'false' })
       });
 
-      const response = await fetch(`/api/admin/logs?${params}`);
+      const response = await fetch(`/api/admin/email-logs?${params}`, {
+        headers: {
+          'x-admin-token': token
+        }
+      });
+      
       if (!response.ok) {
         if (response.status === 403) {
           toast({ title: "Unauthorized", description: "Invalid admin token.", variant: "destructive" });
@@ -147,7 +153,15 @@ export default function AdminEmailCenter() {
         }
         throw new Error('Failed to fetch email logs');
       }
-      return response.json();
+      
+      const data = await response.json();
+      return {
+        logs: data.items || [],
+        total: data.total || 0,
+        page: data.page || 1,
+        pageSize: data.pageSize || 20,
+        totalPages: Math.ceil((data.total || 0) / (data.pageSize || 20))
+      };
     },
     enabled: activeSubTab === 'logs' && AdminAuth.getToken() !== null,
   });
@@ -717,10 +731,10 @@ export default function AdminEmailCenter() {
                       {emailLogs.logs.map(log => (
                         <TableRow key={log.id}>
                           <TableCell>{new Date(log.createdAt).toLocaleString()}</TableCell>
-                          <TableCell>{log.recipientEmail}</TableCell>
+                          <TableCell>{log.to || log.recipientEmail}</TableCell>
                           <TableCell className="max-w-xs truncate">{log.subject}</TableCell>
-                          <TableCell>{log.type}</TableCell>
-                          <TableCell>{renderStatusBadge(log.status)}</TableCell>
+                          <TableCell>{log.isTest ? 'test' : 'production'}</TableCell>
+                          <TableCell>{renderStatusBadge(log.status as 'success' | 'fail')}</TableCell>
                           <TableCell>
                             <Dialog>
                               <DialogTrigger asChild>
@@ -735,16 +749,23 @@ export default function AdminEmailCenter() {
                                 </DialogHeader>
                                 <div className="space-y-2 text-sm">
                                   <p><strong>Sent:</strong> {new Date(log.createdAt).toLocaleString()}</p>
-                                  <p><strong>To:</strong> {log.recipientEmail}</p>
+                                  <p><strong>To:</strong> {log.to || log.recipientEmail}</p>
                                   <p><strong>Subject:</strong> {log.subject}</p>
-                                  <p><strong>Status:</strong> {renderStatusBadge(log.status)}</p>
-                                  <p><strong>Type:</strong> {log.type}</p>
+                                  <p><strong>Status:</strong> {renderStatusBadge(log.status as 'success' | 'fail')}</p>
+                                  <p><strong>Type:</strong> {log.isTest ? 'Test' : 'Production'}</p>
+                                  {log.templateId && <p><strong>Template:</strong> {log.templateId}</p>}
                                 </div>
-                                <iframe
-                                  srcDoc={log.previewHtml}
-                                  className="w-full h-[500px] border rounded mt-4"
-                                  title={`Email Preview - ${log.subject}`}
-                                />
+                                {log.previewHtml ? (
+                                  <iframe
+                                    srcDoc={log.previewHtml}
+                                    className="w-full h-[500px] border rounded mt-4"
+                                    title={`Email Preview - ${log.subject}`}
+                                  />
+                                ) : (
+                                  <div className="w-full h-[200px] border rounded mt-4 flex items-center justify-center text-gray-500">
+                                    No preview available
+                                  </div>
+                                )}
                               </DialogContent>
                             </Dialog>
                           </TableCell>

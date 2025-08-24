@@ -233,42 +233,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     res.sendFile(path.join(__dirname, '../client/index.html'));
   });
 
-  // Admin email logs route
-  app.get('/admin/email-logs', async (req, res) => {
-    try {
-      const token = req.query.token as string;
-      if (!token || token !== process.env.ADMIN_SECRET) {
-        return res.status(401).json({ error: 'Invalid admin token' });
-      }
-
-      const page = parseInt(req.query.page as string) || 1;
-      const limit = 20;
-      const offset = (page - 1) * limit;
-      const emailFilter = req.query.email as string;
-
-      let query = db.select().from(emailLogs).orderBy(desc(emailLogs.createdAt));
-
-      if (emailFilter) {
-        query = query.where(eq(emailLogs.recipientEmail, emailFilter));
-      }
-
-      const logs = await query.limit(limit).offset(offset);
-      const totalCount = await db.select({ count: sql`count(*)` }).from(emailLogs);
-
-      res.json({
-        logs,
-        pagination: {
-          page,
-          limit,
-          total: totalCount[0].count,
-          totalPages: Math.ceil(totalCount[0].count / limit)
-        }
-      });
-    } catch (error) {
-      console.error('Email logs error:', error);
-      res.status(500).json({ error: 'Failed to fetch email logs' });
-    }
-  });
+  
 
   // Force price drop alerts (admin only)
   app.post('/api/dev/force-alerts', async (req, res) => {

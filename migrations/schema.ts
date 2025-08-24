@@ -1,4 +1,4 @@
-import { pgTable, serial, integer, doublePrecision, timestamp, text, boolean, unique, index, varchar, jsonb } from "drizzle-orm/pg-core"
+import { pgTable, serial, integer, doublePrecision, timestamp, text, boolean, unique, index, varchar, jsonb, json } from "drizzle-orm/pg-core"
 import { sql } from "drizzle-orm"
 
 
@@ -68,15 +68,18 @@ export const affiliateClicks = pgTable("affiliate_clicks", {
   ipAddress: varchar("ip_address", { length: 45 }),
 });
 
-export const emailLogs = pgTable("email_logs", {
-  id: serial("id").primaryKey(),
-  recipientEmail: varchar("recipient_email", { length: 255 }).notNull(),
-  templateId: varchar("template_id", { length: 100 }),
-  subject: varchar("subject", { length: 500 }).notNull(),
-  status: varchar("status", { length: 50 }).default('success').notNull(),
-  isTest: boolean("is_test").default(false).notNull(),
-  previewHtml: text("preview_html"),
-  type: varchar("type", { length: 50 }).default('other'),
-  sentAt: timestamp("sent_at").defaultNow(),
-  createdAt: timestamp("created_at").defaultNow().notNull(),
-});
+export const emailLogs = pgTable('email_logs', {
+  id: serial('id').primaryKey(),
+  to: varchar('to', { length: 255 }).notNull(),
+  templateId: varchar('template_id', { length: 100 }),
+  subject: varchar('subject', { length: 500 }).notNull(),
+  status: varchar('status', { length: 20 }).default('success'),
+  isTest: boolean('is_test').default(false),
+  previewHtml: text('preview_html'),
+  meta: json('meta'),
+  createdAt: timestamp('created_at').defaultNow().notNull(),
+}, (table) => ({
+  toIdx: index('email_logs_to_idx').on(table.to),
+  createdAtIdx: index('email_logs_created_at_idx').on(table.createdAt),
+  isTestIdx: index('email_logs_is_test_idx').on(table.isTest),
+}));
