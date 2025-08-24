@@ -129,5 +129,6 @@ export { sendEmail as sendGridEmail } from './email/sendgridService';
 
 export {
   sendPriceDropAlert,
-  sendEmail
+  sendEmail,
+  createPriceDropEmail
 };
