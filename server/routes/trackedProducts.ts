@@ -48,7 +48,7 @@ router.get('/tracked-products', async (req, res) => {
       image: item.image || '',
       currentPrice: item.currentPrice || 0,
       targetPrice: item.targetPrice,
-      lastCheckedAt: item.lastCheckedAt?.toISOString() || new Date().toISOString()
+      lastCheckedAt: item.lastCheckedAt ? new Date(item.lastCheckedAt).toISOString() : new Date().toISOString()
     }))
 
     res.status(200).type('application/json').json({

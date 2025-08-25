@@ -94,7 +94,14 @@ const ProductsDisplay: React.FC<ProductsDisplayProps> = ({ email, onProductsChan
   });
 
   // Filter products based on selection
-  const filteredProducts = data ? data.filter((product: TrackedProductWithDetails) => {
+  // Handle both array response and object response with items array
+  const productsArray = Array.isArray(data) ? data : (data?.items || []);
+  const filteredProducts = productsArray.filter((product: any) => 
+    !email || product.email?.toLowerCase() === email?.toLowerCase()
+  );
+
+  // Filter products based on selection
+  const finalFilteredProducts = filteredProducts.filter((product: TrackedProductWithDetails) => {
     switch (filter) {
       case "price-dropped":
         return product.product.currentPrice < (product.product.originalPrice || Number.POSITIVE_INFINITY);
@@ -107,7 +114,7 @@ const ProductsDisplay: React.FC<ProductsDisplayProps> = ({ email, onProductsChan
       default:
         return true;
     }
-  }) : [];
+  });
 
   // Handle refresh all
   const handleRefreshAll = () => {
@@ -189,7 +196,7 @@ const ProductsDisplay: React.FC<ProductsDisplayProps> = ({ email, onProductsChan
     const currentEmail = email;
     console.log("ProductsDisplay - current email:", currentEmail);
     console.log("ProductsDisplay - data changed:", data);
-    console.log("ProductsDisplay - filteredProducts:", filteredProducts);
+    console.log("ProductsDisplay - filteredProducts:", finalFilteredProducts);
 
     // Show detailed debug info
     if (!currentEmail || currentEmail.length === 0) {
@@ -201,10 +208,10 @@ const ProductsDisplay: React.FC<ProductsDisplayProps> = ({ email, onProductsChan
     } else if (!data || data.length === 0) {
       console.log("ProductsDisplay - No products found for email:", currentEmail);
     } else {
-      console.log('ProductsDisplay - Found', filteredProducts.length, 'products for email:', currentEmail);
+      console.log('ProductsDisplay - Found', finalFilteredProducts.length, 'products for email:', currentEmail);
 
       // Debug logging for TRUEplus product
-      const trueplus = filteredProducts.find(p => p.product.asin === 'B01DJGLYZQ');
+      const trueplus = finalFilteredProducts.find(p => p.product.asin === 'B01DJGLYZQ');
       if (trueplus) {
         console.log('DEBUG: TRUEplus product in dashboard:', {
           asin: trueplus.product.asin,
@@ -214,13 +221,13 @@ const ProductsDisplay: React.FC<ProductsDisplayProps> = ({ email, onProductsChan
         });
       }
     }
-  }, [email, data, filteredProducts, isLoading, isError, error]);
+  }, [email, data, finalFilteredProducts, isLoading, isError, error]);
 
   useEffect(() => {
-    if (onProductsChange && filteredProducts) {
-      onProductsChange(filteredProducts);
+    if (onProductsChange && finalFilteredProducts) {
+      onProductsChange(finalFilteredProducts);
     }
-  }, [filteredProducts, onProductsChange]);
+  }, [finalFilteredProducts, onProductsChange]);
 
   // For non-authenticated users, we'll show a version of this section that encourages login
   // but they can still view tracked products by email
@@ -298,7 +305,7 @@ const ProductsDisplay: React.FC<ProductsDisplayProps> = ({ email, onProductsChan
           </div>
         ) : (
           <>
-            {filteredProducts && filteredProducts.length > 0 ? (
+            {finalFilteredProducts && finalFilteredProducts.length > 0 ? (
               <div className={`grid gap-6 md:grid-cols-2 lg:grid-cols-3 ${!isAuthenticated ? 'opacity-60 relative' : ''}`}>
                 {!isAuthenticated && (
                   <div className="absolute inset-0 z-10 flex items-center justify-center bg-white/80 rounded-lg pointer-events-auto">
@@ -321,7 +328,7 @@ const ProductsDisplay: React.FC<ProductsDisplayProps> = ({ email, onProductsChan
                   </div>
                 )}
 
-                {filteredProducts.map((trackedProduct: TrackedProductWithDetails) => {
+                {finalFilteredProducts.map((trackedProduct: TrackedProductWithDetails) => {
                   // Create a unique key that includes target price to force re-render when it changes
                   const cardKey = `${trackedProduct.id}-${trackedProduct.targetPrice}-${trackedProduct.product.currentPrice}-${trackedProduct.product.lastChecked}`;
                   return (
