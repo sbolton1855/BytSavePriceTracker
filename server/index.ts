@@ -100,13 +100,7 @@ app.use((req, res, next) => {
     throw err;
   });
 
-  // Add catch-all 404 for API routes to prevent SPA HTML serving
-  app.use('/api/*', (req: Request, res: Response) => {
-    res.status(404).type('application/json').json({
-      error: 'API endpoint not found',
-      path: req.path
-    });
-  });
+  // API 404 handling is now done in routes.ts
 
   // importantly only setup vite in development and after
   // setting up all the other routes so the catch-all route

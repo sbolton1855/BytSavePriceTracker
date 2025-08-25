@@ -14,6 +14,7 @@ import adminToolsRoutes from './routes/adminTools';
 import adminForceAlertsRoutes from './routes/adminForceAlerts';
 import amazonRoutes from './routes/amazon';
 import dealsRoutes from './routes/deals';
+import trackedProductsRoutes from './routes/trackedProducts';
 import affiliateRoutes from './routes/affiliate';
 import analyticsRoutes from './routes/analytics';
 import errorsRoutes from './routes/errors';
@@ -44,6 +45,7 @@ router.use('/admin/tools', adminToolsRoutes);
 router.use('/admin/force-alerts', adminForceAlertsRoutes);
 router.use('/amazon', amazonRoutes);
 router.use('/deals', dealsRoutes);
+router.use('/', trackedProductsRoutes);  // Mount tracked products at root level
 router.use('/affiliate', affiliateRoutes);
 router.use('/analytics', analyticsRoutes);
 router.use('/errors', errorsRoutes);
@@ -222,6 +224,12 @@ router.delete('/user/alerts/:alertId', requireAdmin, async (req: Request, res: R
     console.error('Error deleting alert:', error);
     res.status(500).json({ error: 'Failed to delete alert' });
   }
+});
+
+// API 404 handler - must come after all other routes
+router.use('*', (req: Request, res: Response) => {
+  console.log(`[API-404] ${req.method} ${req.originalUrl}`);
+  res.status(404).type('application/json').json({ error: 'not_found' });
 });
 
 export function registerRoutes(app: any) {
