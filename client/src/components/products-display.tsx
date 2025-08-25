@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, useMemo } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { queryClient } from "@/lib/queryClient";
 import ProductCard from "./product-card";
@@ -94,11 +94,32 @@ const ProductsDisplay: React.FC<ProductsDisplayProps> = ({ email, onProductsChan
   });
 
   // Filter products based on selection
-  // Handle both array response and object response with items array
-  const productsArray = Array.isArray(data) ? data : (data?.items || []);
-  const filteredProducts = productsArray.filter((product: any) => 
-    !email || product.email?.toLowerCase() === email?.toLowerCase()
-  );
+  const currentEmail = email; // Define currentEmail for use in useMemo
+  const filteredProducts = useMemo(() => {
+    if (!data) return [];
+
+    // Handle different data structures
+    let products = [];
+    if (Array.isArray(data)) {
+      products = data;
+    } else if (data.items && Array.isArray(data.items)) {
+      products = data.items;
+    } else if (data.products && Array.isArray(data.products)) {
+      products = data.products;
+    }
+
+    // Ensure products is an array before filtering
+    if (!Array.isArray(products)) {
+      console.warn('Products data is not an array:', products);
+      return [];
+    }
+
+    return products.filter(product => 
+      product && 
+      product.email && 
+      product.email.toUpperCase() === currentEmail?.toUpperCase()
+    );
+  }, [data, currentEmail]);
 
   // Filter products based on selection
   const finalFilteredProducts = filteredProducts.filter((product: TrackedProductWithDetails) => {

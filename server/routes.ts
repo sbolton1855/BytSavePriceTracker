@@ -37,6 +37,36 @@ router.get('/health', (req: Request, res: Response) => {
   res.json({ status: 'ok', timestamp: new Date().toISOString() });
 });
 
+// Search for Amazon products
+router.get('/search', async (req: Request, res: Response) => {
+  try {
+    const { q } = req.query;
+
+    if (!q || typeof q !== 'string') {
+      return res.status(400).json({ error: 'Search query is required' });
+    }
+
+    const results = await amazonApi.searchProducts(q);
+
+    // Format results with affiliate links
+    const formattedResults = await Promise.all(results.map(async result => {
+      // Check if product exists in our database to get its ID
+      const existingProduct = await db.select().from(products).where(eq(products.asin, result.asin)).limit(1);
+
+      return {
+        ...result,
+        id: existingProduct[0]?.id, // Include ID if product exists in DB
+        affiliateUrl: result.url, // Add affiliate tag logic if needed
+      };
+    }));
+
+    res.json(formattedResults);
+  } catch (error) {
+    console.error('Search error:', error);
+    res.status(500).json({ error: 'Search failed' });
+  }
+});
+
 // Mount route modules - SINGLE MOUNTS ONLY
 console.log('>>> [DEBUG] Mounting routes...');
 router.use('/admin/auth', adminAuthRoutes);
