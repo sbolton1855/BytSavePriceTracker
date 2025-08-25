@@ -31,7 +31,7 @@ async function getFallbackDeals() {
 router.get('/amazon/deals', async (req, res) => {
   const keyword = req.query.q?.toString() || getRandomKeyword();
   const testMode = req.query.test === 'httpbin';
-  
+
   console.log(`[DEBUG] /api/amazon/deals endpoint hit with keyword: ${keyword}`);
   console.log(`[DEBUG] Request URL: ${req.originalUrl}`);
   console.log(`[DEBUG] Test mode: ${testMode}`);
@@ -57,7 +57,7 @@ router.get('/amazon/deals', async (req, res) => {
     console.log('[DEBUG] About to call searchAmazonProducts...');
     console.log('[DEBUG] Keyword being used:', keyword);
     console.log('[DEBUG] searchAmazonProducts function location:', searchAmazonProducts.toString().substring(0, 200));
-    
+
     // Log the environment variables to ensure they're loaded
     console.log('[DEBUG] Environment check:');
     console.log('  - AMAZON_ACCESS_KEY present:', !!process.env.AMAZON_ACCESS_KEY);
@@ -109,7 +109,7 @@ router.get('/amazon/deals', async (req, res) => {
     console.error('[ERROR] Error stack:', err.stack);
     console.error('[ERROR] Error type:', typeof err);
     console.error('[ERROR] Error name:', err.name);
-    
+
     // Always return JSON, never let it fall through to HTML error pages
     try {
       const fallbackDeals = await getFallbackDeals();
@@ -124,6 +124,30 @@ router.get('/amazon/deals', async (req, res) => {
         timestamp: new Date().toISOString()
       });
     }
+  }
+});
+
+// Debugging endpoint for testing routing
+router.get('/deals', async (req: express.Request, res: express.Response) => {
+  console.log('[DEBUG] Amazon deals endpoint hit');
+  console.log('[amazon-deals] hit', req.originalUrl);
+
+  try {
+    // Ensure we always return JSON with proper content type
+    const items: any[] = [];
+    const updatedAt = new Date().toISOString();
+
+    res.status(200).type('application/json').json({
+      items,
+      updatedAt
+    });
+  } catch (error: any) {
+    console.error('Error fetching Amazon deals:', error);
+    res.status(502).type('application/json').json({
+      error: 'bad_upstream',
+      detail: error.message,
+      hint: 'upstream_not_json'
+    });
   }
 });
 

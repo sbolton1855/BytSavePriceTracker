@@ -12,76 +12,88 @@ type Deal = {
 };
 
 export default function LiveDealsPreview() {
-  const { data, isLoading, error } = useQuery<{ deals: Deal[] }>({
-    queryKey: ["amazonDealsPreview"],
+  const { data: deals = [], isLoading, error } = useQuery({
+    queryKey: ['/api/amazon/deals'],
     queryFn: async () => {
-      console.log("[LiveDealsPreview] Fetching deals from /api/amazon/deals");
-      const res = await fetch("/api/amazon/deals");
-      
-      if (!res.ok) {
-        const errorText = await res.text();
-        console.error("[LiveDealsPreview] API error:", res.status, errorText);
-        throw new Error(`Failed to fetch deals: ${res.status}`);
+      const url = '/api/amazon/deals';
+      console.log('[LiveDealsPreview] Fetching deals from', url);
+
+      const response = await fetch(url, {
+        method: 'GET',
+        headers: {
+          'Accept': 'application/json',
+          'Content-Type': 'application/json'
+        }
+      });
+
+      console.log('[LiveDealsPreview] Response status:', response.status);
+      console.log('[LiveDealsPreview] Response URL:', response.url);
+      console.log('[LiveDealsPreview] Response content-type:', response.headers.get('content-type'));
+
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
       }
-      
-      const contentType = res.headers.get('content-type');
-      console.log("[LiveDealsPreview] Response content-type:", contentType);
-      
-      if (!contentType?.includes('application/json')) {
-        const responseText = await res.text();
-        console.error("[LiveDealsPreview] Expected JSON but got:", responseText.substring(0, 200));
-        throw new Error("Server returned HTML instead of JSON");
+
+      const contentType = response.headers.get('content-type');
+      if (!contentType || !contentType.includes('application/json')) {
+        const textResponse = await response.text();
+        console.log('[LiveDealsPreview] Expected JSON but got:', textResponse.slice(0, 200));
+        throw new Error('Server returned HTML instead of JSON');
       }
-      
-      const jsonData = await res.json();
-      console.log("[LiveDealsPreview] Successfully parsed JSON:", jsonData);
-      return jsonData;
+
+      const data = await response.json();
+      console.log('[LiveDealsPreview] Raw API response:', data);
+
+      // Handle both old and new response formats
+      const items = data.items || data || [];
+      return items;
     },
     staleTime: 60000,
     refetchOnWindowFocus: false,
     retry: 2,
   });
 
-  console.log("[LiveDealsPreview] Raw API response:", data);
-
-  // Map backend fields to UI fields
-  const deals =
-    data?.deals?.map((deal) => ({
-      ...deal,
-      currentPrice: deal.price,
-      originalPrice: deal.msrp,
-      affiliateUrl: deal.url,
-    })) || [];
-
-  deals.forEach((deal, idx) => {
-    console.log(`[LiveDealsPreview] Deal ${idx}:`, deal);
-  });
-
   console.log("[LiveDealsPreview] Mapped deals:", deals);
   console.log("[LiveDealsPreview] Rendering, deals.length:", deals.length, "isLoading:", isLoading);
 
-  if (!isLoading && deals.length === 0) {
-    console.log("[LiveDealsPreview] No deals available to render.");
+  if (error) {
+    console.log('[LiveDealsPreview] Query error:', error);
+    return (
+      <div className="bg-white border rounded-xl shadow-sm p-4">
+        <h3 className="text-sm font-semibold mb-2">Live Deals Right Now</h3>
+        <div className="text-center py-8">
+          <p className="text-red-500 text-sm">Unable to load deals right now</p>
+        </div>
+      </div>
+    );
   }
 
-  if (error) {
-    console.error("[LiveDealsPreview] Query error:", error);
+  if (isLoading) {
+    return (
+      <div className="bg-white border rounded-xl shadow-sm p-4">
+        <h3 className="text-sm font-semibold mb-2">Live Deals Right Now</h3>
+        <div className="flex items-center justify-center h-32">
+          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
+        </div>
+      </div>
+    );
+  }
+
+  if (!deals || deals.length === 0) {
+    console.log('[LiveDealsPreview] No deals available to render.');
+    return (
+      <div className="bg-white border rounded-xl shadow-sm p-4">
+        <h3 className="text-sm font-semibold mb-2">Live Deals Right Now</h3>
+        <div className="text-center py-8">
+          <p className="text-muted-foreground">No live deals available at the moment.</p>
+        </div>
+      </div>
+    );
   }
 
   return (
     <div className="bg-white border rounded-xl shadow-sm p-4">
       <h3 className="text-sm font-semibold mb-2">Live Deals Right Now</h3>
-      {isLoading && <div className="text-sm text-muted-foreground">Loading deals...</div>}
-      {error && (
-        <div className="text-sm text-red-500 p-2 bg-red-50 rounded">
-          Error loading deals: {error.message}
-        </div>
-      )}
-      {!isLoading && !error && deals.length === 0 && (
-        <div className="text-sm text-muted-foreground">
-          No deals available at this moment.
-        </div>
-      )}
       <ul className="space-y-3">
         {deals.slice(0, 4).map((deal, index) => {
           console.log("[LiveDealsPreview] Rendering deal:", deal);
@@ -97,16 +109,16 @@ export default function LiveDealsPreview() {
                 ) : (
                   <div className="w-14 h-14 flex items-center justify-center bg-gray-100 border rounded text-xs text-gray-400">No image</div>
                 )}
-                
+
               </div>
               <div className="flex-1">
                 <p className="text-xs font-medium leading-tight line-clamp-2">{deal.title}</p>
                 <div className="text-xs mt-1">
                   <div className="flex items-center gap-2 flex-wrap">
-                    <span className="font-bold text-green-600">${deal.currentPrice?.toFixed(2)}</span>
+                    <span className="font-bold text-green-600">${deal.price?.toFixed(2)}</span>
 
                     {/* Show savings if we have original price data */}
-                    {deal.price && deal.msrp && deal.msrp > deal.price && (
+                    {deal.msrp && deal.msrp > deal.price && (
                       <>
                         <span className="text-muted-foreground line-through text-xs">
                           ${deal.msrp.toFixed(2)}
@@ -119,24 +131,10 @@ export default function LiveDealsPreview() {
                         </Badge>
                       </>
                     )}
-                    {!deal.msrp && deal.originalPrice && deal.originalPrice > deal.currentPrice && (
-                      <>
-                        <span className="text-muted-foreground line-through text-xs">
-                          ${deal.originalPrice.toFixed(2)}
-                        </span>
-                        <Badge variant="destructive" className="text-[8px] px-1 py-0 h-4 bg-red-500 text-white">
-                          {Math.round(((deal.originalPrice - deal.currentPrice) / deal.originalPrice) * 100)}% OFF
-                        </Badge>
-                        <Badge variant="outline" className="text-[8px] px-1 py-0 h-4 bg-green-500 text-white border-green-500">
-                          Save ${(deal.originalPrice - deal.currentPrice).toFixed(2)}
-                        </Badge>
-                      </>
-                    )}
-
                     {/* For products without original price, create synthetic percentage deals based on price ranges */}
-                    {!deal.msrp && !deal.originalPrice && (
+                    {!deal.msrp && (
                       <>
-                        {deal.currentPrice < 10 && (
+                        {deal.price < 10 && (
                           <>
                             <Badge variant="destructive" className="text-[8px] px-1 py-0 h-4 bg-red-500 text-white">
                               15% OFF
@@ -146,7 +144,7 @@ export default function LiveDealsPreview() {
                             </Badge>
                           </>
                         )}
-                        {deal.currentPrice >= 10 && deal.currentPrice < 25 && (
+                        {deal.price >= 10 && deal.price < 25 && (
                           <>
                             <Badge variant="destructive" className="text-[8px] px-1 py-0 h-4 bg-orange-500 text-white">
                               12% OFF
@@ -156,7 +154,7 @@ export default function LiveDealsPreview() {
                             </Badge>
                           </>
                         )}
-                        {deal.currentPrice >= 25 && deal.currentPrice < 50 && (
+                        {deal.price >= 25 && deal.price < 50 && (
                           <>
                             <Badge variant="destructive" className="text-[8px] px-1 py-0 h-4 bg-red-600 text-white">
                               20% OFF
@@ -166,7 +164,7 @@ export default function LiveDealsPreview() {
                             </Badge>
                           </>
                         )}
-                        {deal.currentPrice >= 50 && (
+                        {deal.price >= 50 && (
                           <>
                             <Badge variant="destructive" className="text-[8px] px-1 py-0 h-4 bg-red-700 text-white">
                               25% OFF
@@ -180,9 +178,9 @@ export default function LiveDealsPreview() {
                     )}
                   </div>
                 </div>
-                {deal.affiliateUrl && (
+                {deal.url && (
                   <a
-                    href={deal.affiliateUrl}
+                    href={deal.url}
                     target="_blank"
                     rel="noopener noreferrer"
                     className="text-xs text-blue-600 hover:underline mt-1 inline-block font-medium"

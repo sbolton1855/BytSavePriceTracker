@@ -30,3 +30,50 @@ router.get('/products/deals', async (req, res) => {
 });
 
 export default router; 
+import express from 'express';
+import { Request, Response } from 'express';
+
+const router = express.Router();
+
+// Debug endpoints (temporary)
+router.get('/_debug/deals-echo', (req: Request, res: Response) => {
+  console.log('[DEBUG] /api/deals/_debug/deals-echo hit');
+  res.status(200).type('application/json').json({
+    ok: true,
+    headers: req.headers,
+    query: req.query
+  });
+});
+
+router.get('/_debug/deals-ping', (req: Request, res: Response) => {
+  console.log('[DEBUG] /api/deals/_debug/deals-ping hit');
+  res.status(200).type('application/json').json({
+    ok: true,
+    ts: Date.now()
+  });
+});
+
+// Live deals endpoint - PUBLIC, no auth required
+router.get('/live', async (req: Request, res: Response) => {
+  console.log('[deals-live] hit', req.originalUrl);
+  
+  try {
+    // For now, return empty deals - we can connect to Amazon API later
+    const items: any[] = [];
+    const updatedAt = new Date().toISOString();
+    
+    res.status(200).type('application/json').json({
+      items,
+      updatedAt
+    });
+  } catch (error: any) {
+    console.error('[deals-live] error:', error);
+    res.status(502).type('application/json').json({
+      error: 'bad_upstream',
+      detail: error.message,
+      hint: 'upstream_not_json'
+    });
+  }
+});
+
+export default router;
