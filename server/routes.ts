@@ -1,3 +1,4 @@
+
 import express from 'express';
 import { Request, Response } from 'express';
 import { db } from './db';
@@ -46,9 +47,11 @@ router.get('/search', async (req: Request, res: Response) => {
       return res.status(400).json({ error: 'Search query is required' });
     }
 
+    console.log(`[SEARCH] Searching for: "${q}"`);
     const results = await amazonApi.searchProducts(q);
+    console.log(`[SEARCH] Found ${results.length} results`);
 
-    // Format results with affiliate links
+    // Format results with affiliate links and check if products exist in DB
     const formattedResults = await Promise.all(results.map(async result => {
       // Check if product exists in our database to get its ID
       const existingProduct = await db.select().from(products).where(eq(products.asin, result.asin)).limit(1);
@@ -64,6 +67,91 @@ router.get('/search', async (req: Request, res: Response) => {
   } catch (error) {
     console.error('Search error:', error);
     res.status(500).json({ error: 'Search failed' });
+  }
+});
+
+// Get product details by ASIN or URL
+router.get('/product', async (req: Request, res: Response) => {
+  try {
+    const { asin, url } = req.query;
+
+    if (!asin && !url) {
+      return res.status(400).json({ error: 'ASIN or URL is required' });
+    }
+
+    // Extract ASIN from URL or use provided ASIN
+    let productAsin = '';
+    if (url && typeof url === 'string') {
+      const extractedAsin = amazonApi.extractAsinFromUrl(url);
+      if (!extractedAsin) {
+        return res.status(400).json({ error: 'Invalid Amazon URL' });
+      }
+      productAsin = extractedAsin;
+    } else if (asin && typeof asin === 'string') {
+      if (!amazonApi.isValidAsin(asin)) {
+        return res.status(400).json({ error: 'Invalid ASIN format' });
+      }
+      productAsin = asin;
+    }
+
+    // Check if product exists in our database first
+    let product = await db.select().from(products).where(eq(products.asin, productAsin)).limit(1);
+
+    if (product.length === 0) {
+      // If not found in DB, try to fetch from Amazon API
+      try {
+        const amazonProduct = await amazonApi.searchProducts(productAsin);
+        if (amazonProduct.length === 0) {
+          return res.status(404).json({ error: 'Product not found' });
+        }
+
+        // Save to our database with full info
+        const newProduct = {
+          asin: amazonProduct[0].asin,
+          title: amazonProduct[0].title,
+          url: amazonProduct[0].url,
+          imageUrl: amazonProduct[0].imageUrl,
+          currentPrice: amazonProduct[0].currentPrice,
+          originalPrice: amazonProduct[0].originalPrice || amazonProduct[0].currentPrice,
+          lowestPrice: amazonProduct[0].currentPrice,
+          highestPrice: amazonProduct[0].currentPrice,
+          lastChecked: new Date(),
+          priceDropped: false
+        };
+
+        await db.insert(products).values(newProduct);
+        product = [newProduct as any];
+      } catch (error) {
+        // If API fails, create minimal product entry
+        console.log('Failed to fetch from Amazon API, creating minimal product entry:', error);
+        const newProduct = {
+          asin: productAsin,
+          title: "Product information pending...",
+          url: url as string || `https://www.amazon.com/dp/${productAsin}`,
+          imageUrl: null,
+          currentPrice: 0,
+          originalPrice: null,
+          lowestPrice: 0,
+          highestPrice: 0,
+          lastChecked: new Date(),
+          priceDropped: false
+        };
+
+        await db.insert(products).values(newProduct);
+        product = [newProduct as any];
+      }
+    }
+
+    // Add affiliate url to response
+    const response = {
+      ...product[0],
+      affiliateUrl: product[0].url // Add affiliate tag logic if needed
+    };
+
+    res.json(response);
+  } catch (error: any) {
+    console.error('Product lookup error:', error);
+    res.status(500).json({ error: error.message || 'Failed to get product details' });
   }
 });
 

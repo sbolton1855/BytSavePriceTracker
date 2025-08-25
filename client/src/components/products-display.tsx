@@ -96,7 +96,12 @@ const ProductsDisplay: React.FC<ProductsDisplayProps> = ({ email, onProductsChan
   // Filter products based on selection
   const currentEmail = email; // Define currentEmail for use in useMemo
   const filteredProducts = useMemo(() => {
-    if (!data) return [];
+    console.log('ProductsDisplay - data changed:', data);
+    
+    if (!data) {
+      console.log('ProductsDisplay - No data available');
+      return [];
+    }
 
     // Handle different data structures
     let products = [];
@@ -106,19 +111,43 @@ const ProductsDisplay: React.FC<ProductsDisplayProps> = ({ email, onProductsChan
       products = data.items;
     } else if (data.products && Array.isArray(data.products)) {
       products = data.products;
+    } else {
+      console.warn('ProductsDisplay - Data structure not recognized:', data);
+      return [];
     }
 
     // Ensure products is an array before filtering
     if (!Array.isArray(products)) {
-      console.warn('Products data is not an array:', products);
+      console.warn('ProductsDisplay - Products data is not an array:', products);
       return [];
     }
 
-    return products.filter(product => 
-      product && 
-      product.email && 
-      product.email.toUpperCase() === currentEmail?.toUpperCase()
-    );
+    // Filter by email if provided
+    if (!currentEmail) {
+      console.log('ProductsDisplay - No email filter, returning all products');
+      return products;
+    }
+
+    const filtered = products.filter(product => {
+      // Handle different product structures
+      if (!product) return false;
+      
+      // Check if product has email field directly
+      if (product.email) {
+        return product.email.toUpperCase() === currentEmail.toUpperCase();
+      }
+      
+      // Check if product has alert/tracking info with email
+      if (product.alert && product.alert.email) {
+        return product.alert.email.toUpperCase() === currentEmail.toUpperCase();
+      }
+      
+      // For products without email filtering, include all
+      return false;
+    });
+
+    console.log(`ProductsDisplay - Found ${filtered.length} products for email:`, currentEmail);
+    return filtered;
   }, [data, currentEmail]);
 
   // Filter products based on selection
