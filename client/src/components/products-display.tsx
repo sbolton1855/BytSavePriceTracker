@@ -126,16 +126,28 @@ const ProductsDisplay: React.FC<ProductsDisplayProps> = ({ email, onProductsChan
   }, [data]);
 
   // Filter products based on selection
-  const finalFilteredProducts = filteredProducts.filter((product: TrackedProductWithDetails) => {
+  const finalFilteredProducts = filteredProducts.filter((product: any) => {
+    // Handle different product data structures
+    const currentPrice = product.currentPrice || product.product?.currentPrice;
+    const originalPrice = product.originalPrice || product.product?.originalPrice;
+    const targetPrice = product.targetPrice;
+    const createdAt = product.createdAt;
+
+    if (!currentPrice) {
+      console.warn('Product missing currentPrice:', product);
+      return false;
+    }
+
     switch (filter) {
       case "price-dropped":
-        return product.product.currentPrice < (product.product.originalPrice || Number.POSITIVE_INFINITY);
+        return currentPrice < (originalPrice || Number.POSITIVE_INFINITY);
       case "target-reached":
-        return product.product.currentPrice <= product.targetPrice;
+        return currentPrice <= targetPrice;
       case "recently-added":
+        if (!createdAt) return false;
         const oneWeekAgo = new Date();
         oneWeekAgo.setDate(oneWeekAgo.getDate() - 7);
-        return new Date(product.createdAt) >= oneWeekAgo;
+        return new Date(createdAt) >= oneWeekAgo;
       default:
         return true;
     }
@@ -353,13 +365,32 @@ const ProductsDisplay: React.FC<ProductsDisplayProps> = ({ email, onProductsChan
                   </div>
                 )}
 
-                {finalFilteredProducts.map((trackedProduct: TrackedProductWithDetails) => {
+                {finalFilteredProducts.map((trackedProduct: any) => {
+                  // Handle different data structures and create normalized structure for ProductCard
+                  const normalizedProduct = {
+                    ...trackedProduct,
+                    product: trackedProduct.product || {
+                      id: trackedProduct.id,
+                      asin: trackedProduct.asin,
+                      title: trackedProduct.title,
+                      imageUrl: trackedProduct.image || trackedProduct.imageUrl,
+                      currentPrice: trackedProduct.currentPrice,
+                      originalPrice: trackedProduct.originalPrice,
+                      url: trackedProduct.url || `https://amazon.com/dp/${trackedProduct.asin}`,
+                      lastChecked: trackedProduct.lastCheckedAt || trackedProduct.lastChecked || new Date().toISOString()
+                    },
+                    email: trackedProduct.email || email
+                  };
+
                   // Create a unique key that includes target price to force re-render when it changes
-                  const cardKey = `${trackedProduct.id}-${trackedProduct.targetPrice}-${trackedProduct.product.currentPrice}-${trackedProduct.product.lastChecked}`;
+                  const currentPrice = normalizedProduct.product.currentPrice;
+                  const lastChecked = normalizedProduct.product.lastChecked;
+                  const cardKey = `${normalizedProduct.id}-${normalizedProduct.targetPrice}-${currentPrice}-${lastChecked}`;
+                  
                   return (
                     <div key={cardKey} className={!isAuthenticated ? 'pointer-events-none' : ''}>
                       <ProductCard 
-                        trackedProduct={trackedProduct} 
+                        trackedProduct={normalizedProduct} 
                         onRefresh={() => {
                           console.log("ProductCard refresh triggered");
                           queryClient.invalidateQueries({ queryKey: ['/api/tracked-products'] });
