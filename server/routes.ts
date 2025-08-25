@@ -43,20 +43,6 @@ router.use('/admin', adminEmailRoutes);  // Single mount for all admin email rou
 router.use('/admin/tools', adminToolsRoutes);
 router.use('/admin/force-alerts', adminForceAlertsRoutes);
 router.use('/amazon', amazonRoutes);
-console.log('>>> [DEBUG] Amazon routes mounted at /amazon');
-console.log('>>> [DEBUG] This means /api/amazon/deals should work');
-console.log('>>> [DEBUG] Amazon routes module loaded
-
-console.log('>>> [DEBUG] Routes.ts - Setting up all API routes...');
-
-// Add health check route for debugging
-app.get('/api/health', (req: Request, res: Response) => {
-  res.json({ 
-    status: 'ok', 
-    timestamp: new Date().toISOString(),
-    endpoints: ['/api/amazon/deals', '/api/tracked-products', '/api/products']
-  });
-});');
 router.use('/deals', dealsRoutes);
 router.use('/affiliate', affiliateRoutes);
 router.use('/analytics', analyticsRoutes);
@@ -64,6 +50,7 @@ router.use('/errors', errorsRoutes);
 router.use('/health', systemHealthRoutes);
 router.use('/email-test', emailTestRoutes);
 router.use('/test', testRoutes);
+console.log('>>> [DEBUG] All routes mounted successfully');
 
 // Legacy user routes (keep for backward compatibility)
 router.get('/user', requireAdmin, async (req: Request, res: Response) => {
