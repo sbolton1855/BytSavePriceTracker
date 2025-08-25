@@ -93,11 +93,10 @@ const ProductsDisplay: React.FC<ProductsDisplayProps> = ({ email, onProductsChan
     refetchOnMount: true
   });
 
-  // Filter products based on selection
-  const currentEmail = email; // Define currentEmail for use in useMemo
+  // Filter products based on selection - simplified to match deployed version
   const filteredProducts = useMemo(() => {
     console.log('ProductsDisplay - data changed:', data);
-    
+
     if (!data) {
       console.log('ProductsDisplay - No data available');
       return [];
@@ -116,39 +115,15 @@ const ProductsDisplay: React.FC<ProductsDisplayProps> = ({ email, onProductsChan
       return [];
     }
 
-    // Ensure products is an array before filtering
+    // Ensure products is an array
     if (!Array.isArray(products)) {
       console.warn('ProductsDisplay - Products data is not an array:', products);
       return [];
     }
 
-    // Filter by email if provided
-    if (!currentEmail) {
-      console.log('ProductsDisplay - No email filter, returning all products');
-      return products;
-    }
-
-    const filtered = products.filter(product => {
-      // Handle different product structures
-      if (!product) return false;
-      
-      // Check if product has email field directly
-      if (product.email) {
-        return product.email.toUpperCase() === currentEmail.toUpperCase();
-      }
-      
-      // Check if product has alert/tracking info with email
-      if (product.alert && product.alert.email) {
-        return product.alert.email.toUpperCase() === currentEmail.toUpperCase();
-      }
-      
-      // For products without email filtering, include all
-      return false;
-    });
-
-    console.log(`ProductsDisplay - Found ${filtered.length} products for email:`, currentEmail);
-    return filtered;
-  }, [data, currentEmail]);
+    console.log(`ProductsDisplay - Found ${products.length} products`);
+    return products;
+  }, [data]);
 
   // Filter products based on selection
   const finalFilteredProducts = filteredProducts.filter((product: TrackedProductWithDetails) => {
