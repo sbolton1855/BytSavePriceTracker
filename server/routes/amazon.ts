@@ -133,16 +133,18 @@ router.get('/deals', async (req: express.Request, res: express.Response) => {
   console.log('[amazon-deals] hit', req.originalUrl);
 
   try {
-    // Ensure we always return JSON with proper content type
-    const items: any[] = [];
-    const updatedAt = new Date().toISOString();
-
+    console.log('[DEALS] Fetching deals...');
+    const deals = await getDeals();
+    console.log(`[DEALS] Found ${deals.length} deals`);
+    if (deals.length === 0) {
+      console.log('[DEALS] No deals available - this might be normal or indicate an issue with the Amazon API');
+    }
     res.status(200).type('application/json').json({
-      items,
-      updatedAt
+      items: deals,
+      updatedAt: new Date().toISOString()
     });
   } catch (error: any) {
-    console.error('Error fetching Amazon deals:', error);
+    console.error('Error fetching deals:', error);
     res.status(502).type('application/json').json({
       error: 'bad_upstream',
       detail: error.message,
