@@ -130,26 +130,31 @@ router.get('/amazon/deals', async (req, res) => {
 
 // Debugging endpoint for testing routing
 router.get('/deals', async (req: express.Request, res: express.Response) => {
-  console.log('[DEBUG] Amazon deals endpoint hit');
   console.log('[amazon-deals] hit', req.originalUrl);
 
   try {
-    console.log('[DEALS] Fetching deals...');
-    const deals = await getDeals();
-    console.log(`[DEALS] Found ${deals.length} deals`);
-    if (deals.length === 0) {
-      console.log('[DEALS] No deals available - this might be normal or indicate an issue with the Amazon API');
+    let items = [];
+
+    try {
+      items = await getDeals();
+    } catch (dealsError) {
+      console.warn('[amazon-deals] getDeals failed, using fallback:', dealsError);
+      // Return empty array as fallback instead of throwing error
+      items = [];
     }
-    res.status(200).type('application/json').json({
-      items: deals,
-      updatedAt: new Date().toISOString()
+
+    return res.status(200).type('application/json').json({ 
+      items, 
+      updatedAt: new Date().toISOString() 
     });
-  } catch (error: any) {
-    console.error('Error fetching deals:', error);
-    res.status(502).type('application/json').json({
-      error: 'bad_upstream',
-      detail: error.message,
-      hint: 'upstream_not_json'
+  } catch (e: any) {
+    console.error('[amazon-deals] Critical error:', e);
+    // Always return 200 with empty items to prevent UI breakage
+    return res.status(200).type('application/json').json({ 
+      items: [],
+      updatedAt: new Date().toISOString(),
+      error: 'fallback_mode',
+      detail: 'Using fallback due to upstream error'
     });
   }
 });

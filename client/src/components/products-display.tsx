@@ -295,22 +295,22 @@ const ProductsDisplay: React.FC<ProductsDisplayProps> = ({ email, onProductsChan
               </SelectContent>
             </Select>
 
-            <Button 
-              variant="outline" 
+            <Button
+              variant="outline"
               className="ml-3"
               onClick={handleRefreshAll}
               disabled={isLoading}
             >
-              <svg 
-                xmlns="http://www.w3.org/2000/svg" 
-                width="16" 
-                height="16" 
-                viewBox="0 0 24 24" 
-                fill="none" 
-                stroke="currentColor" 
-                strokeWidth="2" 
-                strokeLinecap="round" 
-                strokeLinejoin="round" 
+              <svg
+                xmlns="http://www.w3.org/2000/svg"
+                width="16"
+                height="16"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="2"
+                strokeLinecap="round"
+                strokeLinejoin="round"
                 className="mr-2"
               >
                 <path d="M21 12a9 9 0 0 0-9-9 9.75 9.75 0 0 0-6.74 2.74L3 8" />
@@ -355,7 +355,7 @@ const ProductsDisplay: React.FC<ProductsDisplayProps> = ({ email, onProductsChan
                       </div>
                       <h3 className="text-lg font-semibold text-gray-900 mb-2">Unlock Full Features</h3>
                       <p className="text-sm text-gray-600 mb-4">Register to edit prices, save permanently, and get email alerts</p>
-                      <Button 
+                      <Button
                         onClick={() => window.location.href = '/auth'}
                         className="w-full"
                       >
@@ -373,7 +373,7 @@ const ProductsDisplay: React.FC<ProductsDisplayProps> = ({ email, onProductsChan
                       id: trackedProduct.id,
                       asin: trackedProduct.asin,
                       title: trackedProduct.title,
-                      imageUrl: trackedProduct.image || trackedProduct.imageUrl,
+                      imageUrl: tracked.image || trackedProduct.imageUrl,
                       currentPrice: trackedProduct.currentPrice,
                       originalPrice: trackedProduct.originalPrice,
                       url: trackedProduct.url || `https://amazon.com/dp/${trackedProduct.asin}`,
@@ -386,11 +386,11 @@ const ProductsDisplay: React.FC<ProductsDisplayProps> = ({ email, onProductsChan
                   const currentPrice = normalizedProduct.product.currentPrice;
                   const lastChecked = normalizedProduct.product.lastChecked;
                   const cardKey = `${normalizedProduct.id}-${normalizedProduct.targetPrice}-${currentPrice}-${lastChecked}`;
-                  
+
                   return (
                     <div key={cardKey} className={!isAuthenticated ? 'pointer-events-none' : ''}>
-                      <ProductCard 
-                        trackedProduct={normalizedProduct} 
+                      <ProductCard
+                        trackedProduct={normalizedProduct}
                         onRefresh={() => {
                           console.log("ProductCard refresh triggered");
                           queryClient.invalidateQueries({ queryKey: ['/api/tracked-products'] });
@@ -416,7 +416,7 @@ const ProductsDisplay: React.FC<ProductsDisplayProps> = ({ email, onProductsChan
                     <p className="mt-1 text-sm text-gray-500">
                       Track more Amazon products to maximize your savings
                     </p>
-                    <Button 
+                    <Button
                       className="mt-4"
                       onClick={() => document.getElementById('search-section')?.scrollIntoView({ behavior: "smooth" })}
                     >
@@ -443,14 +443,14 @@ const ProductsDisplay: React.FC<ProductsDisplayProps> = ({ email, onProductsChan
                 </svg>
                 <h3 className="mt-4 text-lg font-medium text-gray-900">No products tracked yet</h3>
                 <p className="mt-1 text-gray-500">
-                  {!isAuthenticated 
-                    ? "Register for free to start tracking products and get price alerts" 
+                  {!isAuthenticated
+                    ? "Register for free to start tracking products and get price alerts"
                     : "Start tracking an Amazon product to see it here"
                   }
                 </p>
-                <Button 
+                <Button
                   className="mt-6"
-                  onClick={() => !isAuthenticated 
+                  onClick={() => !isAuthenticated
                     ? window.location.href = '/auth'
                     : document.getElementById('search-section')?.scrollIntoView({ behavior: "smooth" })
                   }
@@ -483,21 +483,21 @@ const ProductsDisplay: React.FC<ProductsDisplayProps> = ({ email, onProductsChan
           </DialogHeader>
 
           <div className="flex flex-col gap-3 mt-4">
-            <Button 
+            <Button
               className="w-full bg-blue-600 hover:bg-blue-700"
               onClick={() => window.location.href = '/auth'}
             >
               Sign Up Free
             </Button>
-            <Button 
-              variant="outline" 
+            <Button
+              variant="outline"
               className="w-full border-blue-300 text-blue-700 hover:bg-blue-50"
               onClick={() => window.location.href = '/auth'}
             >
               Login to Existing Account
             </Button>
-            <Button 
-              variant="ghost" 
+            <Button
+              variant="ghost"
               className="w-full text-sm text-gray-500"
               onClick={() => setShowSignupModal(false)}
             >
