@@ -3,6 +3,7 @@ import dotenv from 'dotenv';
 dotenv.config();
 
 import express, { type Request, Response, NextFunction } from "express";
+import path from "path";
 import { registerRoutes } from "./routes";
 import { setupVite, serveStatic, log } from "./vite";
 import { configureAuth } from "./authService";
@@ -10,7 +11,6 @@ import { adminSessionConfig, attachAdminToRequest } from "./middleware/adminSess
 import { adminSecurityMiddleware } from "./middleware/adminSecurity";
 import adminAuthRoutes from "./routes/adminAuth";
 import adminEmailRoutes from "./routes/adminEmail";
-import LiveDealsPreview from "@/components/LiveDealsPreview";
 const app = express();
 
 // Make app available for email logging fallback
@@ -114,6 +114,7 @@ app.use((req, res, next) => {
 
   // SPA fallback - serve index.html for any non-API routes
   app.get('*', (req, res) => {
+    res.sendFile(path.join(__dirname, '../client/index.html'));
   });
 
   // importantly only setup vite in development and after
