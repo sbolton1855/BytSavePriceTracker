@@ -1,6 +1,7 @@
 console.log('>>> [DEBUG] LOADED AMAZON ROUTER from server/routes/amazon.ts');
 import express from 'express';
 import { searchAmazonProducts } from '../amazonApi';
+import { getDeals } from '../lib/amazonApi';
 
 const router = express.Router();
 

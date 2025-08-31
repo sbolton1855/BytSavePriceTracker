@@ -1,19 +1,26 @@
-
 import { Router } from 'express'
 import { db } from '../db'
 import { trackedProducts, products, users } from '../../migrations/schema'
 import { eq, desc } from 'drizzle-orm'
+import express from 'express'
 
 const router = Router()
 
-// GET /api/tracked-products
-router.get('/tracked-products', async (req, res) => {
+// Legacy alias for backwards compatibility
+router.get('/products', (req: express.Request, res: express.Response) => {
+  console.log('[tracked-products] Legacy /api/products called, redirecting to /api/tracked-products');
+  const queryString = req.url.includes('?') ? req.url.slice(req.url.indexOf('?')) : '';
+  res.redirect(307, '/api/tracked-products' + queryString);
+});
+
+// GET /tracked-products - Retrieve tracked products for a user
+router.get('/tracked-products', async (req: express.Request, res: express.Response) => {
   console.log('[tracked-products] hit', req.originalUrl)
-  
+
   try {
     // For now, make this public - no auth required
     // TODO: Add auth check if needed: if (!req.user) return res.status(401).json({ error: 'unauthenticated' })
-    
+
     if (!db) {
       console.log('[tracked-products] DB not available, returning empty fallback')
       return res.status(200).type('application/json').json({

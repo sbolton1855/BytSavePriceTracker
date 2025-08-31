@@ -70,7 +70,7 @@ app.use((req, res, next) => {
     const duration = Date.now() - start;
     if (path.startsWith("/api")) {
       let logLine = `[RESPONSE] ${req.method} ${path} ${res.statusCode} in ${duration}ms`;
-      
+
       // Add error details for failed requests
       if (res.statusCode >= 400) {
         console.error(`❌ ${logLine}`);
@@ -100,7 +100,21 @@ app.use((req, res, next) => {
     throw err;
   });
 
-  // API 404 handling is now done in routes.ts
+  // API 404 guard - prevent API routes from falling through to SPA
+  app.use('/api/*', (req, res) => {
+    res.status(404).type('application/json').json({
+      error: 'not_found',
+      path: req.path,
+      timestamp: new Date().toISOString()
+    });
+  });
+
+  // Serve static files from the client directory
+  app.use(express.static(path.join(__dirname, '../client')));
+
+  // SPA fallback - serve index.html for any non-API routes
+  app.get('*', (req, res) => {
+  });
 
   // importantly only setup vite in development and after
   // setting up all the other routes so the catch-all route
