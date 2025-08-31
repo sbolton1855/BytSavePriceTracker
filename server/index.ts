@@ -110,11 +110,11 @@ app.use((req, res, next) => {
   });
 
   // Serve static files from the client directory
-  app.use(express.static(path.join(__dirname, '../client')));
+  app.use(express.static(path.resolve('./client')));
 
   // SPA fallback - serve index.html for any non-API routes
   app.get('*', (req, res) => {
-    res.sendFile(path.join(__dirname, '../client/index.html'));
+    res.sendFile(path.resolve('./client/index.html'));
   });
 
   // importantly only setup vite in development and after
