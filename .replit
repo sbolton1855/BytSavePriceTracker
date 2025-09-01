@@ -1,8 +1,23 @@
 modules = ["nodejs-20", "web", "postgresql-16"]
+
 run = """
-redis-server --daemonize yes --port 6379
-npm run dev
+# Kill any existing processes
+pkill -f "tsx" || true
+pkill -f "vite" || true
+sleep 2
+
+# Start backend server
+npm run dev &
+sleep 3
+
+# Start frontend server
+npx vite --port 3000 --host &
+sleep 2
+
+# Keep running
+wait
 """
+
 hidden = [".config", ".git", "generated-icon.png", "node_modules", "dist"]
 
 [nix]
@@ -15,78 +30,37 @@ build = ["npm", "run", "build"]
 run = ["sh", "-c", "npm run start"]
 
 [[ports]]
-localPort = 5000
+localPort = 3000
 externalPort = 80
+exposeLocalhost = true
 
 [[ports]]
-localPort = 6379
-externalPort = 3000
+localPort = 3002
+externalPort = 3002
+
+[[ports]]
+localPort = 3003
+externalPort = 3003
+
+[[ports]]
+localPort = 5000
+externalPort = 5000
 
 [workflows]
-runButton = "Clean Development Server"
+runButton = "Start Full Stack App"
 
 [[workflows.workflow]]
-name = "Project"
-mode = "parallel"
-author = "agent"
-
-[[workflows.workflow.tasks]]
-task = "workflow.run"
-args = "Start application"
-
-[[workflows.workflow]]
-name = "Start application"
+name = "Start Full Stack App"
+mode = "sequential"
 author = "agent"
 
 [[workflows.workflow.tasks]]
 task = "shell.exec"
-args = "npm run dev"
-waitForPort = 5000
-
-[[workflows.workflow]]
-name = "Start Dev Server"
-author = 533416
-mode = "sequential"
+args = "pkill -f tsx || true"
 
 [[workflows.workflow.tasks]]
 task = "shell.exec"
-args = "NODE_ENV=development tsx server/index.ts"
-
-[[workflows.workflow]]
-name = "Run Tests"
-author = 533416
-mode = "sequential"
-
-[[workflows.workflow.tasks]]
-task = "shell.exec"
-args = "NODE_ENV=test tsx server/test.ts"
-
-[[workflows.workflow]]
-name = "Development Server"
-author = 533416
-mode = "sequential"
-
-[[workflows.workflow.tasks]]
-task = "shell.exec"
-args = "npm run dev"
-
-[[workflows.workflow]]
-name = "Development Server"
-author = 533416
-mode = "sequential"
-
-[[workflows.workflow.tasks]]
-task = "shell.exec"
-args = "npm run dev"
-
-[[workflows.workflow]]
-name = "Clean Development Server"
-author = 533416
-mode = "sequential"
-
-[[workflows.workflow.tasks]]
-task = "shell.exec"
-args = "pkill -f \"tsx server/index.ts\" || true"
+args = "pkill -f vite || true"
 
 [[workflows.workflow.tasks]]
 task = "shell.exec"
@@ -94,4 +68,10 @@ args = "sleep 2"
 
 [[workflows.workflow.tasks]]
 task = "shell.exec"
-args = "NODE_ENV=development tsx server/index.ts"
+args = "npm run dev"
+waitForPort = 5000
+
+[[workflows.workflow.tasks]]
+task = "shell.exec"
+args = "npx vite --port 3000 --host"
+waitForPort = 3000
