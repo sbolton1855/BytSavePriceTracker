@@ -10,6 +10,9 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } f
 import type { TrackedProductWithDetails } from "@shared/schema";
 import { useAuth } from "@/hooks/use-auth";
 import React from "react"; // Import React for useMemo
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
+import { Trash2, ExternalLink, TrendingDown, TrendingUp } from "lucide-react";
 
 // Utility function to validate if a price is valid
 function isValidPrice(price: any): price is number {
@@ -28,9 +31,12 @@ const ProductsDisplay: React.FC<ProductsDisplayProps> = ({ email, onProductsChan
   const { user, isAuthenticated } = useAuth();
   const [filter, setFilter] = useState<FilterOption>("all");
   const [showSignupModal, setShowSignupModal] = useState(false);
+  const [products, setProducts] = useState<TrackedProductWithDetails[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
 
   // Fetch tracked products - adapts to auth status
-  const { data, isLoading, isError, error, refetch } = useQuery<TrackedProductWithDetails[]>({
+  const { data, isLoading, isError, refetch } = useQuery<TrackedProductWithDetails[]>({
     queryKey: isAuthenticated ? ['/api/my/tracked-products'] : ['/api/tracked-products', email],
     enabled: isAuthenticated ? true : (!!email && email.length > 0),
     queryFn: async ({ queryKey }) => {
@@ -56,10 +62,12 @@ const ProductsDisplay: React.FC<ProductsDisplayProps> = ({ email, onProductsChan
 
           const data = await res.json();
           console.log("ProductsDisplay - data changed:", data);
+          setProducts(data); // Update local state
           return data;
         } catch (err) {
           console.error("Error fetching tracked products:", err);
-          // Return empty array on error to prevent component crash
+          setError(err instanceof Error ? err.message : 'Failed to fetch tracked products');
+          setProducts([]); // Clear products on error
           return [];
         }
       } else {
@@ -67,6 +75,7 @@ const ProductsDisplay: React.FC<ProductsDisplayProps> = ({ email, onProductsChan
 
         if (!email || email.length === 0) {
           console.log("No email provided, returning empty array");
+          setLoading(false);
           return [];
         }
 
@@ -79,10 +88,13 @@ const ProductsDisplay: React.FC<ProductsDisplayProps> = ({ email, onProductsChan
           if (!res.ok) throw new Error('Failed to fetch tracked products');
           const data = await res.json();
           console.log("ProductsDisplay - data changed:", data);
-          return data;
+          setProducts(data.items || []); // Update local state with items or empty array
+          return data.items || [];
         } catch (err) {
           console.error("Error fetching tracked products:", err);
-          throw err;
+          setError(err instanceof Error ? err.message : 'Failed to fetch tracked products');
+          setProducts([]); // Clear products on error
+          return [];
         }
       }
     },
@@ -91,28 +103,26 @@ const ProductsDisplay: React.FC<ProductsDisplayProps> = ({ email, onProductsChan
     staleTime: 0, // Always fetch fresh data
     // Refetch on window focus to keep data fresh
     refetchOnWindowFocus: true,
-    refetchOnMount: true
+    refetchOnMount: true,
+    onSuccess: (fetchedData) => {
+      setProducts(fetchedData);
+      setLoading(false);
+      setError(null);
+    },
+    onError: (err: any) => {
+      console.error("Query error:", err);
+      setError(err?.message || 'Failed to fetch products');
+      setProducts([]);
+      setLoading(false);
+    }
   });
 
   // Filter products based on selection - simplified to match deployed version
   const filteredProducts = useMemo(() => {
-    console.log('ProductsDisplay - data changed:', data);
+    console.log('ProductsDisplay - raw products data:', products);
 
-    if (!data) {
-      console.log('ProductsDisplay - No data available');
-      return [];
-    }
-
-    // Handle different data structures
-    let products = [];
-    if (Array.isArray(data)) {
-      products = data;
-    } else if (data.items && Array.isArray(data.items)) {
-      products = data.items;
-    } else if (data.products && Array.isArray(data.products)) {
-      products = data.products;
-    } else {
-      console.warn('ProductsDisplay - Data structure not recognized:', data);
+    if (!products) {
+      console.log('ProductsDisplay - No products available');
       return [];
     }
 
@@ -124,17 +134,17 @@ const ProductsDisplay: React.FC<ProductsDisplayProps> = ({ email, onProductsChan
 
     console.log(`ProductsDisplay - Found ${products.length} products`);
     return products;
-  }, [data]);
+  }, [products]);
 
   // Filter products based on selection
-  const finalFilteredProducts = filteredProducts.filter((product: any) => {
+  const finalFilteredProducts = filteredProducts.filter((product: TrackedProductWithDetails) => {
     // Handle different product data structures
-    const currentPrice = product.currentPrice || product.product?.currentPrice;
-    const originalPrice = product.originalPrice || product.product?.originalPrice;
+    const currentPrice = product.product?.currentPrice;
+    const originalPrice = product.product?.originalPrice;
     const targetPrice = product.targetPrice;
     const createdAt = product.createdAt;
 
-    if (!currentPrice) {
+    if (currentPrice === undefined || currentPrice === null) {
       console.warn('Product missing currentPrice:', product);
       return false;
     }
@@ -170,24 +180,21 @@ const ProductsDisplay: React.FC<ProductsDisplayProps> = ({ email, onProductsChan
   };
 
   // Handle removing a product
-  const handleRemoveProduct = async (product: any) => {
-    if (!user?.email || !product?.id) return;
+  const handleRemoveProduct = async (productId: number) => {
+    if (!user?.email || !productId) return;
 
     try {
-      const response = await fetch(`/api/tracked-products/${product.id}?email=${encodeURIComponent(user.email)}`, {
+      const response = await fetch(`/api/tracked-products/${productId}?email=${encodeURIComponent(user.email)}`, {
         method: 'DELETE',
       });
 
       if (response.ok) {
         // Remove from local state
-        setData(prev => prev ? {
-          ...prev,
-          items: prev.items.filter(p => p?.id !== product.id)
-        } : null);
+        setProducts(prev => prev.filter(p => p.id !== productId));
 
         toast({
           title: "Product removed",
-          description: `Stopped tracking ${product?.title || 'product'}`,
+          description: `Stopped tracking product`,
         });
       } else {
         throw new Error('Failed to remove product');
@@ -208,6 +215,7 @@ const ProductsDisplay: React.FC<ProductsDisplayProps> = ({ email, onProductsChan
       console.log("Product deletion detected, refetching data");
       // Force a complete data refresh
       queryClient.resetQueries({ queryKey: ['/api/tracked-products'] });
+      queryClient.resetQueries({ queryKey: ['/api/my/tracked-products'] });
       setTimeout(() => {
         console.log("Performing manual refetch after deletion");
         refetch();
@@ -233,6 +241,7 @@ const ProductsDisplay: React.FC<ProductsDisplayProps> = ({ email, onProductsChan
 
       // Reset tracked products queries to ensure fresh data
       queryClient.resetQueries({ queryKey: ['/api/tracked-products'] });
+      queryClient.resetQueries({ queryKey: ['/api/my/tracked-products'] });
 
       // Wait a moment for the database to update
       setTimeout(() => {
@@ -250,13 +259,14 @@ const ProductsDisplay: React.FC<ProductsDisplayProps> = ({ email, onProductsChan
       document.removeEventListener('product-deleted', handleProductDeleted);
       document.removeEventListener('product-tracked', handleProductTracked);
     };
-  }, [refetch]);
+  }, [refetch, isAuthenticated]);
 
+  // Effect for handling query errors
   useEffect(() => {
     if (isError) {
       toast({
         title: "Error fetching products",
-        description: error instanceof Error ? error.message : "Please try again later",
+        description: error || "Please try again later",
         variant: "destructive",
       });
     }
@@ -266,7 +276,7 @@ const ProductsDisplay: React.FC<ProductsDisplayProps> = ({ email, onProductsChan
   useEffect(() => {
     const currentEmail = email;
     console.log("ProductsDisplay - current email:", currentEmail);
-    console.log("ProductsDisplay - data changed:", data);
+    console.log("ProductsDisplay - data changed:", products);
     console.log("ProductsDisplay - filteredProducts:", finalFilteredProducts);
 
     // Show detailed debug info
@@ -276,23 +286,23 @@ const ProductsDisplay: React.FC<ProductsDisplayProps> = ({ email, onProductsChan
       console.log("ProductsDisplay - Loading data for email:", currentEmail);
     } else if (isError) {
       console.error("ProductsDisplay - Error fetching data:", error);
-    } else if (!data || data.length === 0) {
+    } else if (!products || products.length === 0) {
       console.log("ProductsDisplay - No products found for email:", currentEmail);
     } else {
       console.log('ProductsDisplay - Found', finalFilteredProducts.length, 'products for email:', currentEmail);
 
       // Debug logging for TRUEplus product
-      const trueplus = finalFilteredProducts.find(p => p.product.asin === 'B01DJGLYZQ');
+      const trueplus = finalFilteredProducts.find(p => p.product?.asin === 'B01DJGLYZQ');
       if (trueplus) {
         console.log('DEBUG: TRUEplus product in dashboard:', {
-          asin: trueplus.product.asin,
-          currentPrice: trueplus.product.currentPrice,
-          originalPrice: trueplus.product.originalPrice,
-          title: trueplus.product.title.substring(0, 50) + '...'
+          asin: trueplus.product?.asin,
+          currentPrice: trueplus.product?.currentPrice,
+          originalPrice: trueplus.product?.originalPrice,
+          title: trueplus.product?.title?.substring(0, 50) + '...'
         });
       }
     }
-  }, [email, data, finalFilteredProducts, isLoading, isError, error]);
+  }, [email, products, finalFilteredProducts, isLoading, isError, error]);
 
   useEffect(() => {
     if (onProductsChange && finalFilteredProducts) {
@@ -374,6 +384,33 @@ const ProductsDisplay: React.FC<ProductsDisplayProps> = ({ email, onProductsChan
               </div>
             ))}
           </div>
+        ) : error ? (
+          <div className="text-center py-12 bg-white rounded-lg shadow-sm">
+            <svg
+              xmlns="http://www.w3.org/2000/svg"
+              className="h-12 w-12 mx-auto text-red-500"
+              fill="none"
+              viewBox="0 0 24 24"
+              stroke="currentColor"
+            >
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth={1}
+                d="M6 18L18 6M6 6l12 12"
+              />
+            </svg>
+            <h3 className="mt-4 text-lg font-medium text-gray-900">Error Loading Products</h3>
+            <p className="mt-1 text-gray-500">
+              {error}
+            </p>
+            <Button
+              className="mt-6"
+              onClick={() => window.location.reload()}
+            >
+              Retry
+            </Button>
+          </div>
         ) : (
           <>
             {finalFilteredProducts && finalFilteredProducts.length > 0 ? (
@@ -399,41 +436,92 @@ const ProductsDisplay: React.FC<ProductsDisplayProps> = ({ email, onProductsChan
                   </div>
                 )}
 
-                {finalFilteredProducts.filter(product => product && product.id).map((trackedProduct: any) => {
-                  // Handle different data structures and create normalized structure for ProductCard
-                  const normalizedProduct = {
-                    ...trackedProduct,
-                    product: trackedProduct.product || {
-                      id: trackedProduct.id,
-                      asin: trackedProduct.asin,
-                      title: trackedProduct.title,
-                      imageUrl: trackedProduct.image || trackedProduct.imageUrl,
-                      currentPrice: trackedProduct.currentPrice,
-                      originalPrice: trackedProduct.originalPrice,
-                      url: trackedProduct.url || `https://amazon.com/dp/${trackedProduct.asin}`,
-                      lastChecked: trackedProduct.lastCheckedAt || trackedProduct.lastChecked || new Date().toISOString()
-                    },
-                    email: trackedProduct.email || email
-                  };
+                {finalFilteredProducts.filter(product => product && product.id).map((trackedProduct: TrackedProductWithDetails) => {
+                  // Safely access product properties with fallbacks
+                  const asin = trackedProduct.product?.asin || 'unknown';
+                  const title = trackedProduct.product?.title || 'Unknown Product';
+                  const image = trackedProduct.product?.image || trackedProduct.product?.imageUrl || '';
+                  const currentPrice = trackedProduct.product?.currentPrice || 0;
+                  const targetPrice = trackedProduct.targetPrice || 0;
+                  const lastChecked = trackedProduct.product?.lastCheckedAt || trackedProduct.product?.lastChecked || '';
 
-                  // Create a unique key that includes target price to force re-render when it changes
-                  const currentPrice = normalizedProduct.product.currentPrice;
-                  const lastChecked = normalizedProduct.product.lastChecked;
-                  const cardKey = `${normalizedProduct.id}-${normalizedProduct.targetPrice}-${currentPrice}-${lastChecked}`;
+                  const priceDiff = currentPrice - targetPrice;
+                  const isBelow = currentPrice <= targetPrice;
 
                   return (
-                    <div key={cardKey} className={!isAuthenticated ? 'pointer-events-none' : ''}>
-                      <ProductCard
-                        trackedProduct={normalizedProduct}
-                        onRefresh={() => {
-                          console.log("ProductCard refresh triggered");
-                          queryClient.invalidateQueries({ queryKey: ['/api/tracked-products'] });
-                          queryClient.invalidateQueries({ queryKey: ['/api/my/tracked-products'] });
-                          refetch();
-                        }}
-                        isAuthenticated={isAuthenticated}
-                      />
-                    </div>
+                    <Card key={trackedProduct.id || Math.random()} className="relative">
+                      <CardHeader className="pb-2">
+                        <div className="flex justify-between items-start">
+                          <Badge variant={isBelow ? "default" : "secondary"}>
+                            {isBelow ? "Target Reached!" : "Monitoring"}
+                          </Badge>
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => trackedProduct.id && handleRemoveProduct(trackedProduct.id)}
+                            className="text-red-500 hover:text-red-700"
+                          >
+                            <Trash2 className="h-4 w-4" />
+                          </Button>
+                        </div>
+                        <CardTitle className="text-sm line-clamp-2">{title}</CardTitle>
+                      </CardHeader>
+
+                      <CardContent>
+                        {image && (
+                          <img
+                            src={image}
+                            alt={title}
+                            className="w-full h-32 object-contain mb-3 bg-gray-50 rounded"
+                            onError={(e) => {
+                              (e.target as HTMLImageElement).style.display = 'none';
+                            }}
+                          />
+                        )}
+
+                        <div className="space-y-2">
+                          <div className="flex justify-between items-center">
+                            <span className="text-sm text-gray-500">Current Price:</span>
+                            <span className="font-semibold">${currentPrice.toFixed(2)}</span>
+                          </div>
+
+                          <div className="flex justify-between items-center">
+                            <span className="text-sm text-gray-500">Target Price:</span>
+                            <span className="text-sm">${targetPrice.toFixed(2)}</span>
+                          </div>
+
+                          <div className="flex justify-between items-center">
+                            <span className="text-sm text-gray-500">Difference:</span>
+                            <div className="flex items-center gap-1">
+                              {priceDiff > 0 ? (
+                                <TrendingUp className="h-3 w-3 text-red-500" />
+                              ) : (
+                                <TrendingDown className="h-3 w-3 text-green-500" />
+                              )}
+                              <span className={`text-sm font-medium ${priceDiff > 0 ? 'text-red-500' : 'text-green-500'}`}>
+                                {priceDiff > 0 ? '+' : ''}${priceDiff.toFixed(2)}
+                              </span>
+                            </div>
+                          </div>
+
+                          {lastChecked && (
+                            <CardDescription className="text-xs">
+                              Last checked: {new Date(lastChecked).toLocaleDateString()}
+                            </CardDescription>
+                          )}
+
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            className="w-full mt-2"
+                            onClick={() => window.open(`https://amazon.com/dp/${asin}`, '_blank')}
+                          >
+                            <ExternalLink className="h-3 w-3 mr-1" />
+                            View on Amazon
+                          </Button>
+                        </div>
+                      </CardContent>
+                    </Card>
                   );
                 })}
 
@@ -458,6 +546,7 @@ const ProductsDisplay: React.FC<ProductsDisplayProps> = ({ email, onProductsChan
                     </Button>
                   </div>
                 )}
+
               </div>
             ) : (
               <div className="text-center py-12 bg-white rounded-lg shadow-sm">

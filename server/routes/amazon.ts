@@ -1,160 +1,53 @@
-console.log('>>> [DEBUG] LOADED AMAZON ROUTER from server/routes/amazon.ts');
-import express from 'express';
-import { searchAmazonProducts } from '../amazonApi';
-import { getDeals } from '../lib/amazonApi';
+import { Router } from "express";
+import { requireAdmin } from "../middleware/requireAdmin";
 
-const router = express.Router();
+const router = Router();
 
-function getRandomKeyword() {
-  const keywords = ['vitamins', 'supplements', 'health', 'wellness', 'nutrition', 'organic', 'natural'];
-  return keywords[Math.floor(Math.random() * keywords.length)];
-}
-
-// Fallback function if searchAmazonProducts fails
-async function getFallbackDeals() {
-  return [
-    {
-      ASIN: 'B00SAMPLE1',
-      ItemInfo: { Title: { DisplayValue: 'Sample Health Product' } },
-      Offers: {
-        Listings: [{
-          Price: { Amount: 19.99 },
-          SavingBasis: { Amount: 29.99 },
-          Savings: { Amount: 10.00, Percentage: 33, DisplayAmount: '$10.00 (33%)', Currency: 'USD' }
-        }]
-      },
-      Images: { Primary: { Medium: { URL: 'https://via.placeholder.com/150' } } },
-      DetailPageURL: 'https://amazon.com/dp/B00SAMPLE1'
-    }
-  ];
-}
-
-router.get('/amazon/deals', async (req, res) => {
-  const keyword = req.query.q?.toString() || getRandomKeyword();
-  const testMode = req.query.test === 'httpbin';
-
-  console.log(`[DEBUG] /api/amazon/deals endpoint hit with keyword: ${keyword}`);
-  console.log(`[DEBUG] Request URL: ${req.originalUrl}`);
-  console.log(`[DEBUG] Test mode: ${testMode}`);
-
-  // Ensure we always send JSON response
-  res.setHeader('Content-Type', 'application/json');
-
-  // Test with httpbin first to prove routing works
-  if (testMode) {
-    try {
-      const testUrl = 'https://httpbin.org/get';
-      console.log('[DEBUG] Testing route with httpbin:', testUrl);
-      const response = await fetch(testUrl);
-      const text = await response.text();
-      return res.json({ test: 'httpbin', raw: text.slice(0, 200), status: 'success' });
-    } catch (err: any) {
-      console.error('[ERROR] Httpbin test failed:', err.message);
-      return res.json({ test: 'httpbin', error: err.message, status: 'failed' });
-    }
-  }
-
+// Amazon deals endpoint - always return JSON
+router.get('/deals', async (req, res) => {
   try {
-    console.log('[DEBUG] About to call searchAmazonProducts...');
-    console.log('[DEBUG] Keyword being used:', keyword);
-    console.log('[DEBUG] searchAmazonProducts function location:', searchAmazonProducts.toString().substring(0, 200));
+    console.log('[amazon-deals] Fetching deals');
 
-    // Log the environment variables to ensure they're loaded
-    console.log('[DEBUG] Environment check:');
-    console.log('  - AMAZON_ACCESS_KEY present:', !!process.env.AMAZON_ACCESS_KEY);
-    console.log('  - AMAZON_SECRET_KEY present:', !!process.env.AMAZON_SECRET_KEY);
-    console.log('  - AMAZON_PARTNER_TAG present:', !!process.env.AMAZON_PARTNER_TAG);
+    // For now, return empty deals until upstream is properly wired
+    // This prevents undefined function calls and ensures consistent JSON response
+    const response = {
+      items: [],
+      updatedAt: new Date().toISOString(),
+      message: "Deals service not yet configured"
+    };
 
-    const items = await searchAmazonProducts(keyword);
-    console.log(`[DEBUG] searchAmazonProducts returned ${items ? items.length : 'null'} items`);
-
-    // Log raw Amazon response for inspection
-    if (items && items.length > 0) {
-      console.log('[DEBUG] First item from Amazon:', JSON.stringify(items[0], null, 2));
-    } else {
-      console.log('[DEBUG] No items returned from Amazon, using fallback');
-      const fallbackDeals = await getFallbackDeals();
-      return res.json({ deals: fallbackDeals });
-    }
-
-    const deals = items.filter((item: any) => {
-      const price = item?.Offers?.Listings?.[0]?.Price?.Amount;
-      return !!price;
-    }).map((item: any) => {
-      const listing = item.Offers?.Listings?.[0];
-      const price = listing?.Price?.Amount;
-      const savings = listing?.Price?.Savings;
-      const savingBasis = listing?.SavingBasis?.Amount;
-
-      return {
-        asin: item.ASIN,
-        title: item.ItemInfo?.Title?.DisplayValue,
-        price: price,
-        msrp: savingBasis,
-        imageUrl: item.Images?.Primary?.Medium?.URL || item.Images?.Primary?.Small?.URL || item.Images?.Primary?.Large?.URL || null,
-        url: item.DetailPageURL,
-        // Include Amazon savings data if available
-        savings: savings ? {
-          Amount: savings.Amount,
-          Percentage: savings.Percentage,
-          DisplayAmount: savings.DisplayAmount,
-          Currency: savings.Currency
-        } : null
-      };
+    console.log('[amazon-deals] ✅ Returning', response.items.length, 'deals');
+    res.json(response);
+  } catch (error) {
+    console.error('[amazon-deals] ❌ Error:', error);
+    res.status(500).json({
+      error: 'deals_unavailable',
+      message: 'Unable to fetch deals at this time',
+      items: [],
+      updatedAt: new Date().toISOString()
     });
-
-    console.log(`[DEBUG] Processed ${deals.length} deals, sending response`);
-    res.json({ deals });
-  } catch (err: any) {
-    console.error('[ERROR] Failed to fetch deals from Amazon:', err);
-    console.error('[ERROR] Error stack:', err.stack);
-    console.error('[ERROR] Error type:', typeof err);
-    console.error('[ERROR] Error name:', err.name);
-
-    // Always return JSON, never let it fall through to HTML error pages
-    try {
-      const fallbackDeals = await getFallbackDeals();
-      console.log('[INFO] Using fallback deals due to error:', err.message);
-      res.json({ deals: fallbackDeals });
-    } catch (fallbackErr: any) {
-      console.error('[ERROR] Even fallback failed:', fallbackErr);
-      res.status(500).json({ 
-        error: 'Failed to fetch deals', 
-        details: err.message,
-        fallbackError: fallbackErr.message,
-        timestamp: new Date().toISOString()
-      });
-    }
   }
 });
 
-// Main deals endpoint - ensure single handler
-router.get('/deals', async (req: Request, res: Response) => {
-  console.log('[amazon-deals] hit', req.originalUrl);
-
+// Admin-only Amazon API testing endpoint
+router.get('/test', requireAdmin, async (req, res) => {
   try {
-    let items = [];
+    console.log('[amazon-test] Admin testing Amazon API');
 
-    try {
-      items = await getDeals();
-    } catch (dealsError) {
-      console.warn('[amazon-deals] getDeals failed, using fallback:', dealsError);
-      // Return empty array as fallback instead of throwing error
-      items = [];
-    }
-
-    return res.status(200).type('application/json').json({ 
-      items, 
-      updatedAt: new Date().toISOString() 
+    res.json({
+      message: "Amazon API test endpoint",
+      timestamp: new Date().toISOString(),
+      credentials: {
+        accessKey: process.env.AWS_ACCESS_KEY_ID ? "present" : "missing",
+        secretKey: process.env.AWS_SECRET_ACCESS_KEY ? "present" : "missing",
+        partnerTag: process.env.AMAZON_PARTNER_TAG ? "present" : "missing"
+      }
     });
-  } catch (e: any) {
-    console.error('[amazon-deals] Critical error:', e);
-    // Always return 200 with empty items to prevent UI breakage
-    return res.status(200).type('application/json').json({ 
-      items: [],
-      updatedAt: new Date().toISOString(),
-      error: 'fallback_mode',
-      detail: 'Using fallback due to upstream error'
+  } catch (error) {
+    console.error('[amazon-test] ❌ Error:', error);
+    res.status(500).json({
+      error: 'test_failed',
+      message: error instanceof Error ? error.message : 'Unknown error'
     });
   }
 });

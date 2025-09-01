@@ -1,4 +1,5 @@
-console.log('Running from server/index.ts');
+
+console.log('[BOOT] Running from server/index.ts');
 import dotenv from 'dotenv';
 dotenv.config();
 
@@ -11,15 +12,20 @@ import { adminSessionConfig, attachAdminToRequest } from "./middleware/adminSess
 import { adminSecurityMiddleware } from "./middleware/adminSecurity";
 import adminAuthRoutes from "./routes/adminAuth";
 import adminEmailRoutes from "./routes/adminEmail";
+
 const app = express();
 
 // Make app available for email logging fallback
 module.exports = { app };
-
-// Make app globally available for memory fallback
 (global as any).app = app;
+
 app.use(express.json());
 app.use(express.urlencoded({ extended: false }));
+
+// Health endpoint first
+app.get('/_health', (req, res) => {
+  res.status(200).json({ ok: true, timestamp: new Date().toISOString() });
+});
 
 // Configure authentication with OAuth providers
 configureAuth(app);
@@ -33,75 +39,47 @@ app.use('/admin', attachAdminToRequest);
 app.use('/admin/api', adminAuthRoutes);
 app.use('/admin/api/email', adminEmailRoutes);
 
-// Enhanced logging middleware for debugging API failures
-app.use((req, res, next) => {
+// Enhanced logging middleware for API requests only
+app.use('/api', (req, res, next) => {
   const start = Date.now();
   const path = req.path;
-  let capturedJsonResponse: Record<string, any> | undefined = undefined;
-  let capturedError: any = undefined;
-
-  // Log incoming API requests
-  if (path.startsWith("/api")) {
-    console.log(`\n🌐 [REQUEST] ${req.method} ${path}`);
-    if (Object.keys(req.query).length > 0) {
-      console.log("[REQUEST] Query params:", req.query);
-    }
-    if (req.method === "POST" || req.method === "PUT" || req.method === "PATCH") {
-      console.log("[REQUEST] Body:", JSON.stringify(req.body, null, 2));
-    }
-  }
-
+  
+  console.log(`[API] ${req.method} ${path}`);
+  
   const originalResJson = res.json;
   res.json = function (bodyJson, ...args) {
-    capturedJsonResponse = bodyJson;
+    const duration = Date.now() - start;
+    if (res.statusCode >= 400) {
+      console.error(`[API] ❌ ${req.method} ${path} ${res.statusCode} in ${duration}ms`);
+    } else {
+      console.log(`[API] ✅ ${req.method} ${path} ${res.statusCode} in ${duration}ms`);
+    }
     return originalResJson.apply(res, [bodyJson, ...args]);
   };
-
-  // Capture errors
-  const originalResStatus = res.status;
-  res.status = function (code) {
-    if (code >= 400) {
-      console.error(`[RESPONSE] Error status ${code} for ${req.method} ${path}`);
-    }
-    return originalResStatus.apply(res, [code]);
-  };
-
-  res.on("finish", () => {
-    const duration = Date.now() - start;
-    if (path.startsWith("/api")) {
-      let logLine = `[RESPONSE] ${req.method} ${path} ${res.statusCode} in ${duration}ms`;
-
-      // Add error details for failed requests
-      if (res.statusCode >= 400) {
-        console.error(`❌ ${logLine}`);
-        if (capturedJsonResponse) {
-          console.error("[RESPONSE] Error details:", JSON.stringify(capturedJsonResponse, null, 2));
-        }
-      } else {
-        console.log(`✅ ${logLine}`);
-        if (capturedJsonResponse && process.env.LOG_LEVEL === 'debug') {
-          console.log("[RESPONSE] Success data:", JSON.stringify(capturedJsonResponse, null, 2).slice(0, 200) + "...");
-        }
-      }
-    }
-  });
-
+  
   next();
 });
 
 (async () => {
+  // Register all API routes first
   const server = await registerRoutes(app);
 
+  // Global error handler for API routes
   app.use((err: any, _req: Request, res: Response, _next: NextFunction) => {
     const status = err.status || err.statusCode || 500;
     const message = err.message || "Internal Server Error";
-
-    res.status(status).json({ message });
-    throw err;
+    
+    console.error(`[API] Error ${status}:`, message);
+    res.status(status).json({ 
+      error: 'internal_error',
+      message,
+      timestamp: new Date().toISOString()
+    });
   });
 
   // API 404 guard - prevent API routes from falling through to SPA
   app.use('/api/*', (req, res) => {
+    console.log(`[API] 404 - ${req.path}`);
     res.status(404).type('application/json').json({
       error: 'not_found',
       path: req.path,
@@ -109,32 +87,53 @@ app.use((req, res, next) => {
     });
   });
 
-  // Serve static files from the client directory
-  app.use(express.static(path.resolve('./client')));
-
-  // SPA fallback - serve index.html for any non-API routes
-  app.get('*', (req, res) => {
-    res.sendFile(path.resolve('./client/index.html'));
-  });
-
-  // importantly only setup vite in development and after
-  // setting up all the other routes so the catch-all route
-  // doesn't interfere with the other routes
+  // Only setup static serving if we're in production or if client build exists
+  const clientPath = path.resolve('./client');
+  const buildPath = path.resolve('./dist/public');
+  
   if (app.get("env") === "development") {
+    console.log('[BOOT] Development mode - setting up Vite');
     await setupVite(app, server);
   } else {
-    serveStatic(app);
+    console.log('[STATIC] Production mode - serving static files');
+    try {
+      // Check if build exists
+      const fs = await import('fs');
+      if (fs.existsSync(buildPath)) {
+        app.use(express.static(buildPath));
+        console.log('[STATIC] Serving built client from', buildPath);
+      } else if (fs.existsSync(clientPath)) {
+        app.use(express.static(clientPath));
+        console.log('[STATIC] Serving client from', clientPath);
+      } else {
+        console.log('[STATIC] No client build found, skipping static serving');
+      }
+      
+      // SPA fallback - serve index.html for any non-API routes
+      app.get('*', (req, res) => {
+        const indexPath = fs.existsSync(path.join(buildPath, 'index.html')) 
+          ? path.join(buildPath, 'index.html')
+          : path.join(clientPath, 'index.html');
+          
+        if (fs.existsSync(indexPath)) {
+          res.sendFile(indexPath);
+        } else {
+          res.status(404).json({ error: 'not_found', message: 'Client not built' });
+        }
+      });
+    } catch (error) {
+      console.error('[STATIC] Error setting up static serving:', error);
+    }
   }
 
-  // ALWAYS serve the app on port 5000
-  // this serves both the API and the client.
-  // It is the only port that is not firewalled.
-  const port = 5000;
+  // Use PORT from environment or default to 5000
+  const port = process.env.PORT || 5000;
   server.listen({
-    port,
+    port: Number(port),
     host: "0.0.0.0",
     reusePort: true,
   }, () => {
-    log(`serving on port ${port}`);
+    console.log(`[BOOT] Server running on port ${port}`);
+    console.log(`[BOOT] Health check: http://0.0.0.0:${port}/_health`);
   });
 })();
