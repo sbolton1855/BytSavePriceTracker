@@ -1,18 +1,15 @@
 import { Router } from "express";
 import { requireAdmin } from "../middleware/requireAdmin";
+import { getDeals } from "../lib/amazonApi.js";
 
 const router = Router();
-
-// Safe fallback function that always returns empty array
-async function getDeals() {
-  return []; // TODO: wire real API
-}
 
 // Amazon deals endpoint - always return JSON
 router.get('/deals', async (req, res) => {
   try {
     console.log('[amazon-deals] Fetching deals...');
     const items = await getDeals();
+    console.log(`[amazon-deals] Found ${items.length} deals`);
     res.status(200).type('application/json').json({
       items,
       updatedAt: new Date().toISOString()
