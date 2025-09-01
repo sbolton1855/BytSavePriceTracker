@@ -13,7 +13,7 @@ import systemHealthRoutes from "./routes/systemHealth";
 import errorsRoutes from "./routes/errors";
 import testRoutes from "./routes/test";
 
-export function registerRoutes(app: Express): Promise<Server> {
+export function setupRoutes(app: Express): Promise<Server> {
   console.log('[BOOT] Registering API routes');
 
   // Mount all API routes
