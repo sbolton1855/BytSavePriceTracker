@@ -1,3 +1,4 @@
+
 modules = ["nodejs-20", "web", "postgresql-16"]
 
 run = "npm run dev"
@@ -11,6 +12,7 @@ installCommand = "npm install && npx update-browserslist-db@latest --yes"
 
 [nix]
 channel = "stable-24_05"
+packages = ["psmisc", "lsof"]
 
 [deployment]
 run = ["sh", "-c", "npm run start"]
@@ -20,20 +22,20 @@ localPort = 5000
 externalPort = 80
 
 [workflows]
-runButton = "Start Application"
+runButton = "Development Server"
 
 [[workflows.workflow]]
-name = "Start Full Stack"
+name = "Development Server"
 mode = "sequential"
 author = "agent"
 
 [[workflows.workflow.tasks]]
 task = "shell.exec"
-args = "pkill -f tsx || true"
+args = "pkill -f 'tsx.*server/index.ts' || true"
 
 [[workflows.workflow.tasks]]
 task = "shell.exec"
-args = "pkill -f vite || true"
+args = "pkill -f 'node.*server/index' || true"
 
 [[workflows.workflow.tasks]]
 task = "shell.exec"
@@ -42,18 +44,3 @@ args = "sleep 2"
 [[workflows.workflow.tasks]]
 task = "shell.exec"
 args = "npm run dev"
-waitForPort = 5000
-
-[[workflows.workflow.tasks]]
-task = "shell.exec"
-args = "npx vite --port 3000 --host"
-waitForPort = 3000
-
-[[workflows.workflow]]
-name = "Start Application"
-author = 533416
-mode = "sequential"
-
-[[workflows.workflow.tasks]]
-task = "shell.exec"
-args = "npm run start:replit"
