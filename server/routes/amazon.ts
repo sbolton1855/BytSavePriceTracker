@@ -128,8 +128,8 @@ router.get('/amazon/deals', async (req, res) => {
   }
 });
 
-// Debugging endpoint for testing routing
-router.get('/deals', async (req: express.Request, res: express.Response) => {
+// Main deals endpoint - ensure single handler
+router.get('/deals', async (req: Request, res: Response) => {
   console.log('[amazon-deals] hit', req.originalUrl);
 
   try {

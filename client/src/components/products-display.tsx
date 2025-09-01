@@ -9,6 +9,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import type { TrackedProductWithDetails } from "@shared/schema";
 import { useAuth } from "@/hooks/use-auth";
+import React from "react"; // Import React for useMemo
 
 // Utility function to validate if a price is valid
 function isValidPrice(price: any): price is number {
