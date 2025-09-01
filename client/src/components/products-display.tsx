@@ -374,7 +374,7 @@ const ProductsDisplay: React.FC<ProductsDisplayProps> = ({ email, onProductsChan
                       id: trackedProduct.id,
                       asin: trackedProduct.asin,
                       title: trackedProduct.title,
-                      imageUrl: tracked.image || trackedProduct.imageUrl,
+                      imageUrl: trackedProduct.image || trackedProduct.imageUrl,
                       currentPrice: trackedProduct.currentPrice,
                       originalPrice: trackedProduct.originalPrice,
                       url: trackedProduct.url || `https://amazon.com/dp/${trackedProduct.asin}`,
