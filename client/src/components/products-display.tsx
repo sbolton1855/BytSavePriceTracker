@@ -169,6 +169,39 @@ const ProductsDisplay: React.FC<ProductsDisplayProps> = ({ email, onProductsChan
     });
   };
 
+  // Handle removing a product
+  const handleRemoveProduct = async (product: any) => {
+    if (!user?.email || !product?.id) return;
+
+    try {
+      const response = await fetch(`/api/tracked-products/${product.id}?email=${encodeURIComponent(user.email)}`, {
+        method: 'DELETE',
+      });
+
+      if (response.ok) {
+        // Remove from local state
+        setData(prev => prev ? {
+          ...prev,
+          items: prev.items.filter(p => p?.id !== product.id)
+        } : null);
+
+        toast({
+          title: "Product removed",
+          description: `Stopped tracking ${product?.title || 'product'}`,
+        });
+      } else {
+        throw new Error('Failed to remove product');
+      }
+    } catch (error) {
+      console.error('Error removing product:', error);
+      toast({
+        title: "Error",
+        description: "Failed to remove product",
+        variant: "destructive"
+      });
+    }
+  };
+
   // Listen for product tracking events
   useEffect(() => {
     const handleProductDeleted = () => {
@@ -366,7 +399,7 @@ const ProductsDisplay: React.FC<ProductsDisplayProps> = ({ email, onProductsChan
                   </div>
                 )}
 
-                {finalFilteredProducts.map((trackedProduct: any) => {
+                {finalFilteredProducts.filter(product => product && product.id).map((trackedProduct: any) => {
                   // Handle different data structures and create normalized structure for ProductCard
                   const normalizedProduct = {
                     ...trackedProduct,

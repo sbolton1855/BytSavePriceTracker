@@ -1,36 +1,80 @@
 modules = ["nodejs-20", "web", "postgresql-16"]
-run = "npm run dev"
+
+run = """
+# Kill any existing processes
+pkill -f "tsx" || true
+pkill -f "vite" || true
+sleep 2
+
+# Start backend server
+cd workspace && npm run dev &
+sleep 3
+
+# Start frontend server  
+cd workspace && npx vite --port 3000 --host &
+sleep 2
+
+# Keep running
+wait
+"""
+
 hidden = [".config", ".git", "generated-icon.png", "node_modules", "dist"]
 
 [nix]
 channel = "stable-24_05"
 
-[deployment]
-deploymentTarget = "autoscale"
-build = ["npm", "run", "build"]
-run = ["npm", "run", "start"]
+[[ports]]
+localPort = 3000
+externalPort = 80
+exposeLocalhost = true
+
+[[ports]]
+localPort = 3002
+externalPort = 3002
+
+[[ports]]
+localPort = 3003
+externalPort = 3003
 
 [[ports]]
 localPort = 5000
-externalPort = 80
+externalPort = 5000
 
 [workflows]
-runButton = "Project"
+runButton = "Start Application"
 
 [[workflows.workflow]]
-name = "Project"
-mode = "parallel"
-author = "agent"
-
-[[workflows.workflow.tasks]]
-task = "workflow.run"
-args = "Start application"
-
-[[workflows.workflow]]
-name = "Start application"
+name = "Start Full Stack"
+mode = "sequential"
 author = "agent"
 
 [[workflows.workflow.tasks]]
 task = "shell.exec"
-args = "npm run dev"
+args = "pkill -f tsx || true"
+
+[[workflows.workflow.tasks]]
+task = "shell.exec"
+args = "pkill -f vite || true"
+
+[[workflows.workflow.tasks]]
+task = "shell.exec"
+args = "sleep 2"
+
+[[workflows.workflow.tasks]]
+task = "shell.exec"
+args = "cd workspace && npm run dev"
 waitForPort = 5000
+
+[[workflows.workflow.tasks]]
+task = "shell.exec"
+args = "cd workspace && npx vite --port 3000 --host"
+waitForPort = 3000
+
+[[workflows.workflow]]
+name = "Start Application"
+author = 533416
+mode = "sequential"
+
+[[workflows.workflow.tasks]]
+task = "shell.exec"
+args = "cd workspace && npm run dev"
