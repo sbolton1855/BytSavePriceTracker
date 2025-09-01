@@ -3,28 +3,26 @@ import { requireAdmin } from "../middleware/requireAdmin";
 
 const router = Router();
 
+// Safe fallback function that always returns empty array
+async function getDeals() {
+  return []; // TODO: wire real API
+}
+
 // Amazon deals endpoint - always return JSON
 router.get('/deals', async (req, res) => {
   try {
-    console.log('[amazon-deals] Fetching deals');
-
-    // For now, return empty deals until upstream is properly wired
-    // This prevents undefined function calls and ensures consistent JSON response
-    const response = {
-      items: [],
-      updatedAt: new Date().toISOString(),
-      message: "Deals service not yet configured"
-    };
-
-    console.log('[amazon-deals] ✅ Returning', response.items.length, 'deals');
-    res.json(response);
-  } catch (error) {
-    console.error('[amazon-deals] ❌ Error:', error);
-    res.status(500).json({
-      error: 'deals_unavailable',
-      message: 'Unable to fetch deals at this time',
-      items: [],
+    console.log('[amazon-deals] Fetching deals...');
+    const items = await getDeals();
+    res.status(200).type('application/json').json({
+      items,
       updatedAt: new Date().toISOString()
+    });
+  } catch (e: any) {
+    console.error('[amazon-deals] Error:', e?.message || 'getDeals failed');
+    res.status(502).type('application/json').json({
+      error: 'bad_upstream',
+      detail: e?.message || 'getDeals failed',
+      hint: 'upstream_not_json'
     });
   }
 });

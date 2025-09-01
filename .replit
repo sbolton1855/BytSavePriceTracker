@@ -1,47 +1,18 @@
 modules = ["nodejs-20", "web", "postgresql-16"]
 
-run = """
-# Kill any existing processes
-pkill -f "tsx" || true
-pkill -f "vite" || true
-sleep 2
-
-# Start backend server
-npm run dev &
-sleep 3
-
-# Start frontend server  
-npx vite --port 3000 --host &
-sleep 2
-
-# Keep running
-wait
-"""
+run = "npm run start:replit"
 
 hidden = [".config", ".git", "generated-icon.png", "node_modules", "dist"]
 
 [nix]
 channel = "stable-24_05"
 
-[[ports]]
-localPort = 3000
-externalPort = 80
-
-[[ports]]
-localPort = 3001
-externalPort = 3001
-
-[[ports]]
-localPort = 3002
-externalPort = 3002
-
-[[ports]]
-localPort = 3003
-externalPort = 3003
+[deployment]
+run = ["sh", "-c", "npm run start"]
 
 [[ports]]
 localPort = 5000
-externalPort = 5000
+externalPort = 80
 
 [workflows]
 runButton = "Start Application"
@@ -80,16 +51,4 @@ mode = "sequential"
 
 [[workflows.workflow.tasks]]
 task = "shell.exec"
-args = "pkill -f tsx || true"
-
-[[workflows.workflow.tasks]]
-task = "shell.exec"
-args = "pkill -f vite || true"
-
-[[workflows.workflow.tasks]]
-task = "shell.exec"
-args = "sleep 2"
-
-[[workflows.workflow.tasks]]
-task = "shell.exec"
-args = "npm run dev"
+args = "npm run start:replit"

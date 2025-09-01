@@ -117,24 +117,38 @@ const ProductsDisplay: React.FC<ProductsDisplayProps> = ({ email, onProductsChan
     }
   });
 
+  // Extract current email, ensure it's a string, default to empty string if undefined
+  const currentEmail = typeof email === 'string' ? email : '';
+
   // Filter products based on selection - simplified to match deployed version
   const filteredProducts = useMemo(() => {
-    console.log('ProductsDisplay - raw products data:', products);
-
-    if (!products) {
-      console.log('ProductsDisplay - No products available');
+    console.log('ProductsDisplay - data changed:', data);
+    if (!data?.items || !Array.isArray(data.items)) {
+      console.log('ProductsDisplay - No data available');
       return [];
     }
 
-    // Ensure products is an array
-    if (!Array.isArray(products)) {
-      console.warn('ProductsDisplay - Products data is not an array:', products);
+    console.log('ProductsDisplay - Found', data.items.length, 'products');
+
+    if (!currentEmail) {
+      console.log('ProductsDisplay - No current email');
       return [];
     }
 
-    console.log(`ProductsDisplay - Found ${products.length} products`);
-    return products;
-  }, [products]);
+    console.log('ProductsDisplay - current email:', currentEmail);
+
+    const filtered = data.items.filter((product) => {
+      // Safe check for product and its properties
+      if (!product || typeof product !== 'object') {
+        return false;
+      }
+      return product.userEmail?.toLowerCase() === currentEmail.toLowerCase();
+    });
+
+    console.log('ProductsDisplay - filteredProducts:', filtered);
+
+    return filtered;
+  }, [data, currentEmail]);
 
   // Filter products based on selection
   const finalFilteredProducts = filteredProducts.filter((product: TrackedProductWithDetails) => {
