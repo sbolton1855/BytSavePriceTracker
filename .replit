@@ -1,8 +1,13 @@
 modules = ["nodejs-20", "web", "postgresql-16"]
 
-run = "npm run start:replit"
+run = "npm run dev"
 
 hidden = [".config", ".git", "generated-icon.png", "node_modules", "dist"]
+
+[packager]
+language = "nodejs"
+ignoredPaths = [".git", "node_modules"]
+installCommand = "npm install && npx update-browserslist-db@latest --yes"
 
 [nix]
 channel = "stable-24_05"
