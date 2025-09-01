@@ -1,4 +1,3 @@
-
 modules = ["nodejs-20", "web", "postgresql-16"]
 
 run = "npm run dev"
@@ -15,11 +14,9 @@ channel = "stable-24_05"
 packages = ["psmisc", "lsof"]
 
 [deployment]
-run = ["sh", "-c", "tsx server/index.ts"]
-
-[[ports]]
-localPort = 5000
-externalPort = 80
+deploymentTarget = "autoscale"
+build = ["npm", "run", "build"]
+run = ["npm", "run", "start"]
 
 [workflows]
 runButton = "Start Server"
