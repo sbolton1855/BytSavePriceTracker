@@ -120,6 +120,39 @@ const ProductsDisplay: React.FC<ProductsDisplayProps> = ({ email, onProductsChan
   // Extract current email, ensure it's a string, default to empty string if undefined
   const currentEmail = typeof email === 'string' ? email : '';
 
+  // Add safety check and filter valid products
+  const validProducts = useMemo(() => {
+    if (!data?.items || !Array.isArray(data.items)) {
+      console.log('ProductsDisplay - No valid items array:', data);
+      return [];
+    }
+
+    return data.items.filter(product => {
+      // Ensure product has required fields and is not null/undefined
+      if (!product || typeof product !== 'object') {
+        console.log('ProductsDisplay - Invalid product object:', product);
+        return false;
+      }
+
+      if (!product.asin || typeof product.asin !== 'string') {
+        console.log('ProductsDisplay - Missing or invalid asin:', product);
+        return false;
+      }
+
+      if (!product.title || typeof product.title !== 'string') {
+        console.log('ProductsDisplay - Missing or invalid title:', product);
+        return false;
+      }
+
+      if (typeof product.currentPrice !== 'number' || typeof product.targetPrice !== 'number') {
+        console.log('ProductsDisplay - Invalid price data:', product);
+        return false;
+      }
+
+      return true;
+    });
+  }, [data]);
+
   // Filter products based on selection - simplified to match deployed version
   const filteredProducts = useMemo(() => {
     console.log('ProductsDisplay - data changed:', data);
