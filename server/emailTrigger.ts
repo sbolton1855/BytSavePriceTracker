@@ -1,4 +1,4 @@
-import { Product, TrackedProduct } from '@shared/schema';
+import { Product, TrackedProduct } from '../shared/schema.js';
 import { storage } from './storage';
 import { emailService } from './email/service'; // Assumed replacement for sendPriceDropAlert
 import nodemailer from 'nodemailer';

@@ -1,6 +1,6 @@
 import { db } from "./db";
 import { storage } from "./storage";
-import { apiErrors, systemMetrics, products, trackedProducts, priceHistory } from "@shared/schema";
+import { apiErrors, systemMetrics, products, trackedProducts, priceHistory } from "../shared/schema.js";
 import { desc, eq, count, and, sql, gte, gt, lt } from "drizzle-orm";
 
 // Helper function to log Amazon API errors

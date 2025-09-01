@@ -1,8 +1,8 @@
 import { sendEmail as sendGridEmail } from './email/sendgridService';
 import { addAffiliateTag } from './utils/affiliateLinks';
 import { db } from './db';
-import { emailLogs } from '@shared/schema';
-import type { Product, TrackedProduct } from '@shared/schema';
+import { emailLogs } from '../shared/schema.js';
+import type { Product, TrackedProduct } from '../shared/schema.js';
 
 // Default affiliate tag
 const AFFILIATE_TAG = process.env.AMAZON_AFFILIATE_TAG || 'bytsave-20';

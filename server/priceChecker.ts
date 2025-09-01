@@ -1,7 +1,7 @@
 import { storage } from "./storage";
 import { sendPriceDropAlert } from "./emailService";
 import { getProductInfoSafe, searchProducts } from "./amazonApi";
-import type { Product } from "@shared/schema";
+import type { Product } from "../shared/schema.js";
 import { intelligentlyAddPriceHistory } from "./routes";
 
 // Interval for checking prices (in ms)
