@@ -26,23 +26,48 @@ declare global {
   }
 }
 
-// Create Redis client
-const redisClient = createClient({
-  url: process.env.REDIS_URL || 'redis://localhost:6379'
-});
+// Create session store with Redis fallback to memory
+let sessionStore: any;
 
-redisClient.on('error', (err) => console.error('Redis Client Error', err));
-redisClient.connect().catch(console.error);
-
-// Create session store
-const redisStore = new RedisStore({
-  client: redisClient,
-  prefix: 'admin:sess:'
-});
+// Try to connect to Redis if REDIS_URL exists
+const redisUrl = process.env.REDIS_URL;
+if (redisUrl) {
+  try {
+    const redisClient = createClient({ url: redisUrl });
+    
+    // Only log errors once, don't spam
+    let hasLoggedError = false;
+    redisClient.on('error', (err) => {
+      if (!hasLoggedError) {
+        console.warn('[ADMIN-SESSION] Redis connection error, falling back to memory store:', err.message);
+        hasLoggedError = true;
+      }
+    });
+    
+    redisClient.on('connect', () => {
+      console.log('[ADMIN-SESSION] Redis connected successfully');
+    });
+    
+    // Try to connect, but don't fail if it doesn't work
+    redisClient.connect().catch(() => {
+      console.warn('[ADMIN-SESSION] Redis failed to connect, using memory store');
+    });
+    
+    sessionStore = new RedisStore({
+      client: redisClient,
+      prefix: 'admin:sess:'
+    });
+  } catch (err) {
+    console.warn('[ADMIN-SESSION] Redis setup failed, using memory store:', err instanceof Error ? err.message : 'Unknown error');
+    sessionStore = undefined;
+  }
+} else {
+  console.log('[ADMIN-SESSION] No REDIS_URL found, using memory store');
+}
 
 // Session configuration
 export const adminSessionConfig = session({
-  store: redisStore,
+  store: sessionStore, // Will be undefined if Redis failed, so it falls back to memory
   name: process.env.COOKIE_NAME || 'admin.sid',
   secret: process.env.SESSION_SECRET || 'dev-admin-secret-change-in-production',
   resave: false,

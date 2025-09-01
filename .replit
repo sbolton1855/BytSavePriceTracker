@@ -49,4 +49,8 @@ mode = "sequential"
 
 [[workflows.workflow.tasks]]
 task = "shell.exec"
-args = "tsx --tsconfig tsx.config.js server/index.ts"
+args = "tsx server/index.ts"
+
+[[ports]]
+localPort = 5000
+externalPort = 80

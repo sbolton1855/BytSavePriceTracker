@@ -6,7 +6,7 @@
   "scripts": {
     "dev": "tsx server/index.ts",
     "build": "vite build",
-    "start": "node --loader tsx server/index.ts",
+    "start": "tsx server/index.ts",
     "build:client": "vite build",
     "check": "tsc",
     "db:push": "drizzle-kit push",

@@ -5,6 +5,9 @@ interface SearchResult {
   title: string;
   price?: string;
   imageUrl?: string;
+  url?: string;
+  currentPrice?: number;
+  originalPrice?: number;
 }
 
 interface Deal {
@@ -27,6 +30,16 @@ class AmazonAPI {
     this.baseUrl = process.env.AMAZON_API_URL || 'https://api.rainforestapi.com/request';
   }
 
+  // Add missing methods
+  extractAsinFromUrl(url: string): string | null {
+    const asinMatch = url.match(/\/dp\/([A-Z0-9]{10})/);
+    return asinMatch ? asinMatch[1] : null;
+  }
+
+  isValidAsin(asin: string): boolean {
+    return /^[A-Z0-9]{10}$/.test(asin);
+  }
+
   async searchProducts(query: string): Promise<SearchResult[]> {
     if (!this.apiKey) {
       throw new Error('Amazon API key is not configured');
@@ -46,7 +59,10 @@ class AmazonAPI {
         asin: result.asin,
         title: result.title,
         price: result.price?.raw,
-        imageUrl: result.image
+        imageUrl: result.image,
+        url: `https://amazon.com/dp/${result.asin}`,
+        currentPrice: result.price?.raw ? parseFloat(result.price.raw.replace(/[^0-9.]/g, '')) : undefined,
+        originalPrice: result.price?.raw ? parseFloat(result.price.raw.replace(/[^0-9.]/g, '')) * 1.3 : undefined
       }));
     } catch (error) {
       console.error('Amazon API error:', error);
