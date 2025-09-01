@@ -9,7 +9,7 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
 // Import routes
-import { setupRoutes } from './routes.js';
+import { setupRoutes } from './routes';
 
 // Initialize cache
 import '../server/lib/cache.js';
