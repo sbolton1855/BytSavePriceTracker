@@ -5,12 +5,12 @@
   "license": "MIT",
   "scripts": {
     "dev": "tsx server/index.ts",
-    "build": "vite build && tsc",
-    "start": "node dist/server/index.js",
+    "build": "vite build",
+    "start": "tsx server/index.ts",
     "build:client": "vite build",
     "check": "tsc",
     "db:push": "drizzle-kit push",
-    "clean": "rm -rf node_modules dist .vite package-lock.json",
+    "clean": "rm -rf node_modules dist .vite",
     "update:browsers": "npx update-browserslist-db@latest --yes",
     "setup": "npm run clean && npm install && npm run update:browsers",
     "vibe": "npm run setup && npm run build:client"

@@ -15,14 +15,14 @@ channel = "stable-24_05"
 packages = ["psmisc", "lsof"]
 
 [deployment]
-run = ["sh", "-c", "npm run start"]
+run = ["sh", "-c", "tsx server/index.ts"]
 
 [[ports]]
 localPort = 5000
 externalPort = 80
 
 [workflows]
-runButton = "Development Server"
+runButton = "Start Server"
 
 [[workflows.workflow]]
 name = "Development Server"
@@ -44,3 +44,12 @@ args = "sleep 2"
 [[workflows.workflow.tasks]]
 task = "shell.exec"
 args = "npm run dev"
+
+[[workflows.workflow]]
+name = "Start Server"
+author = 533416
+mode = "sequential"
+
+[[workflows.workflow.tasks]]
+task = "shell.exec"
+args = "tsx --tsconfig tsx.config.js server/index.ts"
