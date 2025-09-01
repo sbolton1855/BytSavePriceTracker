@@ -11,7 +11,7 @@ installCommand = "npm install && npx update-browserslist-db@latest --yes"
 
 [nix]
 channel = "stable-24_05"
-packages = ["psmisc", "lsof"]
+packages = ["jq"]
 
 [deployment]
 deploymentTarget = "autoscale"
