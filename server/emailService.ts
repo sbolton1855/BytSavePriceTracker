@@ -3,6 +3,11 @@ import { addAffiliateTag } from './utils/affiliateLinks';
 import { db } from './db';
 import { emailLogs } from '@shared/schema';
 import type { Product, TrackedProduct } from '@shared/schema';
+import { fileURLToPath } from 'url';
+import { dirname } from 'path';
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = dirname(__filename);
 
 // Default affiliate tag
 const AFFILIATE_TAG = process.env.AMAZON_AFFILIATE_TAG || 'bytsave-20';

@@ -1,5 +1,3 @@
-import { renderFile } from 'ejs';
-import { join } from 'path';
 import { fileURLToPath } from 'url';
 import { dirname } from 'path';
 import { buildAffiliateLink } from '../utils/affiliateLinks';
