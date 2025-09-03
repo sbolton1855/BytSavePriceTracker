@@ -1,4 +1,10 @@
-import { buildAffiliateLink } from '../utils/affiliateLinks';
+import { renderFile } from 'ejs';
+import { join } from 'path';
+import { fileURLToPath } from 'url';
+import { dirname } from 'path';
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = dirname(__filename);
 
 const AFFILIATE_DISCLOSURE = "As an Amazon Associate, BytSave earns from qualifying purchases.";
 
