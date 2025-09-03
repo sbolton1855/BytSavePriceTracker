@@ -14,6 +14,11 @@ import { pool } from "./db";
 import jwt from "jsonwebtoken";
 import nodemailer from "nodemailer";
 import sgMail from '@sendgrid/mail';
+import { fileURLToPath } from 'url';
+import { dirname } from 'path';
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = dirname(__filename);
 
 // Extend the Express.User type
 declare global {
@@ -239,7 +244,7 @@ export function configureAuth(app: Express) {
           const resetUrl = `${req.protocol}://${req.get('host')}/reset-password.html?token=${resetToken}`;
 
           // Use the template system for consistent emails
-          const { renderTemplate } = await import('../email/templates');
+          const { renderTemplate } = await import('./email/templates.js');
           const emailContent = renderTemplate('password-reset', {
             firstName: user.firstName,
             resetUrl,

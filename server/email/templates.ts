@@ -115,3 +115,10 @@ export function renderTemplate(id: string, data?: any) {
 
   return { subject, html };
 }
+
+// Default export for compatibility
+export default {
+  EMAIL_TEMPLATES,
+  listTemplates,
+  renderTemplate
+};
