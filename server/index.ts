@@ -11,6 +11,7 @@ import { adminSecurityMiddleware } from "./middleware/adminSecurity";
 import adminAuthRoutes from "./routes/adminAuth";
 import adminEmailRoutes from "./routes/adminEmail";
 import LiveDealsPreview from "@/components/LiveDealsPreview";
+import { scheduleTokenCleanup } from './utils/tokenCleanup';
 const app = express();
 app.use(express.json());
 app.use(express.urlencoded({ extended: false }));
@@ -64,7 +65,7 @@ app.use((req, res, next) => {
     const duration = Date.now() - start;
     if (path.startsWith("/api")) {
       let logLine = `[RESPONSE] ${req.method} ${path} ${res.statusCode} in ${duration}ms`;
-      
+
       // Add error details for failed requests
       if (res.statusCode >= 400) {
         console.error(`❌ ${logLine}`);
@@ -112,6 +113,9 @@ app.use((req, res, next) => {
     host: "0.0.0.0",
     reusePort: true,
   }, () => {
-    log(`serving on port ${port}`);
+    console.log(`Server running on port ${port}`);
+
+    // Start token cleanup scheduler
+    scheduleTokenCleanup();
   });
 })();

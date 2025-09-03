@@ -7,8 +7,8 @@ import session from "express-session";
 import connectPgSimple from "connect-pg-simple";
 import { Express, Request, Response, NextFunction } from "express";
 import { db } from "./db";
-import { users } from "@shared/schema";
-import { eq } from "drizzle-orm";
+import { users, passwordResetTokens } from "@shared/schema";
+import { eq, and, gt } from "drizzle-orm";
 import { storage } from "./storage";
 import { pool } from "./db";
 import jwt from "jsonwebtoken";
@@ -212,7 +212,6 @@ export function configureAuth(app: Express) {
       }
 
       // Always return success to prevent email enumeration
-      // This is a security best practice
       const response = { 
         message: 'If an account with that email exists, a password reset link has been sent.' 
       };
@@ -222,46 +221,41 @@ export function configureAuth(app: Express) {
         const user = await storage.getUserByEmail(email);
 
         if (user && isEmailConfigured()) {
-          // Generate JWT token valid for 15 minutes
-          const resetToken = jwt.sign(
-            { userId: user.id, email: user.email },
-            JWT_SECRET,
-            { expiresIn: '15m' }
-          );
+          // Generate secure random token (32 bytes = 64 hex chars)
+          const resetToken = randomBytes(32).toString('hex');
+          
+          // Set expiration to 15 minutes from now
+          const expiresAt = new Date(Date.now() + 15 * 60 * 1000);
+
+          // Store token in database
+          await db.insert(passwordResetTokens).values({
+            userId: user.id,
+            token: resetToken,
+            expiresAt,
+            used: false
+          });
 
           // Create reset URL
           const resetUrl = `${req.protocol}://${req.get('host')}/reset-password.html?token=${resetToken}`;
 
-          // Send email using SendGrid
-          const msg = {
-            to: email,
-            from: process.env.EMAIL_FROM!, // Sender email address
-            subject: 'Reset your BytSave password',
-            html: `
-              <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; border: 1px solid #ddd; border-radius: 8px;">
-                <h2 style="color: #333; border-bottom: 1px solid #eee; padding-bottom: 10px;">Password Reset</h2>
-                <p style="color: #555; line-height: 1.6;">Hello,</p>
-                <p style="color: #555; line-height: 1.6;">You requested to reset your password for your BytSave account.</p>
-                <p style="margin: 20px 0;">
-                  <a href="${resetUrl}" style="background-color: #007bff; color: white; padding: 12px 25px; text-decoration: none; border-radius: 5px; display: inline-block; font-weight: bold;">
-                    Reset Password
-                  </a>
-                </p>
-                <p style="color: #555; line-height: 1.6;">
-                  If the button above doesn't work, you can also copy and paste the following link into your browser:
-                </p>
-                <p style="color: #007bff; word-break: break-all;">${resetUrl}</p>
-                <p style="color: #777; font-size: 12px; margin-top: 20px;">
-                  This password reset link will expire in 15 minutes. If you did not request a password reset, please ignore this email.
-                </p>
-                <hr style="margin: 30px 0; border: 0; border-top: 1px solid #eee;">
-                <p style="color: #999; font-size: 12px;">Thank you,<br>The BytSave Team</p>
-              </div>
-            `,
-          };
+          // Use the template system for consistent emails
+          const { renderTemplate } = await import('../email/templates');
+          const emailContent = renderTemplate('password-reset', {
+            firstName: user.firstName,
+            resetUrl,
+            expirationTime: '15 minutes'
+          });
 
-          await sgMail.send(msg);
-          console.log(`Password reset email sent to ${email} via SendGrid`);
+          if (emailContent) {
+            await sgMail.send({
+              to: email,
+              from: process.env.EMAIL_FROM!,
+              subject: emailContent.subject,
+              html: emailContent.html
+            });
+
+            console.log(`Password reset email sent to ${email} via SendGrid using template`);
+          }
         } else if (!isEmailConfigured()) {
           console.warn("Email credentials not configured. Password reset emails will not be sent.");
         }
@@ -295,43 +289,73 @@ export function configureAuth(app: Express) {
         });
       }
 
-      if (password.length < 6) {
+      if (password.length < 8) {
         return res.status(400).json({ 
-          message: 'Password must be at least 6 characters long'
+          message: 'Password must be at least 8 characters long'
         });
       }
 
-      // Verify JWT token
-      let decoded;
-      try {
-        decoded = jwt.verify(token, JWT_SECRET) as any;
-      } catch (error) {
-        console.error('Token verification failed:', error);
+      // Enhanced password validation
+      if (!/[A-Z]/.test(password)) {
+        return res.status(400).json({ 
+          message: 'Password must contain at least one uppercase letter'
+        });
+      }
+
+      if (!/[0-9]/.test(password)) {
+        return res.status(400).json({ 
+          message: 'Password must contain at least one number'
+        });
+      }
+
+      // Find and validate the reset token
+      const resetTokenRecord = await db
+        .select({
+          id: passwordResetTokens.id,
+          userId: passwordResetTokens.userId,
+          expiresAt: passwordResetTokens.expiresAt,
+          used: passwordResetTokens.used,
+          email: users.email
+        })
+        .from(passwordResetTokens)
+        .innerJoin(users, eq(passwordResetTokens.userId, users.id))
+        .where(
+          and(
+            eq(passwordResetTokens.token, token),
+            eq(passwordResetTokens.used, false),
+            gt(passwordResetTokens.expiresAt, new Date())
+          )
+        )
+        .limit(1);
+
+      if (resetTokenRecord.length === 0) {
         return res.status(400).json({ 
           message: 'Invalid or expired reset token'
         });
       }
 
-      // Find the user
-      const user = await storage.getUserByEmail(decoded.email);
-      if (!user) {
-        return res.status(400).json({ 
-          message: 'Invalid reset token'
-        });
-      }
+      const tokenData = resetTokenRecord[0];
 
       // Hash the new password
       const hashedPassword = await hashPassword(password);
 
-      // Update the user's password
-      await db.update(users)
-        .set({
-          password: hashedPassword,
-          updatedAt: new Date()
-        })
-        .where(eq(users.id, user.id));
+      // Start transaction to update password and mark token as used
+      await db.transaction(async (tx) => {
+        // Update the user's password
+        await tx.update(users)
+          .set({
+            password: hashedPassword,
+            updatedAt: new Date()
+          })
+          .where(eq(users.id, tokenData.userId));
 
-      console.log(`Password reset successful for user: ${user.email}`);
+        // Mark token as used
+        await tx.update(passwordResetTokens)
+          .set({ used: true })
+          .where(eq(passwordResetTokens.id, tokenData.id));
+      });
+
+      console.log(`Password reset successful for user: ${tokenData.email}`);
 
       res.status(200).json({ 
         message: 'Password reset successful. You can now login with your new password.'

@@ -170,4 +170,58 @@ router.post('/logs/test', requireAdmin, async (req, res) => {
   }
 });
 
+// Test password reset email using template
+router.post('/test-password-reset', requireAdmin, async (req, res) => {
+  try {
+    const { email } = req.body;
+
+    if (!email) {
+      return res.status(400).json({ error: 'Email is required' });
+    }
+
+    const { sendPasswordResetEmail } = await import('../emailService');
+
+    // Mock reset URL for testing
+    const resetUrl = `${req.protocol}://${req.get('host')}/reset-password.html?token=test-token-123-admin-test`;
+
+    const success = await sendPasswordResetEmail(email, 'Admin Test', resetUrl);
+
+    if (success) {
+      res.json({ success: true, message: 'Password reset test email sent using template' });
+    } else {
+      res.status(500).json({ error: 'Failed to send password reset test email' });
+    }
+  } catch (error) {
+    console.error('Password reset test error:', error);
+    res.status(500).json({ error: 'Failed to send password reset test email' });
+  }
+});
+
+// Preview password reset email template
+router.post('/preview-password-reset', requireAdmin, async (req, res) => {
+  try {
+    const { renderTemplate } = await import('../email/templates');
+    const resetUrl = `${req.protocol}://${req.get('host')}/reset-password.html?token=preview-token-123`;
+
+    const emailContent = renderTemplate('password-reset', {
+      firstName: 'John',
+      resetUrl,
+      expirationTime: '15 minutes'
+    });
+
+    if (emailContent) {
+      res.json({
+        success: true,
+        subject: emailContent.subject,
+        html: emailContent.html
+      });
+    } else {
+      res.status(404).json({ error: 'Password reset template not found' });
+    }
+  } catch (error) {
+    console.error('Password reset preview error:', error);
+    res.status(500).json({ error: 'Failed to preview password reset email' });
+  }
+});
+
 export default router;

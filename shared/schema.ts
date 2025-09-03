@@ -241,3 +241,16 @@ export type EmailLog = InferSelectModel<typeof emailLogs>;
 export type NewEmailLog = InferInsertModel<typeof emailLogs>;
 export type UserEmailPreferences = InferSelectModel<typeof userEmailPreferences>;
 export type NewUserEmailPreferences = InferInsertModel<typeof userEmailPreferences>;
+
+// Password reset tokens table
+export const passwordResetTokens = pgTable('password_reset_tokens', {
+  id: serial('id').primaryKey(),
+  userId: integer('user_id').notNull().references(() => users.id, { onDelete: 'cascade' }),
+  token: varchar('token', { length: 255 }).notNull().unique(),
+  expiresAt: timestamp('expires_at', { withTimezone: true }).notNull(),
+  used: boolean('used').default(false),
+  createdAt: timestamp('created_at', { withTimezone: true }).defaultNow(),
+});
+
+export type PasswordResetToken = InferSelectModel<typeof passwordResetTokens>;
+export type NewPasswordResetToken = InferInsertModel<typeof passwordResetTokens>;

@@ -174,8 +174,59 @@ async function sendEmail(options: EmailOptions): Promise<any> {
 // Re-export the SendGrid sendEmail function for password resets and other generic emails
 export { sendEmail as sendGridEmail } from './email/sendgridService';
 
+// Send password reset email using template system
+async function sendPasswordResetEmail(
+  to: string,
+  firstName: string | null,
+  resetUrl: string
+): Promise<boolean> {
+  try {
+    const { renderTemplate } = await import('./email/templates');
+    const emailContent = renderTemplate('password-reset', {
+      firstName,
+      resetUrl,
+      expirationTime: '15 minutes'
+    });
+
+    if (!emailContent) {
+      console.error('Password reset template not found');
+      return false;
+    }
+
+    const result = await sendGridEmail(to, emailContent.subject, emailContent.html);
+
+    if (result.success) {
+      console.log(`Password reset email sent to ${to} via SendGrid - Message ID: ${result.messageId}`);
+
+      // Log the email to database
+      try {
+        await db.insert(emailLogs).values({
+          recipientEmail: to,
+          subject: emailContent.subject,
+          previewHtml: emailContent.html,
+          sentAt: new Date(),
+          createdAt: new Date()
+        });
+        console.log(`✅ Password reset email logged to database for ${to}`);
+      } catch (logError) {
+        console.error('❌ Failed to log password reset email to database:', logError);
+        // Don't fail the email send if logging fails
+      }
+
+      return true;
+    } else {
+      console.error(`Failed to send password reset email via SendGrid: ${result.error}`);
+      return false;
+    }
+  } catch (error) {
+    console.error('Failed to send password reset email:', error);
+    return false;
+  }
+}
+
 export {
   sendPriceDropAlert,
   sendEmail,
-  createPriceDropEmail
+  createPriceDropEmail,
+  sendPasswordResetEmail
 };

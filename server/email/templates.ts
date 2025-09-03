@@ -1,4 +1,3 @@
-
 import { buildAffiliateLink } from '../utils/affiliateLinks';
 
 const AFFILIATE_DISCLOSURE = "As an Amazon Associate, BytSave earns from qualifying purchases.";
@@ -50,6 +49,40 @@ export const EMAIL_TEMPLATES = {
         <p>Thank you for signing up for BytSave Price Tracker. We're excited to help you save money on your favorite products!</p>
         <p>Start tracking products and we'll notify you when prices drop.</p>
         <p style="color: #666; font-size: 12px; margin-top: 20px;">This email was sent from BytSave Price Tracker.</p>
+        <hr style="margin: 20px 0; border: 0; border-top: 1px solid #eee;">
+        <p style="color: #999; font-size: 11px; font-style: italic;">${AFFILIATE_DISCLOSURE}</p>
+      </div>
+    `
+  },
+  'password-reset': {
+    id: 'password-reset',
+    name: 'Password Reset',
+    description: 'Sent when user requests a password reset',
+    subject: 'Reset your BytSave password',
+    previewData: {
+      firstName: 'John',
+      resetUrl: 'https://your-app.com/reset-password?token=sample-token',
+      expirationTime: '15 minutes'
+    },
+    html: (data: any) => `
+      <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; border: 1px solid #ddd; border-radius: 8px;">
+        <h2 style="color: #333; border-bottom: 1px solid #eee; padding-bottom: 10px;">Password Reset</h2>
+        <p style="color: #555; line-height: 1.6;">Hello${data.firstName ? ` ${data.firstName}` : ''},</p>
+        <p style="color: #555; line-height: 1.6;">You requested to reset your password for your BytSave account.</p>
+        <p style="margin: 20px 0;">
+          <a href="${data.resetUrl}" style="background-color: #007bff; color: white; padding: 12px 25px; text-decoration: none; border-radius: 5px; display: inline-block; font-weight: bold;">
+            Reset Password
+          </a>
+        </p>
+        <p style="color: #555; line-height: 1.6;">
+          If the button above doesn't work, you can also copy and paste the following link into your browser:
+        </p>
+        <p style="color: #007bff; word-break: break-all;">${data.resetUrl}</p>
+        <p style="color: #777; font-size: 12px; margin-top: 20px;">
+          This password reset link will expire in ${data.expirationTime || '15 minutes'}. If you did not request a password reset, please ignore this email.
+        </p>
+        <hr style="margin: 30px 0; border: 0; border-top: 1px solid #eee;">
+        <p style="color: #999; font-size: 12px;">Thank you,<br>The BytSave Team</p>
         <hr style="margin: 20px 0; border: 0; border-top: 1px solid #eee;">
         <p style="color: #999; font-size: 11px; font-style: italic;">${AFFILIATE_DISCLOSURE}</p>
       </div>
