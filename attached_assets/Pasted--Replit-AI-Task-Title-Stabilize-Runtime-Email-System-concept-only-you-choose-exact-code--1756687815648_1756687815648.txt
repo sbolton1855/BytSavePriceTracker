@@ -1,0 +1,79 @@
+— Replit AI Task —
+
+Title:
+Stabilize Runtime + Email System (concept-only; you choose exact code)
+
+Goals:
+• One server on \$PORT serving API + (optionally) SPA
+• All /api/\* return JSON (never HTML)
+• Admin Email Center: templates → preview → send → logs all work
+• Deals + Tracked Products endpoints return JSON and don’t crash
+• Redis is optional and quiet if not configured
+
+Actions (concepts, not code snippets):
+
+1. Runtime consolidation
+
+   * Ensure a single process listens on process.env.PORT (default 5000).
+   * Do NOT run a separate Vite dev server.
+   * Add a public health endpoint /\_health that returns JSON.
+   * Serve SPA only if a client build exists; otherwise skip static serving gracefully.
+2. API routing order
+
+   * Mount all /api routers first.
+   * Add a JSON 404 handler for /api paths.
+   * Mount SPA catch-all LAST (only for non-/api paths).
+3. Admin auth (unify)
+
+   * One middleware (requireAdmin) that checks x-admin-token header, falling back to ?token= query, comparing to ADMIN\_SECRET.
+   * Apply requireAdmin to all /api/admin/\* routes.
+4. Email system alignment
+
+   * Templates registry with IDs: price-drop, password-reset, welcome (each has name, subject, defaults/previewData, html(data)).
+   * Preview endpoints:
+     • GET /api/admin/email/preview/\:id → { subject, html } using defaults
+     • POST /api/admin/email/preview { templateId, data } → merge defaults+data
+   * Centralized email service:
+     • If SendGrid env present, use Dynamic Templates when mapped; else fall back to raw HTML.
+     • Sandbox ON for test sends.
+     • Always log sends (processed/sent/failed) to DB; if DB unavailable, log to in-memory fallback (app.locals).
+   * Send endpoints:
+     • POST /api/admin/send-test-email → isTest=true
+     • (Optional) POST /api/admin/email-selftest → isTest=false
+   * Logs endpoint:
+     • GET /api/admin/email-logs with pagination + filters (isTest, status, to, templateId)
+     • Never 500 the UI—return empty list on internal errors and log server-side.
+5. Public data feeds
+
+   * /api/amazon/deals: always return JSON; if upstream not wired, return { items:\[], updatedAt } (no undefined function calls).
+   * /api/tracked-products: return JSON list for the user (or 401 JSON if auth required). Optionally alias legacy /api/products to this endpoint.
+6. Redis behavior
+
+   * Only initialize Redis if REDIS\_URL is set.
+   * Otherwise provide a no-op in-memory cache and log once that Redis is disabled. No repeated ECONNREFUSED logs.
+7. Remove duplicates
+
+   * One router per file, one default export in each.
+   * Mount each router once in routes.ts.
+   * Delete/disable duplicate mounts and legacy endpoints that collide.
+8. Instrumentation (for quick verification)
+
+   * Console tags: \[BOOT], \[STATIC], \[email-preview], \[email-send], \[email-logs], \[amazon-deals], \[tracked-products].
+   * Log hits + ok/fail summaries (counts) but keep noise low.
+
+Acceptance criteria (run these checks):
+
+* GET /\_health → 200 JSON { ok\:true }
+* GET /api/admin/email-templates?token=ADMIN\_SECRET → 200 JSON with 3 templates incl. defaults
+* POST /api/admin/email/preview { templateId:'price-drop', data:{ productTitle:'X' } } (with admin token) → 200 { subject, html }
+* POST /api/admin/send-test-email { email:'[you@x.com](mailto:you@x.com)', templateId:'welcome' } (with admin token) → 200 JSON; a log row appears via /api/admin/email-logs?isTest=true
+* GET /api/admin/email-logs?token=ADMIN\_SECRET\&page=1\&pageSize=5 → 200 JSON with items/total
+* GET /api/amazon/deals → 200 JSON { items:\[], updatedAt } (until upstream wired)
+* GET /api/tracked-products → 200 JSON (or 401 JSON if auth required)
+* No duplicate router/export build errors; no HTML returned from /api/\*; no Redis ECONNREFUSED spam
+
+Notes/constraints:
+
+* Keep changes minimal but consistent; you choose exact code.
+* Do not introduce new auth systems or libraries.
+* Prioritize reliability over features; we’ll enhance after it’s stable.

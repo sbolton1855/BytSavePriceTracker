@@ -1,97 +1,117 @@
+console.log('Running from server/index.ts');
+import dotenv from 'dotenv';
+dotenv.config();
 
-import express from 'express';
-import cors from 'cors';
-import path from 'path';
-import fs from 'fs';
-import { fileURLToPath } from 'url';
-
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = path.dirname(__filename);
-
-// Import routes
-import { setupRoutes } from './routes';
-
-// Initialize cache
-import '../server/lib/cache.js';
-
+import express, { type Request, Response, NextFunction } from "express";
+import { registerRoutes } from "./routes";
+import { setupVite, serveStatic, log } from "./vite";
+import { configureAuth } from "./authService";
+import { adminSessionConfig, attachAdminToRequest } from "./middleware/adminSession";
+import { adminSecurityMiddleware } from "./middleware/adminSecurity";
+import adminAuthRoutes from "./routes/adminAuth";
+import adminEmailRoutes from "./routes/adminEmail";
+import LiveDealsPreview from "@/components/LiveDealsPreview";
 const app = express();
-
-// Middleware
-app.use(cors());
 app.use(express.json());
-app.use(express.urlencoded({ extended: true }));
+app.use(express.urlencoded({ extended: false }));
 
-// Public health endpoint
-app.get('/_health', (_req, res) => {
-  res.json({ ok: true, ts: Date.now() });
-});
+// Configure authentication with OAuth providers
+configureAuth(app);
 
-// Setup API routes first
-setupRoutes(app);
+// Admin session and security middleware (scoped to /admin paths)
+app.use('/admin', adminSecurityMiddleware);
+app.use('/admin', adminSessionConfig);
+app.use('/admin', attachAdminToRequest);
 
-// JSON 404 handler for API routes
-app.use('/api', (_req, res) => {
-  res.status(404).type('application/json').json({ error: 'not_found' });
-});
+// Admin routes
+app.use('/admin/api', adminAuthRoutes);
+app.use('/admin/api/email', adminEmailRoutes);
 
-// Static serving LAST (only if built)
-const CLIENT_DIST = path.resolve(__dirname, '../client/dist');
-if (fs.existsSync(CLIENT_DIST)) {
-  console.log('[STATIC] Serving', CLIENT_DIST);
-  app.use(express.static(CLIENT_DIST));
-  app.get('*', (_req, res) => {
-    res.sendFile(path.join(CLIENT_DIST, 'index.html'));
-  });
-} else {
-  console.log('[STATIC] No client build; skipping');
-}
+// Enhanced logging middleware for debugging API failures
+app.use((req, res, next) => {
+  const start = Date.now();
+  const path = req.path;
+  let capturedJsonResponse: Record<string, any> | undefined = undefined;
+  let capturedError: any = undefined;
 
-// Listen with port conflict handling
-const port = Number(process.env.PORT) || 5000;
-
-const server = app.listen(port, '0.0.0.0', () => {
-  console.log(`[BOOT] listening on :${port}`);
-}).on('error', (err: any) => {
-  if (err.code === 'EADDRINUSE') {
-    console.log(`[BOOT] Port ${port} in use, trying ${port + 1}...`);
-    const fallbackServer = app.listen(port + 1, '0.0.0.0', () => {
-      console.log(`[BOOT] listening on :${port + 1}`);
-    });
-    
-    // Update graceful shutdown for fallback server
-    process.on('SIGTERM', () => {
-      console.log('[SHUTDOWN] SIGTERM received, closing server...');
-      fallbackServer.close(() => {
-        console.log('[SHUTDOWN] Server closed');
-        process.exit(0);
-      });
-    });
-    
-    process.on('SIGINT', () => {
-      console.log('[SHUTDOWN] SIGINT received, closing server...');
-      fallbackServer.close(() => {
-        console.log('[SHUTDOWN] Server closed');
-        process.exit(0);
-      });
-    });
-  } else {
-    throw err;
+  // Log incoming API requests
+  if (path.startsWith("/api")) {
+    console.log(`\n🌐 [REQUEST] ${req.method} ${path}`);
+    if (Object.keys(req.query).length > 0) {
+      console.log("[REQUEST] Query params:", req.query);
+    }
+    if (req.method === "POST" || req.method === "PUT" || req.method === "PATCH") {
+      console.log("[REQUEST] Body:", JSON.stringify(req.body, null, 2));
+    }
   }
+
+  const originalResJson = res.json;
+  res.json = function (bodyJson, ...args) {
+    capturedJsonResponse = bodyJson;
+    return originalResJson.apply(res, [bodyJson, ...args]);
+  };
+
+  // Capture errors
+  const originalResStatus = res.status;
+  res.status = function (code) {
+    if (code >= 400) {
+      console.error(`[RESPONSE] Error status ${code} for ${req.method} ${path}`);
+    }
+    return originalResStatus.apply(res, [code]);
+  };
+
+  res.on("finish", () => {
+    const duration = Date.now() - start;
+    if (path.startsWith("/api")) {
+      let logLine = `[RESPONSE] ${req.method} ${path} ${res.statusCode} in ${duration}ms`;
+      
+      // Add error details for failed requests
+      if (res.statusCode >= 400) {
+        console.error(`❌ ${logLine}`);
+        if (capturedJsonResponse) {
+          console.error("[RESPONSE] Error details:", JSON.stringify(capturedJsonResponse, null, 2));
+        }
+      } else {
+        console.log(`✅ ${logLine}`);
+        if (capturedJsonResponse && process.env.LOG_LEVEL === 'debug') {
+          console.log("[RESPONSE] Success data:", JSON.stringify(capturedJsonResponse, null, 2).slice(0, 200) + "...");
+        }
+      }
+    }
+  });
+
+  next();
 });
 
-// Graceful shutdown
-process.on('SIGTERM', () => {
-  console.log('[SHUTDOWN] SIGTERM received, closing server...');
-  server.close(() => {
-    console.log('[SHUTDOWN] Server closed');
-    process.exit(0);
-  });
-});
+(async () => {
+  const server = await registerRoutes(app);
 
-process.on('SIGINT', () => {
-  console.log('[SHUTDOWN] SIGINT received, closing server...');
-  server.close(() => {
-    console.log('[SHUTDOWN] Server closed');
-    process.exit(0);
+  app.use((err: any, _req: Request, res: Response, _next: NextFunction) => {
+    const status = err.status || err.statusCode || 500;
+    const message = err.message || "Internal Server Error";
+
+    res.status(status).json({ message });
+    throw err;
   });
-});
+
+  // importantly only setup vite in development and after
+  // setting up all the other routes so the catch-all route
+  // doesn't interfere with the other routes
+  if (app.get("env") === "development") {
+    await setupVite(app, server);
+  } else {
+    serveStatic(app);
+  }
+
+  // ALWAYS serve the app on port 5000
+  // this serves both the API and the client.
+  // It is the only port that is not firewalled.
+  const port = 5000;
+  server.listen({
+    port,
+    host: "0.0.0.0",
+    reusePort: true,
+  }, () => {
+    log(`serving on port ${port}`);
+  });
+})();

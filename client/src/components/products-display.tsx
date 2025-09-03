@@ -1,4 +1,4 @@
-import { useEffect, useState, useMemo } from "react";
+import { useEffect, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { queryClient } from "@/lib/queryClient";
 import ProductCard from "./product-card";
@@ -9,10 +9,6 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import type { TrackedProductWithDetails } from "@shared/schema";
 import { useAuth } from "@/hooks/use-auth";
-import React from "react"; // Import React for useMemo
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
-import { Trash2, ExternalLink, TrendingDown, TrendingUp } from "lucide-react";
 
 // Utility function to validate if a price is valid
 function isValidPrice(price: any): price is number {
@@ -31,12 +27,9 @@ const ProductsDisplay: React.FC<ProductsDisplayProps> = ({ email, onProductsChan
   const { user, isAuthenticated } = useAuth();
   const [filter, setFilter] = useState<FilterOption>("all");
   const [showSignupModal, setShowSignupModal] = useState(false);
-  const [products, setProducts] = useState<TrackedProductWithDetails[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
 
   // Fetch tracked products - adapts to auth status
-  const { data, isLoading, isError, refetch } = useQuery<TrackedProductWithDetails[]>({
+  const { data, isLoading, isError, error, refetch } = useQuery<TrackedProductWithDetails[]>({
     queryKey: isAuthenticated ? ['/api/my/tracked-products'] : ['/api/tracked-products', email],
     enabled: isAuthenticated ? true : (!!email && email.length > 0),
     queryFn: async ({ queryKey }) => {
@@ -62,12 +55,10 @@ const ProductsDisplay: React.FC<ProductsDisplayProps> = ({ email, onProductsChan
 
           const data = await res.json();
           console.log("ProductsDisplay - data changed:", data);
-          setProducts(data); // Update local state
           return data;
         } catch (err) {
           console.error("Error fetching tracked products:", err);
-          setError(err instanceof Error ? err.message : 'Failed to fetch tracked products');
-          setProducts([]); // Clear products on error
+          // Return empty array on error to prevent component crash
           return [];
         }
       } else {
@@ -75,7 +66,6 @@ const ProductsDisplay: React.FC<ProductsDisplayProps> = ({ email, onProductsChan
 
         if (!email || email.length === 0) {
           console.log("No email provided, returning empty array");
-          setLoading(false);
           return [];
         }
 
@@ -88,13 +78,10 @@ const ProductsDisplay: React.FC<ProductsDisplayProps> = ({ email, onProductsChan
           if (!res.ok) throw new Error('Failed to fetch tracked products');
           const data = await res.json();
           console.log("ProductsDisplay - data changed:", data);
-          setProducts(data.items || []); // Update local state with items or empty array
-          return data.items || [];
+          return data;
         } catch (err) {
           console.error("Error fetching tracked products:", err);
-          setError(err instanceof Error ? err.message : 'Failed to fetch tracked products');
-          setProducts([]); // Clear products on error
-          return [];
+          throw err;
         }
       }
     },
@@ -103,113 +90,24 @@ const ProductsDisplay: React.FC<ProductsDisplayProps> = ({ email, onProductsChan
     staleTime: 0, // Always fetch fresh data
     // Refetch on window focus to keep data fresh
     refetchOnWindowFocus: true,
-    refetchOnMount: true,
-    onSuccess: (fetchedData) => {
-      setProducts(fetchedData);
-      setLoading(false);
-      setError(null);
-    },
-    onError: (err: any) => {
-      console.error("Query error:", err);
-      setError(err?.message || 'Failed to fetch products');
-      setProducts([]);
-      setLoading(false);
-    }
+    refetchOnMount: true
   });
 
-  // Extract current email, ensure it's a string, default to empty string if undefined
-  const currentEmail = typeof email === 'string' ? email : '';
-
-  // Add safety check and filter valid products
-  const validProducts = useMemo(() => {
-    if (!data?.items || !Array.isArray(data.items)) {
-      console.log('ProductsDisplay - No valid items array:', data);
-      return [];
-    }
-
-    return data.items.filter(product => {
-      // Ensure product has required fields and is not null/undefined
-      if (!product || typeof product !== 'object') {
-        console.log('ProductsDisplay - Invalid product object:', product);
-        return false;
-      }
-
-      if (!product.asin || typeof product.asin !== 'string') {
-        console.log('ProductsDisplay - Missing or invalid asin:', product);
-        return false;
-      }
-
-      if (!product.title || typeof product.title !== 'string') {
-        console.log('ProductsDisplay - Missing or invalid title:', product);
-        return false;
-      }
-
-      if (typeof product.currentPrice !== 'number' || typeof product.targetPrice !== 'number') {
-        console.log('ProductsDisplay - Invalid price data:', product);
-        return false;
-      }
-
-      return true;
-    });
-  }, [data]);
-
-  // Filter products based on selection - simplified to match deployed version
-  const filteredProducts = useMemo(() => {
-    console.log('ProductsDisplay - data changed:', data);
-    if (!data?.items || !Array.isArray(data.items)) {
-      console.log('ProductsDisplay - No data available');
-      return [];
-    }
-
-    console.log('ProductsDisplay - Found', data.items.length, 'products');
-
-    if (!currentEmail) {
-      console.log('ProductsDisplay - No current email');
-      return [];
-    }
-
-    console.log('ProductsDisplay - current email:', currentEmail);
-
-    const filtered = data.items.filter((product) => {
-      // Safe check for product and its properties
-      if (!product || typeof product !== 'object') {
-        return false;
-      }
-      return product.userEmail?.toLowerCase() === currentEmail.toLowerCase();
-    });
-
-    console.log('ProductsDisplay - filteredProducts:', filtered);
-
-    return filtered;
-  }, [data, currentEmail]);
-
   // Filter products based on selection
-  const finalFilteredProducts = filteredProducts.filter((product: TrackedProductWithDetails) => {
-    // Handle different product data structures
-    const currentPrice = product.product?.currentPrice;
-    const originalPrice = product.product?.originalPrice;
-    const targetPrice = product.targetPrice;
-    const createdAt = product.createdAt;
-
-    if (currentPrice === undefined || currentPrice === null) {
-      console.warn('Product missing currentPrice:', product);
-      return false;
-    }
-
+  const filteredProducts = data ? data.filter((product: TrackedProductWithDetails) => {
     switch (filter) {
       case "price-dropped":
-        return currentPrice < (originalPrice || Number.POSITIVE_INFINITY);
+        return product.product.currentPrice < (product.product.originalPrice || Number.POSITIVE_INFINITY);
       case "target-reached":
-        return currentPrice <= targetPrice;
+        return product.product.currentPrice <= product.targetPrice;
       case "recently-added":
-        if (!createdAt) return false;
         const oneWeekAgo = new Date();
         oneWeekAgo.setDate(oneWeekAgo.getDate() - 7);
-        return new Date(createdAt) >= oneWeekAgo;
+        return new Date(product.createdAt) >= oneWeekAgo;
       default:
         return true;
     }
-  });
+  }) : [];
 
   // Handle refresh all
   const handleRefreshAll = () => {
@@ -226,43 +124,12 @@ const ProductsDisplay: React.FC<ProductsDisplayProps> = ({ email, onProductsChan
     });
   };
 
-  // Handle removing a product
-  const handleRemoveProduct = async (productId: number) => {
-    if (!user?.email || !productId) return;
-
-    try {
-      const response = await fetch(`/api/tracked-products/${productId}?email=${encodeURIComponent(user.email)}`, {
-        method: 'DELETE',
-      });
-
-      if (response.ok) {
-        // Remove from local state
-        setProducts(prev => prev.filter(p => p.id !== productId));
-
-        toast({
-          title: "Product removed",
-          description: `Stopped tracking product`,
-        });
-      } else {
-        throw new Error('Failed to remove product');
-      }
-    } catch (error) {
-      console.error('Error removing product:', error);
-      toast({
-        title: "Error",
-        description: "Failed to remove product",
-        variant: "destructive"
-      });
-    }
-  };
-
   // Listen for product tracking events
   useEffect(() => {
     const handleProductDeleted = () => {
       console.log("Product deletion detected, refetching data");
       // Force a complete data refresh
       queryClient.resetQueries({ queryKey: ['/api/tracked-products'] });
-      queryClient.resetQueries({ queryKey: ['/api/my/tracked-products'] });
       setTimeout(() => {
         console.log("Performing manual refetch after deletion");
         refetch();
@@ -288,7 +155,6 @@ const ProductsDisplay: React.FC<ProductsDisplayProps> = ({ email, onProductsChan
 
       // Reset tracked products queries to ensure fresh data
       queryClient.resetQueries({ queryKey: ['/api/tracked-products'] });
-      queryClient.resetQueries({ queryKey: ['/api/my/tracked-products'] });
 
       // Wait a moment for the database to update
       setTimeout(() => {
@@ -306,14 +172,13 @@ const ProductsDisplay: React.FC<ProductsDisplayProps> = ({ email, onProductsChan
       document.removeEventListener('product-deleted', handleProductDeleted);
       document.removeEventListener('product-tracked', handleProductTracked);
     };
-  }, [refetch, isAuthenticated]);
+  }, [refetch]);
 
-  // Effect for handling query errors
   useEffect(() => {
     if (isError) {
       toast({
         title: "Error fetching products",
-        description: error || "Please try again later",
+        description: error instanceof Error ? error.message : "Please try again later",
         variant: "destructive",
       });
     }
@@ -323,8 +188,8 @@ const ProductsDisplay: React.FC<ProductsDisplayProps> = ({ email, onProductsChan
   useEffect(() => {
     const currentEmail = email;
     console.log("ProductsDisplay - current email:", currentEmail);
-    console.log("ProductsDisplay - data changed:", products);
-    console.log("ProductsDisplay - filteredProducts:", finalFilteredProducts);
+    console.log("ProductsDisplay - data changed:", data);
+    console.log("ProductsDisplay - filteredProducts:", filteredProducts);
 
     // Show detailed debug info
     if (!currentEmail || currentEmail.length === 0) {
@@ -333,29 +198,29 @@ const ProductsDisplay: React.FC<ProductsDisplayProps> = ({ email, onProductsChan
       console.log("ProductsDisplay - Loading data for email:", currentEmail);
     } else if (isError) {
       console.error("ProductsDisplay - Error fetching data:", error);
-    } else if (!products || products.length === 0) {
+    } else if (!data || data.length === 0) {
       console.log("ProductsDisplay - No products found for email:", currentEmail);
     } else {
-      console.log('ProductsDisplay - Found', finalFilteredProducts.length, 'products for email:', currentEmail);
+      console.log('ProductsDisplay - Found', filteredProducts.length, 'products for email:', currentEmail);
 
       // Debug logging for TRUEplus product
-      const trueplus = finalFilteredProducts.find(p => p.product?.asin === 'B01DJGLYZQ');
+      const trueplus = filteredProducts.find(p => p.product.asin === 'B01DJGLYZQ');
       if (trueplus) {
         console.log('DEBUG: TRUEplus product in dashboard:', {
-          asin: trueplus.product?.asin,
-          currentPrice: trueplus.product?.currentPrice,
-          originalPrice: trueplus.product?.originalPrice,
-          title: trueplus.product?.title?.substring(0, 50) + '...'
+          asin: trueplus.product.asin,
+          currentPrice: trueplus.product.currentPrice,
+          originalPrice: trueplus.product.originalPrice,
+          title: trueplus.product.title.substring(0, 50) + '...'
         });
       }
     }
-  }, [email, products, finalFilteredProducts, isLoading, isError, error]);
+  }, [email, data, filteredProducts, isLoading, isError, error]);
 
   useEffect(() => {
-    if (onProductsChange && finalFilteredProducts) {
-      onProductsChange(finalFilteredProducts);
+    if (onProductsChange && filteredProducts) {
+      onProductsChange(filteredProducts);
     }
-  }, [finalFilteredProducts, onProductsChange]);
+  }, [filteredProducts, onProductsChange]);
 
   // For non-authenticated users, we'll show a version of this section that encourages login
   // but they can still view tracked products by email
@@ -386,22 +251,22 @@ const ProductsDisplay: React.FC<ProductsDisplayProps> = ({ email, onProductsChan
               </SelectContent>
             </Select>
 
-            <Button
-              variant="outline"
+            <Button 
+              variant="outline" 
               className="ml-3"
               onClick={handleRefreshAll}
               disabled={isLoading}
             >
-              <svg
-                xmlns="http://www.w3.org/2000/svg"
-                width="16"
-                height="16"
-                viewBox="0 0 24 24"
-                fill="none"
-                stroke="currentColor"
-                strokeWidth="2"
-                strokeLinecap="round"
-                strokeLinejoin="round"
+              <svg 
+                xmlns="http://www.w3.org/2000/svg" 
+                width="16" 
+                height="16" 
+                viewBox="0 0 24 24" 
+                fill="none" 
+                stroke="currentColor" 
+                strokeWidth="2" 
+                strokeLinecap="round" 
+                strokeLinejoin="round" 
                 className="mr-2"
               >
                 <path d="M21 12a9 9 0 0 0-9-9 9.75 9.75 0 0 0-6.74 2.74L3 8" />
@@ -431,36 +296,9 @@ const ProductsDisplay: React.FC<ProductsDisplayProps> = ({ email, onProductsChan
               </div>
             ))}
           </div>
-        ) : error ? (
-          <div className="text-center py-12 bg-white rounded-lg shadow-sm">
-            <svg
-              xmlns="http://www.w3.org/2000/svg"
-              className="h-12 w-12 mx-auto text-red-500"
-              fill="none"
-              viewBox="0 0 24 24"
-              stroke="currentColor"
-            >
-              <path
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                strokeWidth={1}
-                d="M6 18L18 6M6 6l12 12"
-              />
-            </svg>
-            <h3 className="mt-4 text-lg font-medium text-gray-900">Error Loading Products</h3>
-            <p className="mt-1 text-gray-500">
-              {error}
-            </p>
-            <Button
-              className="mt-6"
-              onClick={() => window.location.reload()}
-            >
-              Retry
-            </Button>
-          </div>
         ) : (
           <>
-            {finalFilteredProducts && finalFilteredProducts.length > 0 ? (
+            {filteredProducts && filteredProducts.length > 0 ? (
               <div className={`grid gap-6 md:grid-cols-2 lg:grid-cols-3 ${!isAuthenticated ? 'opacity-60 relative' : ''}`}>
                 {!isAuthenticated && (
                   <div className="absolute inset-0 z-10 flex items-center justify-center bg-white/80 rounded-lg pointer-events-auto">
@@ -473,7 +311,7 @@ const ProductsDisplay: React.FC<ProductsDisplayProps> = ({ email, onProductsChan
                       </div>
                       <h3 className="text-lg font-semibold text-gray-900 mb-2">Unlock Full Features</h3>
                       <p className="text-sm text-gray-600 mb-4">Register to edit prices, save permanently, and get email alerts</p>
-                      <Button
+                      <Button 
                         onClick={() => window.location.href = '/auth'}
                         className="w-full"
                       >
@@ -483,92 +321,22 @@ const ProductsDisplay: React.FC<ProductsDisplayProps> = ({ email, onProductsChan
                   </div>
                 )}
 
-                {finalFilteredProducts.filter(product => product && product.id).map((trackedProduct: TrackedProductWithDetails) => {
-                  // Safely access product properties with fallbacks
-                  const asin = trackedProduct.product?.asin || 'unknown';
-                  const title = trackedProduct.product?.title || 'Unknown Product';
-                  const image = trackedProduct.product?.image || trackedProduct.product?.imageUrl || '';
-                  const currentPrice = trackedProduct.product?.currentPrice || 0;
-                  const targetPrice = trackedProduct.targetPrice || 0;
-                  const lastChecked = trackedProduct.product?.lastCheckedAt || trackedProduct.product?.lastChecked || '';
-
-                  const priceDiff = currentPrice - targetPrice;
-                  const isBelow = currentPrice <= targetPrice;
-
+                {filteredProducts.map((trackedProduct: TrackedProductWithDetails) => {
+                  // Create a unique key that includes target price to force re-render when it changes
+                  const cardKey = `${trackedProduct.id}-${trackedProduct.targetPrice}-${trackedProduct.product.currentPrice}-${trackedProduct.product.lastChecked}`;
                   return (
-                    <Card key={trackedProduct.id || Math.random()} className="relative">
-                      <CardHeader className="pb-2">
-                        <div className="flex justify-between items-start">
-                          <Badge variant={isBelow ? "default" : "secondary"}>
-                            {isBelow ? "Target Reached!" : "Monitoring"}
-                          </Badge>
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            onClick={() => trackedProduct.id && handleRemoveProduct(trackedProduct.id)}
-                            className="text-red-500 hover:text-red-700"
-                          >
-                            <Trash2 className="h-4 w-4" />
-                          </Button>
-                        </div>
-                        <CardTitle className="text-sm line-clamp-2">{title}</CardTitle>
-                      </CardHeader>
-
-                      <CardContent>
-                        {image && (
-                          <img
-                            src={image}
-                            alt={title}
-                            className="w-full h-32 object-contain mb-3 bg-gray-50 rounded"
-                            onError={(e) => {
-                              (e.target as HTMLImageElement).style.display = 'none';
-                            }}
-                          />
-                        )}
-
-                        <div className="space-y-2">
-                          <div className="flex justify-between items-center">
-                            <span className="text-sm text-gray-500">Current Price:</span>
-                            <span className="font-semibold">${currentPrice.toFixed(2)}</span>
-                          </div>
-
-                          <div className="flex justify-between items-center">
-                            <span className="text-sm text-gray-500">Target Price:</span>
-                            <span className="text-sm">${targetPrice.toFixed(2)}</span>
-                          </div>
-
-                          <div className="flex justify-between items-center">
-                            <span className="text-sm text-gray-500">Difference:</span>
-                            <div className="flex items-center gap-1">
-                              {priceDiff > 0 ? (
-                                <TrendingUp className="h-3 w-3 text-red-500" />
-                              ) : (
-                                <TrendingDown className="h-3 w-3 text-green-500" />
-                              )}
-                              <span className={`text-sm font-medium ${priceDiff > 0 ? 'text-red-500' : 'text-green-500'}`}>
-                                {priceDiff > 0 ? '+' : ''}${priceDiff.toFixed(2)}
-                              </span>
-                            </div>
-                          </div>
-
-                          {lastChecked && (
-                            <CardDescription className="text-xs">
-                              Last checked: {new Date(lastChecked).toLocaleDateString()}
-                            </CardDescription>
-                          )}
-
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            className="w-full mt-2"
-                            onClick={() => window.open(`https://amazon.com/dp/${asin}`, '_blank')}
-                          >
-                            <ExternalLink className="h-3 w-3 mr-1" />
-                            View on Amazon
-                          </Button>
-                        </div>
-                      </CardContent>
-                    </Card>
+                    <div key={cardKey} className={!isAuthenticated ? 'pointer-events-none' : ''}>
+                      <ProductCard 
+                        trackedProduct={trackedProduct} 
+                        onRefresh={() => {
+                          console.log("ProductCard refresh triggered");
+                          queryClient.invalidateQueries({ queryKey: ['/api/tracked-products'] });
+                          queryClient.invalidateQueries({ queryKey: ['/api/my/tracked-products'] });
+                          refetch();
+                        }}
+                        isAuthenticated={isAuthenticated}
+                      />
+                    </div>
                   );
                 })}
 
@@ -585,7 +353,7 @@ const ProductsDisplay: React.FC<ProductsDisplayProps> = ({ email, onProductsChan
                     <p className="mt-1 text-sm text-gray-500">
                       Track more Amazon products to maximize your savings
                     </p>
-                    <Button
+                    <Button 
                       className="mt-4"
                       onClick={() => document.getElementById('search-section')?.scrollIntoView({ behavior: "smooth" })}
                     >
@@ -593,7 +361,6 @@ const ProductsDisplay: React.FC<ProductsDisplayProps> = ({ email, onProductsChan
                     </Button>
                   </div>
                 )}
-
               </div>
             ) : (
               <div className="text-center py-12 bg-white rounded-lg shadow-sm">
@@ -613,14 +380,14 @@ const ProductsDisplay: React.FC<ProductsDisplayProps> = ({ email, onProductsChan
                 </svg>
                 <h3 className="mt-4 text-lg font-medium text-gray-900">No products tracked yet</h3>
                 <p className="mt-1 text-gray-500">
-                  {!isAuthenticated
-                    ? "Register for free to start tracking products and get price alerts"
+                  {!isAuthenticated 
+                    ? "Register for free to start tracking products and get price alerts" 
                     : "Start tracking an Amazon product to see it here"
                   }
                 </p>
-                <Button
+                <Button 
                   className="mt-6"
-                  onClick={() => !isAuthenticated
+                  onClick={() => !isAuthenticated 
                     ? window.location.href = '/auth'
                     : document.getElementById('search-section')?.scrollIntoView({ behavior: "smooth" })
                   }
@@ -653,21 +420,21 @@ const ProductsDisplay: React.FC<ProductsDisplayProps> = ({ email, onProductsChan
           </DialogHeader>
 
           <div className="flex flex-col gap-3 mt-4">
-            <Button
+            <Button 
               className="w-full bg-blue-600 hover:bg-blue-700"
               onClick={() => window.location.href = '/auth'}
             >
               Sign Up Free
             </Button>
-            <Button
-              variant="outline"
+            <Button 
+              variant="outline" 
               className="w-full border-blue-300 text-blue-700 hover:bg-blue-50"
               onClick={() => window.location.href = '/auth'}
             >
               Login to Existing Account
             </Button>
-            <Button
-              variant="ghost"
+            <Button 
+              variant="ghost" 
               className="w-full text-sm text-gray-500"
               onClick={() => setShowSignupModal(false)}
             >

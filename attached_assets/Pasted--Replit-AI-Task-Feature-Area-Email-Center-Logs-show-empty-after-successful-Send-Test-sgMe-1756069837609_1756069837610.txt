@@ -1,0 +1,70 @@
+— Replit AI Task —
+
+Feature/Area:
+Email Center → Logs show empty after successful Send Test (sgMessageId returned)
+
+Brief problem:
+Send Test returns { success\:true, sgMessageId:"…" } but Logs tab says “No email logs found.” Logging is not reaching the logs endpoint or UI filter mapping is wrong.
+
+Fix requirements:
+
+1. Prove a log row is written on every send
+
+   * In server/email/service.ts (central send wrapper):
+     • Generate logId = uuid
+     • Before sending: call logEmail({ logId, to, templateId, subject, status:'processed', isTest, meta:{ path, provider:'sendgrid' } })
+     • After send success: call logEmail({ logId, …, status:'sent', meta:{ …, sgMessageId } })
+     • On error: call logEmail({ logId, …, status:'failed', meta:{ error: e.message } })
+   * Ensure logEmail never throws.
+
+2. logEmail storage (DB + in-memory fallback must be in sync)
+
+   * If DB table email\_logs exists: insert rows; else push to app.locals.emailLogs (init as \[])
+   * GET /api/admin/email-logs must read from DB if available; otherwise read app.locals.emailLogs
+   * Return unified shape:
+     { items:\[{id,logId,to,templateId,subject,status,isTest,meta,createdAt}], page,pageSize,total }
+
+3. Trace the logs endpoint
+
+   * At start: console.log('\[email-logs] hit', req.originalUrl)
+   * After query: console.log('\[email-logs] ok', { count: items.length, total, source: 'db'|'memory' })
+   * On error: console.error('\[email-logs] fail', e?.message)
+
+4. One route, one mount
+
+   * Only GET /api/admin/email-logs under app.use('/api/admin', adminEmailRoutes)
+   * Remove legacy /email/logs or /logs routes
+
+5. Client filters mapping
+
+   * In client/lib/api.ts and admin-email-center.tsx:
+     • Map “Type” filter to isTest param (all|true|false). Do NOT send “type”.
+     • Map Status filter to status param (all|sent|failed|stubbed)
+     • Query key includes { isTest, status, page, pageSize }
+     • On non-200, show toast but do not clear existing data
+
+6. Quick debug endpoint (temporary)
+
+   * GET /api/admin/\_debug/email-logs-counts → { dbCount, memCount, latest:{ to, templateId, status, createdAt } }
+   * requireAdmin
+
+Acceptance criteria:
+
+* After clicking “Send Test Email”, server logs show \[email-send] and two logEmail calls (processed → sent).
+* /api/admin/\_debug/email-logs-counts?token=ADMIN\_SECRET returns dbCount>0 or memCount>0
+* /api/admin/email-logs?token=ADMIN\_SECRET\&isTest=true\&page=1\&pageSize=5 returns items.length≥1
+* Email Center → Logs shows the new row within 5s auto-refresh
+* Switching isTest=All/True/False filters changes results accordingly
+
+Quick tests to run:
+
+* curl -X POST "/api/admin/send-test-email?token=YOUR\_SECRET" -H "Content-Type: application/json" -d '{"email":"[you@example.com](mailto:you@example.com)","templateId":"price-drop"}'
+* curl "/api/admin/\_debug/email-logs-counts?token=YOUR\_SECRET"
+* curl "/api/admin/email-logs?token=YOUR\_SECRET\&isTest=true\&page=1\&pageSize=5"
+* UI: Send Test → Logs → see row (status sent or processed)
+
+Notes/constraints:
+
+* Keep single admin auth (x-admin-token preferred; ?token allowed for curl)
+* Don’t change preview/template UI; only fix logging pipeline + filter mapping
+* Remove the debug endpoint after verification

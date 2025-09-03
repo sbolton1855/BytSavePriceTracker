@@ -14,7 +14,7 @@ import {
   apiErrors,
   type ApiError,
   type InsertApiError
-} from "../shared/schema.js";
+} from "@shared/schema";
 import { db } from "./db";
 import { eq, and, or } from "drizzle-orm";
 

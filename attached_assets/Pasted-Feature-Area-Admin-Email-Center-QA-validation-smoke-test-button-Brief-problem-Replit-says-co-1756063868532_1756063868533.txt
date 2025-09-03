@@ -1,0 +1,65 @@
+Feature/Area:
+Admin Email Center — QA validation + smoke test button
+
+Brief problem:
+Replit says “complete.” I need a fast way to verify it actually works end-to-end (preview → send → logs) without bouncing between pages.
+
+Fix requirements:
+
+Add a “Run QA Smoke Test” to Email Center
+
+Location: Email Center → Settings sub-tab
+
+Inputs:
+• Test recipient email (default from settings field)
+• Template select (default “price-drop”)
+
+Action flow when clicked:
+a) Preview API: GET /api/admin/email/preview/:id (expect 200 with subject/html)
+b) Send test: POST /api/admin/send-test-email { email, templateId }
+c) Poll email logs: GET /api/admin/email-logs?isTest=true&pageSize=1 every 2s up to 20s
+d) If a new row appears with matching recipient + templateId, show ✅ success; else show ❌ failure with last error
+
+Show a compact step-by-step status UI (Preview ✓, Send ✓, Log ✓)
+
+Auto-preview on selection (quality of life)
+
+In Templates sub-tab, when a template is selected, automatically fetch preview (no extra click)
+
+Logs sub-tab auto-refresh
+
+While Logs sub-tab is active, auto-refetch every 5s (pause on tab switch)
+
+Wire all API calls with unified auth
+
+Use AdminAuth.getToken() and send x-admin-token header
+
+No additional login prompts
+
+Acceptance criteria:
+
+Settings → Run QA Smoke Test completes with ✅ within 20s and writes a new isTest=true row
+
+Templates sub-tab renders preview immediately when selecting a template
+
+Logs sub-tab refreshes every 5s and shows newest first
+
+No console errors; all network calls 200 with valid token
+
+Quick tests to run:
+
+/admin/email-center?sub=templates → select “Price Drop” → preview appears automatically
+
+/admin/email-center?sub=send → send a test → success toast
+
+/admin/email-center?sub=logs → see latest row
+
+/admin/email-center?sub=settings → Run QA Smoke Test → all three steps show ✓ and a new log row appears
+
+Notes/constraints:
+
+Do not change backend routes
+
+Keep styling consistent with AdminTabNav/AdminSubTabNav
+
+Polling should stop on success or after timeout

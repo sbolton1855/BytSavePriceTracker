@@ -1,0 +1,102 @@
+— Replit AI Task —
+
+Feature/Area:
+Live Deals API — hard reset router to fix “router already declared / multiple default exports”
+
+Brief problem:
+Build fails in server/routes/deals.ts with duplicate router declaration and multiple default exports. UI also showed “HTML instead of JSON” earlier.
+
+Fix requirements (do exactly this):
+
+Replace server/routes/deals.ts with a single, canonical router
+
+One import, one const router = Router(), one export default router
+
+Public JSON endpoints only
+
+Ensure single mount point
+
+server/routes.ts mounts deals router once: app.use('/api', dealsRoutes)
+
+Remove any other deals mounts
+
+Keep API JSON-only; never return HTML for /api paths
+
+Set Content-Type application/json for all responses
+
+Add a final API 404 for /api/* before SPA catch-all
+
+Acceptance criteria:
+
+Build succeeds (no transform errors)
+
+curl -i /api/deals/live → 200 JSON
+
+UI Live Deals loads without “HTML instead of JSON”
+
+Apply these edits:
+
+File: server/routes/deals.ts (overwrite with this)
+import { Router } from 'express'
+
+const router = Router()
+
+// GET /api/deals/live (PUBLIC)
+router.get('/deals/live', async (_req, res) => {
+try {
+// TODO: replace with real source; keep JSON shape stable
+const items = []
+const updatedAt = new Date().toISOString()
+res.status(200).type('application/json').json({ items, updatedAt })
+} catch (e:any) {
+console.error('[deals-live] fail', e?.message || e)
+res.status(502).type('application/json').json({ error: 'bad_upstream', detail: 'upstream_not_json' })
+}
+})
+
+// Debug helpers (PUBLIC)
+router.get('/_debug/deals-ping', (_req, res) => {
+res.status(200).type('application/json').json({ ok: true, ts: Date.now() })
+})
+
+router.get('/_debug/deals-echo', (req, res) => {
+res.status(200).type('application/json').json({ ok: true, url: req.originalUrl, headers: req.headers, query: req.query })
+})
+
+export default router
+
+File: server/routes.ts (ensure single mount + JSON 404 before SPA)
+import dealsRoutes from './routes/deals'
+
+// ... other API mounts above
+
+// Mount deals once
+app.use('/api', dealsRoutes)
+
+// API 404 (JSON only) BEFORE SPA catch-all
+app.use('/api', (_req, res) => {
+res.status(404).type('application/json').json({ error: 'not_found' })
+})
+
+// SPA/static catch-all AFTER all /api mounts
+// app.get('*', serve index.html) <-- keep this last
+
+Verification steps:
+
+Search duplicates:
+
+grep -R "const router = Router" server/routes/deals.ts → should be 1
+
+grep -R "export default router" server/routes/deals.ts → should be 1
+
+curl -i "/api/_debug/deals-ping" → 200 application/json
+
+curl -i "/api/deals/live" → 200 application/json {"items":[],"updatedAt":"..."}
+
+UI “Live Deals” no longer shows the HTML error banner
+
+Notes:
+
+Do NOT gate /api/deals/* behind any auth
+
+Keep responses strictly JSON for all /api/* paths

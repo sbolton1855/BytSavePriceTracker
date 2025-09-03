@@ -1,0 +1,103 @@
+Feature/Area:
+Admin Email Center → Template Preview (fails)
+
+Brief problem:
+Clicking “Preview” shows toast “Failed to preview template.” Likely mismatch between UI template IDs and server registry, or preview route path/handler not accepting selected ID/data.
+
+Observed:
+Templates list shows: price-drop, password-reset, welcome. Preview fails (Password Reset selected in screenshot).
+
+Current files involved:
+server/email/templates.ts
+server/routes/admin/email.ts (preview route)
+client/src/pages/admin-email-center.tsx (Templates panel)
+client/lib/api.ts
+
+Fix requirements:
+
+Server: ensure template IDs exist and match UI
+
+In server/email/templates.ts, define EXACT IDs:
+• 'price-drop' (Price Drop Alert)
+• 'password-reset' (Password Reset)
+• 'welcome' (Welcome Email)
+
+Each has: { id, name, description, subject, previewData, html(data) }
+
+previewData keys used in html must exist (no undefined accesses).
+
+Server: robust preview endpoints
+
+Keep existing GET /api/admin/email/preview/:id (requireAdmin) → returns { subject, html } using template.previewData.
+
+Add POST /api/admin/email/preview (requireAdmin) body: { templateId, data? }
+• Merge: payload = { ...template.previewData, ...(data||{}) }
+• Return { subject, html }.
+
+On missing templateId, respond 404 { error:'template_not_found' } and log:
+console.warn('[email-preview] missing', { id: req.params.id || req.body?.templateId })
+
+Client: call preview with correct ID and method
+
+In Templates sub-tab (admin-email-center.tsx):
+• The selectedTemplateId MUST be the id from getEmailTemplates() (e.g., 'password-reset'), not the display name.
+• When user clicks Preview:
+
+If there is a data form on the right, call POST /api/admin/email/preview with { templateId: selectedTemplateId, data: currentFormValues } using x-admin-token.
+
+Otherwise (no form values), it’s okay to still POST with empty data.
+
+Handle non-200: read error json/text, console.error it; show toast but don’t crash.
+
+API helper additions
+
+client/lib/api.ts:
+export async function previewTemplatePOST(templateId: string, data: any, token: string) {
+return fetch('/api/admin/email/preview', { method:'POST', headers:{ 'Content-Type':'application/json', 'x-admin-token': token }, body: JSON.stringify({ templateId, data }) })
+}
+// keep GET helper for simple preview if already used
+
+Data form → keys mapping
+
+Ensure the form fields’ names match the server template keys:
+• price-drop: { asin, productTitle, newPrice, oldPrice, productUrl?, imageUrl? }
+• password-reset: { firstName, resetLink }
+• welcome: { firstName }
+
+On change, update a local formData object keyed by selectedTemplateId.
+
+Pass that formData[selectedTemplateId] to previewTemplatePOST.
+
+Logging for rapid debug
+
+In the preview route, log:
+console.log('[email-preview] hit', req.method, { id: req.params.id || req.body?.templateId, hasData: !!req.body?.data })
+
+After render, log:
+console.log('[email-preview] ok', { id, subjectLen: subject.length, htmlLen: html.length })
+
+Acceptance criteria:
+
+Browser: GET /api/admin/email/preview/password-reset?token=ADMIN_SECRET → 200 { subject, html }
+
+curl: POST /api/admin/email/preview?token=ADMIN_SECRET -d '{"templateId":"price-drop","data":{"asin":"B01DJGLYZQ","productTitle":"X","newPrice":"15.99","oldPrice":"22.99"}}' → 200 with HTML reflecting values
+
+UI: Selecting “Password Reset” → Preview renders in iframe (no toast error).
+
+Switching to “Price Drop Alert,” editing right-side fields → Preview shows updated values.
+
+No console/server errors; missing template IDs produce 404 with clear log.
+
+Quick tests to run:
+
+Confirm server has EMAIL_TEMPLATES keys: ['price-drop','password-reset','welcome'].
+
+Use Network tab during Preview: request hits /api/admin/email/preview (POST), status 200, response JSON with html.
+
+Toggle templates and preview both Price Drop + Welcome successfully.
+
+Notes/constraints:
+
+Keep single admin auth via requireAdmin (x-admin-token preferred; ?token allowed for curl).
+
+Do not alter unrelated routes; minimal changes limited to templates + preview endpoints + client wiring.

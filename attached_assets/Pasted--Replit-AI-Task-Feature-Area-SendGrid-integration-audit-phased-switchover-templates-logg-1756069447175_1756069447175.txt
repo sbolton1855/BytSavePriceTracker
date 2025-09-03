@@ -1,0 +1,110 @@
+— Replit AI Task —
+
+Feature/Area:
+SendGrid integration audit → phased switchover (templates, logging, QA)
+
+Brief problem:
+Local templating + custom logging overlap with SendGrid features. Migrate to SendGrid where it helps; keep safe fallbacks.
+
+Goals:
+
+* Use SendGrid Dynamic Templates when IDs are available
+* Use categories/custom\_args for metadata
+* Use Event Webhook for reliable logs (delivered/bounce/etc.)
+* Keep sandbox mode for QA tests
+* Fallback to local HTML if no template ID
+
+Plan (phased, minimal risk):
+
+1. SDK + Env
+
+* Ensure @sendgrid/mail installed and configured once
+* .env:
+  SENDGRID\_API\_KEY=...
+  SENDGRID\_FROM=[alerts@yourdomain.com](mailto:alerts@yourdomain.com)
+  SENDGRID\_ASM\_GROUP\_ID=0            # optional unsubscribe group
+  SENDGRID\_SANDBOX\_FOR\_TESTS=true    # enable sandbox for isTest
+  SG\_TEMPLATE\_PRICE\_DROP\_ID=...
+  SG\_TEMPLATE\_WELCOME\_ID=...
+  SG\_TEMPLATE\_PASSWORD\_RESET\_ID=...
+
+2. Centralized service wrapper (server/email/service.ts)
+
+* Implement:
+  export async function sendTemplate({ to, templateId, dynamicData, isTest=false, meta={} })
+  export async function sendRaw({ to, subject, html, isTest=false, meta={} })
+* Behavior:
+
+  * Build msg with from, to, categories: \['bytsave', isTest?'test':'prod'], custom\_args: { ...meta }
+  * If isTest && SENDGRID\_SANDBOX\_FOR\_TESTS === 'true' → mailSettings.sandboxMode.enable = true
+  * If templateId provided → set templateId + dynamic\_template\_data
+  * Else → fall back to subject+html passed in
+  * Try send; capture sgMessageId from response headers ('x-message-id' if available)
+  * Always call logEmail in finally with { status:'sent'|'failed'|'stubbed', isTest, provider:'sendgrid', sgMessageId, meta }
+
+3. Template routing (server/routes/admin/email.ts)
+
+* Map local template keys → env IDs:
+  const SG\_TEMPLATE\_MAP = { 'price-drop': process.env.SG\_TEMPLATE\_PRICE\_DROP\_ID, 'welcome': process.env.SG\_TEMPLATE\_WELCOME\_ID, 'password-reset': process.env.SG\_TEMPLATE\_PASSWORD\_RESET\_ID }
+* In POST /api/admin/send-test-email:
+
+  * If SG\_TEMPLATE\_MAP\[templateId] exists → call sendTemplate({ to, templateId: SG\_TEMPLATE\_MAP\[templateId], dynamicData: req.body.data, isTest\:true, meta:{ templateKey: templateId } })
+  * Else → render local HTML and call sendRaw({ ..., isTest\:true, meta:{ templateKey: templateId, fallback\:true } })
+* Keep existing preview endpoints using local renderer for UI preview; (optional later: fetch/sendgrid template preview)
+
+4. Reliable logs via SendGrid Event Webhook
+
+* New route: POST /api/sendgrid/webhook  (no auth; verify source later)
+* Accept array of events; for each, upsert/update email\_logs by sgMessageId/custom\_args.id if present:
+  processed, delivered, open, click, bounce, dropped, deferred, spamreport
+* Map to statuses:
+  delivered → 'sent'
+  bounce|dropped → 'failed'
+  processed|deferred → keep previous unless final
+* Add console tracing `[sg-webhook]` and ignore duplicates idempotently
+* Expose minimal verification toggle: if process.env.SG\_WEBHOOK\_VERIFY\_DISABLED !== 'true', reject non-array payloads
+
+5. Metadata to correlate logs
+
+* Before sending, generate a logId = uuid
+* Pass custom\_args: { logId, templateKey, isTest, productId?, userId? }
+* Store log row pre-send with status='processed', then update on webhook using logId OR sgMessageId
+
+6. Admin Logs endpoint tweaks (server/routes/admin/email.ts)
+
+* Include provider fields in response: provider, sgMessageId, events\[]
+* Add filter param: provider=sendgrid|any (optional)
+* Keep backward compatibility with current shape (additive fields only)
+
+7. Optional: Fetch live template catalog
+
+* New admin endpoint GET /api/admin/sendgrid/templates (requireAdmin)
+* Call SG API /v3/templates?generations=dynamic; return \[{id,name,updated\_at,versions:\[{id,name,active}]}]
+* UI can show SG status next to local templates
+
+8. UI wiring (client/lib/api.ts + Email Center)
+
+* send-test uses server endpoint (no direct SG calls)
+* Logs table shows status + provider + (if present) sgMessageId
+* Settings tab: toggle “Use SendGrid sandbox for tests” (writes to env or in-memory config; default true)
+
+Acceptance criteria:
+
+* Test send (isTest=true) → sandboxed SendGrid call; log row created immediately; updated to 'sent' on webhook
+* Real send (force/daily) → non-sandbox; log row created/updated via webhook; isTest=false
+* Logs endpoint returns rows with provider='sendgrid' and sgMessageId set
+* If SG template IDs missing for a template, fallback to local HTML works and still logs
+* Webhook receives events without 500; idempotent updates
+
+Quick tests to run:
+
+* POST /api/admin/send-test-email { email, templateId:'welcome', data:{ firstName:'Jordan' } } → row with isTest=true; after webhook event, status becomes 'sent'
+* Trigger daily alert/force alert → row with isTest=false; status updates via webhook
+* GET /api/admin/email-logs?isTest=all\&page=1\&pageSize=10 → includes provider + sgMessageId
+* (Optional) GET /api/admin/sendgrid/templates → returns SG templates list
+
+Notes/constraints:
+
+* Keep single admin auth for admin endpoints; webhook remains unauthenticated (add verification later)
+* Do not break existing local preview UI
+* Minimal code churn outside the centralized email service and routes mapping

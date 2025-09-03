@@ -1,0 +1,104 @@
+Feature/Area:
+Admin Email Center → Logs tab (fetch fails)
+
+Brief problem:
+Logs panel shows spinner + toast “Failed to fetch email logs.” The React Query call is failing (likely wrong endpoint/path or backend not implemented/returning non-200).
+
+Observed error/message:
+UI toast: Failed to fetch email logs. (no rows render)
+
+Current files involved:
+server/routes/admin/email.ts (or server/routes/adminEmail.ts)
+server/email/logEmail.ts (logger)
+server/routes.ts
+server/db/* (email_logs storage)
+client/lib/api.ts
+client/src/pages/admin-email-center.tsx (Logs sub-tab)
+
+Fix requirements:
+
+Backend: implement GET /api/admin/email-logs (single source of truth)
+
+Mount under app.use('/api/admin', adminEmailRoutes)
+
+Auth: requireAdmin (x-admin-token header; ?token allowed for manual tests)
+
+Query params (all optional):
+• page (default 1), pageSize (default 25, max 100)
+• status = sent|failed|stubbed|all (default all)
+• isTest = true|false|all (default all)
+• to (email substring match, optional)
+• templateId (exact id, optional)
+
+Response shape:
+{
+items: [{ id, to, templateId, subject, status, isTest, meta, createdAt }],
+page, pageSize, total
+}
+
+Sort: createdAt DESC
+
+If no email_logs table/collection exists, create it now with indexes on createdAt DESC, to, templateId
+
+Add robust error logging:
+console.error('[email-logs] fetch_failed', { query: req.query, err: e.message })
+
+Backend logger usage audit
+
+Ensure logEmail() is called in:
+• POST /api/admin/send-test-email (isTest=true)
+• Daily alert sender (isTest=false)
+
+On error, still write a row with status='failed' and error message
+
+Frontend API helper
+
+client/lib/api.ts:
+export async function getEmailLogs(params, token) {
+// build query string exactly matching backend param names
+// include header 'x-admin-token': token
+// throw on !res.ok with text for toast
+}
+
+Logs sub-tab wiring
+
+In admin-email-center.tsx Logs panel:
+• useQuery key: ['admin-email-logs', filters, page, pageSize]
+• queryFn: getEmailLogs({ page, pageSize, status, isTest, to, templateId }, AdminAuth.getToken())
+• Show empty state when items.length===0
+• Refresh button calls refetch()
+• Auto-refresh interval only while sub-tab === 'logs'
+
+Path sanity
+
+Remove any legacy/conflicting routes like /api/admin/email/logs or /api/admin/logs
+
+The ONLY logs endpoint should be GET /api/admin/email-logs
+
+Acceptance criteria:
+
+Browser: /api/admin/email-logs?token=ADMIN_SECRET&page=1&pageSize=5 → 200 JSON with { items, total }
+
+Email Center → Logs tab loads without toast error and lists rows (or empty state)
+
+Sending a test email writes a new log row (isTest=true) visible after refresh/interval
+
+No duplicate mounts; single admin auth; no 401 with valid token
+
+Quick tests to run:
+
+Send a test email in “Send Test” tab → switch to Logs → click Refresh → new row appears
+
+Hit invalid param → endpoint responds 400 with message (not 500)
+
+Filters work: status=sent, isTest=true narrow results
+
+Auto-refresh updates list every 5s while on Logs tab
+
+Notes/constraints:
+
+Do not change existing auth model
+
+Keep response payload small (pageSize limit 100)
+
+Preserve current UI styles; minimal UI changes beyond wiring and empty/loader states

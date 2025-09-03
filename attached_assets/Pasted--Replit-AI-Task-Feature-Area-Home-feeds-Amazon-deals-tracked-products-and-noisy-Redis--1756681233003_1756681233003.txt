@@ -1,0 +1,100 @@
+— Replit AI Task —
+
+Feature/Area:
+Home feeds (Amazon deals + tracked products) and noisy Redis
+
+What’s breaking (from logs):
+
+1. /api/amazon/deals → 502 “getDeals is not defined”
+2. Frontend still calls legacy /api/products → 404
+3. Redis spam: ECONNREFUSED 127.0.0.1:6379 (no REDIS\_URL)
+
+Fix now (surgical, minimal):
+
+A) Amazon deals: kill the ReferenceError and guarantee JSON
+File: server/routes/amazon.ts
+
+* At top of file, before routes, add a local impl if getDeals is missing:
+  async function getDeals(): Promise\<any\[]> {
+  // TODO: wire real PA-API. For now return empty list to unblock UI
+  return \[]
+  }
+* In GET /api/amazon/deals handler:
+  • Keep `console.log('[amazon-deals] hit', req.originalUrl)`
+  • Replace the call with `const items = await getDeals().catch(e => { throw new Error(e?.message || 'getDeals failed') })`
+  • On success: `return res.status(200).type('application/json').json({ items, updatedAt: new Date().toISOString() })`
+  • On error: `return res.status(502).type('application/json').json({ error:'bad_upstream', detail:e.message || 'getDeals failed', hint:'upstream_not_json' })`
+* Ensure only ONE router/export default in this file (no duplicate `const router = Router()` / `export default router`)
+
+Acceptance:
+
+* curl -i /api/amazon/deals → 200 application/json {"items":\[],"updatedAt":"..."} (until real PA-API wired)
+* UI no longer shows “Server returned HTML instead of JSON” (the red banner disappears)
+
+B) Tracked products: remove legacy call and/or add alias
+
+1. Backend alias (quick unblock)
+   File: server/routes/trackedProducts.ts (or where /tracked-products is defined)
+
+* Add: `router.get('/products', (req, res) => res.redirect(307, '/api/tracked-products' + (req.url.includes('?') ? req.url.slice(req.url.indexOf('?')) : '')) )`
+* Mount once: `app.use('/api', trackedProductsRoutes)`
+
+2. Frontend cleanup (preferred; keeps single endpoint)
+   Files (search & update):
+
+* client/src/components/products-display.tsx
+* client/src/pages/home.tsx
+* client/lib/api.ts
+  Replace any fetch to /api/products with /api/tracked-products. Always set header `Accept: application/json`.
+  Guard the render:
+* Coerce response: `const items = Array.isArray(data?.items) ? data.items : []`
+* Never access `p.asin` without checking; key with `p.id ?? p.asin ?? i`
+
+Acceptance:
+
+* No more GET /api/products in server logs
+* Home shows either tracked items, “No products yet”, or sign-in CTA—never a red error
+
+C) Redis noise: only connect if configured
+File: wherever Redis client is created (e.g., server/cache/index.ts or server/index.ts)
+
+* Wrap init:
+
+  ```
+  const url = process.env.REDIS_URL
+  if (!url) {
+    console.log('[CACHE] No REDIS_URL; using in-memory cache')
+    globalThis.cache = {
+      get: async (_k:string) => null,
+      set: async (_k:string,_v:any,_ttl?:number)=>{},
+      del: async (_k:string)=>{}
+    }
+  } else {
+    // create real redis client with url
+  }
+  ```
+* Remove unconditional `createClient()` with localhost default.
+* Make all cache callers use `globalThis.cache?.get/set` safely.
+
+Acceptance:
+
+* Log shows “\[CACHE] No REDIS\_URL; using in-memory cache” once
+* No more repeating “Redis Client Error ECONNREFUSED 127.0.0.1:6379”
+
+D) Logging/tracing to verify quickly
+
+* Keep these logs:
+  • “\[amazon-deals] hit …”
+  • “\[tracked-products] hit …”
+  • On /api/products alias hit, log once then redirect
+* API 404 JSON guard in server/routes.ts before SPA:
+  `app.use('/api', (_req,res)=>res.status(404).type('application/json').json({error:'not_found'}))`
+
+Smoke tests (run these):
+
+* curl -i /api/amazon/deals
+* curl -i "/api/tracked-products?email=[SBOLTON1855@GMAIL.COM](mailto:SBOLTON1855@GMAIL.COM)"
+* curl -i "/api/products?email=[SBOLTON1855@GMAIL.COM](mailto:SBOLTON1855@GMAIL.COM)"  (should 307 → /api/tracked-products or 200 JSON if you implement a passthrough)
+* Reload Home → no red banners; Products list doesn’t crash
+
+If you want me to switch /api/amazon/deals to real PA-API next, I’ll give a minimal getDeals() that signs requests with your PA-API keys and returns a few deal items.

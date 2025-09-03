@@ -1,6 +1,6 @@
 import { sendEmail as sendGridEmail } from './email/sendgridService';
 import { db } from './db';
-import { emailLogs } from '../shared/schema.js';
+import { emailLogs } from '@shared/schema';
 
 export interface EmailOptions {
   to: string;

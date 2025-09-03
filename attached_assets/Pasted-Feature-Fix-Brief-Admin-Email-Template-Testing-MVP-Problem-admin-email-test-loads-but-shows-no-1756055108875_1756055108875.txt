@@ -1,0 +1,97 @@
+Feature Fix Brief: Admin Email Template Testing (MVP)
+
+Problem
+
+/admin/email-test loads but shows no preview; earlier “unauthorized” errors.
+
+Route/path mismatches and mixed auth methods caused failures.
+
+Goal
+
+Select a template, click Preview → iframe renders HTML.
+
+Enter email, click Send Test Email → sends rendered template (or stub).
+
+Single admin auth via ADMIN_SECRET.
+
+Backend (Express)
+
+Auth middleware (unified)
+
+requireAdmin compares token to process.env.ADMIN_SECRET
+
+Accept token in header x-admin-token; fallback to req.query.token
+
+Templates module
+
+server/email/templates.ts exports:
+
+EMAIL_TEMPLATES: { price-drop, welcome } with subject, previewData, html(data) => string
+
+listTemplates(): [{id,name,description}]
+
+renderTemplate(id, data?): {subject, html} | null
+
+Routes (mounted once at /api/admin)
+
+GET /api/admin/email-templates → requireAdmin → res.json(listTemplates())
+
+GET /api/admin/email/preview/:id → requireAdmin → res.json(renderTemplate(id) or 404)
+
+POST /api/admin/send-test-email → requireAdmin → body { email, templateId, data? }
+
+renderTemplate(templateId, data)
+
+if app.locals.emailService?.send exists, send({to, from, subject, html}); else console.log stub and return ok:true
+
+Mount
+
+server/routes.ts: app.use('/api/admin', adminEmailRoutes)
+
+Remove any duplicate/conflicting mounts (e.g., /api/admin/email and /api/admin both)
+
+Frontend
+
+API helpers (header-based auth)
+
+getEmailTemplates(token): GET /api/admin/email-templates with x-admin-token
+
+getEmailPreview(id, token): GET /api/admin/email/preview/:id with x-admin-token
+
+sendTestEmail({email,templateId,data}, token): POST /api/admin/send-test-email with x-admin-token
+
+Page: client/src/pages/admin-email-test.tsx
+
+On mount: load templates via getEmailTemplates(AdminAuth.getToken())
+
+“Preview” button: calls getEmailPreview(selected, token) and sets state {subject, html}; render via <iframe srcDoc=...>
+
+“Send Test Email” button: calls sendTestEmail({ email, templateId: selected }, token); show success/error message
+
+No per-page login; rely on AdminLayout + AdminAuth
+
+Env
+
+.env must include ADMIN_SECRET
+
+Optional: APP_URL, AMAZON_TAG
+
+Restart server after .env changes
+
+Acceptance Criteria
+
+GET /api/admin/email-templates?token=ADMIN_SECRET returns JSON array
+
+GET /api/admin/email/preview/price-drop?token=ADMIN_SECRET returns {subject, html}
+
+/admin/email-test shows templates; Preview renders HTML; Send Test Email succeeds (stub or real)
+
+No “unauthorized” with valid token; only one admin login screen
+
+Out of Scope (for later)
+
+Rich editor for template HTML
+
+Persisted templates in DB
+
+Per-template test data editor

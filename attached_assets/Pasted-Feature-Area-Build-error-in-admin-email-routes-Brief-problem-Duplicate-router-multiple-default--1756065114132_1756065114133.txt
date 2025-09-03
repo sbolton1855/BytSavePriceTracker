@@ -1,0 +1,77 @@
+Feature/Area:
+Build error in admin email routes
+
+Brief problem:
+Duplicate router + multiple default exports in server/routes/adminEmail.ts
+
+Observed error/message:
+Transform failed:
+
+server/routes/adminEmail.ts:180:6 The symbol "router" has already been declared
+
+server/routes/adminEmail.ts:257:7 Multiple exports with the same name "default"
+
+Current files involved:
+server/routes/adminEmail.ts (and/or server/routes/admin/email.ts)
+server/routes.ts
+
+Fix requirements:
+
+Deduplicate router in server/routes/adminEmail.ts
+
+Keep exactly one: import { Router } from 'express'
+
+Keep exactly one: const router = Router()
+
+Define all routes on this single router
+
+Keep exactly one final line: export default router
+
+Remove any extra const router = ..., module.exports = router, or extra export default router
+
+Avoid double inclusion of the same routes
+
+If both files exist (server/routes/adminEmail.ts and server/routes/admin/email.ts), choose ONE file to keep (prefer server/routes/admin/email.ts or adminEmail.ts, not both)
+
+Update imports everywhere to point to the chosen file
+
+Delete or comment out the other file
+
+Single mount point
+
+In server/routes.ts, mount once:
+app.use('/api/admin', adminEmailRoutes)
+
+Remove any additional mounts like:
+app.use('/api/admin/email', adminEmailRoutes) or duplicate app.use('/api/admin', ...)
+
+Type check for extra exports
+
+Search for any export default router inside conditionals or after merged blocks; keep only the last, single export
+
+Ensure no export { default as ... } re-exports from a barrel file that pulls this router twice
+
+Acceptance criteria:
+
+App builds without esbuild TransformError
+
+Hitting these endpoints returns 200:
+• /api/admin/email-templates?token=ADMIN_SECRET
+• /api/admin/email/preview/welcome?token=ADMIN_SECRET
+• /api/admin/email-logs?token=ADMIN_SECRET&page=1&pageSize=5
+
+No duplicate route handlers registered (no double responses or logs)
+
+Quick tests to run:
+
+grep -R "const router = Router" -n server/routes | wc -l → should be 1 for the chosen file
+
+grep -R "export default router" -n server/routes | wc -l → should be 1 total
+
+Start app; navigate to /admin/email-center → Logs tab loads without fetch error, Send Test writes a log entry
+
+Notes/constraints:
+
+Do not change auth logic or endpoints; only deduplicate router and mounts
+
+Keep the chosen router file path consistent across imports

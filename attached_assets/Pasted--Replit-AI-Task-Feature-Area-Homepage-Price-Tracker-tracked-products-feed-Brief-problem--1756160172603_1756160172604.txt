@@ -1,0 +1,87 @@
+— Replit AI Task —
+
+Feature/Area:
+Homepage → Price Tracker / “tracked products” feed
+
+Brief problem:
+Banner: “Error fetching products — Failed to fetch tracked products.” The client fetch likely hits the wrong path, gets HTML/401, or DB query fails.
+
+Fix requirements:
+
+Confirm client request
+
+Find the component that shows this banner (e.g., client/src/components/PriceTracker*.tsx or pages/Home).
+
+Log the exact URL, status, and content-type for the fetch.
+
+Expected URL (pick ONE and use everywhere): GET /api/tracked-products
+
+Implement a single backend endpoint
+
+File: server/routes/trackedProducts.ts
+
+Route: GET /tracked-products
+
+Mount once in server/routes.ts: app.use('/api', trackedProductsRoutes)
+
+Behavior:
+• If user session required: return 401 JSON { error:'unauthenticated' } when missing (NO HTML)
+• Else (public list allowed): return 200 with an array (empty OK)
+• Always respond application/json
+• Add tracing: console.log('[tracked-products] hit', req.originalUrl)
+
+DB query (or safe fallback)
+
+Use your existing schema names (fix imports): users, trackedProducts (or equivalent)
+
+For authenticated user: query their tracked items ordered by updatedAt DESC, limit 50
+
+If DB not ready or query throws: catch and return { items: [], note:'fallback_empty', error:true } with 200; log error server-side
+
+Shape:
+{ items: [{ id, asin, title, image, currentPrice, targetPrice, lastCheckedAt }], updatedAt }
+
+Client wiring
+
+client/lib/api.ts: getTrackedProducts() → fetch('/api/tracked-products', { headers:{ Accept:'application/json' }})
+• If res.status===401 show gentle UI: “Sign in to view your tracked products” (no red error)
+• If non-OK but JSON, surface message; if HTML, show “API returned HTML” and log first 200 chars
+
+Home/PriceTracker component:
+• On 401, render a CTA button to /signin instead of error banner
+• On success with empty array, render “No products yet” state
+
+Remove duplicates / SPA bleed
+
+Ensure there is NO other /api/* route serving HTML
+
+API JSON 404 handler before SPA catch-all:
+app.use('/api', (_req,res)=>res.status(404).json({error:'not_found'}))
+
+Acceptance criteria:
+
+curl -i /api/tracked-products → 200 application/json (or 401 JSON if auth required)
+
+UI: if signed out → shows sign-in CTA (no red banner)
+
+UI: if signed in and has items → list renders
+
+UI: if signed in and no items → “No products yet” (no error)
+
+Server logs “[tracked-products] hit …” on request
+
+Quick tests to run:
+
+Open Network tab on Home; verify request URL/status/content-type
+
+curl -i /api/tracked-products
+
+Toggle login state and recheck UI behavior
+
+Notes/constraints:
+
+Single endpoint + single mount
+
+Strict JSON for all /api paths
+
+Do not add new auth systems; reuse existing session/requireUser middleware if needed

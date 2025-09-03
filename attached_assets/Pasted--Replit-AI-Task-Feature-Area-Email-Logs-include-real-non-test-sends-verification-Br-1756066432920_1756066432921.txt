@@ -1,0 +1,76 @@
+— Replit AI Task —
+
+Feature/Area:
+Email Logs — include real (non-test) sends + verification
+
+Brief problem:
+Logs currently show test emails; I need confirmation and enforcement that all real emails (alerts, force alerts, daily runs) are logged too.
+
+Fix requirements:
+
+1. Single email service wrapper (source of truth)
+
+   * Create server/email/service.ts exporting:
+     • sendTemplate({ to, templateId, data, isTest=false, meta? })
+     • sendRaw({ to, subject, html, isTest=false, meta? })
+   * Internally call the underlying provider (SendGrid or stub)
+   * Capture provider response: messageId, status, error text
+   * Always call logEmail(...) in a finally block with:
+     { to, templateId, subject, status:'sent'|'failed'|'stubbed', isTest, meta:{ provider:'sendgrid', messageId, ... } }
+
+2. Refactor all callers to use the wrapper
+
+   * Replace any direct sendgrid.send or app.locals.emailService usage in:
+     • server/routes/admin/email.ts (send-test-email)
+     • server/emailTrigger.ts (daily alerts)
+     • server/routes/admin/forceAlerts.ts (force alerts) if exists
+     • any other price alert send paths
+   * Pass isTest=true only for test endpoint; everywhere else isTest=false
+
+3. Ensure logger includes real sends
+
+   * logEmail persists: id, to, templateId, subject, status, isTest, meta(json), createdAt
+   * If DB write fails, fallback to in-memory array but still return 200 from logs endpoint
+   * Add index on createdAt DESC (and templateId, to) if using DB
+
+4. Logs endpoint filter defaults
+
+   * GET /api/admin/email-logs supports isTest=true|false|all (default all)
+   * status filter: sent|failed|stubbed|all (default all)
+   * Sort by createdAt DESC
+   * Response shape unchanged: { items, page, pageSize, total }
+
+5. Tracing
+
+   * Add console tracing around real send paths:
+     console.log('\[email-send]', { to, templateId, isTest, path: 'daily'|'force'|'test' })
+   * In logs route, print “\[email-logs] ok” with count/total as already added
+
+6. Self-test helper (optional but helpful)
+
+   * Add POST /api/admin/email-selftest { to } (requireAdmin)
+     • Calls sendRaw with a simple HTML, isTest=false, subject “\[SELFTEST]”
+     • Returns { ok\:true } so I can verify non-test logging fast
+
+Acceptance criteria:
+
+* Trigger daily alerts (non-test) → a new log appears with isTest=false
+* Force alert (non-test) → a new log appears with isTest=false
+* Send Test Email (admin) → a new log appears with isTest=true
+* /api/admin/email-logs?isTest=false\&page=1\&pageSize=5 returns at least 1 item after a real send
+* All email sends route through server/email/service.ts (no direct provider calls remain)
+
+Quick tests to run:
+
+* Manual: POST /api/admin/send-test-email (isTest=true) → check logs isTest=true
+* Manual: Call daily alerts endpoint → check logs isTest=false
+* Manual: Force alert endpoint → check logs isTest=false
+* Optional: POST /api/admin/email-selftest {to} → check logs isTest=false, subject contains \[SELFTEST]
+* Browser: /api/admin/email-logs?token=ADMIN\_SECRET\&isTest=all\&page=1\&pageSize=5 → 200 JSON
+* UI: Email Center → Send Test → Logs → see new row; then run daily/force and see non-test row
+
+Notes/constraints:
+
+* Keep single admin auth via requireAdmin (x-admin-token preferred; ?token allowed for manual)
+* Do not change response shape of /api/admin/email-logs
+* Minimal code churn: wrapper centralization + refactors only; no new libraries

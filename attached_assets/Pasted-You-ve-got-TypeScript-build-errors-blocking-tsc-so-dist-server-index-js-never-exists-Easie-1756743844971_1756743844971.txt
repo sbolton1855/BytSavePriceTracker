@@ -1,0 +1,72 @@
+You’ve got **TypeScript build errors** blocking `tsc`, so `dist/server/index.js` never exists. Easiest way to get back online **now** is to **run the server with TSX in prod** (single process, no build step), then fix types later.
+
+Here’s the **TL;DR you can tell Replit** (and do yourself):
+
+### 1) `.replit` — one process, no workflows
+
+```toml
+modules = ["nodejs-20", "web", "postgresql-16"]
+run = "npm run dev"
+
+[nix]
+channel = "stable-24_05"
+packages = ["jq"]
+
+[deployment]
+deploymentTarget = "autoscale"
+build = ["npm", "run", "build"]   # builds client only
+run = ["npm", "run", "start"]     # runs TS server with tsx (no tsc needed)
+```
+
+### 2) `package.json` — use TSX for prod start
+
+Replace just the scripts with these (keep your others if you want):
+
+```json
+"scripts": {
+  "dev": "tsx server/index.ts",
+  "build": "vite build",                          // client only
+  "start": "node --loader tsx server/index.ts",   // run TS directly in deploy
+  "clean": "rm -rf node_modules dist .vite"
+}
+```
+
+> Why: TSX runs TypeScript **without** blocking on type errors. This gives you a single, reliable server process in both dev and deploy.
+
+### 3) Your server code is fine
+
+You already bind correctly:
+
+```ts
+const port = Number(process.env.PORT) || 5000;
+app.listen(port, "0.0.0.0", () => console.log(`[BOOT] listening on :${port}`));
+```
+
+### 4) One-time commands (Shell)
+
+```bash
+pkill -f node || true; pkill -f tsx || true; pkill -f vite || true
+npm run clean
+npm ci
+npm run build          # builds client to /dist (ok even if TS has errors)
+npm run start          # starts server via tsx
+echo $PORT && curl -s "http://localhost:$PORT/_health"
+```
+
+---
+
+## After you’re back up (optional harden)
+
+* Add a **type-check only** script you can run when you’re ready to fix errors:
+
+  ```json
+  "typecheck": "tsc -p tsconfig.server.json --noEmit"
+  ```
+* Later, when type errors are fixed, you can switch back to compiled start:
+
+  ```json
+  "build": "tsc -p tsconfig.server.json && vite build",
+  "start": "node dist/server/index.js"
+  ```
+
+This gets you **running immediately** (no more “Terminated” / port fights, no tsc roadblock), and you can clean up the TS issues on your timeline.

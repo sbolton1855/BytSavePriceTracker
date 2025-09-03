@@ -1,0 +1,76 @@
+Feature/Area:
+Admin Email Center – Select component crash
+
+Brief problem:
+Runtime error: “A <Select.Item /> must have a value prop that is not an empty string.” Caused by a placeholder <Select.Item value=""> or undefined/empty values in items.
+
+Observed error/message:
+[plugin:runtime-error-plugin] A <Select.Item /> must have a value prop that is not an empty string. (Radix Select)
+
+Current files involved:
+client/src/pages/admin-email-center.tsx (Templates + Send panels)
+client/src/pages/admin-email-test.tsx (if still present)
+client/src/components/AdminSubTabNav.tsx (verify not using Select for tabs)
+
+Fix requirements:
+
+Use Radix Select placeholder correctly
+
+Remove any placeholder item like <Select.Item value="">Select a template</Select.Item>
+
+Implement placeholder via <Select.Value placeholder="Select a template" />
+
+Ensure controlled value never empty-string for Radix
+
+When nothing selected, pass undefined not ''
+
+Example:
+const [selectedTemplate, setSelectedTemplate] = useState<string | undefined>(undefined)
+<Select value={selectedTemplate} onValueChange={setSelectedTemplate}>
+<Select.Trigger><Select.Value placeholder="Select a template" /></Select.Trigger>
+<Select.Content>
+{templates.map(t => (
+<Select.Item key={t.id} value={String(t.id)}>{t.name}</Select.Item>
+))}
+</Select.Content>
+</Select>
+
+Sanitize item values
+
+Map template ids to non-empty strings: value={String(t.id)}
+
+Filter out any falsy/empty ids before rendering
+
+Update send/preview handlers to handle undefined selection
+
+Disable buttons if !selectedTemplate
+
+When sending: use { templateId: selectedTemplate! }
+
+Sweep other Selects
+
+Fix any other Radix Select usage (email center, email test) with same pattern (no empty value items; placeholder via Select.Value; value undefined to clear)
+
+Acceptance criteria:
+
+No runtime error when opening Email Center or switching sub-tabs
+
+Templates dropdown shows placeholder, no crash
+
+Selecting a template sets value and enables Preview/Send
+
+Clearing (if supported) returns to placeholder without error
+
+Quick tests to run:
+
+/admin/email-center?sub=templates → open Select (no crash), pick an item → preview works
+
+/admin/email-center?sub=send → ensure Select behaves the same, buttons disabled until selection
+
+Try with an empty templates array → UI shows placeholder without errors
+
+Notes/constraints:
+
+Radix Select only: do not reintroduce <option>/native select
+
+Keep styling and existing logic; change only Select wiring and state handling

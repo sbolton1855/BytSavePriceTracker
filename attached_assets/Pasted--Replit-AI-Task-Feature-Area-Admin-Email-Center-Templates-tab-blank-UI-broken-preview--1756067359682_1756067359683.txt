@@ -1,0 +1,84 @@
+— Replit AI Task —
+
+Feature/Area:
+Admin Email Center → Templates tab (blank UI + broken preview)
+
+Brief problem:
+Templates panel is empty and preview/send flows are broken after recent changes.
+
+Observed:
+Left list shows nothing; right panel empty; earlier toast “Failed to preview template”.
+
+Current files involved:
+server/email/templates.ts
+server/routes/admin/email.ts (or server/routes/adminEmail.ts)
+server/routes.ts
+client/lib/api.ts
+client/src/pages/admin-email-center.tsx (Templates sub-tab)
+
+Fix requirements (make it work, minimal + reliable):
+
+1. Backend: return real template list with defaults
+
+   * GET /api/admin/email-templates (requireAdmin) must return:
+     \[
+     { id:'price-drop', name:'Price Drop Alert', subject:'Price Drop Alert: {{productTitle}}', description:'Notify users when product prices drop', defaults:{ asin:'B01DJGLYZQ', productTitle:'Sample Product', newPrice:'15.99', oldPrice:'22.99', imageUrl:'[https://via.placeholder.com/600x300](https://via.placeholder.com/600x300)' } },
+     { id:'password-reset', name:'Password Reset', subject:'Reset Your Password', description:'Password reset email template', defaults:{ firstName:'Jordan', resetLink:'[https://app.example.com/reset?token=DEMO](https://app.example.com/reset?token=DEMO)' } },
+     { id:'welcome', name:'Welcome Email', subject:'Welcome to BytSave!', description:'Welcome new users', defaults:{ firstName:'Jordan' } }
+     ]
+   * In server/email/templates.ts ensure EMAIL\_TEMPLATES keys exactly match the ids above and expose a helper listTemplates() that emits the shape with a `defaults` object.
+   * Auth via requireAdmin (x-admin-token or ?token).
+
+2. Backend: robust preview route(s)
+
+   * Keep GET /api/admin/email/preview/\:id (requireAdmin) → merge template.previewData/defaults and return { subject, html }.
+   * Add POST /api/admin/email/preview (requireAdmin) body { templateId, data } → merge { ...defaults, ...data } and return { subject, html }.
+   * Log tracing: `[email-preview] hit`, `[email-preview] ok`, 404 on unknown id.
+
+3. Client API helpers (header auth)
+
+   * getEmailTemplates(token): GET /api/admin/email-templates with 'x-admin-token'.
+   * previewTemplate(id, data, token): POST /api/admin/email/preview with { templateId\:id, data } + header.
+   * sendTestEmail({ email, templateId, data }, token): POST /api/admin/send-test-email.
+
+4. Client UI — Templates sub-tab (admin-email-center.tsx)
+
+   * On mount (when sub=templates), fetch templates via getEmailTemplates(AdminAuth.getToken()).
+   * Render left list with each template’s name/description/subject (use item.id for selection).
+   * When a template is selected:
+     • Initialize local formData = deep copy of template.defaults.
+     • Render a simple dynamic form on the right (for each key in formData, show label+input bound to formData\[key]).
+     • Buttons: Reset (restore defaults), Preview, Send Test Email.
+   * Preview: call previewTemplate(selectedId, formData, token), show result in iframe (srcDoc).
+   * Send Test Email: call sendTestEmail({ email: settings.testEmail || admin email, templateId\:selectedId, data: formData }, token); toast on success.
+
+5. Guardrails
+
+   * If templates array is empty, show “No templates found” with a Reload button (refetch).
+   * Disable Preview/Send until a template is selected.
+   * Handle errors with console.error + small toast; do not blank the page.
+
+6. Routing/mount sanity (to avoid blank data)
+
+   * Ensure a single mount: app.use('/api/admin', adminEmailRoutes).
+   * Remove any duplicate mounts or alternate paths for templates/preview.
+
+Acceptance criteria:
+
+* Browser: /api/admin/email-templates?token=ADMIN\_SECRET → 200 JSON with exactly 3 items and each has a `defaults` object.
+* UI: /admin/email-center?sub=templates → left panel lists 3 templates; selecting one populates fields on the right.
+* Click Preview → iframe renders HTML; editing a field and re-preview updates HTML.
+* Click Send Test Email → success toast; Email Logs shows a new isTest=true row.
+* No console errors; preview route returns 200; no empty UI.
+
+Quick tests to run:
+
+* curl POST "/api/admin/email/preview?token=YOUR\_SECRET" -H "Content-Type: application/json" -d '{"templateId":"price-drop","data":{"productTitle":"TRUEplus","newPrice":"15.99","oldPrice":"22.99"}}'
+* Send Test from UI, then Logs tab → entry is present.
+* Switch between templates; Reset restores defaults and preview updates.
+
+Notes/constraints:
+
+* Keep single admin auth via requireAdmin; header preferred.
+* Do not introduce new UI libs; keep styles consistent.
+* Minimal changes—focus on data load, selection, preview, and send flows.

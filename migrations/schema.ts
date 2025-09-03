@@ -1,4 +1,4 @@
-import { pgTable, serial, integer, doublePrecision, timestamp, text, boolean, unique, index, varchar, jsonb, json } from "drizzle-orm/pg-core"
+import { pgTable, serial, integer, doublePrecision, timestamp, text, boolean, unique, index, varchar, jsonb } from "drizzle-orm/pg-core"
 import { sql } from "drizzle-orm"
 
 
@@ -59,28 +59,15 @@ export const sessions = pgTable("sessions", {
 	index("IDX_session_expire").using("btree", table.expire.asc().nullsLast().op("timestamp_ops")),
 ]);
 
-export const affiliateClicks = pgTable("affiliate_clicks", {
-  id: serial("id").primaryKey(),
-  asin: varchar("asin", { length: 20 }).notNull(),
-  clickedAt: timestamp("clicked_at").defaultNow().notNull(),
-  userAgent: text("user_agent"),
-  referrer: text("referrer"),
-  ipAddress: varchar("ip_address", { length: 45 }),
+export const affiliateClicks = pgTable('affiliate_clicks', {
+  id: serial('id').primaryKey(),
+  userId: text('user_id'),
+  asin: text('asin').notNull(),
+  clickedAt: timestamp('clicked_at').defaultNow().notNull(),
+  userAgent: text('user_agent'),
+  ipAddress: text('ip_address'),
+  referrer: text('referrer')
 });
 
 export const emailLogs = pgTable('email_logs', {
-  id: serial('id').primaryKey(),
-  to: varchar('to', { length: 255 }).notNull(),
-  recipientEmail: varchar('recipient_email', { length: 255 }),
-  subject: varchar('subject', { length: 500 }).notNull(),
-  templateId: varchar('template_id', { length: 100 }),
-  status: varchar('status', { length: 50 }).notNull().default('sent'),
-  isTest: boolean('is_test').notNull().default(false),
-  previewHtml: text('preview_html'),
-  meta: text('meta'),
-  error: text('error'),
-  provider: varchar('provider', { length: 50 }).default('fallback'),
-  sgMessageId: varchar('sg_message_id', { length: 255 }),
-  logId: varchar('log_id', { length: 255 }),
-  createdAt: timestamp('created_at').defaultNow().notNull(),
 });

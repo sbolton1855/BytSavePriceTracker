@@ -1,0 +1,69 @@
+— Replit AI Task —
+
+Feature/Area:
+Admin Email Center – Logs auto-refresh runtime error
+
+Brief problem:
+Runtime error: “Cannot access 'refetchLogs' before initialization” in admin-email-center.tsx. A useEffect lists refetchLogs in its deps before refetchLogs is declared by useQuery.
+
+Observed error/message:
+\[plugin\:runtime-error-plugin] Cannot access 'refetchLogs' before initialization (admin-email-center.tsx:135)
+
+Current files involved:
+client/src/pages/admin-email-center.tsx
+
+Fix requirements:
+
+1. Declare the logs query BEFORE any effects that reference it
+
+   * Move the useQuery for email logs to the top of the component (above the useEffect that uses refetchLogs).
+   * Example:
+
+   const {
+   data: logsData,
+   isFetching: logsFetching,
+   refetch: refetchLogs
+   } = useQuery<EmailLogsResponse>({
+   queryKey: \['admin-email-logs', filters],
+   queryFn: fetchEmailLogs, // uses AdminAuth.getToken() and x-admin-token
+   enabled: activeSubTab === 'logs'
+   })
+
+2. Fix the auto-refresh effect to safely use refetchLogs
+
+   * Place effect AFTER the useQuery above.
+   * Guard on tab + toggle, clear interval on cleanup:
+
+   useEffect(() => {
+   if (activeSubTab !== 'logs' || !autoRefreshEnabled) return
+   const id = setInterval(() => { refetchLogs() }, 5000)
+   return () => clearInterval(id)
+   }, \[activeSubTab, autoRefreshEnabled, refetchLogs])
+
+3. Remove any earlier effect that referenced refetchLogs before declaration
+
+   * Ensure there’s no duplicate/older interval logic.
+   * If ESLint nags about missing deps, keep as above; react-query’s refetch is stable.
+
+4. Optional safety: don’t tie the effect to objects that change identity
+
+   * Keep deps minimal as shown to avoid unnecessary clears.
+
+Acceptance criteria:
+
+* No “Cannot access 'refetchLogs' before initialization” at runtime.
+* Logs sub-tab auto-refreshes every 5s while active; stops when leaving tab.
+* Manual refresh still works.
+* No memory leaks (interval cleared on tab switch/unmount).
+
+Quick tests to run:
+
+* Open /admin/email-center?sub=logs → no runtime error.
+* Stay on Logs → see list refresh every \~5s (network calls visible).
+* Switch to Templates then back to Logs → only one interval active (no rapid polling).
+* Send a test email → new row appears within a refresh cycle.
+
+Notes/constraints:
+
+* Keep single admin auth via ADMIN\_SECRET; no auth changes.
+* Do not introduce new libraries.

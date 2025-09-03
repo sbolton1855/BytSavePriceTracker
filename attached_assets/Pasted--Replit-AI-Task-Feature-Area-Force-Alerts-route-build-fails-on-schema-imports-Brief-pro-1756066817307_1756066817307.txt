@@ -1,0 +1,69 @@
+— Replit AI Task —
+
+Feature/Area:
+Force Alerts route — build fails on schema imports
+
+Brief problem:
+ESM import error: ../../migrations/schema has no export named userProducts (and possibly products). Route doesn’t compile.
+
+Observed error/message:
+SyntaxError: The requested module '../../migrations/schema' does not provide an export named 'userProducts'
+at server/routes/adminForceAlerts.ts:6
+
+Current files involved:
+server/routes/adminForceAlerts.ts
+server/migrations/schema.(ts|js)  (actual path/name may differ)
+server/db/\* (db client)
+server/routes.ts
+
+Fix requirements:
+
+1. Inspect actual schema exports
+
+   * Open ../../migrations/schema.(ts|js) and list its named exports in console/log or comment for reference.
+   * Identify the correct table/model names used for:
+     • users
+     • products (or tracked products)
+     • user-to-product tracking/join table (if any)
+
+2. Fix imports in adminForceAlerts.ts
+
+   * Replace `import { userProducts, products } from '../../migrations/schema'` with the real export names from step 1 (e.g., trackedProducts, userTrackedProducts, alerts, users).
+   * Remove any unused imports.
+
+3. Update query code to match the schema
+
+   * Wherever userProducts/products are referenced, rename usages to the actual table objects/columns.
+   * If the route only needs to force-send for a given `productId` and/or `userEmail`, simplify the DB lookup to:
+     • find user by email (users)
+     • find tracked product by productId/asin (trackedProducts)
+     • optionally validate user↔product relation if your schema has a join table
+   * Use the existing db client and query helpers consistent with the rest of the codebase (Drizzle/Prisma/Knex).
+
+4. Path sanity
+
+   * Ensure the schema import path is correct (e.g., '../../db/schema' vs '../../migrations/schema').
+   * Keep ESM named imports only; no default import if the file uses named exports.
+
+5. Build guard
+
+   * If schema doesn’t expose a join table, temporarily bypass the join check and accept `{ productId, email }` to trigger the alert via the centralized email service. Leave a TODO to restore the join check once schema is clear.
+
+Acceptance criteria:
+
+* App compiles (no “does not provide an export” errors).
+* Force Alerts route mounts: POST /api/admin/force-alerts (requireAdmin).
+* Sending a request with valid `{ email, productId | asin }` triggers the centralized email service (isTest=false) and writes a log row.
+* /api/admin/email-logs shows the new non-test log.
+
+Quick tests to run:
+
+* Print the named exports from schema in console to confirm: console.log('\[schema-exports]', Object.keys(require('../../migrations/schema')))
+* curl -X POST "/api/admin/force-alerts?token=YOUR\_SECRET" -H "Content-Type: application/json" -d '{"email":"[you@example.com](mailto:you@example.com)","productId":"123"}'
+* curl "/api/admin/email-logs?token=YOUR\_SECRET\&isTest=false\&page=1\&pageSize=5" → should include the new send
+
+Notes/constraints:
+
+* Do not create new tables; adapt to existing schema exports.
+* Keep centralized email service usage (sendTemplate/sendRaw) and logging intact.
+* Single admin auth via requireAdmin.

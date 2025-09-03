@@ -1,0 +1,101 @@
+— Replit AI Task —
+
+Feature/Area:
+Live Deals feed (homepage) — fetch returns HTML instead of JSON
+
+Brief problem:
+UI shows “Error loading deals: Server returned HTML instead of JSON.” The client expects JSON but the backend response is HTML (likely 404/500 page or auth redirect).
+
+Current files/routes involved (guess):
+client/src/components/Deals/LiveDeals*.tsx (or Home)
+client/lib/api.ts
+server/routes/deals.ts (or server/routes/public.ts)
+server/routes.ts
+server/middleware/* (auth/redirect)
+server/index.ts
+
+Fix requirements:
+
+Frontend: hard-proof what URL returns HTML
+
+In the Live Deals fetch, log full request + response:
+• URL actually called
+• res.status, res.url
+• res.headers['content-type']
+• if content-type includes 'text/html', read text(), console.error first 200 chars
+
+Ensure request sends Accept: application/json
+
+Show a compact error in UI but don’t crash
+
+Single, public JSON endpoint
+
+Create/verify: GET /api/deals/live (PUBLIC — no admin auth; no login redirect)
+
+Add tracing at top:
+console.log('[deals-live] hit', req.originalUrl)
+
+Wrap upstream call (Amazon/Product API/DB). On success:
+res.status(200).type('application/json').json({ items, updatedAt })
+
+On ANY error or upstream HTML:
+res.status(502).type('application/json').json({ error:'bad_upstream', detail, hint:'upstream_not_json' })
+
+Always set Content-Type: application/json
+
+Guard against auth redirects/404 HTML
+
+Confirm /api/deals/live is NOT behind auth middleware (remove requireAdmin/requireUser)
+
+In server/routes.ts, mount deals router once (no duplicate mounts); ensure path is exactly '/api' + deals routes
+
+Add catch-all 404 after API mounts only for non-/api routes (so SPA HTML isn’t served to API paths)
+
+Upstream sanity (Amazon/Product API)
+
+If using PA-API/proxy, ensure we parse JSON; if upstream returns HTML, detect and throw:
+if (ct && ct.includes('html')) throw new Error('upstream_html')
+
+Add timeout + error mapping to 502 JSON
+
+Debug endpoints (temporary)
+
+GET /api/_debug/deals-echo → returns { ok:true, headers:req.headers, query:req.query }
+
+GET /api/_debug/deals-ping → returns { ok:true, ts:Date.now() }
+
+Both PUBLIC; use to verify API path isn’t being HTML-handled
+
+Acceptance criteria:
+
+Browser: /api/deals/live → 200 application/json with { items:[], updatedAt } (empty is fine)
+
+Network tab for Live Deals fetch shows Content-Type: application/json; no HTML
+
+UI shows either items or “No live deals” (not the HTML error)
+
+Server logs show “[deals-live] hit …” on each request
+
+No 302 redirects to login for /api/deals/live
+
+Hitting /api/_debug/deals-echo returns JSON, not HTML
+
+Quick tests to run:
+
+curl -i "/api/deals/live" → verify HTTP/1.1 200 and content-type: application/json
+
+curl -i "/api/_debug/deals-echo?x=1" → JSON echo
+
+In UI, switch tabs away/back → no error banner; spinner resolves
+
+Temporarily force upstream_html path → verify 502 JSON with { error:'bad_upstream' } and UI shows friendly message
+
+Notes/constraints:
+
+Do NOT gate Live Deals behind admin/user auth
+
+Ensure SPA index.html catch-all does not handle /api/* paths
+
+Keep code minimal: one public route, strict JSON responses, robust error mapping
+
+— End —

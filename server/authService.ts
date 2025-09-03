@@ -7,7 +7,7 @@ import session from "express-session";
 import connectPgSimple from "connect-pg-simple";
 import { Express, Request, Response, NextFunction } from "express";
 import { db } from "./db";
-import { users } from "../shared/schema.js";
+import { users } from "@shared/schema";
 import { eq } from "drizzle-orm";
 import { storage } from "./storage";
 import { pool } from "./db";
@@ -435,7 +435,7 @@ export function configureAuth(app: Express) {
   app.post('/api/login', async (req, res, next) => {
     try {
       // Validate the login data first
-      const { loginSchema } = await import('../shared/schema.js');
+      const { loginSchema } = await import('@shared/schema');
       const validation = loginSchema.safeParse(req.body);
 
       if (!validation.success) {

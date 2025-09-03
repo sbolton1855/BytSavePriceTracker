@@ -1,0 +1,48 @@
+On branch main
+Your branch is ahead of 'origin/main' by 180 commits.
+  (use "git push" to publish your local commits)
+
+Changes not staged for commit:
+  (use "git add <file>..." to update what will be committed)
+  (use "git restore <file>..." to discard changes in working directory)
+  (commit or discard the untracked or modified content in submodules)
+    modified:   .replit
+    modified:   BytSavePriceTracker (modified content, untracked content)
+    modified:   server/lib/amazonApi.ts
+    modified:   server/middleware/adminSession.ts
+    modified:   vite.config.ts
+
+Untracked files:
+  (use "git add <file>..." to include in what will be committed)
+    attached_assets/Pasted--Replit-AI-Task-Feature-Area-Admin-Email-Center-Logs-auto-refresh-runtime-error-Brief-p-1756064404419_1756064404420.txt
+    attached_assets/Pasted--Replit-AI-Task-Feature-Area-Admin-Email-Center-Logs-tab-fails-to-load-Brief-problem-UI-s-1756065882207_1756065882209.txt
+    attached_assets/Pasted--Replit-AI-Task-Feature-Area-Admin-Email-Center-Logs-tab-still-failing-needs-hard-proof--1756066198041_1756066198041.txt
+    attached_assets/Pasted--Replit-AI-Task-Feature-Area-Admin-Email-Center-Templates-tab-blank-UI-broken-preview--1756067359682_1756067359683.txt
+    attached_assets/Pasted--Replit-AI-Task-Feature-Area-Admin-Email-Center-Templates-tab-blank-UI-broken-preview--1756067540057_1756067540058.txt
+    attached_assets/Pasted--Replit-AI-Task-Feature-Area-Email-Center-Logs-show-empty-after-successful-Send-Test-sgMe-1756069837609_1756069837610.txt
+    attached_assets/Pasted--Replit-AI-Task-Feature-Area-Email-Logs-include-real-non-test-sends-verification-Br-1756066432920_1756066432921.txt
+    attached_assets/Pasted--Replit-AI-Task-Feature-Area-Email-System-end-to-end-full-audit-alignment-one-pass-r-1756071038869_1756071038871.txt
+    attached_assets/Pasted--Replit-AI-Task-Feature-Area-Force-Alerts-route-build-fails-on-schema-imports-Brief-pro-1756066817307_1756066817307.txt
+    attached_assets/Pasted--Replit-AI-Task-Feature-Area-Home-feeds-Amazon-deals-tracked-products-and-noisy-Redis--1756681233003_1756681233003.txt
+    attached_assets/Pasted--Replit-AI-Task-Feature-Area-Homepage-Price-Tracker-tracked-products-feed-Brief-problem--1756160172603_1756160172604.txt
+    attached_assets/Pasted--Replit-AI-Task-Feature-Area-Live-Deals-API-hard-reset-router-to-fix-router-already-declared-1756159991744_1756159991744.txt
+    attached_assets/Pasted--Replit-AI-Task-Feature-Area-Live-Deals-feed-homepage-fetch-returns-HTML-instead-of-JSON-B-1756159658978_1756159658979.txt
+    attached_assets/Pasted--Replit-AI-Task-Feature-Area-SendGrid-integration-audit-phased-switchover-templates-logg-1756069447175_1756069447175.txt
+    attached_assets/Pasted--Replit-AI-Task-Title-Stabilize-Runtime-Email-System-concept-only-you-choose-exact-code--1756687815648_1756687815648.txt
+    attached_assets/Pasted--email-service-SendGrid-initialized-with-API-key-CACHE-No-REDIS-URL-found-using-in-memory-cache-1756076512109_1756076512110.txt
+    attached_assets/Pasted--email-service-SendGrid-initialized-with-API-key-CACHE-No-REDIS-URL-found-using-in-memory-cache-1756160317760_1756160317761.txt
+    attached_assets/Pasted--email-service-SendGrid-initialized-with-API-key-CACHE-No-REDIS-URL-found-using-in-memory-cache-1756161665381_1756161665381.txt
+    attached_assets/Pasted-Feature-Area-Admin-Email-Center-Logs-tab-fetch-fails-Brief-problem-Logs-panel-shows-spinner--1756064802434_1756064802435.txt
+    attached_assets/Pasted-Feature-Area-Admin-Email-Center-QA-validation-smoke-test-button-Brief-problem-Replit-says-co-1756063868532_1756063868533.txt
+    attached_assets/Pasted-Feature-Area-Admin-Email-Center-Select-component-crash-Brief-problem-Runtime-error-A-Select--1756064589569_1756064589570.txt
+    attached_assets/Pasted-Feature-Area-Admin-Email-Center-Template-Preview-fails-Brief-problem-Clicking-Preview-shows-1756067023042_1756067023042.txt
+    attached_assets/Pasted-Feature-Area-Admin-Email-Center-nested-tabs-deep-links-Brief-problem-Email-Testing-and-Email--1756063179239_1756063179240.txt
+    attached_assets/Pasted-Feature-Area-Admin-Email-Center-nested-tabs-deep-links-Brief-problem-Email-Testing-and-Email--1756063752897_1756063752899.txt
+    attached_assets/Pasted-Feature-Area-Build-error-in-admin-email-routes-Brief-problem-Duplicate-router-multiple-default--1756065114132_1756065114133.txt
+    attached_assets/Pasted-Feature-Area-Preview-not-running-unify-run-command-single-server-on-PORT-no-Vite-dev-server-G-1756688096032_1756688096033.txt
+    attached_assets/Pasted-Feature-Fix-Brief-Admin-Email-Template-Testing-MVP-Problem-admin-email-test-loads-but-shows-no-1756055108875_1756055108875.txt
+    attached_assets/Pasted-You-ve-got-TypeScript-build-errors-blocking-tsc-so-dist-server-index-js-never-exists-Easie-1756743844971_1756743844971.txt
+    tsconfig.server.json
+
+no changes added to commit (use "git add" and/or "git commit -a")
+~/workspace$ 

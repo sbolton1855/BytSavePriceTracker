@@ -1,0 +1,96 @@
+Feature/Area:
+Admin Email Center — nested tabs + deep links
+
+Brief problem:
+Email Testing and Email Logs live as separate pages. For QA it’s more logical to work in a single “Email Center” with sub-tabs: Templates, Send Test, Logs, Settings.
+
+Observed:
+Admin Hub has top-level tabs already. Email workflows still bounce between pages.
+
+Current files involved:
+client/src/pages/admin-email-center.tsx (exists)
+client/src/pages/admin-email-test.tsx
+client/src/pages/admin-email-logs.tsx
+client/src/pages/admin-hub.tsx
+client/src/components/AdminLayout.tsx
+client/src/components (add new sub-tab nav)
+client/lib/api.ts
+server routes already OK (no backend change required)
+
+Fix requirements:
+
+Sub-tab navigation
+
+Create reusable component client/src/components/AdminSubTabNav.tsx
+
+Sub-tabs: templates | send | logs | settings
+
+Read/write URL param ?sub=<templates|send|logs|settings>
+
+Default sub=templates
+
+Refactor Email Center page
+
+Update client/src/pages/admin-email-center.tsx to render the sub-tabs and panels:
+• templates: template list + preview iframe (reuse logic from admin-email-test)
+• send: email address + template picker + “Send Test Email” (reuse existing send code)
+• logs: embed the email logs table (reuse admin-email-logs list component)
+• settings: minimal form (from address, QA subject tag toggle) persisted in memory for now; no backend change
+
+Import and reuse code from existing pages to avoid duplication (extract minimal components if needed)
+
+Hub deep-link updates
+
+In client/src/pages/admin-hub.tsx:
+• “Email Testing” card → link to /admin/email-center?sub=send
+• “Email Logs” card → link to /admin/email-center?sub=logs
+
+Keep “Force Alerts” as its own tool (no change)
+
+Auth consistency
+
+Wrap Email Center with AdminLayout (no per-page login)
+
+All API calls must use AdminAuth.getToken() with x-admin-token header
+
+UX polish
+
+Persist last selected sub-tab in URL only (no localStorage)
+
+Show loading/empty states in each panel
+
+Responsive: sub-tabs horizontally scroll on mobile
+
+Acceptance criteria:
+
+/admin/email-center loads with Templates tab by default; preview works
+
+/admin/email-center?sub=send shows Send panel; sending succeeds and logs entry created
+
+/admin/email-center?sub=logs shows logs table, newest first; refresh button refetches
+
+Hub card “Email Testing” opens /admin/email-center?sub=send; “Email Logs” opens /admin/email-center?sub=logs
+
+Single admin auth; no extra login prompts
+
+No backend edits required
+
+Quick tests to run:
+
+Visit /admin/email-center → select “Price Drop” → Preview renders HTML in iframe
+
+Switch to Send → enter your email → Send Test Email → success → switch to Logs → see new row with isTest=true
+
+Use browser back/forward between sub-tabs; URL reflects state correctly
+
+Mobile viewport: sub-tabs scroll; panels stack
+
+Notes/constraints:
+
+Don’t alter backend routes/endpoints
+
+Reuse existing components/APIs; minimal new UI code
+
+Keep styles consistent with AdminTabNav and current design system
+
+— End —

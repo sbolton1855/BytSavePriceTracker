@@ -1,0 +1,67 @@
+— Replit AI Task —
+
+Feature/Area:
+Admin Email Center → Logs tab still failing (needs hard proof + fallback)
+
+Brief problem:
+UI shows “Failed to fetch email logs.” You say it’s fixed, but the fetch still returns non-200 or wrong shape.
+
+Fix requirements:
+
+1. Single endpoint + mount
+
+   * Keep only: GET /api/admin/email-logs under app.use('/api/admin', adminEmailRoutes)
+   * Remove/disable any other logs routes (/api/admin/email/logs, /api/admin/logs)
+
+2. Add hard tracing in the handler
+
+   * At route start:
+     console.log('\[email-logs] hit', req.originalUrl, { hasHeader: !!req.headers\['x-admin-token'], hasQuery: !!req.query.token })
+   * After parsing:
+     console.log('\[email-logs] query', { page, pageSize, status, isTest, to, templateId })
+   * On success:
+     console.log('\[email-logs] ok', { count: items.length, total })
+   * On error:
+     console.error('\[email-logs] fail', e?.message, e)
+
+3. Never 500 the UI for logs
+
+   * Wrap DB read in try/catch. On error, return 200 with empty payload, not 500:
+     return res.json({ items: \[], page, pageSize, total: 0, note: 'fallback\_empty\_due\_to\_error' })
+   * Still log the error on server (from step 2)
+
+4. Response shape must exactly be:
+   {
+   items: \[{ id, to, templateId, subject, status, isTest, meta, createdAt }],
+   page, pageSize, total
+   }
+
+   * Sort createdAt DESC
+
+5. Client wiring sanity (admin-email-center.tsx + client/lib/api.ts)
+
+   * getEmailLogs(params, token) → GET /api/admin/email-logs?... with header { 'x-admin-token': token }
+   * In queryFn, if res.ok === false, read text and console.error it; show toast but don’t crash
+   * Logs panel treats empty array as “No logs yet” (no error toast)
+
+6. Minimal stub if DB not ready
+
+   * If no persistent store, use app.locals.emailLogs = \[] in memory (push on send-test-email, read here). Keep the same response shape.
+
+Acceptance criteria:
+
+* Browser: /api/admin/email-logs?token=ADMIN\_SECRET\&page=1\&pageSize=5 → 200 JSON with correct keys (even if empty)
+* Server console shows “\[email-logs] ok …” (or fallback note), not fail
+* Email Center → Logs tab loads without red error toast; shows rows or “No logs yet”
+* Send a test email → new row appears after refresh/auto-refresh
+
+Quick tests to run:
+
+* curl “/api/admin/email-logs?token=YOUR\_SECRET\&page=1\&pageSize=5”
+* In UI: Email Center → Send Test → Logs → Refresh → see newest row
+* Check server logs: hit/query/ok lines printed with counts
+
+Notes/constraints:
+
+* Do not change auth model (requireAdmin, x-admin-token preferred; ?token allowed for manual)
+* Keep only ONE logs route and ONE router export/mount

@@ -1,3 +1,4 @@
+
 import type { RedisClientType } from 'redis';
 import { createClient } from 'redis';
 
@@ -68,12 +69,9 @@ let redisClient: RedisClientType | null = null;
 let isRedisConnected = false;
 
 // Try to connect if REDIS_URL exists
-const url = process.env.REDIS_URL;
-if (!url) {
-  console.warn("[CACHE] No REDIS_URL found, using in-memory cache");
-} else {
+if (process.env.REDIS_URL) {
   try {
-    redisClient = createClient({ url: url });
+    redisClient = createClient({ url: process.env.REDIS_URL });
     redisClient.on('connect', () => {
       isRedisConnected = true;
       console.log("[CACHE] Redis connected successfully");
@@ -88,6 +86,8 @@ if (!url) {
     redisClient = null;
     isRedisConnected = false;
   }
+} else {
+  console.warn("[CACHE] No REDIS_URL found, using in-memory cache");
 }
 
 // Export singleton instance with safe fallbacks

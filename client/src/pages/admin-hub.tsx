@@ -60,14 +60,14 @@ export default function AdminHub() {
     {
       name: "Email Testing",
       description: "Test email templates and sending",
-      href: `/admin/email-center?sub=send`,
+      href: `/admin/email-test`,
       icon: Send,
       badge: "Core"
     },
     {
       name: "Email Logs",
       description: "View sent email history",
-      href: `/admin/email-center?sub=logs`,
+      href: `/admin/email-logs`,
       icon: FileText,
       badge: "Logs"
     },
@@ -267,7 +267,7 @@ export default function AdminHub() {
           <CardContent>
             <div className="flex flex-wrap gap-3">
               <Button variant="outline" asChild>
-                <Link href={`/admin/email-center?sub=send`}>
+                <Link href={`/admin/email-test`}>
                   <Mail className="h-4 w-4 mr-2" />
                   Test Email
                 </Link>
@@ -279,7 +279,7 @@ export default function AdminHub() {
                 </Link>
               </Button>
               <Button variant="outline" asChild>
-                <Link href={`/admin/email-center?sub=logs`}>
+                <Link href={`/admin/email-logs`}>
                   <FileText className="h-4 w-4 mr-2" />
                   Email Logs
                 </Link>

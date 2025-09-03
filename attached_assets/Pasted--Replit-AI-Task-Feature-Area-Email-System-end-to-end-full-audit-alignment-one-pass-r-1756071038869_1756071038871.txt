@@ -1,0 +1,133 @@
+— Replit AI Task —
+
+Feature/Area:
+Email System (end-to-end) — full audit + alignment + one-pass repair
+
+Brief problem:
+Templates don’t populate/preview consistently, test sends succeed but Logs tab is empty or unreliable, routes/auth/DB are inconsistent after multiple edits.
+
+Objective:
+Produce a single-source-of-truth email pipeline (Templates → Preview → Send → Log → View) with one auth model, one router, and verified endpoints. Deliver a short “Email System Alignment Report” + apply fixes.
+
+Scope (files to inspect/align):
+server/email/templates.ts
+server/email/service.ts
+server/email/logEmail.ts
+server/emailTrigger.ts
+server/routes/admin/email.ts or server/routes/adminEmail.ts
+server/routes/adminForceAlerts.ts (if present)
+server/routes.ts
+server/index.ts
+server/db/\* or server/migrations/schema\*
+client/lib/api.ts
+client/src/pages/admin-email-center.tsx
+client/src/pages/admin-email-logs.tsx
+client/src/pages/admin-email-test.tsx (if still used)
+client/src/components/AdminLayout.tsx, Admin(Sub)TabNav.tsx
+
+Audit & Align — DO ALL STEPS:
+
+1. Produce “Email System Alignment Report” (print to console + comment at top of admin/email route):
+
+   * Routes table (method, path, file, auth?):
+     GET /api/admin/email-templates
+     GET /api/admin/email/preview/\:id
+     POST /api/admin/email/preview
+     POST /api/admin/send-test-email
+     GET /api/admin/email-logs
+     POST /api/admin/email-selftest (if exists)
+     POST /api/admin/force-alerts (if exists)
+     Daily trigger send path (file + function)
+   * Auth model used by each (requireAdmin? header/query?)
+   * Template registry keys and subjects
+   * Send provider used (SendGrid/local), sandbox flag
+   * Logging sink: DB table name + schema, or app.locals fallback
+   * Client calls (exact URLs) from Email Center (Templates/Send/Logs)
+
+2. Normalize routers/mounts (single source):
+
+   * Keep ONE router file for admin email routes, export default router.
+   * Mount ONCE: app.use('/api/admin', adminEmailRoutes).
+   * Remove duplicate mounts/files and legacy paths (/api/admin/email/\* variants).
+
+3. Normalize auth (one model):
+
+   * requireAdmin middleware: accept x-admin-token header, fallback to ?token=; compare to process.env.ADMIN\_SECRET.
+   * Apply requireAdmin to all admin endpoints above.
+
+4. Templates contract:
+
+   * templates.ts must export EMAIL\_TEMPLATES with ids exactly:
+     'price-drop', 'password-reset', 'welcome'
+   * Each includes { id, name, description, subject, previewData, html(data) }.
+   * GET /api/admin/email-templates returns \[{ id, name, description, subject, defaults: previewData }].
+
+5. Preview contract:
+
+   * GET /api/admin/email/preview/\:id → { subject, html } using previewData.
+   * POST /api/admin/email/preview { templateId, data } → merge defaults + data, return { subject, html }.
+   * Add tracing logs: \[email-preview] hit/ok/error.
+
+6. Centralized send wrapper:
+
+   * service.ts exports sendTemplate({ to, templateId, dynamicData, isTest, meta }) and sendRaw({ to, subject, html, isTest, meta }).
+   * If SG template ID env exists for the local template key, use SendGrid dynamic template; else fallback to raw HTML.
+   * If isTest and SANDBOX flag set, enable SendGrid sandbox.
+   * Always log via logEmail in a finally block (see #7).
+
+7. Logging pipeline (must always write):
+
+   * logEmail({ logId, to, templateId, subject, status:'processed'|'sent'|'failed'|'stubbed', isTest, meta, createdAt }).
+   * Try DB first; on failure, push to app.locals.emailLogs (initialize if missing).
+   * NEVER throw; caller must not break.
+
+8. Logs endpoint (single source of truth):
+
+   * GET /api/admin/email-logs with params: page=1, pageSize=25 (max 100), isTest=all|true|false, status=all|sent|failed|stubbed, to, templateId. Sort createdAt DESC.
+   * Read DB or in-memory fallback; return { items, page, pageSize, total }.
+   * Hard tracing: \[email-logs] hit/query/ok/fail.
+   * 200 even on storage error (return empty with note in logs).
+
+9. Client wiring:
+
+   * client/lib/api.ts: getEmailTemplates, previewTemplate (POST), sendTestEmail, getEmailLogs — all use x-admin-token header.
+   * Email Center:
+     • Templates tab: list from getEmailTemplates; selecting sets form from defaults; Preview → previewTemplate(); iframe srcDoc.
+     • Send Test tab: uses sendTestEmail(); show sgMessageId if provided.
+     • Logs tab: maps “Type” to isTest param; “Status” to status; auto-refresh every 5s when active; empty state not error toast.
+
+10. Optional SendGrid webhook (stub now):
+
+* POST /api/sendgrid/webhook → accept array; upsert log rows by sgMessageId/custom\_args.logId; mark delivered/bounce.
+* Gate behind env SG\_WEBHOOK\_ENABLE; no auth for now; add tracing; idempotent.
+
+Instrumentation & Debug Endpoints (temporary, requireAdmin unless webhook):
+
+* GET /api/admin/\_debug/email-health → summary: routes mounted, counts { db, mem }, last log preview.
+* GET /api/admin/\_debug/email-logs-counts → { dbCount, memCount, latest }
+* Console logs with consistent tags: \[email-preview], \[email-send], \[email-logs], \[logEmail].
+
+Acceptance criteria (must pass):
+
+* /api/admin/email-templates?token=ADMIN\_SECRET → 200 JSON with 3 items including defaults.
+* POST /api/admin/email/preview { templateId:'price-drop', data:{ productTitle:'X' } } → 200 { subject, html }.
+* POST /api/admin/send-test-email { email:'[you@x.com](mailto:you@x.com)', templateId:'welcome' } → 200 { success\:true, sgMessageId? }.
+* Within 5s, /api/admin/email-logs?isTest=true\&page=1\&pageSize=5 returns ≥1 item with matching templateId/to.
+* Email Center UI: Templates lists; Preview renders; Send Test shows success; Logs displays new row without manual reload.
+* “Alignment Report” printed once with the routes/auth/contracts mapping.
+
+Quick tests to run (after apply):
+curl -s "/api/admin/email-templates?token=YOUR\_SECRET"
+curl -s -X POST "/api/admin/email/preview?token=YOUR\_SECRET" -H "Content-Type: application/json" -d '{"templateId":"price-drop","data":{"productTitle":"Widget","newPrice":"9.99","oldPrice":"19.99"}}'
+curl -s -X POST "/api/admin/send-test-email?token=YOUR\_SECRET" -H "Content-Type: application/json" -d '{"email":"[you@example.com](mailto:you@example.com)","templateId":"welcome"}'
+curl -s "/api/admin/email-logs?token=YOUR\_SECRET\&isTest=true\&page=1\&pageSize=5"
+curl -s "/api/admin/\_debug/email-health?token=YOUR\_SECRET"
+
+Notes/constraints:
+
+* DO NOT add new auth systems; use requireAdmin (x-admin-token preferred).
+* Keep one router + one mount; delete/disable duplicates.
+* Preserve existing UI styling; no new libs.
+* Leave webhook optional/stubbed; main goal is reliable logs via service+logEmail now.
+
+— End —

@@ -451,11 +451,7 @@ const region = 'us-east-1';
 const path = '/paapi5/searchitems';
 const service = 'ProductAdvertisingAPI';
 
-console.log(`[DEBUG] Amazon API configuration - host: ${host}, path: ${path}`);
-
 export async function searchAmazonProducts(keyword: string) {
-  console.log(`[DEBUG] searchAmazonProducts called with keyword: ${keyword}`);
-
   const payload = {
     Keywords: keyword,
     Marketplace: 'www.amazon.com',
@@ -514,73 +510,15 @@ export async function searchAmazonProducts(keyword: string) {
   headersToSign['Authorization'] =
     `AWS4-HMAC-SHA256 Credential=${accessKey}/${credentialScope}, SignedHeaders=${signedHeaders}, Signature=${signature}`;
 
-  // Construct the full URL explicitly
-  const host = 'webservices.amazon.com';
-  const path = '/paapi5/searchitems';
-  const fullUrl = `https://${host}${path}`;
+  const { data } = await axios({
+    method: 'POST',
+    url: `https://${host}${path}`,
+    headers: headersToSign,
+    data: payloadJson,
+    transformRequest: [(data) => data]
+  });
 
-  console.log(`[DEBUG] Full Amazon URL: ${fullUrl}`);
-
-  try {
-    // Use fetch with the complete URL
-    const response = await fetch(fullUrl, {
-      method: 'POST',
-      headers: headersToSign,
-      body: payloadJson
-    });
-
-    const text = await response.text();
-    console.log(`[DEBUG] Amazon raw response:`, text.slice(0, 200));
-
-    console.log(`[DEBUG] Response status: ${response.status}`);
-    console.log(`[DEBUG] Response status text: ${response.statusText}`);
-
-    // Check if it's HTML instead of JSON
-    if (text.includes('<!DOCTYPE') || text.includes('<html')) {
-      console.log(`[ERROR] Amazon PA-API returned HTML page instead of JSON`);
-      console.log(`[ERROR] This suggests either:
-        1. Wrong endpoint URL
-        2. Authentication/signature failure
-        3. Amazon service temporarily down
-        4. Network routing issue`);
-
-      throw new Error(`Amazon returned HTML instead of JSON. Status: ${response.status}. Response: ${text.slice(0, 500)}`);
-    }
-
-    if (response.status !== 200) {
-      console.log(`[DEBUG] Amazon PA-API error response:`, text);
-      throw new Error(`Amazon PA-API returned status ${response.status}: ${text}`);
-    }
-
-    // Parse JSON from the raw text
-    let responseData;
-    try {
-      responseData = JSON.parse(text);
-    } catch (parseError) {
-      console.log(`[ERROR] Failed to parse Amazon response as JSON:`, parseError);
-      throw new Error(`Amazon returned invalid JSON. Raw response: ${text.slice(0, 500)}`);
-    }
-
-    const items = responseData.SearchResult?.Items || [];
-    console.log(`[DEBUG] Amazon PA-API returned ${items.length} items`);
-
-    return items;
-  } catch (error: any) {
-    console.error(`[ERROR] ===== AMAZON PA-API ERROR DETAILS =====`);
-    console.error(`[ERROR] Error type: ${error.constructor.name}`);
-    console.error(`[ERROR] Error message: ${error.message}`);
-    console.error(`[ERROR] Attempted URL: ${fullUrl}`);
-
-    if (error.name === 'TypeError') {
-      console.error(`[ERROR] Network/Fetch Error (likely DNS or connection issue):`);
-      console.error(`  - URL: ${fullUrl}`);
-      console.error(`  - Error: ${error.message}`);
-    } else {
-      console.error(`[ERROR] Other error:`, error);
-    }
-    console.error(`[ERROR] ==========================================`);
-    throw error;
-  }
+  return data.SearchResult?.Items || [];
 }
 
 export {

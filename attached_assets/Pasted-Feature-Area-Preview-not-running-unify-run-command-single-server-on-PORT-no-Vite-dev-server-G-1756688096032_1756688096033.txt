@@ -1,0 +1,98 @@
+Feature/Area:
+Preview not running — unify run command, single server on $PORT, no Vite dev server
+
+Goal:
+Make “Run” start ONE Express server that serves API (+ SPA if built) on $PORT. Preview should load /_health and the app.
+
+Do this exactly:
+
+.replit (single process)
+
+Overwrite to run only the server:
+run = "npm run start:replit"
+
+package.json (normalize scripts; no vite dev)
+
+Ensure devDeps include: "tsx", "typescript"
+
+Add/replace scripts:
+{
+"scripts": {
+"build:client": "cd client && vite build",
+"start:replit": "npm run build:client && tsx server/index.ts",
+"start": "tsx server/index.ts"
+}
+}
+
+Remove/disable any scripts that start a Vite dev server (e.g. client:dev, dev:web, concurrently that runs vite).
+
+server/index.ts (ESM-safe paths, health, API 404, static last)
+
+Top of file:
+import path from 'path'
+import fs from 'fs'
+import { fileURLToPath } from 'url'
+const __filename = fileURLToPath(import.meta.url)
+const __dirname = path.dirname(__filename)
+
+Public health:
+app.get('/_health', (_req,res)=>res.json({ ok:true, ts:Date.now() }))
+
+After mounting ALL /api routers, add JSON 404 for API:
+app.use('/api', (_req,res)=>res.status(404).type('application/json').json({ error:'not_found' }))
+
+Static serving LAST (only if built):
+const CLIENT_DIST = path.resolve(__dirname, '../client/dist')
+if (fs.existsSync(CLIENT_DIST)) {
+console.log('[STATIC] Serving', CLIENT_DIST)
+app.use(express.static(CLIENT_DIST))
+app.get('*', (_req,res)=>res.sendFile(path.join(CLIENT_DIST,'index.html')))
+} else {
+console.log('[STATIC] No client build; skipping')
+}
+
+Listen:
+const port = Number(process.env.PORT) || 5000
+app.listen(port, ()=>console.log([BOOT] listening on :${port}))
+
+Kill Vite/port conflicts in client
+
+Ensure all client API calls are relative (e.g., /api/amazon/deals, /api/tracked-products, /api/admin/…).
+
+Remove any dev proxy assumptions to :3000.
+
+Silence Redis unless configured
+
+Only create a Redis client when process.env.REDIS_URL exists; else provide a no-op in-memory cache and log once:
+[CACHE] No REDIS_URL; using in-memory cache
+
+Amazon deals 502 guard (no undefined function)
+
+In server/routes/amazon.ts, guarantee JSON even without PA-API:
+async function getDeals(){ return [] } // TODO wire real API
+router.get('/amazon/deals', async (req,res)=>{ try {
+const items = await getDeals()
+res.status(200).type('application/json').json({ items, updatedAt: new Date().toISOString() })
+} catch(e:any){
+res.status(502).type('application/json').json({ error:'bad_upstream', detail:e?.message||'getDeals failed', hint:'upstream_not_json' })
+}})
+
+Mount order (server/routes.ts or index)
+
+Mount all /api routers first (admin, deals, tracked…)
+
+Add the API 404 (step 3)
+
+Static SPA block LAST
+
+Verification (run after apply):
+
+Console shows: “[BOOT] listening on :<port>” and either “[STATIC] Serving …” or “No client build; skipping”
+
+Preview → open /_health → 200 JSON { ok:true }
+
+GET /api/amazon/deals → 200 JSON (items:[])
+
+App homepage loads without 502s
+
+If any step fails, print the current .replit content, package.json scripts, and the first 50 lines of server/index.ts so we can adjust.

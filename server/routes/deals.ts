@@ -1,27 +1,32 @@
-import { Router } from 'express'
+import express from 'express';
+import { searchProducts } from '../amazonApi';
+import { logApiError } from '../errorController';
 
-const router = Router()
+const router = express.Router();
 
-// GET /api/deals/live (PUBLIC)
-router.get('/deals/live', async (_req, res) => {
+router.get('/products/deals', async (req, res) => {
   try {
-    // TODO: replace with real source; keep JSON shape stable
-    const items = []
-    const updatedAt = new Date().toISOString()
-    res.status(200).type('application/json').json({ items, updatedAt })
-  } catch (e: any) {
-    console.error('[deals-live] fail', e?.message || e)
-    res.status(502).type('application/json').json({ error: 'bad_upstream', detail: 'upstream_not_json' })
+    const searchTerm = req.query.q || 'deals';
+    const limit = parseInt(req.query.limit as string, 10) || 10;
+
+    const deals = await searchProducts(searchTerm as string, limit);
+    
+    if (deals.length === 0) {
+      return res.status(404).json({ message: 'No deals found' });
+    }
+
+    res.json(deals);
+  } catch (error) {
+    console.error('Failed to fetch deals:', error);
+    
+    if (error instanceof Error) {
+      await logApiError('SEARCH', 'API_FAILURE', error.message);
+      res.status(500).json({ error: error.message });
+    } else {
+      await logApiError('SEARCH', 'API_FAILURE', 'Unknown error occurred');
+      res.status(500).json({ error: 'Failed to fetch deals' });
+    }
   }
-})
+});
 
-// Debug helpers (PUBLIC)
-router.get('/_debug/deals-ping', (_req, res) => {
-  res.status(200).type('application/json').json({ ok: true, ts: Date.now() })
-})
-
-router.get('/_debug/deals-echo', (req, res) => {
-  res.status(200).type('application/json').json({ ok: true, url: req.originalUrl, headers: req.headers, query: req.query })
-})
-
-export default router
+export default router; 

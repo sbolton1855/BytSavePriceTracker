@@ -1,0 +1,105 @@
+— Replit AI Task —
+
+Feature/Area:
+Admin Email Center → Logs tab (fails to load)
+
+Brief problem:
+UI shows spinner + toast “Failed to fetch email logs.” Need endpoint + client wiring verified and fixed.
+
+Observed error/message:
+Failed to fetch email logs (Logs tab)
+
+Current files involved:
+server/routes/admin/email.ts (or server/routes/adminEmail.ts)
+server/email/logEmail.ts (logger)
+server/routes.ts
+client/lib/api.ts
+client/src/pages/admin-email-center.tsx (Logs sub-tab)
+
+Fix requirements:
+
+Verify client call (must match backend)
+
+In client/lib/api.ts, getEmailLogs(params, token) must call:
+GET /api/admin/email-logs?page=&pageSize=&status=&isTest=&to=&templateId=
+with header { 'x-admin-token': token }
+
+No other path variants (/email/logs, /logs) allowed.
+
+Add temporary server tracing
+
+In the logs handler, before auth return, log:
+console.log('[email-logs] hit', req.originalUrl, { token: !!req.headers['x-admin-token'] || !!req.query.token })
+
+After parsing query, log:
+console.log('[email-logs] query', { page, pageSize, status, isTest, to, templateId })
+
+On success, log count:
+console.log('[email-logs] ok', items.length, 'of', total)
+
+On error, log:
+console.error('[email-logs] fail', e)
+
+Implement/repair GET /api/admin/email-logs
+
+Route mounted under app.use('/api/admin', adminEmailRoutes)
+
+requireAdmin middleware
+
+Query params (optional): page=1, pageSize=25 (max 100), status=sent|failed|stubbed|all, isTest=true|false|all, to, templateId
+
+Sort createdAt DESC
+
+Response:
+{ items: [{id,to,templateId,subject,status,isTest,meta,createdAt}], page, pageSize, total }
+
+If no rows, return empty items (200), not 500.
+
+If storage not set up yet, read from whatever logger uses; if none, return { items: [], total: 0 } with 200 (so UI doesn’t crash).
+
+Ensure logger writes rows
+
+POST /api/admin/send-test-email: call logEmail({ to, templateId, subject, status, isTest:true, meta }) in try/finally.
+
+Daily alert sender: call logEmail(... isTest:false).
+
+If logger not implemented, add minimal persistence (db/collection/table); until then, stub by app.locals.emailLogs = [] push + read.
+
+Client query wiring
+
+In admin-email-center.tsx Logs tab:
+useQuery key: ['admin-email-logs', filters, page, pageSize]
+queryFn: getEmailLogs(...)
+Show empty state when items.length===0
+Refresh button uses refetch()
+Auto-refresh while sub-tab === 'logs' (interval cleared on leave)
+
+Remove duplicates
+
+Delete/disable any other logs endpoints (/api/admin/email/logs, /api/admin/logs) to avoid confusion.
+
+Acceptance criteria:
+
+Browser: /api/admin/email-logs?token=ADMIN_SECRET&page=1&pageSize=5 → 200 JSON { items, total, page, pageSize }
+
+Email Center → Logs tab loads without error; shows items or “No logs yet”
+
+Send a test email → new row appears after refresh/auto-refresh
+
+Server console shows “[email-logs] ok …” not fail
+
+Quick tests to run:
+
+Manually hit /api/admin/email-logs?token=YOUR_SECRET → confirm 200 + shape
+
+In UI: Send Test → switch to Logs → click Refresh → see new row
+
+Toggle filters (status=isTest=true) → list narrows correctly
+
+Notes/constraints:
+
+Single admin auth via requireAdmin (x-admin-token preferred; ?token allowed for manual test)
+
+Keep response shape EXACTLY as specified to match UI
+
+No new libraries or auth systems

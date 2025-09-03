@@ -1,38 +1,92 @@
 modules = ["nodejs-20", "web", "postgresql-16"]
-
-run = "npm run dev"
-
+run = """
+redis-server --daemonize yes --port 6379
+npm run dev
+"""
 hidden = [".config", ".git", "generated-icon.png", "node_modules", "dist"]
-
-[packager]
-language = "nodejs"
-ignoredPaths = [".git", "node_modules"]
-installCommand = "npm install && npx update-browserslist-db@latest --yes"
 
 [nix]
 channel = "stable-24_05"
-packages = ["jq"]
+packages = ["jq", "openssh", "nano", "wget", "redis", "run"]
 
 [deployment]
 deploymentTarget = "autoscale"
 build = ["npm", "run", "build"]
-run = ["npm", "run", "start"]
+run = ["sh", "-c", "npm run start"]
+
+[[ports]]
+localPort = 5000
+externalPort = 80
+
+[[ports]]
+localPort = 6379
+externalPort = 3000
 
 [workflows]
-runButton = "Start Server"
+runButton = "Clean Development Server"
 
 [[workflows.workflow]]
-name = "Development Server"
-mode = "sequential"
+name = "Project"
+mode = "parallel"
+author = "agent"
+
+[[workflows.workflow.tasks]]
+task = "workflow.run"
+args = "Start application"
+
+[[workflows.workflow]]
+name = "Start application"
 author = "agent"
 
 [[workflows.workflow.tasks]]
 task = "shell.exec"
-args = "pkill -f 'tsx.*server/index.ts' || true"
+args = "npm run dev"
+waitForPort = 5000
+
+[[workflows.workflow]]
+name = "Start Dev Server"
+author = 533416
+mode = "sequential"
 
 [[workflows.workflow.tasks]]
 task = "shell.exec"
-args = "pkill -f 'node.*server/index' || true"
+args = "NODE_ENV=development tsx server/index.ts"
+
+[[workflows.workflow]]
+name = "Run Tests"
+author = 533416
+mode = "sequential"
+
+[[workflows.workflow.tasks]]
+task = "shell.exec"
+args = "NODE_ENV=test tsx server/test.ts"
+
+[[workflows.workflow]]
+name = "Development Server"
+author = 533416
+mode = "sequential"
+
+[[workflows.workflow.tasks]]
+task = "shell.exec"
+args = "npm run dev"
+
+[[workflows.workflow]]
+name = "Development Server"
+author = 533416
+mode = "sequential"
+
+[[workflows.workflow.tasks]]
+task = "shell.exec"
+args = "npm run dev"
+
+[[workflows.workflow]]
+name = "Clean Development Server"
+author = 533416
+mode = "sequential"
+
+[[workflows.workflow.tasks]]
+task = "shell.exec"
+args = "pkill -f \"tsx server/index.ts\" || true"
 
 [[workflows.workflow.tasks]]
 task = "shell.exec"
@@ -40,17 +94,4 @@ args = "sleep 2"
 
 [[workflows.workflow.tasks]]
 task = "shell.exec"
-args = "npm run dev"
-
-[[workflows.workflow]]
-name = "Start Server"
-author = 533416
-mode = "sequential"
-
-[[workflows.workflow.tasks]]
-task = "shell.exec"
-args = "tsx server/index.ts"
-
-[[ports]]
-localPort = 5000
-externalPort = 80
+args = "NODE_ENV=development tsx server/index.ts"

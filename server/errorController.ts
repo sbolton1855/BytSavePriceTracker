@@ -1,5 +1,5 @@
 import { storage } from './storage';
-import type { ApiError } from '../shared/schema.js';
+import type { ApiError } from '@shared/schema';
 
 // Error types
 export type ApiErrorType = 
