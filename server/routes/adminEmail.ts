@@ -77,11 +77,18 @@ router.post('/send-test-email', requireAdmin, async (req, res) => {
       const { db } = await import('../db');
       const { emailLogs } = await import('../../shared/schema');
       const emailLog = await db.insert(emailLogs).values({
-        recipient_email: email,
+        toEmail: email,
+        fromEmail: 'alerts@bytsave.com',
         subject: rendered.subject,
-        preview_html: htmlWithTestBanner,
-        sent_at: new Date(),
-        created_at: new Date()
+        body: htmlWithTestBanner,
+        templateId: templateId,
+        status: emailSent ? 'sent' : 'stubbed',
+        sentAt: new Date(),
+        metadata: JSON.stringify({
+          templateData: data || {},
+          adminTest: true,
+          emailService: emailSent ? 'sendgrid' : 'stub'
+        })
       }).returning();
 
       console.log(`📋 Email logged to database:`, emailLog[0]);
