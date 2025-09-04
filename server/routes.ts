@@ -183,6 +183,9 @@ const requireAdminToken = (req: Request, res: Response, next: Function) => {
 };
 
 export async function registerRoutes(app: Express): Promise<Server> {
+  // Create HTTP server
+  const httpServer = createServer(app);
+
   // Admin token validation endpoint
   app.post('/api/admin/validate-token', async (req: Request, res: Response) => {
     try {
