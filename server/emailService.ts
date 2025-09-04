@@ -100,12 +100,12 @@ async function sendPriceDropAlert(
       try {
         console.log(`📝 Attempting to log price drop email to database for ${to}`);
         const logResult = await db.insert(emailLogs).values({
-          recipientEmail: emailData.to,
+          recipient_email: emailData.to,
           subject: emailData.subject,
-          previewHtml: emailData.html,
-          productId: product.id, // Add product ID reference
-          sentAt: new Date(),
-          createdAt: new Date()
+          preview_html: emailData.html,
+          product_id: product.id, // Add product ID reference
+          sent_at: new Date(),
+          created_at: new Date()
         });
         console.log(`✅ Price drop alert logged to database for ${to}`, logResult);
       } catch (logError) {
@@ -148,11 +148,11 @@ async function sendEmail(options: EmailOptions): Promise<any> {
       try {
         console.log(`📝 Attempting to log generic email to database for ${options.to}`);
         const logResult = await db.insert(emailLogs).values({
-          recipientEmail: options.to,
+          recipient_email: options.to,
           subject: options.subject,
-          previewHtml: options.html,
-          sentAt: new Date(),
-          createdAt: new Date()
+          preview_html: options.html,
+          sent_at: new Date(),
+          created_at: new Date()
         });
         console.log(`✅ Generic email logged to database for ${options.to}`, logResult);
       } catch (logError) {
@@ -206,11 +206,11 @@ async function sendPasswordResetEmail(
       // Log the email to database
       try {
         await db.insert(emailLogs).values({
-          recipientEmail: to,
+          recipient_email: to,
           subject: emailContent.subject,
-          previewHtml: emailContent.html,
-          sentAt: new Date(),
-          createdAt: new Date()
+          preview_html: emailContent.html,
+          sent_at: new Date(),
+          created_at: new Date()
         });
         console.log(`✅ Password reset email logged to database for ${to}`);
       } catch (logError) {
