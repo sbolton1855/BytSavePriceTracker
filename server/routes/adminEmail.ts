@@ -41,16 +41,27 @@ router.post('/send-test-email', requireAdmin, async (req, res) => {
       return res.status(404).json({ error: 'Template not found' });
     }
 
+    // Add [TEST] prefix to subject for admin test emails
+    rendered.subject = `[TEST] ${rendered.subject}`;
+
     let emailSent = false;
     let messageId = null;
     
+    // Add TEST banner to email HTML for admin test emails
+    const testBanner = `
+      <div style="background-color: #ff6b35; color: white; padding: 10px; text-align: center; font-weight: bold; margin-bottom: 20px; border-radius: 4px;">
+        🧪 TEST EMAIL - SENT FROM ADMIN EMAIL CENTER 🧪
+      </div>
+    `;
+    const htmlWithTestBanner = testBanner + rendered.html;
+
     // Send the email using the emailService
     try {
       const { sendEmail } = await import('../emailService');
       const result = await sendEmail({
         to: email,
         subject: rendered.subject,
-        html: rendered.html
+        html: htmlWithTestBanner
       });
       
       emailSent = true;
@@ -69,7 +80,7 @@ router.post('/send-test-email', requireAdmin, async (req, res) => {
         toEmail: email,
         fromEmail: 'alerts@bytsave.com',
         subject: rendered.subject,
-        body: rendered.html,
+        body: htmlWithTestBanner,
         templateId: templateId,
         status: emailSent ? 'sent' : 'stubbed',
         sentAt: new Date(),
