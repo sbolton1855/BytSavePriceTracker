@@ -5,8 +5,8 @@ import type { Product } from "@shared/schema";
 import { intelligentlyAddPriceHistory } from "./routes";
 
 // Interval for checking prices (in ms)
-// 1 hour in production, shorter for development
-const CHECK_INTERVAL = 1 * 60 * 60 * 1000; // Check every hour
+// 24 hours in production, shorter for development
+const CHECK_INTERVAL = 24 * 60 * 60 * 1000; // Check every 24 hours
 
 // Track API failures to prevent spamming
 let consecutiveApiFailures = 0;
