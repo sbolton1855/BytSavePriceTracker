@@ -42,21 +42,23 @@ router.post('/send-test-email', requireAdmin, async (req, res) => {
     }
 
     let emailSent = false;
-    // Send the email
-    if (app.locals.emailService?.send) {
-      await app.locals.emailService.send({
+    let messageId = null;
+    
+    // Send the email using the emailService
+    try {
+      const { sendEmail } = await import('../emailService');
+      const result = await sendEmail({
         to: email,
-        from: 'alerts@bytsave.com',
         subject: rendered.subject,
         html: rendered.html
       });
+      
       emailSent = true;
-      console.log(`✅ Test email sent to ${email} using template ${templateId}`);
-    } else {
-      console.log(`📧 [STUB] Would send email to ${email}:`, {
-        subject: rendered.subject,
-        template: templateId
-      });
+      messageId = result.messageId;
+      console.log(`✅ Test email sent to ${email} using template ${templateId} - Message ID: ${messageId}`);
+    } catch (emailError) {
+      console.error(`❌ Failed to send email to ${email}:`, emailError);
+      emailSent = false;
     }
 
     // Always log the email attempt to database
@@ -84,16 +86,29 @@ router.post('/send-test-email', requireAdmin, async (req, res) => {
     }
 
     res.json({
-      success: true,
-      message: emailSent ? 'Test email sent successfully' : 'Email service not configured - stub mode',
+      success: emailSent,
+      message: emailSent ? 'Test email sent successfully' : 'Failed to send email - check server logs',
+      messageId: messageId,
       logged: true
     });
 
   } catch (error) {
     console.error('❌ Send test email error:', error);
+    
+    // More detailed error logging
+    if (error instanceof Error) {
+      console.error('❌ Error details:', {
+        message: error.message,
+        stack: error.stack,
+        templateId,
+        email
+      });
+    }
+    
     res.status(500).json({
       error: 'Failed to send test email',
-      details: error instanceof Error ? error.message : 'Unknown error'
+      details: error instanceof Error ? error.message : 'Unknown error',
+      success: false
     });
   }
 });
