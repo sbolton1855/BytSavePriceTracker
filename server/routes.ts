@@ -1,6 +1,8 @@
 import type { Express, Request, Response } from "express";
 import { createServer, type Server } from "http";
 import path from "path";
+import { fileURLToPath } from 'url';
+import { dirname } from 'path';
 import { storage } from "./storage";
 import { db } from "./db";
 import { getProductInfo, searchProducts, extractAsinFromUrl, isValidAsin, addAffiliateTag, searchAmazonProducts } from "./amazonApi";
