@@ -22,6 +22,15 @@ interface EmailPreview {
   html: string;
 }
 
+interface TestResult {
+  success: boolean;
+  messageId?: string;
+  linkVerified: boolean;
+  linkUrl?: string;
+  timestamp: string;
+  error?: string;
+}
+
 // API helpers with header-based auth
 const getEmailTemplates = async (token: string): Promise<Template[]> => {
   const response = await fetch('/api/admin/email-templates', {
@@ -67,6 +76,23 @@ const sendTestEmail = async (data: { email: string; templateId: string; data?: a
   return response.json();
 };
 
+const verifyEmailLinks = async (html: string, token: string): Promise<{ verified: boolean; links: string[] }> => {
+  const response = await fetch('/api/admin/verify-email-links', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'x-admin-token': token
+    },
+    body: JSON.stringify({ html })
+  });
+  
+  if (!response.ok) {
+    throw new Error('Failed to verify email links');
+  }
+  
+  return response.json();
+};
+
 export default function AdminEmailTest() {
   const { toast } = useToast();
   
@@ -75,6 +101,8 @@ export default function AdminEmailTest() {
   const [testEmail, setTestEmail] = useState('');
   const [previewData, setPreviewData] = useState<EmailPreview | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [testResults, setTestResults] = useState<TestResult[]>([]);
+  const [isVerifying, setIsVerifying] = useState(false);
 
   // Preview iframe ref
   const iframeRef = useRef<HTMLIFrameElement>(null);
@@ -135,23 +163,62 @@ export default function AdminEmailTest() {
     }
 
     setIsSubmitting(true);
+    setIsVerifying(true);
+    
     try {
       const adminToken = AdminAuth.getToken();
       if (!adminToken) {
         throw new Error('No admin token available');
       }
 
+      // First send the email
       const result = await sendTestEmail({
         email: testEmail,
         templateId: selectedTemplate
       }, adminToken);
+
+      // Then verify links if we have preview data
+      let linkVerified = false;
+      let verifiedLinks: string[] = [];
+      
+      if (previewData?.html) {
+        try {
+          const verification = await verifyEmailLinks(previewData.html, adminToken);
+          linkVerified = verification.verified;
+          verifiedLinks = verification.links;
+        } catch (verifyError) {
+          console.warn('Link verification failed:', verifyError);
+        }
+      }
+
+      // Create test result
+      const testResult: TestResult = {
+        success: true,
+        messageId: result.messageId,
+        linkVerified,
+        linkUrl: verifiedLinks.length > 0 ? verifiedLinks[0] : undefined,
+        timestamp: new Date().toISOString(),
+      };
+
+      setTestResults(prev => [testResult, ...prev]);
       
       toast({
         title: "Success",
-        description: result.message || "Test email sent successfully"
+        description: `Test email sent to ${testEmail}${linkVerified ? ' - Links verified ✓' : ''}`,
       });
+
     } catch (error) {
       console.error('Send failed:', error);
+      
+      const testResult: TestResult = {
+        success: false,
+        linkVerified: false,
+        timestamp: new Date().toISOString(),
+        error: error instanceof Error ? error.message : "Failed to send test email"
+      };
+
+      setTestResults(prev => [testResult, ...prev]);
+      
       toast({
         title: "Error",
         description: error instanceof Error ? error.message : "Failed to send test email",
@@ -159,6 +226,7 @@ export default function AdminEmailTest() {
       });
     } finally {
       setIsSubmitting(false);
+      setIsVerifying(false);
     }
   };
 
@@ -172,7 +240,7 @@ export default function AdminEmailTest() {
         <Card>
           <CardHeader>
             <CardTitle>Email Template Testing</CardTitle>
-            <CardDescription>Preview and send test emails</CardDescription>
+            <CardDescription>Preview and send test emails with link verification</CardDescription>
           </CardHeader>
           <CardContent>
             {templatesError && (
@@ -200,13 +268,16 @@ export default function AdminEmailTest() {
                         ? "Loading templates..." 
                         : templates.length === 0 
                           ? "No templates available"
-                          : "Select a template"
+                          : "Select a template (magic link, reset, promo)"
                     } />
                   </SelectTrigger>
                   <SelectContent>
                     {templates.map((template) => (
                       <SelectItem key={template.id} value={template.id}>
-                        {template.name}
+                        <div>
+                          <div className="font-medium">{template.name}</div>
+                          <div className="text-sm text-gray-500">{template.description}</div>
+                        </div>
                       </SelectItem>
                     ))}
                   </SelectContent>
@@ -241,7 +312,7 @@ export default function AdminEmailTest() {
                 >
                   {isSubmitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
                   <Send className="mr-2 h-4 w-4" />
-                  Send Test Email
+                  {isVerifying ? 'Verifying Links...' : 'Send & Verify Email'}
                 </Button>
               </div>
             </form>
@@ -279,6 +350,70 @@ export default function AdminEmailTest() {
             )}
           </CardContent>
         </Card>
+
+        {/* Test Results Panel */}
+        {testResults.length > 0 && (
+          <Card className="lg:col-span-2">
+            <CardHeader>
+              <CardTitle>Test Results & Admin Logs</CardTitle>
+              <CardDescription>Recent email test results with link verification</CardDescription>
+            </CardHeader>
+            <CardContent>
+              <div className="space-y-4">
+                {testResults.map((result, index) => (
+                  <div 
+                    key={index}
+                    className={`border rounded-lg p-4 ${
+                      result.success ? 'border-green-200 bg-green-50' : 'border-red-200 bg-red-50'
+                    }`}
+                  >
+                    <div className="flex justify-between items-start mb-2">
+                      <div className="flex items-center gap-2">
+                        <div className={`w-3 h-3 rounded-full ${
+                          result.success ? 'bg-green-500' : 'bg-red-500'
+                        }`} />
+                        <span className="font-medium">
+                          {result.success ? 'Email Sent Successfully' : 'Email Send Failed'}
+                        </span>
+                        {result.linkVerified && (
+                          <span className="text-xs bg-blue-100 text-blue-800 px-2 py-1 rounded">
+                            Links Verified ✓
+                          </span>
+                        )}
+                      </div>
+                      <span className="text-sm text-gray-500">
+                        {new Date(result.timestamp).toLocaleString()}
+                      </span>
+                    </div>
+                    
+                    {result.messageId && (
+                      <p className="text-sm text-gray-600 mb-1">
+                        <strong>Message ID:</strong> {result.messageId}
+                      </p>
+                    )}
+                    
+                    {result.linkUrl && (
+                      <p className="text-sm text-gray-600 mb-1">
+                        <strong>Verified Link:</strong> 
+                        <span className={`ml-1 ${
+                          result.linkUrl.includes('bytsave.com') ? 'text-green-600' : 'text-orange-600'
+                        }`}>
+                          {result.linkUrl}
+                        </span>
+                      </p>
+                    )}
+                    
+                    {result.error && (
+                      <p className="text-sm text-red-600">
+                        <strong>Error:</strong> {result.error}
+                      </p>
+                    )}
+                  </div>
+                ))}
+              </div>
+            </CardContent>
+          </Card>
+        )}
       </div>
     </AdminLayout>
   );

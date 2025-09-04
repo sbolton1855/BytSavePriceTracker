@@ -224,4 +224,61 @@ router.post('/preview-password-reset', requireAdmin, async (req, res) => {
   }
 });
 
+// POST /api/admin/verify-email-links - Verify links in email content
+router.post('/verify-email-links', requireAdmin, async (req, res) => {
+  try {
+    const { html } = req.body;
+
+    if (!html) {
+      return res.status(400).json({ error: 'HTML content is required' });
+    }
+
+    // Extract links from HTML
+    const linkRegex = /href=["']([^"']+)["']/gi;
+    const links: string[] = [];
+    let match;
+
+    while ((match = linkRegex.exec(html)) !== null) {
+      const url = match[1];
+      if (url && url.startsWith('http')) {
+        links.push(url);
+      }
+    }
+
+    console.log('🔍 Extracted links for verification:', links);
+
+    // Check if links point to bytsave.com domain
+    const bytsaveLinks = links.filter(link => 
+      link.includes('bytsave.com') || 
+      link.includes(req.get('host')) ||
+      link.includes('localhost') ||
+      link.includes('replit.dev')
+    );
+
+    const verified = bytsaveLinks.length > 0;
+
+    console.log('✅ Link verification result:', { 
+      totalLinks: links.length, 
+      bytsaveLinks: bytsaveLinks.length,
+      verified 
+    });
+
+    res.json({
+      verified,
+      links: bytsaveLinks,
+      allLinks: links,
+      message: verified 
+        ? `${bytsaveLinks.length} links verified pointing to your domain` 
+        : 'No links found pointing to your domain'
+    });
+
+  } catch (error) {
+    console.error('❌ Link verification error:', error);
+    res.status(500).json({
+      error: 'Failed to verify email links',
+      details: error instanceof Error ? error.message : 'Unknown error'
+    });
+  }
+});
+
 export default router;
