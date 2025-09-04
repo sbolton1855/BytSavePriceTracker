@@ -21,6 +21,8 @@ import adminEmailRoutes from './routes/adminEmail';
 import adminToolsRoutes from './routes/adminTools';
 import emailTestRoutes from './routes/emailTest';
 
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = dirname(__filename);
 
 const AFFILIATE_TAG = process.env.AMAZON_PARTNER_TAG || 'bytsave-20';
 
