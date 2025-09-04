@@ -285,7 +285,7 @@ function LoginForm({
             type="button" 
             variant="link" 
             className="text-sm text-muted-foreground hover:text-primary"
-            onClick={() => window.open('/forgot-password.html', '_blank')}
+            onClick={() => window.location.href = '/forgot-password.html'}
           >
             Forgot your password?
           </Button>

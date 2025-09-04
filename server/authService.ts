@@ -216,9 +216,17 @@ export function configureAuth(app: Express) {
         });
       }
 
+      // Validate email format
+      if (!/^\S+@\S+\.\S+$/.test(email)) {
+        return res.status(400).json({
+          message: 'Please enter a valid email address'
+        });
+      }
+
       // Always return success to prevent email enumeration
       const response = { 
-        message: 'If an account with that email exists, a password reset link has been sent.' 
+        message: 'If an account with that email exists, a password reset link has been sent.',
+        success: true
       };
 
       try {
@@ -226,11 +234,15 @@ export function configureAuth(app: Express) {
         const user = await storage.getUserByEmail(email);
 
         if (user && isEmailConfigured()) {
+          // Clean up old tokens for this user
+          await db.delete(passwordResetTokens)
+            .where(eq(passwordResetTokens.userId, user.id));
+
           // Generate secure random token (32 bytes = 64 hex chars)
           const resetToken = randomBytes(32).toString('hex');
           
-          // Set expiration to 15 minutes from now
-          const expiresAt = new Date(Date.now() + 15 * 60 * 1000);
+          // Set expiration to 1 hour from now for production
+          const expiresAt = new Date(Date.now() + 60 * 60 * 1000);
 
           // Store token in database
           await db.insert(passwordResetTokens).values({
@@ -243,24 +255,56 @@ export function configureAuth(app: Express) {
           // Create reset URL
           const resetUrl = `${req.protocol}://${req.get('host')}/reset-password.html?token=${resetToken}`;
 
-          // Use the template system for consistent emails
-          const { renderTemplate } = await import('./email/templates.js');
-          const emailContent = renderTemplate('password-reset', {
-            firstName: user.firstName,
-            resetUrl,
-            expirationTime: '15 minutes'
-          });
+          // Use SendGrid service directly for better error handling
+          const { sendGridEmail } = await import('./emailService');
+          
+          const emailHtml = `
+            <!DOCTYPE html>
+            <html>
+            <head>
+              <meta charset="utf-8">
+              <title>Password Reset - BytSave</title>
+              <style>
+                body { font-family: Arial, sans-serif; line-height: 1.6; color: #333; }
+                .container { max-width: 600px; margin: 0 auto; padding: 20px; }
+                .header { background: #3B82F6; color: white; padding: 20px; text-align: center; }
+                .content { padding: 30px 20px; background: #f9f9f9; }
+                .button { display: inline-block; background: #3B82F6; color: white; padding: 12px 30px; text-decoration: none; border-radius: 5px; margin: 20px 0; }
+                .footer { text-align: center; color: #666; font-size: 12px; padding: 20px; }
+              </style>
+            </head>
+            <body>
+              <div class="container">
+                <div class="header">
+                  <h1>Password Reset Request</h1>
+                </div>
+                <div class="content">
+                  <p>Hi${user.firstName ? ` ${user.firstName}` : ''},</p>
+                  <p>We received a request to reset your password for your BytSave account.</p>
+                  <p>Click the button below to reset your password:</p>
+                  <p style="text-align: center;">
+                    <a href="${resetUrl}" class="button">Reset My Password</a>
+                  </p>
+                  <p>If the button doesn't work, copy and paste this link into your browser:</p>
+                  <p style="word-break: break-all;">${resetUrl}</p>
+                  <p><strong>This link will expire in 1 hour.</strong></p>
+                  <p>If you didn't request this password reset, please ignore this email.</p>
+                </div>
+                <div class="footer">
+                  <p>© 2024 BytSave. All rights reserved.</p>
+                </div>
+              </div>
+            </body>
+            </html>
+          `;
 
-          if (emailContent) {
-            await sgMail.send({
-              to: email,
-              from: process.env.EMAIL_FROM!,
-              subject: emailContent.subject,
-              html: emailContent.html
-            });
+          await sendGridEmail(
+            email,
+            'Reset Your BytSave Password',
+            emailHtml
+          );
 
-            console.log(`Password reset email sent to ${email} via SendGrid using template`);
-          }
+          console.log(`Password reset email sent to ${email} via SendGrid`);
         } else if (!isEmailConfigured()) {
           console.warn("Email credentials not configured. Password reset emails will not be sent.");
         }
