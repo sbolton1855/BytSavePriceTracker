@@ -238,7 +238,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Admin email logs route
-  app.get('/admin/email-logs', async (req, res) => {
+  app.get('/api/admin/logs', async (req, res) => {
     try {
       const token = req.query.token as string;
       if (!token || token !== process.env.ADMIN_SECRET) {
@@ -250,10 +250,24 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const offset = (page - 1) * limit;
       const emailFilter = req.query.email as string;
 
-      let query = db.select().from(emailLogs).orderBy(desc(emailLogs.createdAt));
+      let query = db.select({
+        id: emailLogs.id,
+        recipientEmail: emailLogs.toEmail, // Map toEmail to recipientEmail
+        subject: emailLogs.subject,
+        previewHtml: emailLogs.body, // Map body to previewHtml
+        sentAt: emailLogs.sentAt,
+        createdAt: emailLogs.sentAt, // Use sentAt as createdAt
+        status: emailLogs.status,
+        type: sql`CASE 
+          WHEN ${emailLogs.subject} LIKE '[TEST]%' THEN 'test'
+          WHEN ${emailLogs.subject} LIKE '%Price Drop%' THEN 'price-drop'
+          WHEN ${emailLogs.subject} LIKE '%Password Reset%' THEN 'reset'
+          ELSE 'other'
+        END`.as('type')
+      }).from(emailLogs).orderBy(desc(emailLogs.sentAt));
 
       if (emailFilter) {
-        query = query.where(eq(emailLogs.recipientEmail, emailFilter));
+        query = query.where(eq(emailLogs.toEmail, emailFilter));
       }
 
       const logs = await query.limit(limit).offset(offset);
