@@ -36,7 +36,9 @@ const router = express.Router();
  */
 router.get('/logs', requireAdmin, async (req, res) => {
   try {
-    console.log('📊 Admin email logs requested');
+    console.log('📊 [DEBUG] Admin email logs route FIRED');
+    console.log('📊 [DEBUG] Request query params:', req.query);
+    console.log('📊 [DEBUG] Request headers:', req.headers);
     
     // Parse query parameters with defaults
     const page = parseInt(req.query.page as string) || 1;
@@ -46,7 +48,7 @@ router.get('/logs', requireAdmin, async (req, res) => {
     
     const offset = (page - 1) * limit;
     
-    console.log('📋 Query params:', { page, limit, emailFilter, statusFilter });
+    console.log('📋 [DEBUG] Parsed query params:', { page, limit, emailFilter, statusFilter, offset });
     
     // Build where conditions based on filters
     const whereConditions = [];
@@ -87,10 +89,13 @@ router.get('/logs', requireAdmin, async (req, res) => {
     
     const logs = await query;
     
-    console.log(`📊 Returning ${logs.length} email logs (page ${page}/${totalPages})`);
+    console.log(`📊 [DEBUG] Database query executed successfully`);
+    console.log(`📊 [DEBUG] Found ${logs.length} email logs (page ${page}/${totalPages})`);
+    console.log(`📊 [DEBUG] First log entry:`, logs[0] || 'No logs found');
+    console.log(`📊 [DEBUG] Total count from DB:`, total);
     
     // Return structured response
-    res.json({
+    const responseData = {
       logs: logs,
       pagination: {
         page: page,
@@ -98,7 +103,10 @@ router.get('/logs', requireAdmin, async (req, res) => {
         total: total,
         totalPages: totalPages
       }
-    });
+    };
+    
+    console.log(`📊 [DEBUG] Sending response:`, JSON.stringify(responseData, null, 2));
+    res.json(responseData);
     
   } catch (error) {
     console.error('❌ Email logs fetch error:', error);

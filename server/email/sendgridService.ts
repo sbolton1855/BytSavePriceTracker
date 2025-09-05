@@ -64,24 +64,33 @@ export async function sendEmail(
   productId?: number
 ): Promise<{ success: boolean; messageId?: string; error?: string; logId?: number }> {
   
+  // DEBUG: Confirm sendEmail() is firing
+  console.log(`🔥 [DEBUG] sendEmail() FIRING - recipient: ${to}, subject: ${subject}`);
+  
   let logId: number | undefined;
   
   try {
     // Step 1: Log email attempt to database BEFORE sending
     // This ensures we capture all attempts, even if SendGrid fails
-    console.log(`📧 Logging email attempt to database: ${to} - ${subject}`);
+    console.log(`📧 [DB] Logging email attempt to database: ${to} - ${subject}`);
     
-    const emailLogEntry = await db.insert(emailLogs).values({
-      recipientEmail: to,
-      productId: productId || null, // Explicitly set null if no product
-      subject: subject,
-      previewHtml: html.substring(0, 500), // First 500 chars for preview
-      status: 'pending',
-      sentAt: new Date()
-    }).returning();
-    
-    logId = emailLogEntry[0]?.id;
-    console.log(`📋 Email logged to database with ID: ${logId}`);
+    try {
+      const emailLogEntry = await db.insert(emailLogs).values({
+        recipientEmail: to,
+        productId: productId || null, // Explicitly set null if no product
+        subject: subject,
+        previewHtml: html.substring(0, 500), // First 500 chars for preview
+        status: 'pending',
+        sentAt: new Date()
+      }).returning();
+      
+      logId = emailLogEntry[0]?.id;
+      console.log(`📋 [DB] Email logged to database with ID: ${logId}`);
+      console.log(`📋 [DB] Inserted into email_logs - recipient: ${to}, subject: ${subject}, status: pending`);
+    } catch (dbError) {
+      console.error(`❌ [DB] Failed to insert into email_logs:`, dbError);
+      throw dbError; // Re-throw to handle properly
+    }
 
     // Step 2: Check if SendGrid is configured
     if (!process.env.SENDGRID_API_KEY) {
@@ -104,11 +113,16 @@ export async function sendEmail(
       html,
     };
 
-    console.log(`📤 Sending email via SendGrid to: ${to}`);
-    console.log(`📋 Subject: ${subject}`);
+    console.log(`📤 [SendGrid] Preparing email to: ${to}, subject: ${subject}`);
+    console.log(`📤 [SendGrid] Message payload:`, { to: msg.to, from: msg.from, subject: msg.subject });
 
     // Step 4: Send email via SendGrid
+    console.log(`📤 [SendGrid] Calling sgMail.send()...`);
     const response = await sgMail.send(msg);
+    
+    console.log(`✅ [SendGrid] Response received - statusCode: ${response[0]?.statusCode}`);
+    console.log(`✅ [SendGrid] Response headers:`, response[0]?.headers);
+    console.log(`✅ [SendGrid] Full response:`, JSON.stringify(response, null, 2));
     
     // Step 5: Extract message ID from SendGrid response
     // Important: SendGrid returns message ID in response body, not headers
@@ -144,12 +158,19 @@ export async function sendEmail(
     return { success: true, messageId, logId };
 
   } catch (error: any) {
-    console.error('❌ Failed to send email via SendGrid:', error);
+    console.error('❌ [SendGrid] Failed to send email via SendGrid:', error);
+    console.error('❌ [SendGrid] Error details:', {
+      message: error.message,
+      code: error.code,
+      response: error.response?.body,
+      stack: error.stack
+    });
 
     // Log the error but keep the database entry for debugging
     let errorMessage = 'Unknown SendGrid error';
     if (error.response?.body?.errors) {
       errorMessage = error.response.body.errors.map((e: any) => e.message).join(', ');
+      console.error('❌ [SendGrid] API Errors:', error.response.body.errors);
     } else if (error.message) {
       errorMessage = error.message;
     }

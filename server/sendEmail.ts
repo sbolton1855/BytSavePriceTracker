@@ -10,11 +10,16 @@ export interface EmailOptions {
 }
 
 export async function sendEmail(options: EmailOptions): Promise<boolean> {
+  console.log(`🔥 [DEBUG] sendEmail wrapper CALLED - to: ${options.to}, subject: ${options.subject}`);
+  
   try {
+    console.log(`📤 [DEBUG] Calling sendGridEmail service...`);
     const result = await sendGridEmail(options.to, options.subject, options.html);
+    
+    console.log(`📤 [DEBUG] SendGrid service returned:`, result);
 
     if (result.success) {
-      console.log(`Email sent successfully via SendGrid. Message ID: ${result.messageId}`);
+      console.log(`✅ [DEBUG] Email sent successfully via SendGrid. Message ID: ${result.messageId}`);
 
       // Log the sent email
       try {
