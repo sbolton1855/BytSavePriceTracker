@@ -142,7 +142,7 @@ export type PriceHistory = typeof priceHistory.$inferSelect;
 
 export type TrackingFormData = z.infer<typeof trackingFormSchema>;
 export type RegisterFormData = z.infer<typeof registerSchema>;
-export type ApiRegisterFormData = z.infer<typeof apiRegisterSchema>; 
+export type ApiRegisterFormData = z.infer<typeof apiRegisterSchema>;
 export type LoginFormData = z.infer<typeof loginSchema>;
 
 // Extended Schema with additional data
@@ -217,11 +217,13 @@ export const affiliateClicks = pgTable('affiliate_clicks', {
 export const emailLogs = pgTable('email_logs', {
   id: serial('id').primaryKey(),
   recipientEmail: varchar('recipient_email', { length: 255 }).notNull(),
-  productId: integer('product_id').references(() => products.id),
-  sentAt: timestamp('sent_at', { withTimezone: true }).defaultNow(),
-  subject: text('subject'),
+  productId: integer('product_id').references(() => products.id, { onDelete: 'set null' }),
+  subject: text('subject').notNull(),
   previewHtml: text('preview_html'),
-  createdAt: timestamp('created_at', { withTimezone: true }).defaultNow(),
+  sgMessageId: varchar('sg_message_id', { length: 255 }).unique(),
+  status: varchar('status', { length: 50 }).default('pending').notNull(),
+  sentAt: timestamp('sent_at', { withTimezone: true }).defaultNow(),
+  updatedAt: timestamp('updated_at', { withTimezone: true }).defaultNow()
 });
 
 export const userEmailPreferences = pgTable('user_email_preferences', {

@@ -10,6 +10,8 @@ import { adminSessionConfig, attachAdminToRequest } from "./middleware/adminSess
 import { adminSecurityMiddleware } from "./middleware/adminSecurity";
 import adminAuthRoutes from "./routes/adminAuth";
 import adminEmailRoutes from "./routes/adminEmail";
+import adminEmailLogsRoutes from './routes/adminEmailLogs';
+import sendgridWebhookRoutes from './routes/sendgridWebhook';
 import LiveDealsPreview from "@/components/LiveDealsPreview";
 import { scheduleTokenCleanup } from './utils/tokenCleanup';
 import { fileURLToPath } from 'url';
@@ -32,6 +34,11 @@ app.use('/admin', attachAdminToRequest);
 // Admin routes
 app.use('/admin/api', adminAuthRoutes);
 app.use('/admin/api/email', adminEmailRoutes);
+app.use('/api/admin', adminEmailLogsRoutes);
+
+// Mount webhook routes (no auth required for webhooks)
+app.use(sendgridWebhookRoutes);
+
 
 // Enhanced logging middleware for debugging API failures
 app.use((req, res, next) => {
