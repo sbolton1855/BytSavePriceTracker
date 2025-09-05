@@ -68,7 +68,7 @@ export default function AdminEmailLogs() {
   const [currentPage, setCurrentPage] = useState(1);
   const [emailFilter, setEmailFilter] = useState('');
   const [searchEmail, setSearchEmail] = useState('');
-  const [statusFilter, setStatusFilter] = useState('');
+  const [statusFilter, setStatusFilter] = useState('all');
 
   /**
    * Fetch email logs from backend API
@@ -89,7 +89,7 @@ export default function AdminEmailLogs() {
         page: currentPage.toString(),
         limit: '20',
         ...(emailFilter && { email: emailFilter }),
-        ...(statusFilter && { status: statusFilter })
+        ...(statusFilter && statusFilter !== 'all' && { status: statusFilter })
       });
 
       const response = await fetch(`/api/admin/logs?${params}`);
@@ -119,7 +119,7 @@ export default function AdminEmailLogs() {
   const clearFilters = () => {
     setSearchEmail('');
     setEmailFilter('');
-    setStatusFilter('');
+    setStatusFilter('all');
     setCurrentPage(1);
   };
 
@@ -221,7 +221,7 @@ export default function AdminEmailLogs() {
                     <SelectValue placeholder="All statuses" />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="">All Statuses</SelectItem>
+                    <SelectItem value="all">All Statuses</SelectItem>
                     <SelectItem value="pending">Pending</SelectItem>
                     <SelectItem value="sent">Sent</SelectItem>
                     <SelectItem value="delivered">Delivered</SelectItem>
