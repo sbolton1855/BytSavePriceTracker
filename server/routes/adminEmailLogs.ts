@@ -67,17 +67,10 @@ router.get('/logs', requireAdmin, async (req, res) => {
     const logs = await query;
     
     console.log(`📊 Returning ${logs.length} email logs (page ${page}/${totalPages}, total: ${total})`);
+    console.log('[EMAIL LOGS][/logs] returning rows:', logs.length);
     
     // Return structured response
-    res.json({
-      logs: logs,
-      pagination: {
-        page: page,
-        limit: limit,
-        total: total,
-        totalPages: totalPages
-      }
-    });
+    return res.json({ source: 'db', rowsCount: logs.length, rows: logs });
     
   } catch (error) {
     console.error('❌ Email logs fetch error:', error);
