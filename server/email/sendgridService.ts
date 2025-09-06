@@ -111,25 +111,27 @@ export async function sendEmail(
     const response = await sgMail.send(msg);
     const [resp] = response;
     
-    // Log SendGrid status code
     console.log('[SendGrid] status:', resp?.statusCode);
-    
-    // Best-effort DB update to mark most recent matching log as 'sent'
+
+    // Best-effort: mark the newest matching log as 'sent'
     try {
-      await db.execute(`
-        UPDATE email_logs 
-        SET status='sent', updated_at=NOW()
-        WHERE id = (
-          SELECT id FROM email_logs
-          WHERE recipient_email=$1 AND subject=$2
-          ORDER BY id DESC
-          LIMIT 1
-        )
-      `, [to, subject]);
-      console.log('[EmailLog] updated to sent');
-    } catch (updateError) {
-      // Never throw if this update fails
-      console.warn('[EmailLog] failed to update status:', updateError);
+      const result = await db.query(
+        `
+        UPDATE email_logs
+           SET status = 'sent',
+               updated_at = NOW()
+         WHERE id = (
+           SELECT id FROM email_logs
+            WHERE recipient_email = $1 AND subject = $2
+            ORDER BY id DESC
+            LIMIT 1
+         );
+        `,
+        [to, subject]
+      );
+      console.log('[EmailLog] update->sent rowCount:', result.rowCount);
+    } catch (e) {
+      console.error('[EmailLog] update->sent error (non-blocking):', e);
     }
     
     // Step 5: Extract message ID from SendGrid response
