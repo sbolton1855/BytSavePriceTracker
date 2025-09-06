@@ -10,7 +10,6 @@ import { adminSessionConfig, attachAdminToRequest } from "./middleware/adminSess
 import { adminSecurityMiddleware } from "./middleware/adminSecurity";
 import adminAuthRoutes from "./routes/adminAuth";
 import adminEmailRoutes from "./routes/adminEmail";
-import adminEmailLogsRoutes from './routes/adminEmailLogs';
 import sendgridWebhookRoutes from './routes/sendgridWebhook';
 import emailTestDbRoutes from './routes/emailTestDb';
 import LiveDealsPreview from "@/components/LiveDealsPreview";
@@ -36,7 +35,6 @@ app.use('/admin', attachAdminToRequest);
 app.use('/admin/api', adminAuthRoutes);
 app.use('/admin/api/email', adminEmailRoutes);
 app.use('/api/admin/email', adminEmailRoutes);
-app.use('/api/admin/email-logs', adminEmailLogsRoutes);
 app.use('/api/sendgrid/webhook', sendgridWebhookRoutes);
 app.use('/api/email', emailTestDbRoutes); // TEMP DEBUG - remove after verification
 
