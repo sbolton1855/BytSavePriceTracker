@@ -7,9 +7,36 @@
  */
 
 import express from 'express';
-import { sendEmail } from '../email/sendgridService';
-import requireAdmin from '../middleware/requireAdmin';
-import { db } from '../db';
+import { sendEmail } from '../email/sendgridService.js';
+import { requireAdmin } from '../middleware/requireAdmin.js';
+import { db } from '../db/index.js';
+
+// Simple template helpers - replace with proper template system later
+function listTemplates() {
+  return [
+    { id: 'welcome', name: 'Welcome Email', description: 'Welcome new users' },
+    { id: 'price-drop', name: 'Price Drop Alert', description: 'Notify about price drops' },
+    { id: 'password-reset', name: 'Password Reset', description: 'Password reset instructions' }
+  ];
+}
+
+function renderTemplate(templateId: string, data?: any) {
+  const templates = {
+    'welcome': {
+      subject: 'Welcome to BytSave',
+      html: '<h1>Welcome!</h1><p>Thanks for joining BytSave.</p>'
+    },
+    'price-drop': {
+      subject: 'Price Drop Alert',
+      html: '<h1>Price Drop!</h1><p>Your watched item has dropped in price.</p>'
+    },
+    'password-reset': {
+      subject: 'Reset Your Password',
+      html: '<h1>Password Reset</h1><p>Click the link to reset your password.</p>'
+    }
+  };
+  return templates[templateId as keyof typeof templates] || null;
+}
 
 const router = express.Router();
 
@@ -79,7 +106,7 @@ router.post('/send-test-email', requireAdmin, async (req, res) => {
 
     // Send the email using the emailService
     try {
-      const { sendEmail } = await import('../emailService');
+      const { sendEmail } = await import('../emailService.js');
       const result = await sendEmail({
         to: email,
         subject: rendered.subject,
@@ -96,8 +123,8 @@ router.post('/send-test-email', requireAdmin, async (req, res) => {
 
     // Always log the email attempt to database
     try {
-      const { db } = await import('../db');
-      const { emailLogs } = await import('../../shared/schema');
+      const { db } = await import('../db/index.js');
+      const { emailLogs } = await import('../../shared/schema.js');
       const emailLog = await db.insert(emailLogs).values({
         toEmail: email,
         fromEmail: 'alerts@bytsave.com',
@@ -149,8 +176,8 @@ router.post('/send-test-email', requireAdmin, async (req, res) => {
 // GET /api/admin/logs/debug - Debug email logs table
 router.get('/logs/debug', requireAdmin, async (req, res) => {
   try {
-    const { db } = await import('../db');
-    const { emailLogs } = await import('../../shared/schema');
+    const { db } = await import('../db/index.js');
+    const { emailLogs } = await import('../../shared/schema.js');
     const { sql } = await import('drizzle-orm');
 
     // Check if table exists and get sample data
@@ -185,8 +212,8 @@ router.get('/logs/debug', requireAdmin, async (req, res) => {
 // POST /api/admin/logs/test - Manually test email logging
 router.post('/logs/test', requireAdmin, async (req, res) => {
   try {
-    const { db } = await import('../db');
-    const { emailLogs } = await import('../../shared/schema');
+    const { db } = await import('../db/index.js');
+    const { emailLogs } = await import('../../shared/schema.js');
 
     console.log('🧪 Testing manual email log insertion');
 
@@ -227,7 +254,7 @@ router.post('/test-password-reset', requireAdmin, async (req, res) => {
       return res.status(400).json({ error: 'Email is required' });
     }
 
-    const { sendPasswordResetEmail } = await import('../emailService');
+    const { sendPasswordResetEmail } = await import('../emailService.js');
 
     // Mock reset URL for testing
     const resetUrl = `${req.protocol}://${req.get('host')}/reset-password.html?token=test-token-123-admin-test`;
@@ -248,7 +275,7 @@ router.post('/test-password-reset', requireAdmin, async (req, res) => {
 // Preview password reset email template
 router.post('/preview-password-reset', requireAdmin, async (req, res) => {
   try {
-    const { renderTemplate } = await import('../email/templates');
+    const { renderTemplate } = await import('../email/templates.js');
     const resetUrl = `${req.protocol}://${req.get('host')}/reset-password.html?token=preview-token-123`;
 
     const emailContent = renderTemplate('password-reset', {

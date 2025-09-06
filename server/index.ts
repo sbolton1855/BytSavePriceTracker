@@ -3,16 +3,16 @@ import dotenv from 'dotenv';
 dotenv.config();
 
 import express, { type Request, Response, NextFunction } from "express";
-import { registerRoutes } from "./routes";
-import { setupVite, serveStatic, log } from "./vite";
-import { configureAuth } from "./authService";
-import { adminSessionConfig, attachAdminToRequest } from "./middleware/adminSession";
-import { adminSecurityMiddleware } from "./middleware/adminSecurity";
-import adminAuthRoutes from "./routes/adminAuth";
-import adminEmailRoutes from "./routes/adminEmail";
-import emailTestDbRoutes from './routes/emailTestDb';
+import { registerRoutes } from "./routes.js";
+import { setupVite, serveStatic, log } from "./vite.js";
+import { configureAuth } from "./authService.js";
+import { adminSessionConfig, attachAdminToRequest } from "./middleware/adminSession.js";
+import { adminSecurityMiddleware } from "./middleware/adminSecurity.js";
+import adminAuthRoutes from "./routes/adminAuth.js";
+import adminEmailRoutes from "./routes/adminEmail.js";
+import emailTestDbRoutes from './routes/emailTestDb.js';
 import LiveDealsPreview from "@/components/LiveDealsPreview";
-import { scheduleTokenCleanup } from './utils/tokenCleanup';
+import { scheduleTokenCleanup } from './utils/tokenCleanup.js';
 import { fileURLToPath } from 'url';
 import { dirname } from 'path';
 
