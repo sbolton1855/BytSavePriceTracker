@@ -68,36 +68,53 @@ export async function sendEmail(
   let logId: number | undefined;
   
   try {
-    // Step 1: Log email attempt to database BEFORE sending
-    // This ensures we capture all attempts, even if SendGrid fails
-    console.log(`📧 Logging email attempt to database: ${to} - ${subject}`);
+    console.log(`[EmailSend] Starting email send: ${to} - ${subject}`);
+    
+    // Step 1: Check for recent duplicate sends (prevent spam/race conditions)
+    const recentDuplicate = await db
+      .select({ id: emailLogs.id })
+      .from(emailLogs)
+      .where(
+        sql`${emailLogs.recipientEmail} = ${to} 
+            AND ${emailLogs.subject} = ${subject} 
+            AND ${emailLogs.sentAt} > NOW() - INTERVAL '1 minute'`
+      )
+      .limit(1);
+    
+    if (recentDuplicate.length > 0) {
+      console.log(`[EmailSend] Duplicate email prevented: ${to} - ${subject}`);
+      return { 
+        success: false, 
+        error: 'Duplicate email prevented (sent within last minute)', 
+        logId: recentDuplicate[0].id 
+      };
+    }
+
+    // Step 2: Log email attempt to database BEFORE sending
+    console.log(`[EmailSend] Creating database log entry`);
     
     const emailLogEntry = await db.insert(emailLogs).values({
       recipientEmail: to,
-      productId: productId || null, // Explicitly set null if no product
+      productId: productId || null,
       subject: subject,
-      previewHtml: html.substring(0, 500), // First 500 chars for preview
+      previewHtml: html.substring(0, 500),
       status: 'pending',
       sentAt: new Date()
     }).returning();
     
     logId = emailLogEntry[0]?.id;
-    console.log(`📋 Email logged to database with ID: ${logId}`);
+    console.log(`[EmailSend] Email logged with ID: ${logId}`);
 
-    // Step 2: Check if SendGrid is configured
-    if (!process.env.SENDGRID_API_KEY) {
-      console.warn('⚠️ SendGrid API key not configured. Email not sent.');
-      // Note: Database log remains with status "pending" - this is intentional
-      // for debugging purposes
+    // Step 3: Check SendGrid configuration
+    if (!process.env.SENDGRID_API_KEY || !apiKey) {
+      console.warn('[EmailSend] SendGrid not configured');
+      if (logId) {
+        await updateEmailStatus(logId, 'failed', 'sendgrid');
+      }
       return { success: false, error: 'SendGrid API key not configured', logId };
     }
 
-    if (!apiKey) {
-      console.warn('⚠️ SendGrid API key is invalid or not set. Email not sent.');
-      return { success: false, error: 'SendGrid API key is invalid or not configured', logId };
-    }
-
-    // Step 3: Prepare SendGrid message
+    // Step 4: Prepare and send email
     const msg = {
       to,
       from: process.env.EMAIL_FROM || 'alerts@bytsave.com',
@@ -105,10 +122,8 @@ export async function sendEmail(
       html,
     };
 
-    console.log('[EmailSend] start', { to: to, subject });
-    console.log('[EmailSend] calling SendGrid');
+    console.log(`[EmailSend] Calling SendGrid for log ${logId}`);
 
-    // Step 4: Send email via SendGrid
     let sendOk = false;
     let response: any;
     let resp: any;
@@ -118,36 +133,30 @@ export async function sendEmail(
       [resp] = response;
       sendOk = true;
       
-      console.log('[EmailSend] SendGrid status:', resp?.statusCode, 'x-message-id:', resp?.headers?.['x-message-id'] || resp?.headers?.['X-Message-Id']);
+      console.log(`[EmailSend] SendGrid success for log ${logId}:`, resp?.statusCode);
     } catch (err) {
-      console.error('[EmailSend] SendGrid error:', err);
+      console.error(`[EmailSend] SendGrid error for log ${logId}:`, err);
       sendOk = false;
     }
 
-    // Update status using centralized status manager
+    // Step 5: Update status atomically
     if (logId) {
       const newStatus = sendOk ? 'sent' : 'failed';
-      await updateEmailStatus(logId, newStatus, 'sendgrid');
+      const updated = await updateEmailStatus(logId, newStatus, 'sendgrid');
+      console.log(`[EmailSend] Status updated to ${newStatus} for log ${logId}: ${updated}`);
     }
     
-    // Step 5: Extract message ID from SendGrid response (only if send was successful)
-    // Important: SendGrid returns message ID in response body, not headers
-    // Response structure: [{ statusCode, body, headers }, ...]
+    // Step 6: Handle message ID and final response
     let messageId = 'unknown';
     
     if (sendOk && response && response[0]) {
-      // Try to get message ID from response headers first
-      const messageIdHeader = response[0].headers?.['x-message-id'];
-      if (messageIdHeader) {
-        messageId = messageIdHeader;
-      } else {
-        // Fallback: generate a unique ID if SendGrid doesn't provide one
-        messageId = `sg_${Date.now()}_${Math.random().toString(36).substring(7)}`;
-      }
+      // Extract SendGrid message ID
+      const messageIdHeader = response[0].headers?.['x-message-id'] || response[0].headers?.['X-Message-Id'];
+      messageId = messageIdHeader || `sg_${Date.now()}_${Math.random().toString(36).substring(7)}`;
       
-      console.log(`✅ Email sent successfully via SendGrid. Message ID: ${messageId}`);
+      console.log(`[EmailSend] Success for log ${logId}, message ID: ${messageId}`);
 
-      // Step 6: Update database log with SendGrid message ID
+      // Update with message ID
       if (logId) {
         try {
           await db.update(emailLogs)
@@ -157,22 +166,30 @@ export async function sendEmail(
             })
             .where(emailLogs.id.eq(logId));
           
-          console.log(`📋 Updated email log ${logId} with SendGrid message ID: ${messageId}`);
+          console.log(`[EmailSend] Updated log ${logId} with message ID: ${messageId}`);
         } catch (dbError) {
-          console.error('❌ Failed to update email log with message ID:', dbError);
+          console.error(`[EmailSend] Failed to update message ID for log ${logId}:`, dbError);
         }
       }
 
       return { success: true, messageId, logId };
     } else {
-      // SendGrid failed
+      console.log(`[EmailSend] Failed for log ${logId}`);
       return { success: false, error: 'SendGrid send failed', logId };
     }
 
   } catch (error: any) {
-    console.error('❌ Database or other error in sendEmail:', error);
+    console.error(`[EmailSend] Unexpected error for log ${logId}:`, error);
+    
+    // Try to update status to failed if we have a log ID
+    if (logId) {
+      try {
+        await updateEmailStatus(logId, 'failed', 'sendgrid');
+      } catch (e) {
+        console.error(`[EmailSend] Failed to update error status for log ${logId}:`, e);
+      }
+    }
 
-    // This catch handles non-SendGrid errors (like database errors)
     return { success: false, error: error.message || 'Unknown error', logId };
   }
 }
