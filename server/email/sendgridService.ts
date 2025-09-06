@@ -24,6 +24,7 @@
 import sgMail from '@sendgrid/mail';
 import { db } from '../db';
 import { emailLogs } from '../../shared/schema';
+import { updateEmailStatus } from './statusManager';
 
 // Validate and initialize SendGrid with API key
 const apiKey = process.env.SENDGRID_API_KEY;
@@ -121,50 +122,12 @@ export async function sendEmail(
     } catch (err) {
       console.error('[EmailSend] SendGrid error:', err);
       sendOk = false;
-      
-      // Best-effort: mark the newest matching log as 'failed' for SendGrid errors
-      try {
-        const result = await db.query(
-          `
-          UPDATE email_logs
-             SET status = 'failed',
-                 updated_at = NOW()
-           WHERE id = (
-             SELECT id FROM email_logs
-              WHERE recipient_email = $1 AND subject = $2
-              ORDER BY id DESC
-              LIMIT 1
-           );
-          `,
-          [to, subject]
-        );
-        console.log('[EmailLog] update->failed rowCount:', result.rowCount);
-      } catch (e) {
-        // Do not throw on DB update failure
-      }
     }
 
-    // Best-effort: mark the newest matching log as 'sent' ONLY if SendGrid succeeded
-    if (sendOk === true) {
-      try {
-        const result = await db.query(
-          `
-          UPDATE email_logs
-             SET status = 'sent',
-                 updated_at = NOW()
-           WHERE id = (
-             SELECT id FROM email_logs
-              WHERE recipient_email = $1 AND subject = $2
-              ORDER BY id DESC
-              LIMIT 1
-           );
-          `,
-          [to, subject]
-        );
-        console.log('[EmailLog] update->sent rowCount:', result.rowCount);
-      } catch (e) {
-        // Do not throw on DB update failure
-      }
+    // Update status using centralized status manager
+    if (logId) {
+      const newStatus = sendOk ? 'sent' : 'failed';
+      await updateEmailStatus(logId, newStatus, 'sendgrid');
     }
     
     // Step 5: Extract message ID from SendGrid response (only if send was successful)
