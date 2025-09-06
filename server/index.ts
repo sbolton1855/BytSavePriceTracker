@@ -3,16 +3,17 @@ import dotenv from 'dotenv';
 dotenv.config();
 
 import express, { type Request, Response, NextFunction } from "express";
-import { registerRoutes } from "./routes.js";
-import { setupVite, serveStatic, log } from "./vite.js";
-import { configureAuth } from "./authService.js";
-import { adminSessionConfig, attachAdminToRequest } from "./middleware/adminSession.js";
-import { adminSecurityMiddleware } from "./middleware/adminSecurity.js";
+import { registerRoutes } from "./routes";
+import { setupVite, serveStatic, log } from "./vite";
+import { configureAuth } from "./authService";
+import { adminSessionConfig, attachAdminToRequest } from "./middleware/adminSession";
+import { adminSecurityMiddleware } from "./middleware/adminSecurity";
 import adminAuthRoutes from "./routes/adminAuth.js";
 import adminEmailRoutes from "./routes/adminEmail.js";
-import emailTestDbRoutes from './routes/emailTestDb.js';
+import adminEmailLogsRoutes from './routes/adminEmailLogs.js';
+import sendgridWebhookRoutes from './routes/sendgridWebhook';
 import LiveDealsPreview from "@/components/LiveDealsPreview";
-import { scheduleTokenCleanup } from './utils/tokenCleanup.js';
+import { scheduleTokenCleanup } from './utils/tokenCleanup';
 import { fileURLToPath } from 'url';
 import { dirname } from 'path';
 
@@ -33,8 +34,11 @@ app.use('/admin', attachAdminToRequest);
 // Admin routes
 app.use('/admin/api', adminAuthRoutes);
 app.use('/admin/api/email', adminEmailRoutes);
-app.use('/api/admin/email', adminEmailRoutes);
-app.use('/api/email', emailTestDbRoutes); // TEMP DEBUG - remove after verification
+app.use('/api/admin', adminEmailLogsRoutes);
+
+// Mount webhook routes (no auth required for webhooks)
+app.use(sendgridWebhookRoutes);
+
 
 // Enhanced logging middleware for debugging API failures
 app.use((req, res, next) => {

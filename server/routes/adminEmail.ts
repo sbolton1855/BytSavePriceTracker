@@ -1,59 +1,17 @@
-/**
- * Email System: Admin Email Management Routes
- * - Entry point: Admin UI requests from client/src/pages/admin-email-test.tsx
- * - Output: Template previews, test email sends, email logs, debug info
- * - Dependencies: Admin auth middleware, email templates, email service, database
- * - Future: Add bulk email capabilities, template editing, send scheduling
- */
-
 import express from 'express';
-import { sendEmail } from '../email/sendgridService.js';
-import { requireAdmin } from '../middleware/requireAdmin.js';
-import { db } from '../db/index.js';
-
-// Simple template helpers - replace with proper template system later
-function listTemplates() {
-  return [
-    { id: 'welcome', name: 'Welcome Email', description: 'Welcome new users' },
-    { id: 'price-drop', name: 'Price Drop Alert', description: 'Notify about price drops' },
-    { id: 'password-reset', name: 'Password Reset', description: 'Password reset instructions' }
-  ];
-}
-
-function renderTemplate(templateId: string, data?: any) {
-  const templates = {
-    'welcome': {
-      subject: 'Welcome to BytSave',
-      html: '<h1>Welcome!</h1><p>Thanks for joining BytSave.</p>'
-    },
-    'price-drop': {
-      subject: 'Price Drop Alert',
-      html: '<h1>Price Drop!</h1><p>Your watched item has dropped in price.</p>'
-    },
-    'password-reset': {
-      subject: 'Reset Your Password',
-      html: '<h1>Password Reset</h1><p>Click the link to reset your password.</p>'
-    }
-  };
-  return templates[templateId as keyof typeof templates] || null;
-}
+import { requireAdmin } from '../middleware/requireAdmin';
+import { listTemplates, renderTemplate } from '../email/templates';
+import { sendEmail } from '../emailService';
 
 const router = express.Router();
 
-/**
- * GET /api/admin/email-templates
- * Returns list of available email templates for admin UI dropdown
- */
+// GET /api/admin/email-templates
 router.get('/email-templates', requireAdmin, (req, res) => {
   console.log('📧 Admin email templates requested');
   res.json(listTemplates());
 });
 
-/**
- * GET /api/admin/email/preview/:id
- * Renders template with preview data for admin UI preview pane
- * Used by admin-email-test.tsx when "Preview" button clicked
- */
+// GET /api/admin/email/preview/:id
 router.get('/email/preview/:id', requireAdmin, (req, res) => {
   const { id } = req.params;
   console.log('👁️ Admin email preview requested for:', id);
@@ -66,37 +24,30 @@ router.get('/email/preview/:id', requireAdmin, (req, res) => {
   res.json(result);
 });
 
-/**
- * POST /api/admin/send-test-email
- * Main route for admin email testing
- * Flow: Validate → Render template → Add test styling → Send → Log → Respond
- * Called by admin-email-test.tsx form submission
- */
+// POST /api/admin/send-test-email
 router.post('/send-test-email', requireAdmin, async (req, res) => {
   try {
     const { email, templateId, data } = req.body;
     console.log('📤 Admin test email send requested:', { email, templateId });
 
-    // Validate required fields
     if (!email || !templateId) {
       return res.status(400).json({
         error: 'Missing required fields: email, templateId'
       });
     }
 
-    // Render template with provided data (or preview data if none)
     const rendered = renderTemplate(templateId, data);
     if (!rendered) {
       return res.status(404).json({ error: 'Template not found' });
     }
 
-    // Mark as test email in subject line for clarity
+    // Add [TEST] prefix to subject for admin test emails
     rendered.subject = `[TEST] ${rendered.subject}`;
 
     let emailSent = false;
     let messageId = null;
-
-    // Add visual test banner to distinguish from real emails
+    
+    // Add TEST banner to email HTML for admin test emails
     const testBanner = `
       <div style="background-color: #ff6b35; color: white; padding: 10px; text-align: center; font-weight: bold; margin-bottom: 20px; border-radius: 4px;">
         🧪 TEST EMAIL - SENT FROM ADMIN EMAIL CENTER 🧪
@@ -106,13 +57,13 @@ router.post('/send-test-email', requireAdmin, async (req, res) => {
 
     // Send the email using the emailService
     try {
-      const { sendEmail } = await import('../emailService.js');
+      const { sendEmail } = await import('../emailService');
       const result = await sendEmail({
         to: email,
         subject: rendered.subject,
         html: htmlWithTestBanner
       });
-
+      
       emailSent = true;
       messageId = result.messageId;
       console.log(`✅ Test email sent to ${email} using template ${templateId} - Message ID: ${messageId}`);
@@ -123,21 +74,15 @@ router.post('/send-test-email', requireAdmin, async (req, res) => {
 
     // Always log the email attempt to database
     try {
-      const { db } = await import('../db/index.js');
-      const { emailLogs } = await import('../../shared/schema.js');
+      const { db } = await import('../db');
+      const { emailLogs } = await import('../../shared/schema');
       const emailLog = await db.insert(emailLogs).values({
-        toEmail: email,
-        fromEmail: 'alerts@bytsave.com',
+        recipientEmail: email,
         subject: rendered.subject,
-        body: htmlWithTestBanner,
-        templateId: templateId,
-        status: emailSent ? 'sent' : 'stubbed',
+        previewHtml: htmlWithTestBanner.substring(0, 500),
+        status: emailSent ? 'sent' : 'failed',
         sentAt: new Date(),
-        metadata: JSON.stringify({
-          templateData: data || {},
-          adminTest: true,
-          emailService: emailSent ? 'sendgrid' : 'stub'
-        })
+        updatedAt: new Date()
       }).returning();
 
       console.log(`📋 Email logged to database:`, emailLog[0]);
@@ -154,7 +99,7 @@ router.post('/send-test-email', requireAdmin, async (req, res) => {
 
   } catch (error) {
     console.error('❌ Send test email error:', error);
-
+    
     // More detailed error logging
     if (error instanceof Error) {
       console.error('❌ Error details:', {
@@ -164,7 +109,7 @@ router.post('/send-test-email', requireAdmin, async (req, res) => {
         email
       });
     }
-
+    
     res.status(500).json({
       error: 'Failed to send test email',
       details: error instanceof Error ? error.message : 'Unknown error',
@@ -176,8 +121,8 @@ router.post('/send-test-email', requireAdmin, async (req, res) => {
 // GET /api/admin/logs/debug - Debug email logs table
 router.get('/logs/debug', requireAdmin, async (req, res) => {
   try {
-    const { db } = await import('../db/index.js');
-    const { emailLogs } = await import('../../shared/schema.js');
+    const { db } = await import('../db');
+    const { emailLogs } = await import('../../shared/schema');
     const { sql } = await import('drizzle-orm');
 
     // Check if table exists and get sample data
@@ -212,8 +157,8 @@ router.get('/logs/debug', requireAdmin, async (req, res) => {
 // POST /api/admin/logs/test - Manually test email logging
 router.post('/logs/test', requireAdmin, async (req, res) => {
   try {
-    const { db } = await import('../db/index.js');
-    const { emailLogs } = await import('../../shared/schema.js');
+    const { db } = await import('../db');
+    const { emailLogs } = await import('../../shared/schema');
 
     console.log('🧪 Testing manual email log insertion');
 
@@ -221,8 +166,9 @@ router.post('/logs/test', requireAdmin, async (req, res) => {
       recipientEmail: 'test@example.com',
       subject: '[MANUAL TEST] Email Log Test',
       previewHtml: '<p>This is a manual test of email logging functionality</p>',
+      status: 'sent',
       sentAt: new Date(),
-      createdAt: new Date()
+      updatedAt: new Date()
     };
 
     const logResult = await db.insert(emailLogs).values(testLogData);
@@ -254,7 +200,7 @@ router.post('/test-password-reset', requireAdmin, async (req, res) => {
       return res.status(400).json({ error: 'Email is required' });
     }
 
-    const { sendPasswordResetEmail } = await import('../emailService.js');
+    const { sendPasswordResetEmail } = await import('../emailService');
 
     // Mock reset URL for testing
     const resetUrl = `${req.protocol}://${req.get('host')}/reset-password.html?token=test-token-123-admin-test`;
@@ -275,7 +221,7 @@ router.post('/test-password-reset', requireAdmin, async (req, res) => {
 // Preview password reset email template
 router.post('/preview-password-reset', requireAdmin, async (req, res) => {
   try {
-    const { renderTemplate } = await import('../email/templates.js');
+    const { renderTemplate } = await import('../email/templates');
     const resetUrl = `${req.protocol}://${req.get('host')}/reset-password.html?token=preview-token-123`;
 
     const emailContent = renderTemplate('password-reset', {
@@ -352,6 +298,30 @@ router.post('/verify-email-links', requireAdmin, async (req, res) => {
     res.status(500).json({
       error: 'Failed to verify email links',
       details: error instanceof Error ? error.message : 'Unknown error'
+    });
+  }
+});
+
+// TEMP: Quick database check
+router.get('/check-logs', requireAdmin, async (req, res) => {
+  try {
+    const { db } = await import('../db.js');
+    const { emailLogs } = await import('../../shared/schema.js');
+    const { sql } = await import('drizzle-orm');
+
+    const totalResult = await db.select({ count: sql<number>`count(*)` }).from(emailLogs);
+    const recentLogs = await db.select().from(emailLogs).limit(3);
+
+    res.json({
+      totalCount: totalResult[0]?.count || 0,
+      recentLogs: recentLogs,
+      message: 'Database check complete'
+    });
+
+  } catch (error) {
+    console.error('Database check error:', error);
+    res.status(500).json({
+      error: error instanceof Error ? error.message : 'Unknown error'
     });
   }
 });
