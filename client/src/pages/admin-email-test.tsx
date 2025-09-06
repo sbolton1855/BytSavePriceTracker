@@ -1,4 +1,12 @@
 
+/**
+ * Email System: Admin Email Testing UI
+ * - Entry point: Admin navigates to /admin/email-test
+ * - Output: Sends API requests to server/routes/adminEmail.ts
+ * - Dependencies: Admin auth token, React Query for template loading
+ * - Future: Add email scheduling, bulk sending, template editing, delivery status
+ */
+
 import { useState, useRef } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -31,7 +39,12 @@ interface TestResult {
   error?: string;
 }
 
-// API helpers with header-based auth
+/**
+ * API Helper Functions
+ * These call the admin email routes with proper authentication headers
+ */
+
+// Loads available email templates for dropdown
 const getEmailTemplates = async (token: string): Promise<Template[]> => {
   const response = await fetch('/api/admin/email-templates', {
     headers: { 'x-admin-token': token }
@@ -45,6 +58,7 @@ const getEmailTemplates = async (token: string): Promise<Template[]> => {
   return response.json();
 };
 
+// Gets rendered template HTML for preview iframe
 const getEmailPreview = async (id: string, token: string): Promise<EmailPreview> => {
   const response = await fetch(`/api/admin/email/preview/${id}`, {
     headers: { 'x-admin-token': token }
@@ -58,6 +72,7 @@ const getEmailPreview = async (id: string, token: string): Promise<EmailPreview>
   return response.json();
 };
 
+// Sends actual test email via SendGrid
 const sendTestEmail = async (data: { email: string; templateId: string; data?: any }, token: string) => {
   const response = await fetch('/api/admin/send-test-email', {
     method: 'POST',

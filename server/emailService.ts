@@ -1,3 +1,11 @@
+/**
+ * Email System: High-Level Email Service
+ * - Entry point: Called by admin routes, price checkers, auth flows
+ * - Output: Orchestrates template rendering + SendGrid sending + database logging
+ * - Dependencies: SendGrid service, email templates, database, affiliate link utils
+ * - Future: Add email preferences, unsubscribe handling, delivery webhooks
+ */
+
 import { sendEmail as sendGridEmail } from './email/sendgridService';
 import { addAffiliateTag } from './utils/affiliateLinks';
 import { db } from './db';
@@ -12,7 +20,11 @@ const __dirname = dirname(__filename);
 // Default affiliate tag
 const AFFILIATE_TAG = process.env.AMAZON_AFFILIATE_TAG || 'bytsave-20';
 
-// Create email content for price drop alert
+/**
+ * Creates price drop alert email content
+ * Builds HTML email with product details, pricing, affiliate links
+ * Used when automated price checker detects a target price hit
+ */
 function createPriceDropEmail(
   to: string,
   product: Product,
@@ -83,20 +95,27 @@ function createPriceDropEmail(
   };
 }
 
-// Send price drop alert email
+/**
+ * Sends price drop alert to user
+ * Flow: Create email content → Send via SendGrid → Log to database
+ * Called by automated price checker when target price is hit
+ */
 async function sendPriceDropAlert(
   to: string,
   product: Product,
   trackedProduct: TrackedProduct
 ): Promise<boolean> {
   try {
+    // Step 1: Generate email content with affiliate links
     const emailData = createPriceDropEmail(to, product, trackedProduct);
+    
+    // Step 2: Send via SendGrid
     const result = await sendGridEmail(emailData.to, emailData.subject, emailData.html);
 
     if (result.success) {
       console.log(`Price drop alert sent to ${to} via SendGrid - Message ID: ${result.messageId}`);
 
-      // Log the email to database
+      // Step 3: Log successful send to database for admin visibility
       try {
         console.log(`📝 Attempting to log price drop email to database for ${to}`);
         const logResult = await db.insert(emailLogs).values({
@@ -129,22 +148,27 @@ async function sendPriceDropAlert(
   }
 }
 
-// Generic email sending function
+/**
+ * Generic email sending interface
+ * Used by admin test emails, auth emails, and other one-off sends
+ * Provides consistent logging and error handling
+ */
 interface EmailOptions {
   to: string;
   subject: string;
   html: string;
-  templateId?: string;
+  templateId?: string; // Optional template tracking for analytics
 }
 
 async function sendEmail(options: EmailOptions): Promise<any> {
   try {
+    // Send via SendGrid service
     const result = await sendGridEmail(options.to, options.subject, options.html);
 
     if (result.success) {
       console.log(`Email sent to ${options.to} via SendGrid - Message ID: ${result.messageId}`);
 
-      // Log the email to database
+      // Log all emails to database for admin monitoring
       try {
         console.log(`📝 Attempting to log generic email to database for ${options.to}`);
         const logResult = await db.insert(emailLogs).values({
@@ -179,14 +203,21 @@ async function sendEmail(options: EmailOptions): Promise<any> {
 // Re-export the SendGrid sendEmail function for password resets and other generic emails
 export { sendEmail as sendGridEmail } from './email/sendgridService';
 
-// Send password reset email using template system
+/**
+ * Sends password reset email using template system
+ * Flow: Import templates → Render with data → Send via SendGrid → Log
+ * Called by auth routes when user requests password reset
+ */
 async function sendPasswordResetEmail(
   to: string,
   firstName: string | null,
   resetUrl: string
 ): Promise<boolean> {
   try {
+    // Dynamic import to avoid circular dependencies
     const { renderTemplate } = await import('./email/templates');
+    
+    // Render password-reset template with user data
     const emailContent = renderTemplate('password-reset', {
       firstName,
       resetUrl,

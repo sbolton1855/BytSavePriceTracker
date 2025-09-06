@@ -1,3 +1,11 @@
+/**
+ * Email System: Template Engine
+ * - Entry point: Called by admin routes for previews, emailService for actual sends
+ * - Output: Renders HTML email templates with dynamic data
+ * - Dependencies: Affiliate link utils for Amazon integration
+ * - Future: Add template versioning, A/B testing, dynamic branding based on BASE_URL
+ */
+
 import { fileURLToPath } from 'url';
 import { dirname } from 'path';
 import { buildAffiliateLink } from '../utils/affiliateLinks';
@@ -5,6 +13,7 @@ import { buildAffiliateLink } from '../utils/affiliateLinks';
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
 
+// Legal disclaimer required for Amazon affiliate program
 const AFFILIATE_DISCLOSURE = "As an Amazon Associate, BytSave earns from qualifying purchases.";
 
 export const EMAIL_TEMPLATES = {
@@ -166,6 +175,10 @@ export const EMAIL_TEMPLATES = {
   }
 };
 
+/**
+ * Lists available email templates for admin UI
+ * Used by admin-email-test.tsx to populate template dropdown
+ */
 export function listTemplates() {
   return Object.values(EMAIL_TEMPLATES).map(template => ({
     id: template.id,
@@ -174,14 +187,24 @@ export function listTemplates() {
   }));
 }
 
+/**
+ * Renders email template with dynamic data
+ * Merges preview data with actual data, processes template variables
+ * Returns null if template not found (handled by callers)
+ */
 export function renderTemplate(id: string, data?: any) {
   const template = EMAIL_TEMPLATES[id as keyof typeof EMAIL_TEMPLATES];
   if (!template) {
     return null;
   }
 
+  // Merge preview data (for consistent styling) with actual user data
   const templateData = { ...template.previewData, ...data };
+  
+  // Simple template variable replacement for subject line ({{variable}})
   const subject = template.subject.replace(/\{\{(\w+)\}\}/g, (match, key) => templateData[key] || match);
+  
+  // Generate HTML using template function
   const html = template.html(templateData);
 
   return { subject, html };

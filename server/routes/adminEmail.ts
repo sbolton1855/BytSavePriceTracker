@@ -1,3 +1,11 @@
+/**
+ * Email System: Admin Email Management Routes
+ * - Entry point: Admin UI requests from client/src/pages/admin-email-test.tsx
+ * - Output: Template previews, test email sends, email logs, debug info
+ * - Dependencies: Admin auth middleware, email templates, email service, database
+ * - Future: Add bulk email capabilities, template editing, send scheduling
+ */
+
 import express from 'express';
 import { requireAdmin } from '../middleware/requireAdmin';
 import { listTemplates, renderTemplate } from '../email/templates';
@@ -5,13 +13,20 @@ import { sendEmail } from '../emailService';
 
 const router = express.Router();
 
-// GET /api/admin/email-templates
+/**
+ * GET /api/admin/email-templates
+ * Returns list of available email templates for admin UI dropdown
+ */
 router.get('/email-templates', requireAdmin, (req, res) => {
   console.log('📧 Admin email templates requested');
   res.json(listTemplates());
 });
 
-// GET /api/admin/email/preview/:id
+/**
+ * GET /api/admin/email/preview/:id
+ * Renders template with preview data for admin UI preview pane
+ * Used by admin-email-test.tsx when "Preview" button clicked
+ */
 router.get('/email/preview/:id', requireAdmin, (req, res) => {
   const { id } = req.params;
   console.log('👁️ Admin email preview requested for:', id);
@@ -24,30 +39,37 @@ router.get('/email/preview/:id', requireAdmin, (req, res) => {
   res.json(result);
 });
 
-// POST /api/admin/send-test-email
+/**
+ * POST /api/admin/send-test-email
+ * Main route for admin email testing
+ * Flow: Validate → Render template → Add test styling → Send → Log → Respond
+ * Called by admin-email-test.tsx form submission
+ */
 router.post('/send-test-email', requireAdmin, async (req, res) => {
   try {
     const { email, templateId, data } = req.body;
     console.log('📤 Admin test email send requested:', { email, templateId });
 
+    // Validate required fields
     if (!email || !templateId) {
       return res.status(400).json({
         error: 'Missing required fields: email, templateId'
       });
     }
 
+    // Render template with provided data (or preview data if none)
     const rendered = renderTemplate(templateId, data);
     if (!rendered) {
       return res.status(404).json({ error: 'Template not found' });
     }
 
-    // Add [TEST] prefix to subject for admin test emails
+    // Mark as test email in subject line for clarity
     rendered.subject = `[TEST] ${rendered.subject}`;
 
     let emailSent = false;
     let messageId = null;
     
-    // Add TEST banner to email HTML for admin test emails
+    // Add visual test banner to distinguish from real emails
     const testBanner = `
       <div style="background-color: #ff6b35; color: white; padding: 10px; text-align: center; font-weight: bold; margin-bottom: 20px; border-radius: 4px;">
         🧪 TEST EMAIL - SENT FROM ADMIN EMAIL CENTER 🧪
@@ -77,12 +99,18 @@ router.post('/send-test-email', requireAdmin, async (req, res) => {
       const { db } = await import('../db');
       const { emailLogs } = await import('../../shared/schema');
       const emailLog = await db.insert(emailLogs).values({
-        recipientEmail: email,
+        toEmail: email,
+        fromEmail: 'alerts@bytsave.com',
         subject: rendered.subject,
-        previewHtml: htmlWithTestBanner.substring(0, 500),
-        status: emailSent ? 'sent' : 'failed',
+        body: htmlWithTestBanner,
+        templateId: templateId,
+        status: emailSent ? 'sent' : 'stubbed',
         sentAt: new Date(),
-        updatedAt: new Date()
+        metadata: JSON.stringify({
+          templateData: data || {},
+          adminTest: true,
+          emailService: emailSent ? 'sendgrid' : 'stub'
+        })
       }).returning();
 
       console.log(`📋 Email logged to database:`, emailLog[0]);
@@ -166,9 +194,8 @@ router.post('/logs/test', requireAdmin, async (req, res) => {
       recipientEmail: 'test@example.com',
       subject: '[MANUAL TEST] Email Log Test',
       previewHtml: '<p>This is a manual test of email logging functionality</p>',
-      status: 'sent',
       sentAt: new Date(),
-      updatedAt: new Date()
+      createdAt: new Date()
     };
 
     const logResult = await db.insert(emailLogs).values(testLogData);
