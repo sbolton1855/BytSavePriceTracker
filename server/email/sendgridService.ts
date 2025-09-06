@@ -104,42 +104,75 @@ export async function sendEmail(
       html,
     };
 
-    console.log(`📤 Sending email via SendGrid to: ${to}`);
-    console.log(`📋 Subject: ${subject}`);
+    console.log('[EmailSend] start', { to: to, subject });
+    console.log('[EmailSend] calling SendGrid');
 
     // Step 4: Send email via SendGrid
-    const response = await sgMail.send(msg);
-    const [resp] = response;
+    let sendOk = false;
+    let response: any;
+    let resp: any;
     
-    console.log('[SendGrid] status:', resp?.statusCode);
-
-    // Best-effort: mark the newest matching log as 'sent'
     try {
-      const result = await db.query(
-        `
-        UPDATE email_logs
-           SET status = 'sent',
-               updated_at = NOW()
-         WHERE id = (
-           SELECT id FROM email_logs
-            WHERE recipient_email = $1 AND subject = $2
-            ORDER BY id DESC
-            LIMIT 1
-         );
-        `,
-        [to, subject]
-      );
-      console.log('[EmailLog] update->sent rowCount:', result.rowCount);
-    } catch (e) {
-      console.error('[EmailLog] update->sent error (non-blocking):', e);
+      response = await sgMail.send(msg);
+      [resp] = response;
+      sendOk = true;
+      
+      console.log('[EmailSend] SendGrid status:', resp?.statusCode, 'x-message-id:', resp?.headers?.['x-message-id'] || resp?.headers?.['X-Message-Id']);
+    } catch (err) {
+      console.error('[EmailSend] SendGrid error:', err);
+      sendOk = false;
+      
+      // Best-effort: mark the newest matching log as 'failed' for SendGrid errors
+      try {
+        const result = await db.query(
+          `
+          UPDATE email_logs
+             SET status = 'failed',
+                 updated_at = NOW()
+           WHERE id = (
+             SELECT id FROM email_logs
+              WHERE recipient_email = $1 AND subject = $2
+              ORDER BY id DESC
+              LIMIT 1
+           );
+          `,
+          [to, subject]
+        );
+        console.log('[EmailLog] update->failed rowCount:', result.rowCount);
+      } catch (e) {
+        // Do not throw on DB update failure
+      }
+    }
+
+    // Best-effort: mark the newest matching log as 'sent' ONLY if SendGrid succeeded
+    if (sendOk === true) {
+      try {
+        const result = await db.query(
+          `
+          UPDATE email_logs
+             SET status = 'sent',
+                 updated_at = NOW()
+           WHERE id = (
+             SELECT id FROM email_logs
+              WHERE recipient_email = $1 AND subject = $2
+              ORDER BY id DESC
+              LIMIT 1
+           );
+          `,
+          [to, subject]
+        );
+        console.log('[EmailLog] update->sent rowCount:', result.rowCount);
+      } catch (e) {
+        // Do not throw on DB update failure
+      }
     }
     
-    // Step 5: Extract message ID from SendGrid response
+    // Step 5: Extract message ID from SendGrid response (only if send was successful)
     // Important: SendGrid returns message ID in response body, not headers
     // Response structure: [{ statusCode, body, headers }, ...]
     let messageId = 'unknown';
     
-    if (response && response[0]) {
+    if (sendOk && response && response[0]) {
       // Try to get message ID from response headers first
       const messageIdHeader = response[0].headers?.['x-message-id'];
       if (messageIdHeader) {
@@ -148,53 +181,36 @@ export async function sendEmail(
         // Fallback: generate a unique ID if SendGrid doesn't provide one
         messageId = `sg_${Date.now()}_${Math.random().toString(36).substring(7)}`;
       }
-    }
-
-    console.log(`✅ Email sent successfully via SendGrid. Message ID: ${messageId}`);
-
-    // Step 6: Update database log with SendGrid message ID
-    if (logId) {
-      await db.update(emailLogs)
-        .set({
-          sgMessageId: messageId,
-          status: 'sent', // Update to "sent" since SendGrid accepted it
-          updatedAt: new Date()
-        })
-        .where(emailLogs.id.eq(logId));
       
-      console.log(`📋 Updated email log ${logId} with SendGrid message ID: ${messageId}`);
-    }
+      console.log(`✅ Email sent successfully via SendGrid. Message ID: ${messageId}`);
 
-    return { success: true, messageId, logId };
+      // Step 6: Update database log with SendGrid message ID
+      if (logId) {
+        try {
+          await db.update(emailLogs)
+            .set({
+              sgMessageId: messageId,
+              updatedAt: new Date()
+            })
+            .where(emailLogs.id.eq(logId));
+          
+          console.log(`📋 Updated email log ${logId} with SendGrid message ID: ${messageId}`);
+        } catch (dbError) {
+          console.error('❌ Failed to update email log with message ID:', dbError);
+        }
+      }
+
+      return { success: true, messageId, logId };
+    } else {
+      // SendGrid failed
+      return { success: false, error: 'SendGrid send failed', logId };
+    }
 
   } catch (error: any) {
-    console.error('❌ Failed to send email via SendGrid:', error);
+    console.error('❌ Database or other error in sendEmail:', error);
 
-    // Log the error but keep the database entry for debugging
-    let errorMessage = 'Unknown SendGrid error';
-    if (error.response?.body?.errors) {
-      errorMessage = error.response.body.errors.map((e: any) => e.message).join(', ');
-    } else if (error.message) {
-      errorMessage = error.message;
-    }
-
-    // Update database log with error status if we have a log ID
-    if (logId) {
-      try {
-        await db.update(emailLogs)
-          .set({
-            status: 'failed',
-            updatedAt: new Date()
-          })
-          .where(emailLogs.id.eq(logId));
-        
-        console.log(`📋 Updated email log ${logId} with failed status`);
-      } catch (dbError) {
-        console.error('❌ Failed to update email log with error status:', dbError);
-      }
-    }
-
-    return { success: false, error: errorMessage, logId };
+    // This catch handles non-SendGrid errors (like database errors)
+    return { success: false, error: error.message || 'Unknown error', logId };
   }
 }
 
