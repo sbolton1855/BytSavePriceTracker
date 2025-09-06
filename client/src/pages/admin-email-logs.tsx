@@ -48,13 +48,9 @@ interface EmailLog {
 }
 
 interface EmailLogsResponse {
-  logs: EmailLog[];
-  pagination: {
-    page: number;
-    limit: number;
-    total: number;
-    totalPages: number;
-  };
+  source: string;
+  rowsCount: number;
+  rows: EmailLog[];
 }
 
 /**
@@ -82,13 +78,9 @@ export default function AdminEmailLogs() {
       // Don't fetch if SendGrid is selected (placeholder for now)
       if (dataSource === 'sendgrid') {
         return {
-          logs: [],
-          pagination: {
-            page: 1,
-            limit: 200,
-            total: 0,
-            totalPages: 1
-          }
+          source: 'sendgrid',
+          rowsCount: 0,
+          rows: []
         };
       }
 
@@ -140,11 +132,11 @@ export default function AdminEmailLogs() {
    * Export email logs to CSV for external analysis
    */
   const exportLogs = () => {
-    if (!emailLogs?.logs) return;
+    if (!emailLogs?.rows) return;
 
     const csvContent = [
       ['ID', 'Recipient', 'Subject', 'Status', 'Product ID', 'SendGrid ID', 'Sent At', 'Updated At'],
-      ...emailLogs.logs.map(log => [
+      ...emailLogs.rows.map(log => [
         log.id.toString(),
         log.recipientEmail,
         log.subject,
@@ -267,7 +259,7 @@ export default function AdminEmailLogs() {
                 <Button onClick={clearFilters} variant="outline">
                   Clear Filters
                 </Button>
-                <Button onClick={exportLogs} variant="outline" disabled={!emailLogs?.logs.length}>
+                <Button onClick={exportLogs} variant="outline" disabled={!emailLogs?.rows.length}>
                   <Download className="h-4 w-4 mr-2" />
                   Export CSV
                 </Button>
@@ -293,7 +285,7 @@ export default function AdminEmailLogs() {
             </CardDescription>
             <div className="flex items-center gap-4 text-sm text-gray-600 mt-2">
               <span><strong>Data source:</strong> {dataSource.toUpperCase()}</span>
-              <span><strong>Rows shown:</strong> {emailLogs?.logs.length || 0}</span>
+              <span><strong>Rows shown:</strong> {emailLogs?.rows.length || 0}</span>
             </div>
           </CardHeader>
           <CardContent className="p-0">
@@ -308,7 +300,7 @@ export default function AdminEmailLogs() {
                 <Loader2 className="h-8 w-8 animate-spin mx-auto mb-4" />
                 Loading email logs...
               </div>
-            ) : emailLogs?.logs.length === 0 ? (
+            ) : emailLogs?.rows.length === 0 ? (
               <div className="p-8 text-center text-gray-500">
                 <Mail className="h-12 w-12 mx-auto mb-4 opacity-50" />
                 <p className="text-lg font-medium mb-2">No email logs found</p>
@@ -329,7 +321,7 @@ export default function AdminEmailLogs() {
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {emailLogs?.logs.map((log) => (
+                  {emailLogs?.rows.map((log) => (
                     <TableRow key={log.id}>
 
                       {/* Email Log ID */}
@@ -430,39 +422,7 @@ export default function AdminEmailLogs() {
           </CardContent>
         </Card>
 
-        {/* Pagination Controls */}
-        {emailLogs && emailLogs.pagination.totalPages > 1 && (
-          <div className="flex items-center justify-between">
-            <div className="text-sm text-gray-600">
-              Showing {((emailLogs.pagination.page - 1) * emailLogs.pagination.limit) + 1} to{' '}
-              {Math.min(emailLogs.pagination.page * emailLogs.pagination.limit, emailLogs.pagination.total)} of{' '}
-              {emailLogs.pagination.total} email logs
-            </div>
-            <div className="flex items-center gap-2">
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() => setCurrentPage(prev => Math.max(1, prev - 1))}
-                disabled={currentPage === 1}
-              >
-                <ChevronLeft className="h-4 w-4" />
-                Previous
-              </Button>
-              <span className="px-3 py-1 text-sm">
-                Page {currentPage} of {emailLogs.pagination.totalPages}
-              </span>
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() => setCurrentPage(prev => Math.min(emailLogs.pagination.totalPages, prev + 1))}
-                disabled={currentPage === emailLogs.pagination.totalPages}
-              >
-                Next
-                <ChevronRight className="h-4 w-4" />
-              </Button>
-            </div>
-          </div>
-        )}
+        
       </div>
     </AdminLayout>
   );
