@@ -69,6 +69,7 @@ export default function AdminEmailLogs() {
   const [emailFilter, setEmailFilter] = useState('');
   const [searchEmail, setSearchEmail] = useState('');
   const [statusFilter, setStatusFilter] = useState('all');
+  const [dataSource, setDataSource] = useState<'db' | 'sendgrid'>('db');
 
   /**
    * Fetch email logs from backend API
@@ -77,8 +78,21 @@ export default function AdminEmailLogs() {
    * Automatically refetches when filters change
    */
   const { data: emailLogs, isLoading, refetch } = useQuery<EmailLogsResponse>({
-    queryKey: ['admin-email-logs', currentPage, emailFilter, statusFilter],
+    queryKey: ['admin-email-logs', currentPage, emailFilter, statusFilter, dataSource],
     queryFn: async () => {
+      // Don't fetch if SendGrid is selected (placeholder for now)
+      if (dataSource === 'sendgrid') {
+        return {
+          logs: [],
+          pagination: {
+            page: 1,
+            limit: 200,
+            total: 0,
+            totalPages: 1
+          }
+        };
+      }
+
       const token = AdminAuth.getToken();
       if (!token) {
         throw new Error("Unauthorized");
@@ -87,12 +101,12 @@ export default function AdminEmailLogs() {
       const params = new URLSearchParams({
         token: token,
         page: currentPage.toString(),
-        limit: '20',
+        limit: '200', // Increased limit to see more data
         ...(emailFilter && { email: emailFilter }),
         ...(statusFilter && statusFilter !== 'all' && { status: statusFilter })
       });
 
-      const response = await fetch(`/api/admin/logs?${params}`);
+      const response = await fetch(`/api/admin/email/logs?${params}`);
       if (!response.ok) {
         if (response.status === 401) {
           AdminAuth.clearToken();
@@ -197,6 +211,20 @@ export default function AdminEmailLogs() {
           <CardContent>
             <div className="flex flex-wrap gap-4 items-end">
               
+              {/* Data Source Selector */}
+              <div className="min-w-[150px]">
+                <label className="text-sm font-medium mb-2 block">Data Source</label>
+                <Select value={dataSource} onValueChange={(value: 'db' | 'sendgrid') => setDataSource(value)}>
+                  <SelectTrigger>
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="db">DB</SelectItem>
+                    <SelectItem value="sendgrid">SendGrid</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+
               {/* Email Search */}
               <div className="flex-1 min-w-[200px]">
                 <label className="text-sm font-medium mb-2 block">Search by Email</label>
@@ -206,8 +234,9 @@ export default function AdminEmailLogs() {
                     value={searchEmail}
                     onChange={(e) => setSearchEmail(e.target.value)}
                     onKeyPress={(e) => e.key === 'Enter' && handleSearch()}
+                    disabled={dataSource === 'sendgrid'}
                   />
-                  <Button onClick={handleSearch} variant="outline">
+                  <Button onClick={handleSearch} variant="outline" disabled={dataSource === 'sendgrid'}>
                     <Search className="h-4 w-4" />
                   </Button>
                 </div>
@@ -216,7 +245,7 @@ export default function AdminEmailLogs() {
               {/* Status Filter */}
               <div className="min-w-[150px]">
                 <label className="text-sm font-medium mb-2 block">Filter by Status</label>
-                <Select value={statusFilter} onValueChange={setStatusFilter}>
+                <Select value={statusFilter} onValueChange={setStatusFilter} disabled={dataSource === 'sendgrid'}>
                   <SelectTrigger>
                     <SelectValue placeholder="All statuses" />
                   </SelectTrigger>
@@ -263,9 +292,19 @@ export default function AdminEmailLogs() {
             <CardDescription>
               Real-time email delivery status from SendGrid webhooks
             </CardDescription>
+            <div className="flex items-center gap-4 text-sm text-gray-600 mt-2">
+              <span><strong>Data source:</strong> {dataSource.toUpperCase()}</span>
+              <span><strong>Rows shown:</strong> {emailLogs?.logs.length || 0}</span>
+            </div>
           </CardHeader>
           <CardContent className="p-0">
-            {isLoading ? (
+            {dataSource === 'sendgrid' ? (
+              <div className="p-8 text-center text-blue-600 bg-blue-50 border border-blue-200 rounded m-4">
+                <Mail className="h-12 w-12 mx-auto mb-4 opacity-75" />
+                <p className="text-lg font-medium mb-2">SendGrid view coming soon</p>
+                <p className="text-sm">This will show email logs directly from SendGrid's API</p>
+              </div>
+            ) : isLoading ? (
               <div className="p-8 text-center">
                 <Loader2 className="h-8 w-8 animate-spin mx-auto mb-4" />
                 Loading email logs...
