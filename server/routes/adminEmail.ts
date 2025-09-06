@@ -7,9 +7,9 @@
  */
 
 import express from 'express';
-import { requireAdmin } from '../middleware/requireAdmin';
-import { listTemplates, renderTemplate } from '../email/templates';
-import { sendEmail } from '../emailService';
+import { sendEmail } from '../email/sendgridService';
+import requireAdmin from '../middleware/requireAdmin';
+import { db } from '../db';
 
 const router = express.Router();
 
@@ -68,7 +68,7 @@ router.post('/send-test-email', requireAdmin, async (req, res) => {
 
     let emailSent = false;
     let messageId = null;
-    
+
     // Add visual test banner to distinguish from real emails
     const testBanner = `
       <div style="background-color: #ff6b35; color: white; padding: 10px; text-align: center; font-weight: bold; margin-bottom: 20px; border-radius: 4px;">
@@ -85,7 +85,7 @@ router.post('/send-test-email', requireAdmin, async (req, res) => {
         subject: rendered.subject,
         html: htmlWithTestBanner
       });
-      
+
       emailSent = true;
       messageId = result.messageId;
       console.log(`✅ Test email sent to ${email} using template ${templateId} - Message ID: ${messageId}`);
@@ -127,7 +127,7 @@ router.post('/send-test-email', requireAdmin, async (req, res) => {
 
   } catch (error) {
     console.error('❌ Send test email error:', error);
-    
+
     // More detailed error logging
     if (error instanceof Error) {
       console.error('❌ Error details:', {
@@ -137,7 +137,7 @@ router.post('/send-test-email', requireAdmin, async (req, res) => {
         email
       });
     }
-    
+
     res.status(500).json({
       error: 'Failed to send test email',
       details: error instanceof Error ? error.message : 'Unknown error',

@@ -1,12 +1,16 @@
 /**
  * Email System: SendGrid Service Layer
- * - Entry point: Called by server/emailService.ts
- * - Output: Sends emails via SendGrid API, returns success/failure with messageId
- * - Dependencies: SENDGRID_API_KEY (from Replit Secrets), EMAIL_FROM (optional, defaults to alerts@bytsave.com)
- * - Future: Add webhook handling for delivery status, bounce tracking, branded domain setup
+ * - Entry point: Admin email test forms, price drop notifications
+ * - Output: Sends emails via SendGrid API, logs to database, returns success/failure
+ * - Dependencies: SENDGRID_API_KEY (required), FROM_EMAIL (required), BASE_URL (optional)
+ * - Future: Add webhook status tracking, branded links, delivery confirmation
+ * - Logging: Best-effort only - never blocks email sending
  */
 
 import sgMail from '@sendgrid/mail';
+import { createEmailTemplate } from './templates';
+import { ensureEmailLogsTable } from '../db/ensureEmailLogs';
+import { db } from '../db';
 
 // Validate and initialize SendGrid with API key from Replit Secrets
 const apiKey = process.env.SENDGRID_API_KEY;
@@ -30,7 +34,7 @@ export interface SendGridEmailOptions {
  * Core SendGrid email sending function
  * This is the lowest level email sender - all emails flow through here
  */
-export async function sendEmail(to: string, subject: string, html: string): Promise<{ success: boolean; messageId?: string; error?: string }> {
+export async function sendEmail(to: string, subject: string, html: string): Promise<{ success: boolean; messageId?: string; error?: string; statusCode?: number }> {
   try {
     // Guard: Ensure SendGrid API key is configured in Replit Secrets
     if (!process.env.SENDGRID_API_KEY) {
@@ -53,18 +57,32 @@ export async function sendEmail(to: string, subject: string, html: string): Prom
       html,
     };
 
-    console.log(`Sending email via SendGrid to: ${to}`);
-    console.log(`Subject: ${subject}`);
+    console.log(`[SendGrid] sending`, { to, subject });
 
-    // Send via SendGrid API
     const response = await sgMail.send(msg);
-    
-    // Extract message ID for tracking (used for webhooks later)
-    const messageId = response[0]?.headers?.['x-message-id'] || 'unknown';
+    console.log('[SendGrid] Email sent successfully:', response[0].statusCode);
 
-    console.log(`Email sent successfully via SendGrid. Message ID: ${messageId}`);
+    // Best-effort database logging - never block email success
+    try {
+      await ensureEmailLogsTable();
 
-    return { success: true, messageId };
+      const messageId = response[0].headers?.['x-message-id'] || `no-header-${Date.now()}`;
+
+      await db.execute(`
+        INSERT INTO email_logs (recipient_email, subject, status, sg_message_id, preview_html)
+        VALUES ($1, $2, $3, $4, $5)
+      `, [to, subject, 'sent', messageId, html || null]);
+
+      console.log('[SendGrid] Email logged successfully');
+    } catch (logError) {
+      console.error('[SendGrid] Failed to log email (non-blocking):', logError);
+    }
+
+    return {
+      success: true,
+      messageId: response[0].headers?.['x-message-id'] || 'no-message-id',
+      statusCode: response[0].statusCode
+    };
   } catch (error: any) {
     console.error('Failed to send email via SendGrid:', error);
 
@@ -76,6 +94,18 @@ export async function sendEmail(to: string, subject: string, html: string): Prom
       errorMessage = error.response.body.errors.map((e: any) => e.message).join(', ');
     } else if (error.message) {
       errorMessage = error.message;
+    }
+
+    // Attempt to log the failure to the database as well
+    try {
+      await ensureEmailLogsTable();
+      await db.execute(`
+        INSERT INTO email_logs (recipient_email, subject, status, error_message)
+        VALUES ($1, $2, $3, $4)
+      `, [to, subject, 'failed', errorMessage]);
+      console.log('[SendGrid] Email failure logged successfully');
+    } catch (logError) {
+      console.error('[SendGrid] Failed to log email failure (non-blocking):', logError);
     }
 
     return { success: false, error: errorMessage };
