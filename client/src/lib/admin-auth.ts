@@ -7,8 +7,8 @@ export class AdminAuth {
 
   private static async validateToken(token: string): Promise<boolean> {
     try {
-      // Test the token with a protected admin endpoint
-      const response = await fetch('/api/admin/logs', {
+      // Test the token with a simple debug endpoint
+      const response = await fetch(`/api/debug?token=${token}`, {
         method: 'GET',
         headers: {
           'Authorization': `Bearer ${token}`,
@@ -24,12 +24,15 @@ export class AdminAuth {
   }
 
   static async login(token: string): Promise<boolean> {
+    // Store token first, then validate
+    localStorage.setItem(ADMIN_TOKEN_KEY, token);
     const isValid = await this.validateToken(token);
-    if (isValid) {
-      localStorage.setItem(ADMIN_TOKEN_KEY, token);
-      return true;
+    if (!isValid) {
+      // Remove token if validation fails
+      localStorage.removeItem(ADMIN_TOKEN_KEY);
+      return false;
     }
-    return false;
+    return true;
   }
 
   static logout(): void {

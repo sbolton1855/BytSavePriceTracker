@@ -2178,7 +2178,7 @@ Keep search terms short (1-3 words) and product-focused.
         messages: [
           {
             role: "system",
-            content: "You are an expert at generating Amazon search terms. Always respond with only a valid JSON array of search terms."
+            content: "You are an expert Amazon product search term generator. Always respond with only a valid JSON array of search terms."
           },
           {
             role: "user",
