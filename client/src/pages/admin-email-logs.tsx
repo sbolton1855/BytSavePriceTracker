@@ -125,10 +125,14 @@ export default function AdminEmailLogs() {
       
       // Debug logging to check API response
       console.log('[DEBUG] API Response:', data);
+      console.log('[DEBUG] API Response rows:', data.rows);
       
-      // Convert 'rows' to 'logs' for component compatibility
+      // Handle both 'rows' and 'logs' keys for backwards compatibility
+      const logs = data.rows || data.logs || [];
+      console.log('[DEBUG] Final logs array:', logs);
+      
       return {
-        logs: data.rows || [],
+        logs: logs,
         pagination: data.pagination || {
           page: 1,
           limit: 20,
@@ -290,19 +294,35 @@ export default function AdminEmailLogs() {
                   Clear Filters
                 </Button>
                 <Button 
-                  onClick={() => {
-                    fetch('/api/admin/logs/debug', {
-                      headers: { 'Authorization': `Bearer ${AdminAuth.getToken()}` }
-                    })
-                    .then(res => res.json())
-                    .then(data => {
-                      console.log('[DEBUG] Manual API test:', data);
-                      alert(`Found ${data.totalCount} logs. Check console for details.`);
-                    })
-                    .catch(err => {
-                      console.error('[DEBUG] API test failed:', err);
-                      alert('Debug API test failed. Check console.');
-                    });
+                  onClick={async () => {
+                    try {
+                      console.log('[DEBUG] Testing API with token:', AdminAuth.getToken());
+                      
+                      const response = await fetch('/api/admin/logs/debug', {
+                        headers: { 
+                          'Authorization': `Bearer ${AdminAuth.getToken()}`,
+                          'Content-Type': 'application/json'
+                        }
+                      });
+                      
+                      console.log('[DEBUG] Debug API response status:', response.status);
+                      console.log('[DEBUG] Debug API response headers:', [...response.headers.entries()]);
+                      
+                      const text = await response.text();
+                      console.log('[DEBUG] Debug API raw response:', text);
+                      
+                      try {
+                        const data = JSON.parse(text);
+                        console.log('[DEBUG] Debug API parsed data:', data);
+                        alert(`Debug Results:\nStatus: ${response.status}\nLogs found: ${data.totalCount || 'unknown'}\nSuccess: ${data.success || 'unknown'}\n\nCheck console for full details.`);
+                      } catch (parseErr) {
+                        console.error('[DEBUG] Failed to parse JSON:', parseErr);
+                        alert(`Debug API returned non-JSON response:\n${text.substring(0, 200)}...\n\nCheck console for full response.`);
+                      }
+                    } catch (err) {
+                      console.error('[DEBUG] Debug API request failed:', err);
+                      alert(`Debug API failed:\n${err.message}\n\nCheck console for details.`);
+                    }
                   }}
                   variant="outline"
                 >
@@ -349,11 +369,16 @@ export default function AdminEmailLogs() {
                 <Loader2 className="h-8 w-8 animate-spin mx-auto mb-4" />
                 Loading email logs...
               </div>
-            ) : emailLogs?.logs.length === 0 ? (
+            ) : !emailLogs?.logs || emailLogs.logs.length === 0 ? (
               <div className="p-8 text-center text-gray-500">
                 <Mail className="h-12 w-12 mx-auto mb-4 opacity-50" />
                 <p className="text-lg font-medium mb-2">No email logs found</p>
                 <p>Email logs will appear here after emails are sent</p>
+                {emailLogs && (
+                  <p className="text-sm mt-2 text-blue-600">
+                    API returned: {JSON.stringify(emailLogs)}
+                  </p>
+                )}
               </div>
             ) : (
               <Table>

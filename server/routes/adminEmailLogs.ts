@@ -84,7 +84,7 @@ router.get('/logs', requireAdmin, async (req, res) => {
     const logs = await query;
     
     console.log(`📊 Returning ${logs.length} email logs (page ${page}/${totalPages}, total: ${total})`);
-    console.log('[DEBUG] Email logs rows:', logs);
+    console.log('[DEBUG] Email logs from DB:', logs);
     
     // Return structured response with 'rows' key for frontend compatibility
     res.json({
