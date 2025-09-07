@@ -3,15 +3,20 @@ const ADMIN_TOKEN_KEY = 'admin_token';
 export class AdminAuth {
   private static async validateToken(token: string): Promise<boolean> {
     try {
+      console.log('[AdminAuth] Validating token:', token ? `${token.substring(0, 8)}...` : 'EMPTY');
       // Use a simple admin endpoint to validate the token
       const response = await fetch('/api/admin/email-templates', {
         method: 'GET',
         headers: {
-          'Authorization': `Bearer ${token}`,
+          'Authorization': `Bearer ${token.trim()}`,
           'Content-Type': 'application/json',
         },
       });
       console.log('[AdminAuth] Token validation response:', response.status);
+      if (!response.ok) {
+        const errorText = await response.text();
+        console.log('[AdminAuth] Validation error:', errorText);
+      }
       return response.ok;
     } catch (error) {
       console.error('[AdminAuth] Token validation failed:', error);
