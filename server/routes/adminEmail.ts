@@ -5,15 +5,6 @@ import { sendEmail } from '../emailService';
 
 const router = express.Router();
 
-// Debug endpoint for testing authentication
-router.get('/debug', async (req, res) => {
-  res.json({
-    success: true,
-    message: 'Admin authentication working',
-    timestamp: new Date().toISOString()
-  });
-});
-
 // GET /api/admin/email-templates
 router.get('/email-templates', requireAdmin, (req, res) => {
   console.log('📧 Admin email templates requested');
@@ -55,7 +46,7 @@ router.post('/send-test-email', requireAdmin, async (req, res) => {
 
     let emailSent = false;
     let messageId = null;
-
+    
     // Add TEST banner to email HTML for admin test emails
     const testBanner = `
       <div style="background-color: #ff6b35; color: white; padding: 10px; text-align: center; font-weight: bold; margin-bottom: 20px; border-radius: 4px;">
@@ -72,7 +63,7 @@ router.post('/send-test-email', requireAdmin, async (req, res) => {
         subject: rendered.subject,
         html: htmlWithTestBanner
       });
-
+      
       emailSent = true;
       messageId = result.messageId;
       console.log(`✅ Test email sent to ${email} using template ${templateId} - Message ID: ${messageId}`);
@@ -108,7 +99,7 @@ router.post('/send-test-email', requireAdmin, async (req, res) => {
 
   } catch (error) {
     console.error('❌ Send test email error:', error);
-
+    
     // More detailed error logging
     if (error instanceof Error) {
       console.error('❌ Error details:', {
@@ -118,7 +109,7 @@ router.post('/send-test-email', requireAdmin, async (req, res) => {
         email
       });
     }
-
+    
     res.status(500).json({
       error: 'Failed to send test email',
       details: error instanceof Error ? error.message : 'Unknown error',
@@ -278,8 +269,8 @@ router.post('/verify-email-links', requireAdmin, async (req, res) => {
     console.log('🔍 Extracted links for verification:', links);
 
     // Check if links point to bytsave.com domain
-    const bytsaveLinks = links.filter(link =>
-      link.includes('bytsave.com') ||
+    const bytsaveLinks = links.filter(link => 
+      link.includes('bytsave.com') || 
       link.includes(req.get('host')) ||
       link.includes('localhost') ||
       link.includes('replit.dev')
@@ -287,18 +278,18 @@ router.post('/verify-email-links', requireAdmin, async (req, res) => {
 
     const verified = bytsaveLinks.length > 0;
 
-    console.log('✅ Link verification result:', {
-      totalLinks: links.length,
+    console.log('✅ Link verification result:', { 
+      totalLinks: links.length, 
       bytsaveLinks: bytsaveLinks.length,
-      verified
+      verified 
     });
 
     res.json({
       verified,
       links: bytsaveLinks,
       allLinks: links,
-      message: verified
-        ? `${bytsaveLinks.length} links verified pointing to your domain`
+      message: verified 
+        ? `${bytsaveLinks.length} links verified pointing to your domain` 
         : 'No links found pointing to your domain'
     });
 
@@ -331,6 +322,55 @@ router.get('/check-logs', requireAdmin, async (req, res) => {
     console.error('Database check error:', error);
     res.status(500).json({
       error: error instanceof Error ? error.message : 'Unknown error'
+    });
+  }
+});
+
+// POST /api/admin/send-test-email - Send a test email
+router.post('/send-test-email', requireAdmin, async (req, res) => {
+  try {
+    const { email, subject } = req.body;
+    
+    if (!email) {
+      return res.status(400).json({ error: 'Email address is required' });
+    }
+
+    console.log('[AdminEmail] Sending test email to:', email);
+
+    const testSubject = subject || 'BytSave Test Email';
+    const testHtml = `
+      <h2>Test Email from BytSave</h2>
+      <p>This is a test email sent from the admin panel.</p>
+      <p>Timestamp: ${new Date().toISOString()}</p>
+      <p>If you received this, your email system is working correctly!</p>
+    `;
+
+    const result = await sendEmail(email, testSubject, testHtml);
+    
+    console.log('[AdminEmail] Test email result:', result);
+
+    if (result.success) {
+      res.json({
+        success: true,
+        message: 'Test email sent successfully',
+        messageId: result.messageId,
+        to: email,
+        subject: testSubject
+      });
+    } else {
+      res.status(500).json({
+        success: false,
+        error: result.error,
+        message: 'Failed to send test email'
+      });
+    }
+
+  } catch (error) {
+    console.error('[AdminEmail] Test email error:', error);
+    res.status(500).json({
+      success: false,
+      error: error instanceof Error ? error.message : 'Unknown error',
+      message: 'Test email failed'
     });
   }
 });

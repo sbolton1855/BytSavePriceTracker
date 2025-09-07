@@ -175,7 +175,7 @@ const categoryFilters = {
 };
 
 // Middleware to check for admin token
-const requireAdmin = (req: Request, res: Response, next: Function) => {
+const requireAdminToken = (req: Request, res: Response, next: Function) => {
   const token = req.query.token as string;
   if (!token || token !== process.env.ADMIN_SECRET) {
     return res.status(401).json({ error: 'Invalid admin token' });
@@ -259,7 +259,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         sentAt: emailLogs.sentAt,
         createdAt: emailLogs.sentAt, // Use sentAt as createdAt
         status: emailLogs.status,
-        type: sql`CASE
+        type: sql`CASE 
           WHEN ${emailLogs.subject} LIKE '[TEST]%' THEN 'test'
           WHEN ${emailLogs.subject} LIKE '%Price Drop%' THEN 'price-drop'
           WHEN ${emailLogs.subject} LIKE '%Password Reset%' THEN 'reset'
@@ -2577,21 +2577,23 @@ Respond with just the analysis text, no JSON needed.
     }
   });
 
-  // Import admin routes
-  // Ensure consistent middleware and path for all admin routes
-  app.use('/api/admin/email-templates', requireAdmin, adminEmailRoutes);
-  app.use('/api/admin/email-logs', requireAdmin, adminEmailLogsRoutes);
-  app.use('/api/admin/logs', requireAdmin, adminEmailLogsRoutes); // Assuming logs route is part of email logs
-  app.use('/api/admin', requireAdmin, adminEmailRoutes); // Catch-all for other admin email routes
-  app.use('/admin/api', adminAuthRoutes); // This route might be intentionally different or needs review
-  app.use('/api/admin/tools', requireAdmin, adminToolsRoutes);
+  // Import routes
+  app.use('/api/admin', adminAuthRoutes);
+
+  // Admin email routes - mount at /api/admin for direct access
+  console.log('🔧 Mounting admin email routes at /api/admin...');
+  app.use('/api/admin', adminEmailRoutes);
+  app.use('/api/admin', adminEmailLogsRoutes);
+  console.log('✅ Admin email routes mounted successfully');
+
+  app.use('/api/admin', adminToolsRoutes);
 
   // Admin affiliate routes
   const adminAffiliateRoutes = await import('./routes/adminAffiliate');
-  app.use('/api/admin/affiliate', requireAdmin, adminAffiliateRoutes.default);
+  app.use('/api/admin/affiliate', adminAffiliateRoutes.default);
 
   // Email testing routes
-  app.use('/api/admin', requireAdmin, emailTestRoutes);
+  app.use('/api/admin', emailTestRoutes);
 
   // Affiliate redirect routes
   const affiliateRoutes = await import('./routes/affiliate');

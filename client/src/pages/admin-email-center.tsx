@@ -6,8 +6,8 @@ import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Table, TableBody, TableCell, TableHeader, TableRow, TableHead } from '@/components/ui/table';
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogTrigger } from '@/components/ui/dialog';
+import { Table, TableBody, TableCell, TableHeader, TableRow } from '@/components/ui/table';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
 import { Badge } from '@/components/ui/badge';
 import { Loader2, Send, Eye, AlertCircle, ChevronLeft, ChevronRight, CheckCircle, XCircle } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
@@ -34,13 +34,6 @@ interface EmailLogsResponse {
   totalPages: number;
 }
 
-interface Template {
-  id: string;
-  name: string;
-  subject: string;
-  previewHtml: string;
-}
-
 export default function AdminEmailCenter() {
   const { toast } = useToast();
 
@@ -62,7 +55,7 @@ export default function AdminEmailCenter() {
   });
 
   // UI states
-  const [isLoading, setIsLoading] = useState<Record<string, boolean>>({});
+  const [isLoading, setIsLoading] = useState(false);
   const [previewHtml, setPreviewHtml] = useState<string>('');
   const [results, setResults] = useState<Record<string, any>>({});
   const [currentPage, setCurrentPage] = useState(1);
@@ -102,36 +95,6 @@ export default function AdminEmailCenter() {
       return response.json();
     },
     enabled: AdminAuth.getToken() !== null,
-  });
-
-  // Query for email templates
-  const { data: templates = [], isLoading: isLoadingTemplates, error: templatesError } = useQuery<Template[]>({
-    queryKey: ['admin-email-templates'],
-    queryFn: async () => {
-      const token = AdminAuth.getToken();
-      if (!token) {
-        throw new Error("Unauthorized - no admin token");
-      }
-
-      console.log('📧 Fetching email templates with token:', token.substring(0, 8) + '...');
-
-      const response = await fetch('/api/admin/email-templates', {
-        method: 'GET',
-        headers: {
-          'Authorization': `Bearer ${token}`,
-          'Content-Type': 'application/json',
-        },
-      });
-      if (!response.ok) {
-        if (response.status === 403) {
-          toast({ title: "Unauthorized", description: "Invalid admin token.", variant: "destructive" });
-          AdminAuth.clearToken();
-          return [];
-        }
-        throw new Error(`Failed to fetch templates: ${response.status}`);
-      }
-      return response.json();
-    },
   });
 
 
@@ -356,39 +319,6 @@ export default function AdminEmailCenter() {
       setCurrentPage(prev => prev + 1);
     }
   };
-
-  // Debug authentication function
-  const debugAuth = async () => {
-    const token = AdminAuth.getToken();
-    console.log('[DEBUG] Testing API with token:', token);
-
-    try {
-      const response = await fetch('/api/admin/email-templates', {
-        headers: {
-          'Authorization': `Bearer ${token}`,
-          'Content-Type': 'application/json',
-        },
-      });
-
-      console.log('[DEBUG] Debug API response status:', response.status);
-      console.log('[DEBUG] Debug API response headers:', Array.from(response.headers.entries()));
-
-      const rawResponse = await response.text();
-      console.log('[DEBUG] Debug API raw response:', rawResponse);
-
-      let data;
-      try {
-        data = JSON.parse(rawResponse);
-        console.log('[DEBUG] Debug API parsed data:', data);
-      } catch (e) {
-        console.log('[DEBUG] Could not parse response as JSON');
-      }
-
-    } catch (error) {
-      console.error('[DEBUG] Debug API error:', error);
-    }
-  };
-
 
   return (
     <AdminLayout
