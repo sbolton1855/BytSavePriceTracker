@@ -48,4 +48,9 @@ export class AdminAuth {
     console.log('[AdminAuth] Retrieved token:', token ? `${token.substring(0, 8)}...` : 'NONE');
     return token;
   }
+
+  static clearToken(): void {
+    localStorage.removeItem(ADMIN_TOKEN_KEY);
+    sessionStorage.removeItem(ADMIN_TOKEN_KEY);
+  }
 }
