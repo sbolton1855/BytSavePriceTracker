@@ -9,13 +9,14 @@ export class AdminAuth {
   private static async validateToken(token: string): Promise<boolean> {
     try {
       // Test the token with a protected admin endpoint
-      const response = await fetch('/api/admin/validate-token', {
-        method: 'POST',
+      const response = await fetch('/api/admin/email-logs', {
+        method: 'GET',
         headers: {
+          'Authorization': `Bearer ${token}`,
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify({ token }),
       });
+      console.log('[AdminAuth] Token validation response:', response.status);
       return response.ok;
     } catch (error) {
       console.error('Token validation failed:', error);

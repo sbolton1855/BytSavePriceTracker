@@ -58,10 +58,19 @@ export async function sendEmail(to: string, subject: string, html: string): Prom
       html,
     };
 
-    console.log(`[SendGrid] sending`, { to, subject });
+    console.log(`[SendGrid] Attempting to send email:`, { 
+      to, 
+      subject, 
+      from: msg.from,
+      hasHtml: !!html,
+      htmlLength: html?.length || 0
+    });
 
     const response = await sgMail.send(msg);
-    console.log('[SendGrid] Email sent successfully:', response[0].statusCode);
+    console.log('[SendGrid] Email sent successfully:', {
+      statusCode: response[0].statusCode,
+      messageId: response[0].headers?.['x-message-id']
+    });
 
     // Best-effort database logging - never block email success
     try {

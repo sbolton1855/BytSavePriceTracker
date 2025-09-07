@@ -326,4 +326,53 @@ router.get('/check-logs', requireAdmin, async (req, res) => {
   }
 });
 
+// POST /api/admin/send-test-email - Send a test email
+router.post('/send-test-email', requireAdmin, async (req, res) => {
+  try {
+    const { email, subject } = req.body;
+    
+    if (!email) {
+      return res.status(400).json({ error: 'Email address is required' });
+    }
+
+    console.log('[AdminEmail] Sending test email to:', email);
+
+    const testSubject = subject || 'BytSave Test Email';
+    const testHtml = `
+      <h2>Test Email from BytSave</h2>
+      <p>This is a test email sent from the admin panel.</p>
+      <p>Timestamp: ${new Date().toISOString()}</p>
+      <p>If you received this, your email system is working correctly!</p>
+    `;
+
+    const result = await sendEmail(email, testSubject, testHtml);
+    
+    console.log('[AdminEmail] Test email result:', result);
+
+    if (result.success) {
+      res.json({
+        success: true,
+        message: 'Test email sent successfully',
+        messageId: result.messageId,
+        to: email,
+        subject: testSubject
+      });
+    } else {
+      res.status(500).json({
+        success: false,
+        error: result.error,
+        message: 'Failed to send test email'
+      });
+    }
+
+  } catch (error) {
+    console.error('[AdminEmail] Test email error:', error);
+    res.status(500).json({
+      success: false,
+      error: error instanceof Error ? error.message : 'Unknown error',
+      message: 'Test email failed'
+    });
+  }
+});
+
 export default router;

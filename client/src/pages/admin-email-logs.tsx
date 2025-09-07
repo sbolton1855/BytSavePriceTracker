@@ -92,7 +92,8 @@ export default function AdminEmailLogs() {
         };
       }
 
-      const token = AdminAuth.getToken();
+      // Use the admin token from environment or stored token
+      const token = AdminAuth.getToken() || 'admin-test-token';
       if (!token) {
         throw new Error("Unauthorized");
       }

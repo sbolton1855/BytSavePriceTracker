@@ -82,20 +82,29 @@ redis.on('error', (err) => {
 
 redis.on('connect', () => {
   console.log('✅ Redis connected successfully');
+  isRedisConnected = true;
 });
 
 redis.on('disconnect', () => {
   console.log('❌ Redis disconnected');
+  isRedisConnected = false;
 });
 
 // Connect to Redis
-redis.connect().catch((err) => {
-  if (process.env.NODE_ENV === 'development') {
-    console.warn('[Redis] Failed to connect (dev mode):', err.message);
-  } else {
-    console.error('Failed to connect to Redis:', err);
-  }
-});
+// Only attempt to connect if in production and REDIS_URL is set
+if (process.env.NODE_ENV === 'production' && process.env.REDIS_URL) {
+  redis.connect().catch((err) => {
+    if (process.env.NODE_ENV === 'development') {
+      console.warn('[Redis] Failed to connect (dev mode):', err.message);
+    } else {
+      console.error('Failed to connect to Redis:', err);
+    }
+    isRedisConnected = false; // Ensure flag is false if connection fails
+  });
+} else {
+  console.log('📝 [Redis] Development mode or no REDIS_URL - Redis is disabled.');
+  isRedisConnected = false; // Ensure flag is false when Redis is disabled
+}
 
 
 // Export singleton instance with safe fallbacks
@@ -107,6 +116,8 @@ export const cache = {
         return;
       } catch (error) {
         console.warn('[CACHE] Redis set failed, using fallback:', error instanceof Error ? error.message : 'Unknown error');
+        // If Redis fails, treat it as if it's not connected for future operations
+        isRedisConnected = false;
       }
     }
     // Fallback to in-memory cache
@@ -120,6 +131,8 @@ export const cache = {
         return value ? JSON.parse(value) : null;
       } catch (error) {
         console.warn('[CACHE] Redis get failed, using fallback:', error instanceof Error ? error.message : 'Unknown error');
+        // If Redis fails, treat it as if it's not connected for future operations
+        isRedisConnected = false;
       }
     }
     // Fallback to in-memory cache
@@ -134,6 +147,8 @@ export const cache = {
         return value ? JSON.parse(value) : null;
       } catch (error) {
         console.warn('[CACHE] Redis getProduct failed, using fallback:', error instanceof Error ? error.message : 'Unknown error');
+        // If Redis fails, treat it as if it's not connected for future operations
+        isRedisConnected = false;
       }
     }
     // Fallback to in-memory cache
@@ -148,6 +163,8 @@ export const cache = {
         return;
       } catch (error) {
         console.warn('[CACHE] Redis setProduct failed, using fallback:', error instanceof Error ? error.message : 'Unknown error');
+        // If Redis fails, treat it as if it's not connected for future operations
+        isRedisConnected = false;
       }
     }
     // Fallback to in-memory cache
@@ -161,6 +178,8 @@ export const cache = {
         return;
       } catch (error) {
         console.warn('[CACHE] Redis delete failed, using fallback:', error instanceof Error ? error.message : 'Unknown error');
+        // If Redis fails, treat it as if it's not connected for future operations
+        isRedisConnected = false;
       }
     }
     // Fallback to in-memory cache
@@ -174,6 +193,8 @@ export const cache = {
         return;
       } catch (error) {
         console.warn('[CACHE] Redis clear failed, using fallback:', error instanceof Error ? error.message : 'Unknown error');
+        // If Redis fails, treat it as if it's not connected for future operations
+        isRedisConnected = false;
       }
     }
     // Fallback to in-memory cache
