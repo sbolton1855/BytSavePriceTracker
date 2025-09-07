@@ -108,13 +108,24 @@ export default function AdminEmailCenter() {
   const { data: templates = [], isLoading: isLoadingTemplates, error: templatesError } = useQuery<Template[]>({
     queryKey: ['admin-email-templates'],
     queryFn: async () => {
-      const token = AdminAuth.getToken() || 'admin-test-token';
-      console.log('[Templates] Using token:', token ? `${token.substring(0, 8)}...` : 'NONE');
+      const token = AdminAuth.getToken();
+      if (!token) {
+        throw new Error("Unauthorized - no admin token");
+      }
 
-      const response = await fetch(`/api/admin/email-templates?token=${token}`);
+      console.log('📧 Fetching email templates with token:', token.substring(0, 8) + '...');
+
+      const response = await fetch('/api/admin/email-templates', {
+        method: 'GET',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json',
+        },
+      });
       if (!response.ok) {
         if (response.status === 403) {
           toast({ title: "Unauthorized", description: "Invalid admin token.", variant: "destructive" });
+          AdminAuth.clearToken();
           return [];
         }
         throw new Error(`Failed to fetch templates: ${response.status}`);

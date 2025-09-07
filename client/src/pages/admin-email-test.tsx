@@ -1,4 +1,3 @@
-
 /**
  * Email System: Admin Email Testing UI
  * - Entry point: Admin navigates to /admin/email-test
@@ -47,28 +46,32 @@ interface TestResult {
 // Loads available email templates for dropdown
 const getEmailTemplates = async (token: string): Promise<Template[]> => {
   const response = await fetch('/api/admin/email-templates', {
-    headers: { 'x-admin-token': token }
+    headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' }
   });
-  
+
   if (!response.ok) {
     const errorData = await response.json().catch(() => ({}));
     throw new Error(errorData.error || `HTTP ${response.status}: Failed to load templates`);
   }
-  
+
   return response.json();
 };
 
 // Gets rendered template HTML for preview iframe
 const getEmailPreview = async (id: string, token: string): Promise<EmailPreview> => {
   const response = await fetch(`/api/admin/email/preview/${id}`, {
-    headers: { 'x-admin-token': token }
+    method: 'GET',
+    headers: {
+      'Authorization': `Bearer ${token}`,
+      'Content-Type': 'application/json',
+    }
   });
-  
+
   if (!response.ok) {
     const errorData = await response.json().catch(() => ({}));
     throw new Error(errorData.error || 'Failed to preview template');
   }
-  
+
   return response.json();
 };
 
@@ -77,17 +80,21 @@ const sendTestEmail = async (data: { email: string; templateId: string; data?: a
   const response = await fetch('/api/admin/send-test-email', {
     method: 'POST',
     headers: {
+      'Authorization': `Bearer ${token}`,
       'Content-Type': 'application/json',
-      'x-admin-token': token
     },
-    body: JSON.stringify(data)
+    body: JSON.stringify({
+      email: data.email,
+      templateId: data.templateId,
+      data: data.data || {}
+    })
   });
-  
+
   if (!response.ok) {
     const errorData = await response.json().catch(() => ({}));
     throw new Error(errorData.error || `HTTP ${response.status}: Failed to send test email`);
   }
-  
+
   return response.json();
 };
 
@@ -96,21 +103,21 @@ const verifyEmailLinks = async (html: string, token: string): Promise<{ verified
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
-      'x-admin-token': token
+      'Authorization': `Bearer ${token}`
     },
     body: JSON.stringify({ html })
   });
-  
+
   if (!response.ok) {
     throw new Error('Failed to verify email links');
   }
-  
+
   return response.json();
 };
 
 export default function AdminEmailTest() {
   const { toast } = useToast();
-  
+
   // Email form state
   const [selectedTemplate, setSelectedTemplate] = useState('');
   const [testEmail, setTestEmail] = useState('');
@@ -167,7 +174,7 @@ export default function AdminEmailTest() {
 
   const handleSendTestEmail = async (e: React.FormEvent) => {
     e.preventDefault();
-    
+
     if (!testEmail || !selectedTemplate) {
       toast({
         title: "Error",
@@ -179,7 +186,7 @@ export default function AdminEmailTest() {
 
     setIsSubmitting(true);
     setIsVerifying(true);
-    
+
     try {
       const adminToken = AdminAuth.getToken();
       if (!adminToken) {
@@ -195,7 +202,7 @@ export default function AdminEmailTest() {
       // Then verify links if we have preview data
       let linkVerified = false;
       let verifiedLinks: string[] = [];
-      
+
       if (previewData?.html) {
         try {
           const verification = await verifyEmailLinks(previewData.html, adminToken);
@@ -216,7 +223,7 @@ export default function AdminEmailTest() {
       };
 
       setTestResults(prev => [testResult, ...prev]);
-      
+
       toast({
         title: "Success",
         description: `Test email sent to ${testEmail}${linkVerified ? ' - Links verified ✓' : ''}`,
@@ -224,7 +231,7 @@ export default function AdminEmailTest() {
 
     } catch (error) {
       console.error('Send failed:', error);
-      
+
       const testResult: TestResult = {
         success: false,
         linkVerified: false,
@@ -233,7 +240,7 @@ export default function AdminEmailTest() {
       };
 
       setTestResults(prev => [testResult, ...prev]);
-      
+
       toast({
         title: "Error",
         description: error instanceof Error ? error.message : "Failed to send test email",
@@ -250,7 +257,7 @@ export default function AdminEmailTest() {
       title="Email Testing Center"
       description="Test and preview email templates for BytSave notifications"
     >
-      
+
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
         <Card>
           <CardHeader>
@@ -265,7 +272,7 @@ export default function AdminEmailTest() {
                 </p>
               </div>
             )}
-            
+
             <form onSubmit={handleSendTestEmail} className="space-y-4">
               <div>
                 <Label htmlFor="template">Email Template</Label>
@@ -400,13 +407,13 @@ export default function AdminEmailTest() {
                         {new Date(result.timestamp).toLocaleString()}
                       </span>
                     </div>
-                    
+
                     {result.messageId && (
                       <p className="text-sm text-gray-600 mb-1">
                         <strong>Message ID:</strong> {result.messageId}
                       </p>
                     )}
-                    
+
                     {result.linkUrl && (
                       <p className="text-sm text-gray-600 mb-1">
                         <strong>Verified Link:</strong> 
@@ -417,7 +424,7 @@ export default function AdminEmailTest() {
                         </span>
                       </p>
                     )}
-                    
+
                     {result.error && (
                       <p className="text-sm text-red-600">
                         <strong>Error:</strong> {result.error}

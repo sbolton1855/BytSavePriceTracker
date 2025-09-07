@@ -1,14 +1,10 @@
 const ADMIN_TOKEN_KEY = 'admin_token';
 
 export class AdminAuth {
-  private static getStoredToken(): string | null {
-    return localStorage.getItem(ADMIN_TOKEN_KEY);
-  }
-
   private static async validateToken(token: string): Promise<boolean> {
     try {
-      // Test the token with a protected admin endpoint
-      const response = await fetch('/api/admin/email-logs', {
+      // Use a simple admin endpoint to validate the token
+      const response = await fetch('/api/admin/email-templates', {
         method: 'GET',
         headers: {
           'Authorization': `Bearer ${token}`,
@@ -18,18 +14,21 @@ export class AdminAuth {
       console.log('[AdminAuth] Token validation response:', response.status);
       return response.ok;
     } catch (error) {
-      console.error('Token validation failed:', error);
+      console.error('[AdminAuth] Token validation failed:', error);
       return false;
     }
   }
 
   static async login(token: string): Promise<boolean> {
+    // Store token first, then validate
+    localStorage.setItem(ADMIN_TOKEN_KEY, token);
     const isValid = await this.validateToken(token);
-    if (isValid) {
-      localStorage.setItem(ADMIN_TOKEN_KEY, token);
-      return true;
+    if (!isValid) {
+      // Remove token if validation fails
+      localStorage.removeItem(ADMIN_TOKEN_KEY);
+      return false;
     }
-    return false;
+    return true;
   }
 
   static logout(): void {
@@ -37,20 +36,19 @@ export class AdminAuth {
   }
 
   static async isAuthenticated(): Promise<boolean> {
-    const token = this.getStoredToken();
+    const token = this.getToken();
     if (!token) return false;
     return await this.validateToken(token);
   }
 
   static getToken(): string | null {
     if (typeof window === 'undefined') return null;
-    const token = localStorage.getItem(ADMIN_TOKEN_KEY) || sessionStorage.getItem(ADMIN_TOKEN_KEY);
+    const token = localStorage.getItem(ADMIN_TOKEN_KEY);
     console.log('[AdminAuth] Retrieved token:', token ? `${token.substring(0, 8)}...` : 'NONE');
     return token;
   }
 
   static clearToken(): void {
     localStorage.removeItem(ADMIN_TOKEN_KEY);
-    sessionStorage.removeItem(ADMIN_TOKEN_KEY);
   }
 }

@@ -70,6 +70,9 @@ export default function AdminEmailLogs() {
   const [statusFilter, setStatusFilter] = useState('all');
   const [dataSource, setDataSource] = useState<'db' | 'sendgrid'>('db');
 
+  // Define limit outside queryFn to be accessible by exportLogs and pagination logic
+  const limit = 100; // Consistent limit for API calls
+
   /**
    * Fetch email logs from backend API
    * 
@@ -92,47 +95,52 @@ export default function AdminEmailLogs() {
         };
       }
 
-      // Use the admin token from environment or stored token
-      const token = AdminAuth.getToken() || 'admin-test-token';
+      const token = AdminAuth.getToken();
       if (!token) {
-        throw new Error("Unauthorized");
+        throw new Error("Unauthorized - no admin token");
       }
 
       const params = new URLSearchParams({
         page: currentPage.toString(),
-        limit: '100' // Increased limit for debugging
+        limit: limit.toString()
       });
 
-      // Temporarily disable filters for debugging
-      // if (emailFilter.trim()) {
-      //   params.append('email', emailFilter.trim());
-      // }
+      if (emailFilter) {
+        params.append('email', emailFilter);
+      }
 
-      // if (statusFilter !== 'all') {
-      //   params.append('status', statusFilter);
-      // }
+      if (statusFilter && statusFilter !== 'all') {
+        params.append('status', statusFilter);
+      }
+
+      console.log('📋 Fetching email logs with params:', params.toString());
 
       const response = await fetch(`/api/admin/logs?${params}`, {
+        method: 'GET',
         headers: {
           'Authorization': `Bearer ${token}`,
-          'Content-Type': 'application/json'
-        }
+          'Content-Type': 'application/json',
+        },
       });
 
       if (!response.ok) {
+        // Handle specific auth error
+        if (response.status === 401 || response.status === 403) {
+          throw new Error(`Authentication failed: ${response.statusText}`);
+        }
         throw new Error(`HTTP ${response.status}: ${response.statusText}`);
       }
 
       const data = await response.json();
-      
+
       // Debug logging to check API response
       console.log('[DEBUG] API Response:', data);
       console.log('[DEBUG] API Response rows:', data.rows);
-      
+
       // Handle both 'rows' and 'logs' keys for backwards compatibility
       const logs = data.rows || data.logs || [];
       console.log('[DEBUG] Final logs array:', logs);
-      
+
       return {
         logs: logs,
         pagination: data.pagination || {
@@ -143,7 +151,9 @@ export default function AdminEmailLogs() {
         }
       };
     },
-    enabled: !!AdminAuth.isAuthenticated(),
+    // The query is enabled only if the user is authenticated.
+    // This prevents unnecessary API calls when not logged in.
+    enabled: !!AdminAuth.isAuthenticated(), 
   });
 
   /**
@@ -151,7 +161,7 @@ export default function AdminEmailLogs() {
    */
   const handleSearch = () => {
     setEmailFilter(searchEmail);
-    setCurrentPage(1);
+    setCurrentPage(1); // Reset to first page on new search
   };
 
   /**
@@ -161,14 +171,18 @@ export default function AdminEmailLogs() {
     setSearchEmail('');
     setEmailFilter('');
     setStatusFilter('all');
-    setCurrentPage(1);
+    setCurrentPage(1); // Reset to first page
   };
 
   /**
    * Export email logs to CSV for external analysis
    */
   const exportLogs = () => {
-    if (!emailLogs?.logs) return;
+    // Ensure logs are available before attempting to export
+    if (!emailLogs?.logs || emailLogs.logs.length === 0) {
+      console.warn("No logs available to export.");
+      return;
+    }
 
     const csvContent = [
       ['ID', 'Recipient', 'Subject', 'Status', 'Product ID', 'SendGrid ID', 'Sent At', 'Updated At'],
@@ -182,14 +196,15 @@ export default function AdminEmailLogs() {
         new Date(log.sentAt).toISOString(),
         new Date(log.updatedAt).toISOString()
       ])
-    ].map(row => row.map(cell => `"${cell}"`).join(',')).join('\n');
+    ].map(row => row.map(cell => `"${cell.replace(/"/g, '""')}"`).join(',')).join('\n'); // Properly escape quotes
 
     const blob = new Blob([csvContent], { type: 'text/csv' });
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url;
     a.download = `email-logs-${new Date().toISOString().split('T')[0]}.csv`;
-    a.click();
+    a.click(); // Trigger the download
+    URL.revokeObjectURL(url); // Clean up the object URL
   };
 
   /**
@@ -209,7 +224,9 @@ export default function AdminEmailLogs() {
       failed: { color: 'bg-gray-100 text-gray-800', icon: XCircle, label: 'Failed' }
     };
 
-    const statusConfig = config[status as keyof typeof config] || config.pending;
+    // Fallback to 'pending' if status is unknown or null
+    const statusKey = status as keyof typeof config;
+    const statusConfig = config[statusKey] || config.pending;
     const Icon = statusConfig.icon;
 
     return (
@@ -241,7 +258,14 @@ export default function AdminEmailLogs() {
               {/* Data Source Selector */}
               <div className="min-w-[150px]">
                 <label className="text-sm font-medium mb-2 block">Data Source</label>
-                <Select value={dataSource} onValueChange={(value: 'db' | 'sendgrid') => setDataSource(value)}>
+                <Select value={dataSource} onValueChange={(value: 'db' | 'sendgrid') => {
+                  setDataSource(value);
+                  // Reset pagination and filters when data source changes
+                  setCurrentPage(1);
+                  setEmailFilter('');
+                  setSearchEmail('');
+                  setStatusFilter('all');
+                }}>
                   <SelectTrigger>
                     <SelectValue />
                   </SelectTrigger>
@@ -261,7 +285,7 @@ export default function AdminEmailLogs() {
                     value={searchEmail}
                     onChange={(e) => setSearchEmail(e.target.value)}
                     onKeyPress={(e) => e.key === 'Enter' && handleSearch()}
-                    disabled={dataSource === 'sendgrid'}
+                    disabled={dataSource === 'sendgrid'} // Disable if SendGrid source is selected
                   />
                   <Button onClick={handleSearch} variant="outline" disabled={dataSource === 'sendgrid'}>
                     <Search className="h-4 w-4" />
@@ -291,7 +315,7 @@ export default function AdminEmailLogs() {
               </div>
 
               {/* Action Buttons */}
-              <div className="flex gap-2">
+              <div className="flex flex-wrap gap-2">
                 <Button onClick={clearFilters} variant="outline">
                   Clear Filters
                 </Button>
@@ -299,20 +323,21 @@ export default function AdminEmailLogs() {
                   onClick={async () => {
                     try {
                       console.log('[DEBUG] Testing API with token:', AdminAuth.getToken());
-                      
+
                       const response = await fetch('/api/admin/logs/debug', {
+                        method: 'GET', // Explicitly set method to GET
                         headers: { 
                           'Authorization': `Bearer ${AdminAuth.getToken()}`,
                           'Content-Type': 'application/json'
                         }
                       });
-                      
+
                       console.log('[DEBUG] Debug API response status:', response.status);
                       console.log('[DEBUG] Debug API response headers:', [...response.headers.entries()]);
-                      
+
                       const text = await response.text();
                       console.log('[DEBUG] Debug API raw response:', text);
-                      
+
                       try {
                         const data = JSON.parse(text);
                         console.log('[DEBUG] Debug API parsed data:', data);
@@ -330,7 +355,7 @@ export default function AdminEmailLogs() {
                 >
                   🔍 Debug API
                 </Button>
-                <Button onClick={exportLogs} variant="outline" disabled={!emailLogs?.logs?.length}>
+                <Button onClick={exportLogs} variant="outline" disabled={!emailLogs?.logs?.length || dataSource === 'sendgrid'}>
                   <Download className="h-4 w-4 mr-2" />
                   Export CSV
                 </Button>
@@ -352,7 +377,7 @@ export default function AdminEmailLogs() {
           <CardHeader>
             <CardTitle>Email Delivery Logs</CardTitle>
             <CardDescription>
-              Real-time email delivery status from SendGrid webhooks
+              Monitor email delivery status and troubleshoot email issues
             </CardDescription>
             <div className="flex items-center gap-4 text-sm text-gray-600 mt-2">
               <span><strong>Data source:</strong> {dataSource.toUpperCase()}</span>
@@ -360,11 +385,12 @@ export default function AdminEmailLogs() {
             </div>
           </CardHeader>
           <CardContent className="p-0">
+            {/* Placeholder for SendGrid integration */}
             {dataSource === 'sendgrid' ? (
               <div className="p-8 text-center text-blue-600 bg-blue-50 border border-blue-200 rounded m-4">
                 <Mail className="h-12 w-12 mx-auto mb-4 opacity-75" />
                 <p className="text-lg font-medium mb-2">SendGrid view coming soon</p>
-                <p className="text-sm">This will show email logs directly from SendGrid's API</p>
+                <p className="text-sm">This section will display email logs directly from SendGrid's API once integrated.</p>
               </div>
             ) : isLoading ? (
               <div className="p-8 text-center">
@@ -375,10 +401,11 @@ export default function AdminEmailLogs() {
               <div className="p-8 text-center text-gray-500">
                 <Mail className="h-12 w-12 mx-auto mb-4 opacity-50" />
                 <p className="text-lg font-medium mb-2">No email logs found</p>
-                <p>Email logs will appear here after emails are sent</p>
+                <p>Email logs will appear here after emails are sent.</p>
+                {/* Display API response for debugging if no logs are found */}
                 {emailLogs && (
-                  <p className="text-sm mt-2 text-blue-600">
-                    API returned: {JSON.stringify(emailLogs)}
+                  <p className="text-sm mt-2 text-red-600">
+                    API response: {JSON.stringify(emailLogs)}
                   </p>
                 )}
               </div>
