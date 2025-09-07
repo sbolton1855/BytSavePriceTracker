@@ -1,4 +1,3 @@
-
 /**
  * Admin Email Logs API Routes
  * 
@@ -30,42 +29,42 @@ const router = express.Router();
 router.get('/logs', requireAdmin, async (req, res) => {
   try {
     console.log('📊 Admin email logs requested');
-    
+
     // Parse query parameters with defaults
     const page = parseInt(req.query.page as string) || 1;
     const limit = Math.min(parseInt(req.query.limit as string) || 20, 200); // Max 200 per page
     const emailFilter = req.query.email as string;
     const statusFilter = req.query.status as string;
-    
+
     const offset = (page - 1) * limit;
-    
+
     console.log('📋 Query params:', { page, limit, emailFilter, statusFilter });
-    
+
     // Build where conditions based on filters
     const whereConditions = [];
-    
+
     if (emailFilter) {
       whereConditions.push(like(emailLogs.recipientEmail, `%${emailFilter}%`));
     }
-    
+
     if (statusFilter && statusFilter !== 'all') {
       whereConditions.push(eq(emailLogs.status, statusFilter));
     }
-    
+
     // Get total count for pagination
     let totalCountQuery = db.select({ count: sql<number>`count(*)` }).from(emailLogs);
-    
+
     if (whereConditions.length > 0) {
       const whereClause = whereConditions.reduce((acc, condition) => 
         acc ? sql`${acc} AND ${condition}` : condition
       );
       totalCountQuery = totalCountQuery.where(whereClause) as any;
     }
-    
+
     const totalResult = await totalCountQuery;
     const total = Number(totalResult[0]?.count) || 0;
     const totalPages = Math.ceil(total / limit);
-    
+
     // Get paginated results
     let query = db
       .select()
@@ -73,31 +72,40 @@ router.get('/logs', requireAdmin, async (req, res) => {
       .orderBy(desc(emailLogs.sentAt)) // Most recent first
       .limit(limit)
       .offset(offset);
-    
+
     if (whereConditions.length > 0) {
       const whereClause = whereConditions.reduce((acc, condition) => 
         acc ? sql`${acc} AND ${condition}` : condition
       );
       query = query.where(whereClause) as any;
     }
-    
+
     const logs = await query;
-    
-    console.log(`📊 Returning ${logs.length} email logs (page ${page}/${totalPages}, total: ${total})`);
-    console.log('[EMAIL LOGS API] logs count:', logs.length);
-    console.log('[DEBUG] Email logs from DB:', logs);
-    
-    // Return structured response with 'rows' key for frontend compatibility
-    res.json({
-      rows: logs,
+
+    // Return paginated results with metadata
+    const response = {
+      logs: logs,
+      rows: logs, // Include both for compatibility
       pagination: {
         page: page,
         limit: limit,
         total: total,
         totalPages: totalPages
       }
+    };
+
+    console.log(`📊 [DEBUG] Email logs query returned:`, {
+      totalFound: total,
+      resultsCount: logs.length,
+      page: page,
+      limit: limit
     });
-    
+
+    console.log(`📊 [DEBUG] Sample logs:`, logs.slice(0, 2));
+    console.log(`📊 [DEBUG] Response structure:`, Object.keys(response));
+
+    res.json(response);
+
   } catch (error) {
     console.error('❌ Email logs fetch error:', error);
     res.status(500).json({
@@ -113,28 +121,28 @@ router.get('/logs', requireAdmin, async (req, res) => {
 router.get('/logs/debug', requireAdmin, async (req, res) => {
   try {
     console.log('🔍 Debug endpoint accessed');
-    
+
     // Get raw count
     const countResult = await db.select({ count: sql`count(*)` }).from(emailLogs);
     const totalCount = Number(countResult[0]?.count) || 0;
-    
+
     // Get latest 10 logs without any filters
     const debugLogs = await db
       .select()
       .from(emailLogs)
       .orderBy(desc(emailLogs.sentAt))
       .limit(10);
-    
+
     console.log('[DEBUG] Raw database response:', debugLogs);
     console.log('[DEBUG] Total count:', totalCount);
-    
+
     res.json({
       success: true,
       totalCount: totalCount,
       sampleLogs: debugLogs,
       message: `Found ${totalCount} total logs in database`
     });
-    
+
   } catch (error) {
     console.error('❌ Debug endpoint error:', error);
     res.status(500).json({

@@ -20,6 +20,7 @@ import { emailLogs, users, products, trackedProducts } from "../shared/schema";
 import adminDashboardRoutes from './routes/analytics';
 import adminAuthRoutes from './routes/adminAuth';
 import adminEmailRoutes from './routes/adminEmail';
+import adminEmailLogsRoutes from './routes/adminEmailLogs';
 import adminToolsRoutes from './routes/adminTools';
 import emailTestRoutes from './routes/emailTest';
 
@@ -2582,6 +2583,7 @@ Respond with just the analysis text, no JSON needed.
   // Admin email routes - mount at /api/admin for direct access
   console.log('🔧 Mounting admin email routes at /api/admin...');
   app.use('/api/admin', adminEmailRoutes);
+  app.use('/api/admin', adminEmailLogsRoutes);
   console.log('✅ Admin email routes mounted successfully');
 
   app.use('/api/admin', adminToolsRoutes);

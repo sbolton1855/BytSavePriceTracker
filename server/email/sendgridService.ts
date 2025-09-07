@@ -67,32 +67,52 @@ export async function sendEmail(to: string, subject: string, html: string): Prom
     });
 
     const response = await sgMail.send(msg);
+    
+    // Extract message ID from multiple possible locations
+    let messageId = null;
+    const responseHeaders = response[0].headers || {};
+    
+    // SendGrid can return message ID in different header formats
+    messageId = responseHeaders['x-message-id'] || 
+                responseHeaders['X-Message-Id'] || 
+                responseHeaders['message-id'] ||
+                response[0].messageId ||
+                `fallback-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
+
     console.log('[SendGrid] Email sent successfully:', {
       statusCode: response[0].statusCode,
-      messageId: response[0].headers?.['x-message-id']
+      messageId: messageId,
+      allHeaders: Object.keys(responseHeaders),
+      to: msg.to,
+      subject: msg.subject
     });
 
     // Best-effort database logging - never block email success
     try {
       await ensureEmailLogsTable();
 
-      const messageId = response[0].headers?.['x-message-id'] || `no-header-${Date.now()}`;
       const recipientEmail = msg.to;
       const subject = msg.subject;
+      const previewHtml = html ? html.substring(0, 500) : null;
 
       await db.execute(sql`
-        INSERT INTO email_logs (recipient_email, subject, status, sg_message_id, preview_html)
-        VALUES (${recipientEmail}, ${subject}, ${'sent'}, ${messageId}, ${html || null})
+        INSERT INTO email_logs (recipient_email, subject, status, sg_message_id, preview_html, sent_at, updated_at)
+        VALUES (${recipientEmail}, ${subject}, ${'sent'}, ${messageId}, ${previewHtml}, ${new Date()}, ${new Date()})
       `);
 
-      console.log('[EmailLog] Successfully inserted email log for:', recipientEmail, 'subject:', subject, 'messageId:', messageId);
+      console.log('[EmailLog] ✅ Email logged successfully:', {
+        recipient: recipientEmail,
+        subject: subject,
+        messageId: messageId,
+        status: 'sent'
+      });
     } catch (logError) {
-      console.error('[SendGrid] Failed to log email (non-blocking):', logError);
+      console.error('[SendGrid] ❌ Failed to log email (non-blocking):', logError);
     }
 
     return {
       success: true,
-      messageId: response[0].headers?.['x-message-id'] || 'no-message-id',
+      messageId: messageId,
       statusCode: response[0].statusCode
     };
   } catch (error: any) {
@@ -113,14 +133,20 @@ export async function sendEmail(to: string, subject: string, html: string): Prom
       await ensureEmailLogsTable();
       const recipientEmail = to;
       const emailSubject = subject;
+      const previewHtml = html ? html.substring(0, 500) : null;
+      const failureId = `failed-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
       
       await db.execute(sql`
-        INSERT INTO email_logs (recipient_email, subject, status, error_message)
-        VALUES (${recipientEmail}, ${emailSubject}, ${'failed'}, ${errorMessage})
+        INSERT INTO email_logs (recipient_email, subject, status, sg_message_id, error_message, preview_html, sent_at, updated_at)
+        VALUES (${recipientEmail}, ${emailSubject}, ${'failed'}, ${failureId}, ${errorMessage}, ${previewHtml}, ${new Date()}, ${new Date()})
       `);
-      console.log('[EmailLog] Successfully logged email failure for:', recipientEmail, 'error:', errorMessage);
+      console.log('[EmailLog] ✅ Email failure logged:', {
+        recipient: recipientEmail,
+        error: errorMessage,
+        failureId: failureId
+      });
     } catch (logError) {
-      console.error('[SendGrid] Failed to log email failure (non-blocking):', logError);
+      console.error('[SendGrid] ❌ Failed to log email failure (non-blocking):', logError);
     }
 
     return { success: false, error: errorMessage };

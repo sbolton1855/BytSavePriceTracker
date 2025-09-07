@@ -114,7 +114,8 @@ export default function AdminEmailLogs() {
 
       const response = await fetch(`/api/admin/logs?${params}`, {
         headers: {
-          'Authorization': `Bearer ${token}`
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
         }
       });
 

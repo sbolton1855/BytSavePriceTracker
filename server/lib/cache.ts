@@ -1,235 +1,147 @@
-import type { RedisClientType } from 'redis';
+// Cache implementation with robust Redis fallback
+// Provides high-performance caching for Amazon API responses and user sessions
+
 import { createClient } from 'redis';
 
-interface CacheItem {
-  value: any;
-  expires: number;
-}
+let client: any = null;
+let redisAvailable = false;
 
-class InMemoryCache {
-  private cache = new Map<string, CacheItem>();
-  private defaultTTL = 300; // 5 minutes default
-
-  set(key: string, value: any, ttlSeconds?: number): void {
-    const ttl = ttlSeconds || this.defaultTTL;
-    const expires = Date.now() + (ttl * 1000);
-
-    this.cache.set(key, { value, expires });
-
-    // Clean up expired items periodically
-    this.cleanup();
-  }
-
-  get(key: string): any | null {
-    const item = this.cache.get(key);
-
-    if (!item) {
-      return null;
+// Initialize Redis client with environment-based configuration
+async function initializeRedis() {
+  try {
+    // Skip Redis entirely in development if REDIS_URL not provided
+    if (!process.env.REDIS_URL && process.env.NODE_ENV === 'development') {
+      console.log('📋 [CACHE] No REDIS_URL found, using in-memory cache for development');
+      return;
     }
 
-    if (Date.now() > item.expires) {
-      this.cache.delete(key);
-      return null;
-    }
+    const redisUrl = process.env.REDIS_URL || 'redis://localhost:6379';
 
-    return item.value;
-  }
+    console.log('🔄 [CACHE] Attempting Redis connection...');
 
-  delete(key: string): void {
-    this.cache.delete(key);
-  }
-
-  clear(): void {
-    this.cache.clear();
-  }
-
-  private cleanup(): void {
-    const now = Date.now();
-    for (const [key, item] of this.cache.entries()) {
-      if (now > item.expires) {
-        this.cache.delete(key);
+    client = createClient({
+      url: redisUrl,
+      socket: {
+        connectTimeout: 2000, // Shorter timeout
+        lazyConnect: true,
       }
-    }
-  }
+    });
 
-  // Get cache stats
-  getStats() {
-    return {
-      size: this.cache.size,
-      keys: Array.from(this.cache.keys())
-    };
+    client.on('error', (err: Error) => {
+      console.warn('⚠️ [CACHE] Redis error:', err.message);
+      redisAvailable = false;
+    });
+
+    client.on('connect', () => {
+      console.log('✅ [CACHE] Redis connected');
+      redisAvailable = true;
+    });
+
+    client.on('disconnect', () => {
+      console.log('📡 [CACHE] Redis disconnected');
+      redisAvailable = false;
+    });
+
+    // Try to connect with timeout
+    await Promise.race([
+      client.connect(),
+      new Promise((_, reject) => 
+        setTimeout(() => reject(new Error('Redis connection timeout')), 3000)
+      )
+    ]);
+
+    redisAvailable = true;
+
+  } catch (error) {
+    console.warn('⚠️ [CACHE] Redis initialization failed:', (error as Error).message);
+    console.log('📋 [CACHE] Using in-memory cache as fallback');
+    client = null;
+    redisAvailable = false;
   }
 }
 
-// Create fallback in-memory cache
-const fallbackCache = new InMemoryCache();
+// In-memory cache fallback
+const memoryCache = new Map<string, { value: any; expiry: number }>();
 
-let redisClient: RedisClientType | null = null;
-let isRedisConnected = false;
-
-// Initialize Redis connection
-const redis = createClient({
-  url: process.env.REDIS_URL || undefined,
-});
-
-redis.on('error', (err) => {
-  if (process.env.NODE_ENV === 'development') {
-    console.warn('[Redis] Client Error (dev mode):', err.message);
-  } else {
-    console.error('Redis Client Error:', err);
-  }
-});
-
-redis.on('connect', () => {
-  console.log('✅ Redis connected successfully');
-  isRedisConnected = true;
-});
-
-redis.on('disconnect', () => {
-  console.log('❌ Redis disconnected');
-  isRedisConnected = false;
-});
-
-// Connect to Redis
-// Only attempt to connect if in production and REDIS_URL is set
-if (process.env.NODE_ENV === 'production' && process.env.REDIS_URL) {
-  redis.connect().catch((err) => {
-    if (process.env.NODE_ENV === 'development') {
-      console.warn('[Redis] Failed to connect (dev mode):', err.message);
-    } else {
-      console.error('Failed to connect to Redis:', err);
+// Clean up expired memory cache entries every 5 minutes
+setInterval(() => {
+  const now = Date.now();
+  for (const [key, entry] of memoryCache.entries()) {
+    if (now > entry.expiry) {
+      memoryCache.delete(key);
     }
-    isRedisConnected = false; // Ensure flag is false if connection fails
-  });
-} else {
-  console.log('📝 [Redis] Development mode or no REDIS_URL - Redis is disabled.');
-  isRedisConnected = false; // Ensure flag is false when Redis is disabled
-}
+  }
+}, 300000);
 
-
-// Export singleton instance with safe fallbacks
 export const cache = {
-  async set(key: string, value: any, ttl: number = 3600): Promise<void> {
-    if (redisClient && isRedisConnected) {
-      try {
-        await redisClient.setEx(key, ttl, JSON.stringify(value));
-        return;
-      } catch (error) {
-        console.warn('[CACHE] Redis set failed, using fallback:', error instanceof Error ? error.message : 'Unknown error');
-        // If Redis fails, treat it as if it's not connected for future operations
-        isRedisConnected = false;
+  async set(key: string, value: any, expirationSeconds: number = 300): Promise<void> {
+    try {
+      if (client && redisAvailable && client.isReady) {
+        const serializedValue = JSON.stringify(value);
+        await client.setEx(key, expirationSeconds, serializedValue);
+        console.log(`💾 [CACHE] Redis set: ${key}`);
+      } else {
+        const expiry = Date.now() + (expirationSeconds * 1000);
+        memoryCache.set(key, { value, expiry });
+        console.log(`💾 [CACHE] Memory set: ${key}`);
       }
+    } catch (error) {
+      console.warn('⚠️ [CACHE] Set error:', (error as Error).message);
+      const expiry = Date.now() + (expirationSeconds * 1000);
+      memoryCache.set(key, { value, expiry });
     }
-    // Fallback to in-memory cache
-    fallbackCache.set(key, value, ttl);
   },
 
-  async get(key: string): Promise<any> {
-    if (redisClient && isRedisConnected) {
-      try {
-        const value = await redisClient.get(key);
-        return value ? JSON.parse(value) : null;
-      } catch (error) {
-        console.warn('[CACHE] Redis get failed, using fallback:', error instanceof Error ? error.message : 'Unknown error');
-        // If Redis fails, treat it as if it's not connected for future operations
-        isRedisConnected = false;
+  async get(key: string): Promise<any | null> {
+    try {
+      if (client && redisAvailable && client.isReady) {
+        const cachedValue = await client.get(key);
+        if (cachedValue) {
+          console.log(`🎯 [CACHE] Redis hit: ${key}`);
+          return JSON.parse(cachedValue);
+        }
+      } else {
+        const cached = memoryCache.get(key);
+        if (cached && Date.now() < cached.expiry) {
+          console.log(`🎯 [CACHE] Memory hit: ${key}`);
+          return cached.value;
+        } else if (cached) {
+          memoryCache.delete(key);
+        }
       }
-    }
-    // Fallback to in-memory cache
-    return fallbackCache.get(key);
-  },
 
-  async getProduct(asin: string): Promise<any> {
-    if (redisClient && isRedisConnected) {
-      try {
-        const key = `product:${asin}`;
-        const value = await redisClient.get(key);
-        return value ? JSON.parse(value) : null;
-      } catch (error) {
-        console.warn('[CACHE] Redis getProduct failed, using fallback:', error instanceof Error ? error.message : 'Unknown error');
-        // If Redis fails, treat it as if it's not connected for future operations
-        isRedisConnected = false;
-      }
+      return null;
+    } catch (error) {
+      console.warn('⚠️ [CACHE] Get error:', (error as Error).message);
+      return null;
     }
-    // Fallback to in-memory cache
-    return fallbackCache.get(`product:${asin}`);
-  },
-
-  async setProduct(asin: string, productData: any, ttl: number = 3600): Promise<void> {
-    if (redisClient && isRedisConnected) {
-      try {
-        const key = `product:${asin}`;
-        await redisClient.setEx(key, ttl, JSON.stringify(productData));
-        return;
-      } catch (error) {
-        console.warn('[CACHE] Redis setProduct failed, using fallback:', error instanceof Error ? error.message : 'Unknown error');
-        // If Redis fails, treat it as if it's not connected for future operations
-        isRedisConnected = false;
-      }
-    }
-    // Fallback to in-memory cache
-    fallbackCache.set(`product:${asin}`, productData, ttl);
   },
 
   async del(key: string): Promise<void> {
-    if (redisClient && isRedisConnected) {
-      try {
-        await redisClient.del(key);
-        return;
-      } catch (error) {
-        console.warn('[CACHE] Redis delete failed, using fallback:', error instanceof Error ? error.message : 'Unknown error');
-        // If Redis fails, treat it as if it's not connected for future operations
-        isRedisConnected = false;
+    try {
+      if (client && redisAvailable && client.isReady) {
+        await client.del(key);
       }
+      memoryCache.delete(key);
+    } catch (error) {
+      console.warn('⚠️ [CACHE] Delete error:', (error as Error).message);
     }
-    // Fallback to in-memory cache
-    fallbackCache.delete(key);
   },
 
   async clear(): Promise<void> {
-    if (redisClient && isRedisConnected) {
-      try {
-        await redisClient.flushAll();
-        return;
-      } catch (error) {
-        console.warn('[CACHE] Redis clear failed, using fallback:', error instanceof Error ? error.message : 'Unknown error');
-        // If Redis fails, treat it as if it's not connected for future operations
-        isRedisConnected = false;
+    try {
+      if (client && redisAvailable && client.isReady) {
+        await client.flushAll();
       }
+      memoryCache.clear();
+      console.log('🧹 [CACHE] Cleared');
+    } catch (error) {
+      console.warn('⚠️ [CACHE] Clear error:', (error as Error).message);
     }
-    // Fallback to in-memory cache
-    fallbackCache.clear();
-  },
-
-  // Additional methods that were referenced in the code
-  hasPriceDrop(asin: string, currentPrice: number): boolean {
-    // This would typically check price history - for now return false as safe fallback
-    return false;
-  },
-
-  getPriceHistory(asin: string): Array<{price: number, timestamp: Date}> {
-    // Return empty array as safe fallback
-    return [];
-  },
-
-  // Get cache stats
-  getStats() {
-    if (redisClient && isRedisConnected) {
-      return {
-        type: 'redis',
-        connected: true,
-        fallback: fallbackCache.getStats()
-      };
-    }
-    return {
-      type: 'in-memory',
-      connected: false,
-      ...fallbackCache.getStats()
-    };
   }
 };
 
-// Helper functions for common cache patterns
-export const cacheGet = (key: string) => cache.get(key);
-export const cacheSet = (key: string, value: any, ttl?: number) => cache.set(key, value, ttl);
-export const cacheDel = (key: string) => cache.del(key);
+// Initialize Redis when module loads (non-blocking)
+initializeRedis().catch(() => {
+  console.log('📋 [CACHE] Continuing with memory-only cache');
+});
