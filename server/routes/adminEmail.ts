@@ -1,7 +1,7 @@
 import express from 'express';
-import { requireAdmin } from '../middleware/requireAdmin.js';
-import { listTemplates, renderTemplate } from '../email/templates.js';
-import { sendEmail } from '../emailService.js';
+import { requireAdmin } from '../middleware/requireAdmin';
+import { listTemplates, renderTemplate } from '../email/templates';
+import { sendEmail } from '../emailService';
 
 const router = express.Router();
 
@@ -46,7 +46,7 @@ router.post('/send-test-email', requireAdmin, async (req, res) => {
 
     let emailSent = false;
     let messageId = null;
-
+    
     // Add TEST banner to email HTML for admin test emails
     const testBanner = `
       <div style="background-color: #ff6b35; color: white; padding: 10px; text-align: center; font-weight: bold; margin-bottom: 20px; border-radius: 4px;">
@@ -57,13 +57,13 @@ router.post('/send-test-email', requireAdmin, async (req, res) => {
 
     // Send the email using the emailService
     try {
-      const { sendEmail } = await import('../emailService.js');
+      const { sendEmail } = await import('../emailService');
       const result = await sendEmail({
         to: email,
         subject: rendered.subject,
         html: htmlWithTestBanner
       });
-
+      
       emailSent = true;
       messageId = result.messageId;
       console.log(`✅ Test email sent to ${email} using template ${templateId} - Message ID: ${messageId}`);
@@ -74,8 +74,8 @@ router.post('/send-test-email', requireAdmin, async (req, res) => {
 
     // Always log the email attempt to database
     try {
-      const { db } = await import('../db.js');
-      const { emailLogs } = await import('../../shared/schema.js');
+      const { db } = await import('../db');
+      const { emailLogs } = await import('../../shared/schema');
       const emailLog = await db.insert(emailLogs).values({
         recipientEmail: email,
         subject: rendered.subject,
@@ -99,17 +99,17 @@ router.post('/send-test-email', requireAdmin, async (req, res) => {
 
   } catch (error) {
     console.error('❌ Send test email error:', error);
-
+    
     // More detailed error logging
     if (error instanceof Error) {
       console.error('❌ Error details:', {
         message: error.message,
         stack: error.stack,
-        templateId: req.body.templateId,
-        email: req.body.email
+        templateId,
+        email
       });
     }
-
+    
     res.status(500).json({
       error: 'Failed to send test email',
       details: error instanceof Error ? error.message : 'Unknown error',
@@ -121,8 +121,8 @@ router.post('/send-test-email', requireAdmin, async (req, res) => {
 // GET /api/admin/logs/debug - Debug email logs table
 router.get('/logs/debug', requireAdmin, async (req, res) => {
   try {
-    const { db } = await import('../db.js');
-    const { emailLogs } = await import('../../shared/schema.js');
+    const { db } = await import('../db');
+    const { emailLogs } = await import('../../shared/schema');
     const { sql } = await import('drizzle-orm');
 
     // Check if table exists and get sample data
@@ -157,8 +157,8 @@ router.get('/logs/debug', requireAdmin, async (req, res) => {
 // POST /api/admin/logs/test - Manually test email logging
 router.post('/logs/test', requireAdmin, async (req, res) => {
   try {
-    const { db } = await import('../db.js');
-    const { emailLogs } = await import('../../shared/schema.js');
+    const { db } = await import('../db');
+    const { emailLogs } = await import('../../shared/schema');
 
     console.log('🧪 Testing manual email log insertion');
 
@@ -200,7 +200,7 @@ router.post('/test-password-reset', requireAdmin, async (req, res) => {
       return res.status(400).json({ error: 'Email is required' });
     }
 
-    const { sendPasswordResetEmail } = await import('../emailService.js');
+    const { sendPasswordResetEmail } = await import('../emailService');
 
     // Mock reset URL for testing
     const resetUrl = `${req.protocol}://${req.get('host')}/reset-password.html?token=test-token-123-admin-test`;
@@ -221,7 +221,7 @@ router.post('/test-password-reset', requireAdmin, async (req, res) => {
 // Preview password reset email template
 router.post('/preview-password-reset', requireAdmin, async (req, res) => {
   try {
-    const { renderTemplate } = await import('../email/templates.js');
+    const { renderTemplate } = await import('../email/templates');
     const resetUrl = `${req.protocol}://${req.get('host')}/reset-password.html?token=preview-token-123`;
 
     const emailContent = renderTemplate('password-reset', {
@@ -330,7 +330,7 @@ router.get('/check-logs', requireAdmin, async (req, res) => {
 router.post('/send-test-email', requireAdmin, async (req, res) => {
   try {
     const { email, subject } = req.body;
-
+    
     if (!email) {
       return res.status(400).json({ error: 'Email address is required' });
     }
@@ -346,7 +346,7 @@ router.post('/send-test-email', requireAdmin, async (req, res) => {
     `;
 
     const result = await sendEmail(email, testSubject, testHtml);
-
+    
     console.log('[AdminEmail] Test email result:', result);
 
     if (result.success) {
@@ -371,6 +371,55 @@ router.post('/send-test-email', requireAdmin, async (req, res) => {
       success: false,
       error: error instanceof Error ? error.message : 'Unknown error',
       message: 'Test email failed'
+    });
+  }
+});
+
+export default router;
+import express from 'express';
+import { requireAdmin } from '../middleware/requireAdmin.js';
+
+const router = express.Router();
+
+/**
+ * GET /api/admin/email-templates - Get available email templates
+ */
+router.get('/email-templates', requireAdmin, async (req, res) => {
+  try {
+    console.log('📧 Admin email templates requested');
+
+    // Return available email templates
+    const templates = [
+      {
+        id: 'welcome',
+        name: 'Welcome Email',
+        description: 'Welcome message for new users'
+      },
+      {
+        id: 'password-reset',
+        name: 'Password Reset',
+        description: 'Password reset email template'
+      },
+      {
+        id: 'price-drop',
+        name: 'Price Drop Alert',
+        description: 'Notification when a tracked product price drops'
+      },
+      {
+        id: 'test',
+        name: 'Test Email',
+        description: 'Generic test email template'
+      }
+    ];
+
+    console.log(`📧 Returning ${templates.length} email templates`);
+    res.json(templates);
+
+  } catch (error) {
+    console.error('❌ Email templates fetch error:', error);
+    res.status(500).json({
+      error: 'Failed to fetch email templates',
+      details: error instanceof Error ? error.message : 'Unknown error'
     });
   }
 });

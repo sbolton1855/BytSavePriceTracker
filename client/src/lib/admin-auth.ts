@@ -7,8 +7,8 @@ export class AdminAuth {
 
   private static async validateToken(token: string): Promise<boolean> {
     try {
-      // Test the token with a simple debug endpoint
-      const response = await fetch(`/api/debug?token=${token}`, {
+      // Test the token with a protected admin endpoint
+      const response = await fetch('/api/admin/email-logs', {
         method: 'GET',
         headers: {
           'Authorization': `Bearer ${token}`,
@@ -24,15 +24,12 @@ export class AdminAuth {
   }
 
   static async login(token: string): Promise<boolean> {
-    // Store token first, then validate
-    localStorage.setItem(ADMIN_TOKEN_KEY, token);
     const isValid = await this.validateToken(token);
-    if (!isValid) {
-      // Remove token if validation fails
-      localStorage.removeItem(ADMIN_TOKEN_KEY);
-      return false;
+    if (isValid) {
+      localStorage.setItem(ADMIN_TOKEN_KEY, token);
+      return true;
     }
-    return true;
+    return false;
   }
 
   static logout(): void {
@@ -47,12 +44,13 @@ export class AdminAuth {
 
   static getToken(): string | null {
     if (typeof window === 'undefined') return null;
-    const token = localStorage.getItem(ADMIN_TOKEN_KEY);
+    const token = localStorage.getItem(ADMIN_TOKEN_KEY) || sessionStorage.getItem(ADMIN_TOKEN_KEY);
     console.log('[AdminAuth] Retrieved token:', token ? `${token.substring(0, 8)}...` : 'NONE');
     return token;
   }
 
   static clearToken(): void {
     localStorage.removeItem(ADMIN_TOKEN_KEY);
+    sessionStorage.removeItem(ADMIN_TOKEN_KEY);
   }
 }
