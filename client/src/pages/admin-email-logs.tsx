@@ -1,11 +1,12 @@
+
 /**
  * Admin Email Logs Interface
- *
+ * 
  * Purpose:
  * - Display comprehensive email logging data for admin monitoring
  * - Show email delivery status from both local logs and SendGrid webhooks
  * - Provide filtering and search capabilities for troubleshooting
- *
+ * 
  * Email Status Flow:
  * 1. "pending" - Email logged locally, not yet sent
  * 2. "sent" - SendGrid accepted the email
@@ -14,7 +15,7 @@
  * 5. "clicked" - Recipient clicked a link
  * 6. "bounced" - Email bounced (delivery failed)
  * 7. "spam_reported" - Recipient marked as spam
- *
+ * 
  * Maintainer Notes:
  * - Status updates come from SendGrid webhooks automatically
  * - Preview HTML shows first 500 characters for debugging
@@ -48,14 +49,18 @@ interface EmailLog {
 }
 
 interface EmailLogsResponse {
-  source: string;
-  rowsCount: number;
-  rows: EmailLog[];
+  logs: EmailLog[];
+  pagination: {
+    page: number;
+    limit: number;
+    total: number;
+    totalPages: number;
+  };
 }
 
 /**
  * Main Admin Email Logs Component
- *
+ * 
  * Displays paginated email logs with filtering and status monitoring
  */
 export default function AdminEmailLogs() {
@@ -68,7 +73,7 @@ export default function AdminEmailLogs() {
 
   /**
    * Fetch email logs from backend API
-   *
+   * 
    * Query includes pagination and filtering parameters
    * Automatically refetches when filters change
    */
@@ -78,9 +83,13 @@ export default function AdminEmailLogs() {
       // Don't fetch if SendGrid is selected (placeholder for now)
       if (dataSource === 'sendgrid') {
         return {
-          source: 'sendgrid',
-          rowsCount: 0,
-          rows: []
+          logs: [],
+          pagination: {
+            page: 1,
+            limit: 200,
+            total: 0,
+            totalPages: 1
+          }
         };
       }
 
@@ -97,7 +106,7 @@ export default function AdminEmailLogs() {
         ...(statusFilter && statusFilter !== 'all' && { status: statusFilter })
       });
 
-      const response = await fetch(`/api/admin/logs?${params}`);
+      const response = await fetch(`/api/admin/email/logs?${params}`);
       if (!response.ok) {
         if (response.status === 401) {
           AdminAuth.clearToken();
@@ -132,11 +141,11 @@ export default function AdminEmailLogs() {
    * Export email logs to CSV for external analysis
    */
   const exportLogs = () => {
-    if (!emailLogs?.rows) return;
-
+    if (!emailLogs?.logs) return;
+    
     const csvContent = [
       ['ID', 'Recipient', 'Subject', 'Status', 'Product ID', 'SendGrid ID', 'Sent At', 'Updated At'],
-      ...emailLogs.rows.map(log => [
+      ...emailLogs.logs.map(log => [
         log.id.toString(),
         log.recipientEmail,
         log.subject,
@@ -158,7 +167,7 @@ export default function AdminEmailLogs() {
 
   /**
    * Get appropriate badge color and icon for email status
-   *
+   * 
    * Visual indicators help admins quickly assess email delivery health
    */
   const getStatusBadge = (status: string) => {
@@ -172,10 +181,10 @@ export default function AdminEmailLogs() {
       spam_reported: { color: 'bg-red-100 text-red-800', icon: XCircle, label: 'Spam' },
       failed: { color: 'bg-gray-100 text-gray-800', icon: XCircle, label: 'Failed' }
     };
-
+    
     const statusConfig = config[status as keyof typeof config] || config.pending;
     const Icon = statusConfig.icon;
-
+    
     return (
       <Badge className={`${statusConfig.color} flex items-center gap-1`}>
         <Icon className="h-3 w-3" />
@@ -190,7 +199,7 @@ export default function AdminEmailLogs() {
       description="Monitor email delivery status and troubleshoot email issues"
     >
       <div className="space-y-6">
-
+        
         {/* Controls Section - Search, Filter, Export, Refresh */}
         <Card>
           <CardHeader>
@@ -201,7 +210,7 @@ export default function AdminEmailLogs() {
           </CardHeader>
           <CardContent>
             <div className="flex flex-wrap gap-4 items-end">
-
+              
               {/* Data Source Selector */}
               <div className="min-w-[150px]">
                 <label className="text-sm font-medium mb-2 block">Data Source</label>
@@ -259,7 +268,7 @@ export default function AdminEmailLogs() {
                 <Button onClick={clearFilters} variant="outline">
                   Clear Filters
                 </Button>
-                <Button onClick={exportLogs} variant="outline" disabled={!emailLogs?.rows.length}>
+                <Button onClick={exportLogs} variant="outline" disabled={!emailLogs?.logs.length}>
                   <Download className="h-4 w-4 mr-2" />
                   Export CSV
                 </Button>
@@ -285,7 +294,7 @@ export default function AdminEmailLogs() {
             </CardDescription>
             <div className="flex items-center gap-4 text-sm text-gray-600 mt-2">
               <span><strong>Data source:</strong> {dataSource.toUpperCase()}</span>
-              <span><strong>Rows shown:</strong> {emailLogs?.rows.length || 0}</span>
+              <span><strong>Rows shown:</strong> {emailLogs?.logs.length || 0}</span>
             </div>
           </CardHeader>
           <CardContent className="p-0">
@@ -300,7 +309,7 @@ export default function AdminEmailLogs() {
                 <Loader2 className="h-8 w-8 animate-spin mx-auto mb-4" />
                 Loading email logs...
               </div>
-            ) : emailLogs?.rows.length === 0 ? (
+            ) : emailLogs?.logs.length === 0 ? (
               <div className="p-8 text-center text-gray-500">
                 <Mail className="h-12 w-12 mx-auto mb-4 opacity-50" />
                 <p className="text-lg font-medium mb-2">No email logs found</p>
@@ -321,27 +330,27 @@ export default function AdminEmailLogs() {
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {emailLogs?.rows.map((log) => (
+                  {emailLogs?.logs.map((log) => (
                     <TableRow key={log.id}>
-
+                      
                       {/* Email Log ID */}
                       <TableCell className="font-mono text-sm">{log.id}</TableCell>
-
+                      
                       {/* Recipient Email */}
                       <TableCell className="max-w-[200px] truncate">
                         {log.recipientEmail}
                       </TableCell>
-
+                      
                       {/* Email Subject */}
                       <TableCell className="max-w-xs truncate">
                         {log.subject}
                       </TableCell>
-
+                      
                       {/* Delivery Status */}
                       <TableCell>
                         {getStatusBadge(log.status)}
                       </TableCell>
-
+                      
                       {/* Associated Product (if any) */}
                       <TableCell>
                         {log.productId ? (
@@ -352,24 +361,24 @@ export default function AdminEmailLogs() {
                           <span className="text-gray-400">-</span>
                         )}
                       </TableCell>
-
+                      
                       {/* Sent Timestamp */}
                       <TableCell>
                         <div className="text-sm">
                           {new Date(log.sentAt).toLocaleString()}
                         </div>
                       </TableCell>
-
+                      
                       {/* Last Updated Timestamp */}
                       <TableCell>
                         <div className="text-sm">
                           {new Date(log.updatedAt).toLocaleString()}
                         </div>
                       </TableCell>
-
+                      
                       {/* Actions */}
                       <TableCell className="text-right">
-
+                        
                         {/* Preview Email Content Dialog */}
                         <Dialog>
                           <DialogTrigger asChild>
@@ -383,7 +392,7 @@ export default function AdminEmailLogs() {
                               <DialogTitle>Email Preview - {log.subject}</DialogTitle>
                             </DialogHeader>
                             <div className="space-y-4">
-
+                              
                               {/* Email Metadata */}
                               <div className="grid grid-cols-2 gap-4 p-4 bg-gray-50 rounded">
                                 <div>
@@ -399,14 +408,14 @@ export default function AdminEmailLogs() {
                                   <strong>Product:</strong> {log.productId ? `#${log.productId}` : 'None'}
                                 </div>
                               </div>
-
+                              
                               {/* Email Content Preview */}
                               <div>
                                 <strong className="block mb-2">Email Content Preview:</strong>
-                                <div
+                                <div 
                                   className="border p-4 rounded bg-white max-h-96 overflow-auto"
-                                  dangerouslySetInnerHTML={{
-                                    __html: log.previewHtml || '<p>No preview available</p>'
+                                  dangerouslySetInnerHTML={{ 
+                                    __html: log.previewHtml || '<p>No preview available</p>' 
                                   }}
                                 />
                               </div>
@@ -422,7 +431,39 @@ export default function AdminEmailLogs() {
           </CardContent>
         </Card>
 
-        
+        {/* Pagination Controls */}
+        {emailLogs && emailLogs.pagination.totalPages > 1 && (
+          <div className="flex items-center justify-between">
+            <div className="text-sm text-gray-600">
+              Showing {((emailLogs.pagination.page - 1) * emailLogs.pagination.limit) + 1} to{' '}
+              {Math.min(emailLogs.pagination.page * emailLogs.pagination.limit, emailLogs.pagination.total)} of{' '}
+              {emailLogs.pagination.total} email logs
+            </div>
+            <div className="flex items-center gap-2">
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setCurrentPage(prev => Math.max(1, prev - 1))}
+                disabled={currentPage === 1}
+              >
+                <ChevronLeft className="h-4 w-4" />
+                Previous
+              </Button>
+              <span className="px-3 py-1 text-sm">
+                Page {currentPage} of {emailLogs.pagination.totalPages}
+              </span>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setCurrentPage(prev => Math.min(emailLogs.pagination.totalPages, prev + 1))}
+                disabled={currentPage === emailLogs.pagination.totalPages}
+              >
+                Next
+                <ChevronRight className="h-4 w-4" />
+              </Button>
+            </div>
+          </div>
+        )}
       </div>
     </AdminLayout>
   );
