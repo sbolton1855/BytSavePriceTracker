@@ -328,7 +328,7 @@ export default function AdminEmailLogs() {
                 >
                   🔍 Debug API
                 </Button>
-                <Button onClick={exportLogs} variant="outline" disabled={!emailLogs?.logs.length}>
+                <Button onClick={exportLogs} variant="outline" disabled={!emailLogs?.logs?.length}>
                   <Download className="h-4 w-4 mr-2" />
                   Export CSV
                 </Button>

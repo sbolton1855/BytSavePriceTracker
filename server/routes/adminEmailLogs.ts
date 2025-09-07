@@ -84,6 +84,7 @@ router.get('/logs', requireAdmin, async (req, res) => {
     const logs = await query;
     
     console.log(`📊 Returning ${logs.length} email logs (page ${page}/${totalPages}, total: ${total})`);
+    console.log('[EMAIL LOGS API] logs count:', logs.length);
     console.log('[DEBUG] Email logs from DB:', logs);
     
     // Return structured response with 'rows' key for frontend compatibility
@@ -97,7 +98,14 @@ router.get('/logs', requireAdmin, async (req, res) => {
       }
     });
     
-
+  } catch (error) {
+    console.error('❌ Email logs fetch error:', error);
+    res.status(500).json({
+      error: 'Failed to fetch email logs',
+      details: error instanceof Error ? error.message : 'Unknown error'
+    });
+  }
+});
 
 /**
  * GET /api/admin/logs/debug - Debug endpoint to test email logs
@@ -132,15 +140,6 @@ router.get('/logs/debug', requireAdmin, async (req, res) => {
     res.status(500).json({
       success: false,
       error: error instanceof Error ? error.message : 'Unknown error'
-    });
-  }
-});
-
-  } catch (error) {
-    console.error('❌ Email logs fetch error:', error);
-    res.status(500).json({
-      error: 'Failed to fetch email logs',
-      details: error instanceof Error ? error.message : 'Unknown error'
     });
   }
 });
