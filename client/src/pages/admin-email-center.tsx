@@ -357,6 +357,39 @@ export default function AdminEmailCenter() {
     }
   };
 
+  // Debug authentication function
+  const debugAuth = async () => {
+    const token = AdminAuth.getToken();
+    console.log('[DEBUG] Testing API with token:', token);
+
+    try {
+      const response = await fetch('/api/admin/email-templates', {
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json',
+        },
+      });
+
+      console.log('[DEBUG] Debug API response status:', response.status);
+      console.log('[DEBUG] Debug API response headers:', Array.from(response.headers.entries()));
+
+      const rawResponse = await response.text();
+      console.log('[DEBUG] Debug API raw response:', rawResponse);
+
+      let data;
+      try {
+        data = JSON.parse(rawResponse);
+        console.log('[DEBUG] Debug API parsed data:', data);
+      } catch (e) {
+        console.log('[DEBUG] Could not parse response as JSON');
+      }
+
+    } catch (error) {
+      console.error('[DEBUG] Debug API error:', error);
+    }
+  };
+
+
   return (
     <AdminLayout
       title="Email Testing Center"
