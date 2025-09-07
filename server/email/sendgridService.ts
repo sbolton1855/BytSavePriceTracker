@@ -11,6 +11,7 @@ import sgMail from '@sendgrid/mail';
 import { createEmailTemplate } from './templates';
 import { ensureEmailLogsTable } from '../db/ensureEmailLogs';
 import { db } from '../db';
+import { sql } from 'drizzle-orm';
 
 // Validate and initialize SendGrid with API key from Replit Secrets
 const apiKey = process.env.SENDGRID_API_KEY;
@@ -70,12 +71,12 @@ export async function sendEmail(to: string, subject: string, html: string): Prom
       const recipientEmail = msg.to;
       const subject = msg.subject;
 
-      await db.execute(`
+      await db.execute(sql`
         INSERT INTO email_logs (recipient_email, subject, status, sg_message_id, preview_html)
-        VALUES ($1, $2, $3, $4, $5)
-      `, [recipientEmail, subject, 'sent', messageId, html || null]);
+        VALUES (${recipientEmail}, ${subject}, ${'sent'}, ${messageId}, ${html || null})
+      `);
 
-      console.log('[EmailLog] Inserted log for:', recipientEmail, 'subject:', subject);
+      console.log('[EmailLog] Successfully inserted email log for:', recipientEmail, 'subject:', subject, 'messageId:', messageId);
     } catch (logError) {
       console.error('[SendGrid] Failed to log email (non-blocking):', logError);
     }
@@ -104,11 +105,11 @@ export async function sendEmail(to: string, subject: string, html: string): Prom
       const recipientEmail = to;
       const emailSubject = subject;
       
-      await db.execute(`
+      await db.execute(sql`
         INSERT INTO email_logs (recipient_email, subject, status, error_message)
-        VALUES ($1, $2, $3, $4)
-      `, [recipientEmail, emailSubject, 'failed', errorMessage]);
-      console.log('[EmailLog] Email failure logged for:', recipientEmail);
+        VALUES (${recipientEmail}, ${emailSubject}, ${'failed'}, ${errorMessage})
+      `);
+      console.log('[EmailLog] Successfully logged email failure for:', recipientEmail, 'error:', errorMessage);
     } catch (logError) {
       console.error('[SendGrid] Failed to log email failure (non-blocking):', logError);
     }
