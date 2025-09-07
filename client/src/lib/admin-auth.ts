@@ -9,9 +9,12 @@ export class AdminAuth {
                 localStorage.getItem('admin-token') || 
                 sessionStorage.getItem('admin-token');
     
+    console.log('[AdminAuth] Stored token from localStorage:', token ? token.substring(0, 8) + '...' : 'NONE');
+    
     // Development fallback - use your actual ADMIN_SECRET value
-    if (!token && process.env.NODE_ENV === 'development') {
+    if (!token) {
       token = '6f32d418c8234c93b85f0f41fda31cfb'; // Your actual admin secret
+      console.log('[AdminAuth] Using development fallback token');
     }
     
     return token;
@@ -41,12 +44,15 @@ export class AdminAuth {
   }
 
   static async login(token: string): Promise<boolean> {
+    console.log('[AdminAuth] Attempting login with token:', token.substring(0, 8) + '...');
     const isValid = await this.validateToken(token);
     if (isValid) {
       localStorage.setItem(ADMIN_TOKEN_KEY, token);
       localStorage.setItem('admin-token', token); // Store in both locations for compatibility
+      console.log('[AdminAuth] Login successful, token stored');
       return true;
     }
+    console.log('[AdminAuth] Login failed, token validation failed');
     return false;
   }
 

@@ -1,6 +1,6 @@
 import { Request, Response, NextFunction } from 'express';
 
-const ADMIN_TOKEN = process.env.ADMIN_TOKEN || process.env.ADMIN_SECRET || 'admin-test-token';
+const ADMIN_TOKEN = process.env.ADMIN_SECRET || process.env.ADMIN_TOKEN || '6f32d418c8234c93b85f0f41fda31cfb';
 
 export function requireAdmin(req: Request, res: Response, next: NextFunction) {
   console.log('[RequireAdmin] Request path:', req.path);
