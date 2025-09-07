@@ -241,6 +241,32 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Import the middleware
   const { requireAdmin } = await import('./middleware/requireAdmin');
 
+  // Admin email templates route
+  app.get('/api/admin/email-templates', requireAdmin, async (req, res) => {
+    try {
+      console.log('[Routes] Loading email templates for admin');
+      // This is a placeholder - replace with your actual template data
+      const templates = [
+        {
+          id: 'welcome',
+          name: 'Welcome Email',
+          subject: 'Welcome to BytSave!',
+          html: '<h1>Welcome!</h1><p>Thanks for joining BytSave Price Tracker.</p>'
+        },
+        {
+          id: 'price_drop',
+          name: 'Price Drop Alert',
+          subject: 'Price Drop Alert!',
+          html: '<h1>Price Drop!</h1><p>The price of your tracked item has dropped.</p>'
+        }
+      ];
+      res.json(templates);
+    } catch (error) {
+      console.error('[Routes] Error loading templates:', error);
+      res.status(500).json({ error: 'Failed to load templates' });
+    }
+  });
+
   // Admin email logs route
   app.get('/api/admin/logs', requireAdmin, async (req, res) => {
     try {
