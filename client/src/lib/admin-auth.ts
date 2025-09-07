@@ -44,13 +44,8 @@ export class AdminAuth {
 
   static getToken(): string | null {
     if (typeof window === 'undefined') return null;
-    const token = localStorage.getItem(ADMIN_TOKEN_KEY) || sessionStorage.getItem(ADMIN_TOKEN_KEY);
+    const token = localStorage.getItem(this.TOKEN_KEY) || sessionStorage.getItem(this.TOKEN_KEY);
     console.log('[AdminAuth] Retrieved token:', token ? `${token.substring(0, 8)}...` : 'NONE');
     return token;
-  }
-
-  static clearToken(): void {
-    localStorage.removeItem(ADMIN_TOKEN_KEY);
-    sessionStorage.removeItem(ADMIN_TOKEN_KEY);
   }
 }

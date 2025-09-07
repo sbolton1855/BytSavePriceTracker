@@ -6,8 +6,8 @@ import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Table, TableBody, TableCell, TableHeader, TableRow, TableHead } from '@/components/ui/table';
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogTrigger } from '@/components/ui/dialog';
+import { Table, TableBody, TableCell, TableHeader, TableRow } from '@/components/ui/table';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
 import { Badge } from '@/components/ui/badge';
 import { Loader2, Send, Eye, AlertCircle, ChevronLeft, ChevronRight, CheckCircle, XCircle } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
@@ -34,13 +34,6 @@ interface EmailLogsResponse {
   totalPages: number;
 }
 
-interface Template {
-  id: string;
-  name: string;
-  subject: string;
-  previewHtml: string;
-}
-
 export default function AdminEmailCenter() {
   const { toast } = useToast();
 
@@ -62,7 +55,7 @@ export default function AdminEmailCenter() {
   });
 
   // UI states
-  const [isLoading, setIsLoading] = useState<Record<string, boolean>>({});
+  const [isLoading, setIsLoading] = useState(false);
   const [previewHtml, setPreviewHtml] = useState<string>('');
   const [results, setResults] = useState<Record<string, any>>({});
   const [currentPage, setCurrentPage] = useState(1);
@@ -102,25 +95,6 @@ export default function AdminEmailCenter() {
       return response.json();
     },
     enabled: AdminAuth.getToken() !== null,
-  });
-
-  // Query for email templates
-  const { data: templates = [], isLoading: isLoadingTemplates, error: templatesError } = useQuery<Template[]>({
-    queryKey: ['admin-email-templates'],
-    queryFn: async () => {
-      const token = AdminAuth.getToken() || 'admin-test-token';
-      console.log('[Templates] Using token:', token ? `${token.substring(0, 8)}...` : 'NONE');
-
-      const response = await fetch(`/api/admin/email-templates?token=${token}`);
-      if (!response.ok) {
-        if (response.status === 403) {
-          toast({ title: "Unauthorized", description: "Invalid admin token.", variant: "destructive" });
-          return [];
-        }
-        throw new Error(`Failed to fetch templates: ${response.status}`);
-      }
-      return response.json();
-    },
   });
 
 

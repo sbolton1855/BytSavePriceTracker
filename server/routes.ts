@@ -259,7 +259,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         sentAt: emailLogs.sentAt,
         createdAt: emailLogs.sentAt, // Use sentAt as createdAt
         status: emailLogs.status,
-        type: sql`CASE
+        type: sql`CASE 
           WHEN ${emailLogs.subject} LIKE '[TEST]%' THEN 'test'
           WHEN ${emailLogs.subject} LIKE '%Price Drop%' THEN 'price-drop'
           WHEN ${emailLogs.subject} LIKE '%Password Reset%' THEN 'reset'
