@@ -101,10 +101,32 @@ router.get('/logs', requireAdmin, async (req, res) => {
       limit: limit
     });
 
-    console.log(`📊 [DEBUG] Sample logs:`, logs.slice(0, 2));
-    console.log(`📊 [DEBUG] Response structure:`, Object.keys(response));
+    // Transform logs to match expected frontend format
+    const transformedLogs = logs.map(log => ({
+      id: log.id,
+      recipientEmail: log.recipientEmail || log.toEmail,
+      subject: log.subject,
+      previewHtml: log.previewHtml || log.body,
+      sentAt: log.sentAt,
+      createdAt: log.sentAt,
+      status: log.status || 'sent',
+      type: log.type || 'other',
+      sgMessageId: log.sgMessageId,
+      updatedAt: log.updatedAt
+    }));
 
-    res.json(response);
+    const finalResponse = {
+      logs: transformedLogs,
+      pagination: {
+        page: page,
+        limit: limit,
+        total: total,
+        totalPages: totalPages
+      }
+    };
+
+    console.log(`📊 [DEBUG] Sending response with ${transformedLogs.length} logs`);
+    res.json(finalResponse);
 
   } catch (error) {
     console.error('❌ Email logs fetch error:', error);

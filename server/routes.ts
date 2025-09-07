@@ -238,13 +238,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
     res.sendFile(path.join(__dirname, '../client/index.html'));
   });
 
+  // Import the middleware
+  const { requireAdmin } = await import('./middleware/requireAdmin');
+
   // Admin email logs route
-  app.get('/api/admin/logs', async (req, res) => {
+  app.get('/api/admin/logs', requireAdmin, async (req, res) => {
     try {
-      const token = req.query.token as string;
-      if (!token || token !== process.env.ADMIN_SECRET) {
-        return res.status(401).json({ error: 'Invalid admin token' });
-      }
 
       const page = parseInt(req.query.page as string) || 1;
       const limit = 20;

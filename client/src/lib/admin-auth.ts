@@ -44,8 +44,20 @@ export class AdminAuth {
 
   static getToken(): string | null {
     if (typeof window === 'undefined') return null;
-    const token = localStorage.getItem(this.TOKEN_KEY) || sessionStorage.getItem(this.TOKEN_KEY);
-    console.log('[AdminAuth] Retrieved token:', token ? `${token.substring(0, 8)}...` : 'NONE');
+    // Try localStorage first
+    let token = localStorage.getItem('admin-token');
+
+    // Fallback to sessionStorage
+    if (!token) {
+      token = sessionStorage.getItem('admin-token');
+    }
+
+    // Fallback to environment/hardcoded for development
+    if (!token && process.env.NODE_ENV === 'development') {
+      token = 'admin-test-token';
+    }
+
+    console.log('[AdminAuth] Retrieved token:', token ? token.substring(0, 8) + '...' : 'NONE');
     return token;
   }
 }
