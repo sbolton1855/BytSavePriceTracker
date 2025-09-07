@@ -24,7 +24,7 @@
 import sgMail from '@sendgrid/mail';
 import { db } from '../db';
 import { emailLogs } from '../../shared/schema';
-import { updateEmailStatus } from './statusManager';
+
 
 // Validate and initialize SendGrid with API key
 const apiKey = process.env.SENDGRID_API_KEY;
@@ -72,17 +72,18 @@ export async function sendEmail(
     
     // Step 1: Check for recent duplicate sends (prevent spam/race conditions)
     const recentDuplicate = await db
-      .select({ id: emailLogs.id })
+      .select({ id: emailLogs.id, status: emailLogs.status })
       .from(emailLogs)
       .where(
         sql`${emailLogs.recipientEmail} = ${to} 
             AND ${emailLogs.subject} = ${subject} 
             AND ${emailLogs.sentAt} > NOW() - INTERVAL '1 minute'`
       )
+      .orderBy(sql`${emailLogs.id} DESC`)
       .limit(1);
     
     if (recentDuplicate.length > 0) {
-      console.log(`[EmailSend] Duplicate email prevented: ${to} - ${subject}`);
+      console.log(`[EmailSend] Duplicate email prevented: ${to} - ${subject} (existing log ID: ${recentDuplicate[0].id})`);
       return { 
         success: false, 
         error: 'Duplicate email prevented (sent within last minute)', 
@@ -139,42 +140,51 @@ export async function sendEmail(
       sendOk = false;
     }
 
-    // Step 5: Update status atomically
-    if (logId) {
-      const newStatus = sendOk ? 'sent' : 'failed';
-      const updated = await updateEmailStatus(logId, newStatus, 'sendgrid');
-      console.log(`[EmailSend] Status updated to ${newStatus} for log ${logId}: ${updated}`);
-    }
-    
-    // Step 6: Handle message ID and final response
-    let messageId = 'unknown';
-    
+    // Step 5: Handle success or failure
     if (sendOk && response && response[0]) {
       // Extract SendGrid message ID
       const messageIdHeader = response[0].headers?.['x-message-id'] || response[0].headers?.['X-Message-Id'];
-      messageId = messageIdHeader || `sg_${Date.now()}_${Math.random().toString(36).substring(7)}`;
+      const messageId = messageIdHeader || `sg_${Date.now()}_${Math.random().toString(36).substring(7)}`;
       
       console.log(`[EmailSend] Success for log ${logId}, message ID: ${messageId}`);
 
-      // Update with message ID
+      // Update status to 'sent' and add message ID
       if (logId) {
         try {
           await db.update(emailLogs)
             .set({
+              status: 'sent',
               sgMessageId: messageId,
               updatedAt: new Date()
             })
             .where(emailLogs.id.eq(logId));
           
-          console.log(`[EmailSend] Updated log ${logId} with message ID: ${messageId}`);
+          console.log(`[EmailSend] Updated log ${logId} to 'sent' with message ID: ${messageId}`);
         } catch (dbError) {
-          console.error(`[EmailSend] Failed to update message ID for log ${logId}:`, dbError);
+          console.error(`[EmailSend] Failed to update success status for log ${logId}:`, dbError);
         }
       }
 
       return { success: true, messageId, logId };
     } else {
+      // Update status to 'failed'
       console.log(`[EmailSend] Failed for log ${logId}`);
+      
+      if (logId) {
+        try {
+          await db.update(emailLogs)
+            .set({
+              status: 'failed',
+              updatedAt: new Date()
+            })
+            .where(emailLogs.id.eq(logId));
+          
+          console.log(`[EmailSend] Updated log ${logId} to 'failed'`);
+        } catch (dbError) {
+          console.error(`[EmailSend] Failed to update failed status for log ${logId}:`, dbError);
+        }
+      }
+      
       return { success: false, error: 'SendGrid send failed', logId };
     }
 
@@ -184,7 +194,13 @@ export async function sendEmail(
     // Try to update status to failed if we have a log ID
     if (logId) {
       try {
-        await updateEmailStatus(logId, 'failed', 'sendgrid');
+        await db.update(emailLogs)
+          .set({
+            status: 'failed',
+            updatedAt: new Date()
+          })
+          .where(emailLogs.id.eq(logId));
+        console.log(`[EmailSend] Updated log ${logId} to 'failed' due to error`);
       } catch (e) {
         console.error(`[EmailSend] Failed to update error status for log ${logId}:`, e);
       }
