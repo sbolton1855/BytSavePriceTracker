@@ -1,4 +1,3 @@
-
 const ADMIN_TOKEN_KEY = 'admin_token';
 
 export class AdminAuth {
@@ -44,6 +43,9 @@ export class AdminAuth {
   }
 
   static getToken(): string | null {
-    return this.getStoredToken();
+    if (typeof window === 'undefined') return null;
+    const token = localStorage.getItem(this.TOKEN_KEY) || sessionStorage.getItem(this.TOKEN_KEY);
+    console.log('[AdminAuth] Retrieved token:', token ? `${token.substring(0, 8)}...` : 'NONE');
+    return token;
   }
 }

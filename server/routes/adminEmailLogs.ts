@@ -122,9 +122,28 @@ router.get('/logs/debug', requireAdmin, async (req, res) => {
   try {
     console.log('🔍 Debug endpoint accessed');
 
-    // Get raw count
+    // Test database connection
+    console.log('[DEBUG] Testing database connection...');
+    
+    // Check if email_logs table exists
+    const tableCheck = await db.execute(sql`
+      SELECT name FROM sqlite_master 
+      WHERE type='table' AND name='email_logs'
+    `);
+    console.log('[DEBUG] Table exists check:', tableCheck);
+
+    // Get table schema
+    const schemaCheck = await db.execute(sql`PRAGMA table_info(email_logs)`);
+    console.log('[DEBUG] Table schema:', schemaCheck);
+
+    // Get raw count using direct SQL
+    const directCount = await db.execute(sql`SELECT COUNT(*) as count FROM email_logs`);
+    console.log('[DEBUG] Direct count result:', directCount);
+
+    // Get raw count using drizzle
     const countResult = await db.select({ count: sql`count(*)` }).from(emailLogs);
     const totalCount = Number(countResult[0]?.count) || 0;
+    console.log('[DEBUG] Drizzle count result:', countResult);
 
     // Get latest 10 logs without any filters
     const debugLogs = await db
@@ -136,10 +155,22 @@ router.get('/logs/debug', requireAdmin, async (req, res) => {
     console.log('[DEBUG] Raw database response:', debugLogs);
     console.log('[DEBUG] Total count:', totalCount);
 
+    // Check if any logs exist using raw SQL
+    const rawLogs = await db.execute(sql`
+      SELECT * FROM email_logs 
+      ORDER BY sent_at DESC 
+      LIMIT 5
+    `);
+    console.log('[DEBUG] Raw SQL logs:', rawLogs);
+
     res.json({
       success: true,
+      tableExists: tableCheck.length > 0,
+      tableSchema: schemaCheck,
       totalCount: totalCount,
+      directCount: directCount,
       sampleLogs: debugLogs,
+      rawLogs: rawLogs,
       message: `Found ${totalCount} total logs in database`
     });
 
@@ -147,7 +178,8 @@ router.get('/logs/debug', requireAdmin, async (req, res) => {
     console.error('❌ Debug endpoint error:', error);
     res.status(500).json({
       success: false,
-      error: error instanceof Error ? error.message : 'Unknown error'
+      error: error instanceof Error ? error.message : 'Unknown error',
+      stack: error instanceof Error ? error.stack : undefined
     });
   }
 });
