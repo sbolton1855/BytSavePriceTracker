@@ -99,16 +99,17 @@ export default function AdminEmailLogs() {
 
       const params = new URLSearchParams({
         page: currentPage.toString(),
-        limit: '20' // Increased limit to see more data
+        limit: '100' // Increased limit for debugging
       });
 
-      if (emailFilter.trim()) {
-        params.append('email', emailFilter.trim());
-      }
+      // Temporarily disable filters for debugging
+      // if (emailFilter.trim()) {
+      //   params.append('email', emailFilter.trim());
+      // }
 
-      if (statusFilter !== 'all') {
-        params.append('status', statusFilter);
-      }
+      // if (statusFilter !== 'all') {
+      //   params.append('status', statusFilter);
+      // }
 
       const response = await fetch(`/api/admin/logs?${params}`, {
         headers: {
@@ -121,7 +122,20 @@ export default function AdminEmailLogs() {
       }
 
       const data = await response.json();
-      return data;
+      
+      // Debug logging to check API response
+      console.log('[DEBUG] API Response:', data);
+      
+      // Convert 'rows' to 'logs' for component compatibility
+      return {
+        logs: data.rows || [],
+        pagination: data.pagination || {
+          page: 1,
+          limit: 20,
+          total: 0,
+          totalPages: 1
+        }
+      };
     },
     enabled: !!AdminAuth.isAuthenticated(),
   });
@@ -274,6 +288,25 @@ export default function AdminEmailLogs() {
               <div className="flex gap-2">
                 <Button onClick={clearFilters} variant="outline">
                   Clear Filters
+                </Button>
+                <Button 
+                  onClick={() => {
+                    fetch('/api/admin/logs/debug', {
+                      headers: { 'Authorization': `Bearer ${AdminAuth.getToken()}` }
+                    })
+                    .then(res => res.json())
+                    .then(data => {
+                      console.log('[DEBUG] Manual API test:', data);
+                      alert(`Found ${data.totalCount} logs. Check console for details.`);
+                    })
+                    .catch(err => {
+                      console.error('[DEBUG] API test failed:', err);
+                      alert('Debug API test failed. Check console.');
+                    });
+                  }}
+                  variant="outline"
+                >
+                  🔍 Debug API
                 </Button>
                 <Button onClick={exportLogs} variant="outline" disabled={!emailLogs?.logs.length}>
                   <Download className="h-4 w-4 mr-2" />

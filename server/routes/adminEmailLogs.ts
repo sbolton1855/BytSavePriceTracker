@@ -84,10 +84,11 @@ router.get('/logs', requireAdmin, async (req, res) => {
     const logs = await query;
     
     console.log(`📊 Returning ${logs.length} email logs (page ${page}/${totalPages}, total: ${total})`);
+    console.log('[DEBUG] Email logs rows:', logs);
     
-    // Return structured response
+    // Return structured response with 'rows' key for frontend compatibility
     res.json({
-      logs: logs,
+      rows: logs,
       pagination: {
         page: page,
         limit: limit,
@@ -96,6 +97,45 @@ router.get('/logs', requireAdmin, async (req, res) => {
       }
     });
     
+
+
+/**
+ * GET /api/admin/logs/debug - Debug endpoint to test email logs
+ */
+router.get('/logs/debug', requireAdmin, async (req, res) => {
+  try {
+    console.log('🔍 Debug endpoint accessed');
+    
+    // Get raw count
+    const countResult = await db.select({ count: sql`count(*)` }).from(emailLogs);
+    const totalCount = Number(countResult[0]?.count) || 0;
+    
+    // Get latest 10 logs without any filters
+    const debugLogs = await db
+      .select()
+      .from(emailLogs)
+      .orderBy(desc(emailLogs.sentAt))
+      .limit(10);
+    
+    console.log('[DEBUG] Raw database response:', debugLogs);
+    console.log('[DEBUG] Total count:', totalCount);
+    
+    res.json({
+      success: true,
+      totalCount: totalCount,
+      sampleLogs: debugLogs,
+      message: `Found ${totalCount} total logs in database`
+    });
+    
+  } catch (error) {
+    console.error('❌ Debug endpoint error:', error);
+    res.status(500).json({
+      success: false,
+      error: error instanceof Error ? error.message : 'Unknown error'
+    });
+  }
+});
+
   } catch (error) {
     console.error('❌ Email logs fetch error:', error);
     res.status(500).json({
