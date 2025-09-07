@@ -6,8 +6,8 @@ import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Table, TableBody, TableCell, TableHeader, TableRow } from '@/components/ui/table';
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
+import { Table, TableBody, TableCell, TableHeader, TableRow, TableHead } from '@/components/ui/table';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogTrigger } from '@/components/ui/dialog';
 import { Badge } from '@/components/ui/badge';
 import { Loader2, Send, Eye, AlertCircle, ChevronLeft, ChevronRight, CheckCircle, XCircle } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
@@ -34,6 +34,15 @@ interface EmailLogsResponse {
   totalPages: number;
 }
 
+interface Template {
+  id: string;
+  name: string;
+  subject: string;
+  html: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
 export default function AdminEmailCenter() {
   const { toast } = useToast();
 
@@ -55,14 +64,12 @@ export default function AdminEmailCenter() {
   });
 
   // UI states
-  const [isLoading, setIsLoading] = useState(false);
-  const [previewHtml, setPreviewHtml] = useState<string>('');
+  const [isLoading, setIsLoading] = useState<Record<string, boolean>>({});
   const [results, setResults] = useState<Record<string, any>>({});
   const [currentPage, setCurrentPage] = useState(1);
   const [statusFilter, setStatusFilter] = useState<string>('');
   const [typeFilter, setTypeFilter] = useState<string>('');
   const iframeRef = useRef<HTMLIFrameElement>(null);
-
 
   // Query for email logs
   const { data: emailLogs, isLoading: logsLoading, refetch: refetchLogs } = useQuery<EmailLogsResponse>({
@@ -75,14 +82,19 @@ export default function AdminEmailCenter() {
       }
 
       const params = new URLSearchParams({
-        token: token,
         page: currentPage.toString(),
         pageSize: '20',
         ...(statusFilter && { status: statusFilter }),
         ...(typeFilter && { type: typeFilter })
       });
 
-      const response = await fetch(`/api/admin/logs?${params}`);
+      const response = await fetch(`/api/admin/logs?${params}`, {
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json',
+        },
+      });
+
       if (!response.ok) {
         if (response.status === 403) {
           toast({ title: "Unauthorized", description: "Invalid admin token.", variant: "destructive" });
@@ -97,6 +109,38 @@ export default function AdminEmailCenter() {
     enabled: AdminAuth.getToken() !== null,
   });
 
+  // Query for email templates
+  const { data: templates = [], isLoading: isLoadingTemplates, error: templatesError } = useQuery<Template[]>({
+    queryKey: ['admin-email-templates'],
+    queryFn: async () => {
+      const token = AdminAuth.getToken();
+      if (!token) {
+        toast({ title: "Unauthorized", description: "Please log in again.", variant: "destructive" });
+        AdminAuth.clearToken();
+        throw new Error("No admin token available");
+      }
+
+      console.log('[Templates] Using token:', `${token.substring(0, 8)}...`);
+
+      const response = await fetch('/api/admin/email-templates', {
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json',
+        },
+      });
+
+      if (!response.ok) {
+        if (response.status === 403) {
+          toast({ title: "Unauthorized", description: "Invalid admin token.", variant: "destructive" });
+          AdminAuth.clearToken();
+          return [];
+        }
+        throw new Error(`Failed to fetch templates: ${response.status}`);
+      }
+      return response.json();
+    },
+    enabled: AdminAuth.getToken() !== null,
+  });
 
   // Helper function to update loading state
   const setLoadingState = (key: string, value: boolean) => {
@@ -118,7 +162,19 @@ export default function AdminEmailCenter() {
 
     setLoadingState('priceDropPreview', true);
     try {
-      const response = await fetch(`/api/dev/preview-email?token=${token}&asin=${priceDropForm.asin}&productTitle=${encodeURIComponent(priceDropForm.productTitle)}&oldPrice=${priceDropForm.oldPrice}&newPrice=${priceDropForm.newPrice}`);
+      const params = new URLSearchParams({
+        asin: priceDropForm.asin,
+        productTitle: priceDropForm.productTitle,
+        oldPrice: priceDropForm.oldPrice,
+        newPrice: priceDropForm.newPrice
+      });
+
+      const response = await fetch(`/api/dev/preview-email?${params}`, {
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json',
+        },
+      });
 
       if (!response.ok) {
         if (response.status === 403) {
@@ -155,7 +211,21 @@ export default function AdminEmailCenter() {
     setLoadingState('priceDropSend', true);
     try {
       const testEmail = priceDropForm.email || 'test@example.com';
-      const response = await fetch(`/api/dev/preview-email?asin=${priceDropForm.asin}&productTitle=${encodeURIComponent(priceDropForm.productTitle)}&oldPrice=${priceDropForm.oldPrice}&newPrice=${priceDropForm.newPrice}&email=${encodeURIComponent(testEmail)}&send=true&token=${token}`);
+      const params = new URLSearchParams({
+        asin: priceDropForm.asin,
+        productTitle: priceDropForm.productTitle,
+        oldPrice: priceDropForm.oldPrice,
+        newPrice: priceDropForm.newPrice,
+        email: testEmail,
+        send: 'true'
+      });
+
+      const response = await fetch(`/api/dev/preview-email?${params}`, {
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json',
+        },
+      });
 
       if (!response.ok) {
         if (response.status === 403) {
@@ -190,10 +260,14 @@ export default function AdminEmailCenter() {
     try {
       const params = new URLSearchParams({
         email: passwordResetForm.email,
-        token: token
       });
 
-      const response = await fetch(`/api/admin/test-reset?${params}`);
+      const response = await fetch(`/api/admin/test-reset?${params}`, {
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json',
+        },
+      });
 
       if (!response.ok) {
         if (response.status === 403) {
@@ -228,11 +302,15 @@ export default function AdminEmailCenter() {
     try {
       const params = new URLSearchParams({
         email: passwordResetForm.email,
-        token: token,
         send: 'true'
       });
 
-      const response = await fetch(`/api/admin/test-reset?${params}`);
+      const response = await fetch(`/api/admin/test-reset?${params}`, {
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json',
+        },
+      });
 
       if (!response.ok) {
         if (response.status === 403) {

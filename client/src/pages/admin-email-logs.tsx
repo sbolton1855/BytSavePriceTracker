@@ -92,25 +92,23 @@ export default function AdminEmailLogs() {
         };
       }
 
-      // Use the admin token from environment or stored token
-      const token = AdminAuth.getToken() || 'admin-test-token';
+      const token = AdminAuth.getToken();
       if (!token) {
-        throw new Error("Unauthorized");
+        throw new Error("Unauthorized - please log in again");
       }
 
       const params = new URLSearchParams({
         page: currentPage.toString(),
-        limit: '100' // Increased limit for debugging
+        limit: '100'
       });
 
-      // Temporarily disable filters for debugging
-      // if (emailFilter.trim()) {
-      //   params.append('email', emailFilter.trim());
-      // }
+      if (emailFilter.trim()) {
+        params.append('email', emailFilter.trim());
+      }
 
-      // if (statusFilter !== 'all') {
-      //   params.append('status', statusFilter);
-      // }
+      if (statusFilter !== 'all') {
+        params.append('status', statusFilter);
+      }
 
       const response = await fetch(`/api/admin/logs?${params}`, {
         headers: {
@@ -298,11 +296,17 @@ export default function AdminEmailLogs() {
                 <Button 
                   onClick={async () => {
                     try {
-                      console.log('[DEBUG] Testing API with token:', AdminAuth.getToken());
+                      const token = AdminAuth.getToken();
+                      console.log('[DEBUG] Testing API with token:', token ? `${token.substring(0, 8)}...` : 'NONE');
+                      
+                      if (!token) {
+                        alert('No admin token found. Please log in again.');
+                        return;
+                      }
                       
                       const response = await fetch('/api/admin/logs/debug', {
                         headers: { 
-                          'Authorization': `Bearer ${AdminAuth.getToken()}`,
+                          'Authorization': `Bearer ${token}`,
                           'Content-Type': 'application/json'
                         }
                       });

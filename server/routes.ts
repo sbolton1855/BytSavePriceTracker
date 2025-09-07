@@ -259,7 +259,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         sentAt: emailLogs.sentAt,
         createdAt: emailLogs.sentAt, // Use sentAt as createdAt
         status: emailLogs.status,
-        type: sql`CASE 
+        type: sql`CASE
           WHEN ${emailLogs.subject} LIKE '[TEST]%' THEN 'test'
           WHEN ${emailLogs.subject} LIKE '%Price Drop%' THEN 'price-drop'
           WHEN ${emailLogs.subject} LIKE '%Password Reset%' THEN 'reset'
@@ -2582,8 +2582,8 @@ Respond with just the analysis text, no JSON needed.
 
   // Admin email routes - mount at /api/admin for direct access
   console.log('🔧 Mounting admin email routes at /api/admin...');
-  app.use('/api/admin', adminEmailRoutes);
   app.use('/api/admin', adminEmailLogsRoutes);
+  app.use('/api/admin', adminEmailRoutes);
   console.log('✅ Admin email routes mounted successfully');
 
   app.use('/api/admin', adminToolsRoutes);
