@@ -1,3 +1,4 @@
+
 import express from 'express';
 import { requireAdmin } from '../middleware/requireAdmin';
 import { listTemplates, renderTemplate } from '../email/templates';
@@ -322,104 +323,6 @@ router.get('/check-logs', requireAdmin, async (req, res) => {
     console.error('Database check error:', error);
     res.status(500).json({
       error: error instanceof Error ? error.message : 'Unknown error'
-    });
-  }
-});
-
-// POST /api/admin/send-test-email - Send a test email
-router.post('/send-test-email', requireAdmin, async (req, res) => {
-  try {
-    const { email, subject } = req.body;
-    
-    if (!email) {
-      return res.status(400).json({ error: 'Email address is required' });
-    }
-
-    console.log('[AdminEmail] Sending test email to:', email);
-
-    const testSubject = subject || 'BytSave Test Email';
-    const testHtml = `
-      <h2>Test Email from BytSave</h2>
-      <p>This is a test email sent from the admin panel.</p>
-      <p>Timestamp: ${new Date().toISOString()}</p>
-      <p>If you received this, your email system is working correctly!</p>
-    `;
-
-    const result = await sendEmail(email, testSubject, testHtml);
-    
-    console.log('[AdminEmail] Test email result:', result);
-
-    if (result.success) {
-      res.json({
-        success: true,
-        message: 'Test email sent successfully',
-        messageId: result.messageId,
-        to: email,
-        subject: testSubject
-      });
-    } else {
-      res.status(500).json({
-        success: false,
-        error: result.error,
-        message: 'Failed to send test email'
-      });
-    }
-
-  } catch (error) {
-    console.error('[AdminEmail] Test email error:', error);
-    res.status(500).json({
-      success: false,
-      error: error instanceof Error ? error.message : 'Unknown error',
-      message: 'Test email failed'
-    });
-  }
-});
-
-export default router;
-import express from 'express';
-import { requireAdmin } from '../middleware/requireAdmin.js';
-
-const router = express.Router();
-
-/**
- * GET /api/admin/email-templates - Get available email templates
- */
-router.get('/email-templates', requireAdmin, async (req, res) => {
-  try {
-    console.log('📧 Admin email templates requested');
-
-    // Return available email templates
-    const templates = [
-      {
-        id: 'welcome',
-        name: 'Welcome Email',
-        description: 'Welcome message for new users'
-      },
-      {
-        id: 'password-reset',
-        name: 'Password Reset',
-        description: 'Password reset email template'
-      },
-      {
-        id: 'price-drop',
-        name: 'Price Drop Alert',
-        description: 'Notification when a tracked product price drops'
-      },
-      {
-        id: 'test',
-        name: 'Test Email',
-        description: 'Generic test email template'
-      }
-    ];
-
-    console.log(`📧 Returning ${templates.length} email templates`);
-    res.json(templates);
-
-  } catch (error) {
-    console.error('❌ Email templates fetch error:', error);
-    res.status(500).json({
-      error: 'Failed to fetch email templates',
-      details: error instanceof Error ? error.message : 'Unknown error'
     });
   }
 });
