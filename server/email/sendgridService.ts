@@ -67,13 +67,15 @@ export async function sendEmail(to: string, subject: string, html: string): Prom
       await ensureEmailLogsTable();
 
       const messageId = response[0].headers?.['x-message-id'] || `no-header-${Date.now()}`;
+      const recipientEmail = msg.to;
+      const subject = msg.subject;
 
       await db.execute(`
         INSERT INTO email_logs (recipient_email, subject, status, sg_message_id, preview_html)
         VALUES ($1, $2, $3, $4, $5)
-      `, [to, subject, 'sent', messageId, html || null]);
+      `, [recipientEmail, subject, 'sent', messageId, html || null]);
 
-      console.log('[SendGrid] Email logged successfully');
+      console.log('[EmailLog] Inserted log for:', recipientEmail, 'subject:', subject);
     } catch (logError) {
       console.error('[SendGrid] Failed to log email (non-blocking):', logError);
     }
@@ -99,11 +101,14 @@ export async function sendEmail(to: string, subject: string, html: string): Prom
     // Attempt to log the failure to the database as well
     try {
       await ensureEmailLogsTable();
+      const recipientEmail = to;
+      const emailSubject = subject;
+      
       await db.execute(`
         INSERT INTO email_logs (recipient_email, subject, status, error_message)
         VALUES ($1, $2, $3, $4)
-      `, [to, subject, 'failed', errorMessage]);
-      console.log('[SendGrid] Email failure logged successfully');
+      `, [recipientEmail, emailSubject, 'failed', errorMessage]);
+      console.log('[EmailLog] Email failure logged for:', recipientEmail);
     } catch (logError) {
       console.error('[SendGrid] Failed to log email failure (non-blocking):', logError);
     }

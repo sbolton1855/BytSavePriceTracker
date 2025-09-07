@@ -1,4 +1,3 @@
-
 import type { RedisClientType } from 'redis';
 import { createClient } from 'redis';
 
@@ -68,27 +67,36 @@ const fallbackCache = new InMemoryCache();
 let redisClient: RedisClientType | null = null;
 let isRedisConnected = false;
 
-// Try to connect if REDIS_URL exists
-if (process.env.REDIS_URL) {
-  try {
-    redisClient = createClient({ url: process.env.REDIS_URL });
-    redisClient.on('connect', () => {
-      isRedisConnected = true;
-      console.log("[CACHE] Redis connected successfully");
-    });
-    redisClient.on('error', (err) => {
-      isRedisConnected = false;
-      console.warn("[CACHE] Redis connection error:", err.message);
-    });
-    redisClient.connect();
-  } catch (err) {
-    console.warn("[CACHE] Redis failed to connect, using in-memory cache:", err instanceof Error ? err.message : 'Unknown error');
-    redisClient = null;
-    isRedisConnected = false;
+// Initialize Redis connection
+const redis = createClient({
+  url: process.env.REDIS_URL || undefined,
+});
+
+redis.on('error', (err) => {
+  if (process.env.NODE_ENV === 'development') {
+    console.warn('[Redis] Client Error (dev mode):', err.message);
+  } else {
+    console.error('Redis Client Error:', err);
   }
-} else {
-  console.warn("[CACHE] No REDIS_URL found, using in-memory cache");
-}
+});
+
+redis.on('connect', () => {
+  console.log('✅ Redis connected successfully');
+});
+
+redis.on('disconnect', () => {
+  console.log('❌ Redis disconnected');
+});
+
+// Connect to Redis
+redis.connect().catch((err) => {
+  if (process.env.NODE_ENV === 'development') {
+    console.warn('[Redis] Failed to connect (dev mode):', err.message);
+  } else {
+    console.error('Failed to connect to Redis:', err);
+  }
+});
+
 
 // Export singleton instance with safe fallbacks
 export const cache = {

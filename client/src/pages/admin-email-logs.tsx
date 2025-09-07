@@ -1,4 +1,3 @@
-
 /**
  * Admin Email Logs Interface
  * 
@@ -99,22 +98,30 @@ export default function AdminEmailLogs() {
       }
 
       const params = new URLSearchParams({
-        token: token,
         page: currentPage.toString(),
-        limit: '200', // Increased limit to see more data
-        ...(emailFilter && { email: emailFilter }),
-        ...(statusFilter && statusFilter !== 'all' && { status: statusFilter })
+        limit: '20' // Increased limit to see more data
       });
 
-      const response = await fetch(`/api/admin/email/logs?${params}`);
-      if (!response.ok) {
-        if (response.status === 401) {
-          AdminAuth.clearToken();
-          window.location.reload();
-        }
-        throw new Error('Failed to fetch email logs');
+      if (emailFilter.trim()) {
+        params.append('email', emailFilter.trim());
       }
-      return response.json();
+
+      if (statusFilter !== 'all') {
+        params.append('status', statusFilter);
+      }
+
+      const response = await fetch(`/api/admin/logs?${params}`, {
+        headers: {
+          'Authorization': `Bearer ${token}`
+        }
+      });
+
+      if (!response.ok) {
+        throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+      }
+
+      const data = await response.json();
+      return data;
     },
     enabled: !!AdminAuth.isAuthenticated(),
   });
@@ -142,7 +149,7 @@ export default function AdminEmailLogs() {
    */
   const exportLogs = () => {
     if (!emailLogs?.logs) return;
-    
+
     const csvContent = [
       ['ID', 'Recipient', 'Subject', 'Status', 'Product ID', 'SendGrid ID', 'Sent At', 'Updated At'],
       ...emailLogs.logs.map(log => [
@@ -181,10 +188,10 @@ export default function AdminEmailLogs() {
       spam_reported: { color: 'bg-red-100 text-red-800', icon: XCircle, label: 'Spam' },
       failed: { color: 'bg-gray-100 text-gray-800', icon: XCircle, label: 'Failed' }
     };
-    
+
     const statusConfig = config[status as keyof typeof config] || config.pending;
     const Icon = statusConfig.icon;
-    
+
     return (
       <Badge className={`${statusConfig.color} flex items-center gap-1`}>
         <Icon className="h-3 w-3" />
@@ -199,7 +206,7 @@ export default function AdminEmailLogs() {
       description="Monitor email delivery status and troubleshoot email issues"
     >
       <div className="space-y-6">
-        
+
         {/* Controls Section - Search, Filter, Export, Refresh */}
         <Card>
           <CardHeader>
@@ -210,7 +217,7 @@ export default function AdminEmailLogs() {
           </CardHeader>
           <CardContent>
             <div className="flex flex-wrap gap-4 items-end">
-              
+
               {/* Data Source Selector */}
               <div className="min-w-[150px]">
                 <label className="text-sm font-medium mb-2 block">Data Source</label>
@@ -332,25 +339,25 @@ export default function AdminEmailLogs() {
                 <TableBody>
                   {emailLogs?.logs.map((log) => (
                     <TableRow key={log.id}>
-                      
+
                       {/* Email Log ID */}
                       <TableCell className="font-mono text-sm">{log.id}</TableCell>
-                      
+
                       {/* Recipient Email */}
                       <TableCell className="max-w-[200px] truncate">
                         {log.recipientEmail}
                       </TableCell>
-                      
+
                       {/* Email Subject */}
                       <TableCell className="max-w-xs truncate">
                         {log.subject}
                       </TableCell>
-                      
+
                       {/* Delivery Status */}
                       <TableCell>
                         {getStatusBadge(log.status)}
                       </TableCell>
-                      
+
                       {/* Associated Product (if any) */}
                       <TableCell>
                         {log.productId ? (
@@ -361,24 +368,24 @@ export default function AdminEmailLogs() {
                           <span className="text-gray-400">-</span>
                         )}
                       </TableCell>
-                      
+
                       {/* Sent Timestamp */}
                       <TableCell>
                         <div className="text-sm">
                           {new Date(log.sentAt).toLocaleString()}
                         </div>
                       </TableCell>
-                      
+
                       {/* Last Updated Timestamp */}
                       <TableCell>
                         <div className="text-sm">
                           {new Date(log.updatedAt).toLocaleString()}
                         </div>
                       </TableCell>
-                      
+
                       {/* Actions */}
                       <TableCell className="text-right">
-                        
+
                         {/* Preview Email Content Dialog */}
                         <Dialog>
                           <DialogTrigger asChild>
@@ -392,7 +399,7 @@ export default function AdminEmailLogs() {
                               <DialogTitle>Email Preview - {log.subject}</DialogTitle>
                             </DialogHeader>
                             <div className="space-y-4">
-                              
+
                               {/* Email Metadata */}
                               <div className="grid grid-cols-2 gap-4 p-4 bg-gray-50 rounded">
                                 <div>
@@ -408,7 +415,7 @@ export default function AdminEmailLogs() {
                                   <strong>Product:</strong> {log.productId ? `#${log.productId}` : 'None'}
                                 </div>
                               </div>
-                              
+
                               {/* Email Content Preview */}
                               <div>
                                 <strong className="block mb-2">Email Content Preview:</strong>
@@ -432,31 +439,32 @@ export default function AdminEmailLogs() {
         </Card>
 
         {/* Pagination Controls */}
-        {emailLogs && emailLogs.pagination.totalPages > 1 && (
-          <div className="flex items-center justify-between">
+        {emailLogs && emailLogs.pagination && emailLogs.pagination.totalPages > 1 && (
+          <div className="flex items-center justify-between mt-6">
             <div className="text-sm text-gray-600">
-              Showing {((emailLogs.pagination.page - 1) * emailLogs.pagination.limit) + 1} to{' '}
-              {Math.min(emailLogs.pagination.page * emailLogs.pagination.limit, emailLogs.pagination.total)} of{' '}
-              {emailLogs.pagination.total} email logs
+              Showing {((emailLogs.pagination.page - 1) * emailLogs.pagination.limit) + 1} to {Math.min(emailLogs.pagination.page * emailLogs.pagination.limit, emailLogs.pagination.total)} of {emailLogs.pagination.total} results
             </div>
+
             <div className="flex items-center gap-2">
               <Button
                 variant="outline"
                 size="sm"
-                onClick={() => setCurrentPage(prev => Math.max(1, prev - 1))}
-                disabled={currentPage === 1}
+                onClick={() => setCurrentPage(emailLogs.pagination.page - 1)}
+                disabled={emailLogs.pagination.page <= 1}
               >
                 <ChevronLeft className="h-4 w-4" />
                 Previous
               </Button>
-              <span className="px-3 py-1 text-sm">
-                Page {currentPage} of {emailLogs.pagination.totalPages}
+
+              <span className="text-sm font-medium">
+                Page {emailLogs.pagination.page} of {emailLogs.pagination.totalPages}
               </span>
+
               <Button
                 variant="outline"
                 size="sm"
-                onClick={() => setCurrentPage(prev => Math.min(emailLogs.pagination.totalPages, prev + 1))}
-                disabled={currentPage === emailLogs.pagination.totalPages}
+                onClick={() => setCurrentPage(emailLogs.pagination.page + 1)}
+                disabled={emailLogs.pagination.page >= emailLogs.pagination.totalPages}
               >
                 Next
                 <ChevronRight className="h-4 w-4" />
