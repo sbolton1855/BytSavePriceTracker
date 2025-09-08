@@ -301,6 +301,41 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Get API errors for admin analytics
+  app.get('/api/admin/errors', requireAdmin, async (req, res) => {
+    try {
+      console.log('[AdminApiErrors] Loading API errors for admin');
+
+      const limit = req.query.limit ? parseInt(req.query.limit as string, 10) : 50;
+
+      // Query the api_errors table directly
+      const apiErrors = await db
+        .select({
+          id: sql`id`,
+          asin: sql`asin`,
+          errorType: sql`error_type`,
+          errorMessage: sql`error_message`, 
+          createdAt: sql`created_at`,
+          resolved: sql`resolved`
+        })
+        .from(sql`api_errors`)
+        .orderBy(sql`created_at DESC`)
+        .limit(limit);
+
+      res.json({
+        total: apiErrors.length,
+        recentErrors: apiErrors
+      });
+    } catch (error) {
+      console.error('[AdminApiErrors] Error loading API errors:', error);
+      res.status(500).json({
+        error: error instanceof Error ? error.message : 'Failed to load API errors',
+        total: 0,
+        recentErrors: []
+      });
+    }
+  });
+
   // Force price drop alerts (admin only)
   app.post('/api/dev/force-alerts', async (req, res) => {
     try {
