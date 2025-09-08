@@ -91,9 +91,16 @@ export default function AdminHub() {
     {
       name: "API Monitor",
       description: "Monitor API performance and errors",
-      href: "/api-monitor",
+      href: "/admin/api-monitor",
       icon: Activity,
       badge: "Real-time"
+    },
+    {
+      name: "API Errors",
+      description: "View and track API errors",
+      href: "/admin/api-errors",
+      icon: AlertTriangle,
+      badge: "Debug"
     }
   ];
 
