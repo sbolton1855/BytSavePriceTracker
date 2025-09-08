@@ -245,6 +245,52 @@ export default function ApiMonitor() {
           </Card>
         </div>
       )}
+
+      {/* API Errors Section */}
+      <div className="grid gap-6">
+        <div>
+          <h2 className="text-2xl font-bold mb-4">Recent API Errors</h2>
+          <div className="bg-white rounded-lg shadow p-6">
+            {isLoading ? ( // Changed from errorsLoading to isLoading as the initial query is for errorStats
+              <div className="text-center py-8">Loading API errors...</div>
+            ) : errorStats?.recentErrors?.length > 0 ? (
+              <div className="space-y-4">
+                {errorStats.recentErrors.map((error: ApiError) => ( // Added type annotation for clarity
+                  <div key={error.id} className="border-l-4 border-red-500 pl-4 py-2">
+                    <div className="flex justify-between items-start">
+                      <div>
+                        <p className="font-medium text-gray-900">
+                          {error.errorType || 'Unknown Error'}
+                        </p>
+                        <p className="text-sm text-gray-600">
+                          ASIN: {error.asin || 'N/A'}
+                        </p>
+                        <p className="text-sm text-gray-500 mt-1">
+                          {error.errorMessage}
+                        </p>
+                      </div>
+                      <div className="text-right">
+                        <p className="text-xs text-gray-500">
+                          {formatDate(error.createdAt)}
+                        </p>
+                        {error.resolved && (
+                          <span className="inline-block mt-1 px-2 py-1 text-xs bg-green-100 text-green-800 rounded">
+                            Resolved
+                          </span>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <div className="text-center py-8 text-gray-500">
+                No API errors found
+              </div>
+            )}
+          </div>
+        </div>
+      </div>
     </div>
   );
 }
