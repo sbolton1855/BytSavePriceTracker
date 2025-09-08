@@ -98,7 +98,7 @@ export default function AdminHub() {
     {
       name: "API Errors",
       description: "View and track API errors",
-      href: "/admin/api-errors",
+      href: "/admin/api-monitor",
       icon: AlertTriangle,
       badge: "Debug"
     }
