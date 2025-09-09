@@ -223,8 +223,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
     res.sendFile(path.join(__dirname, '../client/forgot-password.html'));
   });
 
-  // Admin routes
-  app.get('/admin/hub', (req, res) => {
+  // Admin routes - handle all admin hub routes including query parameters
+  app.get('/admin/hub*', (req, res) => {
     res.sendFile(path.join(__dirname, '..', 'client', 'index.html'));
   });
 

@@ -5,7 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import AdminLayout from "@/components/AdminLayout";
 import AdminTabNav from "@/components/AdminTabNav";
-import { Link, useLocation } from "wouter";
+import { Link } from "wouter";
 import { useState, useEffect } from "react";
 import { 
   Mail, 
@@ -24,7 +24,6 @@ import {
 
 export default function AdminHub() {
   const { toast } = useToast();
-  const [location, setLocation] = useLocation();
   
   // Get tab from URL query parameter
   const getTabFromUrl = () => {
@@ -51,10 +50,10 @@ export default function AdminHub() {
     return () => window.removeEventListener('popstate', handlePopState);
   }, []);
 
-  // Update tab when URL changes
+  // Update tab when component mounts
   useEffect(() => {
     setActiveTab(getTabFromUrl());
-  }, [location]);
+  }, []);
 
   const emailTools = [
     {
