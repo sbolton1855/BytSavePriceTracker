@@ -1,4 +1,3 @@
-
 import { useToast } from "@/hooks/use-toast";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -29,7 +28,7 @@ import {
 export default function AdminHub() {
   const { toast } = useToast();
   const [location] = useLocation();
-  
+
   // Get current tab from URL query parameter using reactive location
   const tab = new URLSearchParams(location.split('?')[1] || '').get('tab') || 'email';
 
@@ -127,7 +126,7 @@ export default function AdminHub() {
     </Link>
   );
 
-  
+
 
   const renderTabContent = () => {
     switch (tab) {
