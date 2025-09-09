@@ -21,6 +21,7 @@ import {
   Package,
   AlertTriangle
 } from "lucide-react";
+import ApiErrorsPanel from "@/components/ApiErrorsPanel";
 
 export default function AdminHub() {
   const { toast } = useToast();
@@ -205,29 +206,7 @@ export default function AdminHub() {
             </Card>
           );
         case 'api-errors':
-          return (
-            <Card>
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2">
-                  <AlertTriangle className="h-5 w-5" />
-                  API Errors
-                </CardTitle>
-                <CardDescription>View and track API errors</CardDescription>
-              </CardHeader>
-              <CardContent>
-                <div className="space-y-6">
-                  <div className="text-center py-12">
-                    <AlertTriangle className="h-16 w-16 mx-auto mb-4 text-red-600" />
-                    <h3 className="text-xl font-semibold mb-2">Error Tracking</h3>
-                    <p className="text-gray-600">API error logs and debugging tools will be shown here</p>
-                    <Button className="mt-4" onClick={() => handleTabChange('analytics')}>
-                      Back to Analytics Tools
-                    </Button>
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
-          );
+          return <ApiErrorsPanel />;
         case 'asin-inspector':
           return (
             <Card>
