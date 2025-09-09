@@ -3,24 +3,13 @@ import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { useToast } from "@/hooks/use-toast";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Button } from "@/components/ui/button";
-import { Loader2, RefreshCcw, AlertTriangle } from "lucide-react";
-import {
-  BarChart,
-  Bar,
-  XAxis,
-  YAxis,
-  CartesianGrid,
-  Tooltip,
-  Legend,
-  ResponsiveContainer,
-  PieChart,
-  Pie,
-  Cell
-} from "recharts";
+import { Badge } from "@/components/ui/badge";
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { Loader2, RefreshCw, AlertTriangle, CheckCircle, XCircle } from "lucide-react";
+import { AdminAuth } from "@/lib/admin-auth";
 
-// API Error interface
+// API Error interface matching the backend structure
 interface ApiError {
   id: number;
   asin: string;
@@ -30,59 +19,71 @@ interface ApiError {
   resolved: boolean;
 }
 
-// Error statistics interface
-interface ErrorStats {
+// Response structure for API errors
+interface ApiErrorsResponse {
   total: number;
-  byErrorType: {
-    errorType: string;
-    count: number;
-  }[];
-  byAsin: {
-    asin: string;
-    count: number;
-  }[];
   recentErrors: ApiError[];
 }
-
-// COLORS
-const COLORS = ['#0088FE', '#00C49F', '#FFBB28', '#FF8042', '#8884d8', '#82ca9d'];
 
 export default function ApiErrorsPanel() {
   const { toast } = useToast();
   const [refreshTrigger, setRefreshTrigger] = useState(0);
 
-  const { data: errorStats, isLoading } = useQuery<ErrorStats>({
+  const { data: errorData, isLoading, refetch } = useQuery<ApiErrorsResponse>({
     queryKey: ['/api/admin/errors', refreshTrigger],
     queryFn: async () => {
-      const response = await fetch('/api/admin/errors');
-      if (!response.ok) {
-        throw new Error('Failed to fetch API errors');
+      const token = AdminAuth.getToken() || 'admin-test-token';
+      if (!token) {
+        throw new Error("Unauthorized");
       }
-      return response.json();
+
+      const response = await fetch('/api/admin/errors', {
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        }
+      });
+
+      if (!response.ok) {
+        throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+      }
+
+      const data = await response.json();
+      console.log('[DEBUG] API Errors Response:', data);
+      
+      return data;
     },
+    enabled: !!AdminAuth.isAuthenticated(),
   });
 
   const handleRefresh = () => {
     setRefreshTrigger(prev => prev + 1);
     toast({
       title: "Refreshing data",
-      description: "Fetching the latest error statistics..."
+      description: "Fetching the latest API error data..."
     });
   };
 
-  // Format timestamp to a readable format
-  const formatDate = (timestamp: string) => {
-    const date = new Date(timestamp);
-    return `${date.toLocaleDateString()} ${date.toLocaleTimeString()}`;
+  /**
+   * Get appropriate badge for resolved status
+   */
+  const getResolvedBadge = (resolved: boolean) => {
+    if (resolved) {
+      return (
+        <Badge className="bg-green-100 text-green-800 flex items-center gap-1">
+          <CheckCircle className="h-3 w-3" />
+          Resolved
+        </Badge>
+      );
+    } else {
+      return (
+        <Badge className="bg-red-100 text-red-800 flex items-center gap-1">
+          <XCircle className="h-3 w-3" />
+          Active
+        </Badge>
+      );
+    }
   };
-
-  if (isLoading) {
-    return (
-      <div className="flex items-center justify-center min-h-[400px]">
-        <Loader2 className="h-8 w-8 animate-spin text-primary" />
-      </div>
-    );
-  }
 
   return (
     <div className="space-y-6">
@@ -92,175 +93,96 @@ export default function ApiErrorsPanel() {
           <h2 className="text-2xl font-bold">API Error Monitor</h2>
         </div>
         <Button onClick={handleRefresh} variant="outline" className="flex items-center gap-2">
-          <RefreshCcw className="h-4 w-4" />
-          Refresh Data
+          {isLoading ? (
+            <Loader2 className="h-4 w-4 animate-spin" />
+          ) : (
+            <RefreshCw className="h-4 w-4" />
+          )}
+          Refresh
         </Button>
       </div>
 
-      {!errorStats ? (
-        <div className="text-center py-16">
-          <AlertTriangle className="h-16 w-16 mx-auto mb-4 text-gray-400" />
-          <h3 className="text-xl font-bold mb-4">No data available</h3>
-          <p className="mb-6">There are no API errors logged yet.</p>
-        </div>
-      ) : (
-        <div className="space-y-6">
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-            <Card>
-              <CardHeader>
-                <CardTitle>Total API Errors</CardTitle>
-                <CardDescription>All time</CardDescription>
-              </CardHeader>
-              <CardContent>
-                <div className="text-4xl font-bold text-red-600">{errorStats.total}</div>
-              </CardContent>
-            </Card>
+      {/* API Errors Table */}
+      <Card>
+        <CardHeader>
+          <CardTitle>API Error Logs</CardTitle>
+          <CardDescription>
+            Amazon API errors and debugging information
+          </CardDescription>
+          <div className="flex items-center gap-4 text-sm text-gray-600 mt-2">
+            <span><strong>Total Errors:</strong> {errorData?.total || 0}</span>
+            <span><strong>Recent Errors:</strong> {errorData?.recentErrors?.length || 0}</span>
           </div>
-
-          <Tabs defaultValue="byType" className="w-full">
-            <TabsList className="grid w-full grid-cols-2">
-              <TabsTrigger value="byType">Errors by Type</TabsTrigger>
-              <TabsTrigger value="byProduct">Errors by Product</TabsTrigger>
-            </TabsList>
-
-            <TabsContent value="byType" className="mt-6">
-              <Card>
-                <CardHeader>
-                  <CardTitle>Errors by Type</CardTitle>
-                  <CardDescription>Most common error categories</CardDescription>
-                </CardHeader>
-                <CardContent className="h-[400px]">
-                  {errorStats.byErrorType.length === 0 ? (
-                    <div className="flex items-center justify-center h-full">
-                      <p>No error type data available</p>
-                    </div>
-                  ) : (
-                    <ResponsiveContainer width="100%" height="100%">
-                      <PieChart>
-                        <Pie
-                          data={errorStats.byErrorType}
-                          cx="50%"
-                          cy="50%"
-                          labelLine={false}
-                          label={({ errorType, percent }) => `${errorType}: ${(percent * 100).toFixed(0)}%`}
-                          outerRadius={150}
-                          fill="#8884d8"
-                          dataKey="count"
-                          nameKey="errorType"
-                        >
-                          {errorStats.byErrorType.map((entry, index) => (
-                            <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
-                          ))}
-                        </Pie>
-                        <Tooltip />
-                        <Legend />
-                      </PieChart>
-                    </ResponsiveContainer>
-                  )}
-                </CardContent>
-              </Card>
-            </TabsContent>
-
-            <TabsContent value="byProduct" className="mt-6">
-              <Card>
-                <CardHeader>
-                  <CardTitle>Errors by Product (ASIN)</CardTitle>
-                  <CardDescription>Products with the most API errors</CardDescription>
-                </CardHeader>
-                <CardContent className="h-[400px]">
-                  {errorStats.byAsin.length === 0 ? (
-                    <div className="flex items-center justify-center h-full">
-                      <p>No product error data available</p>
-                    </div>
-                  ) : (
-                    <ResponsiveContainer width="100%" height="100%">
-                      <BarChart
-                        data={errorStats.byAsin}
-                        margin={{
-                          top: 5,
-                          right: 30,
-                          left: 20,
-                          bottom: 5,
-                        }}
-                      >
-                        <CartesianGrid strokeDasharray="3 3" />
-                        <XAxis dataKey="asin" />
-                        <YAxis />
-                        <Tooltip />
-                        <Legend />
-                        <Bar dataKey="count" fill="#8884d8" name="Error Count" />
-                      </BarChart>
-                    </ResponsiveContainer>
-                  )}
-                </CardContent>
-              </Card>
-            </TabsContent>
-          </Tabs>
-
-          <Card>
-            <CardHeader>
-              <CardTitle>Recent API Errors</CardTitle>
-              <CardDescription>Latest Amazon API errors</CardDescription>
-            </CardHeader>
-            <CardContent>
-              {errorStats.recentErrors.length === 0 ? (
-                <div className="text-center py-8">
-                  <AlertTriangle className="h-12 w-12 mx-auto mb-4 text-gray-400" />
-                  <p className="text-gray-500">No recent errors</p>
-                  <p className="text-sm text-gray-400 mt-2">The system is running smoothly! 🎉</p>
-                </div>
-              ) : (
-                <div className="overflow-x-auto">
-                  <table className="min-w-full divide-y divide-gray-200">
-                    <thead className="bg-gray-50">
-                      <tr>
-                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                          Time
-                        </th>
-                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                          ASIN
-                        </th>
-                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                          Error Type
-                        </th>
-                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                          Error Message
-                        </th>
-                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                          Status
-                        </th>
-                      </tr>
-                    </thead>
-                    <tbody className="bg-white divide-y divide-gray-200">
-                      {errorStats.recentErrors.map((error) => (
-                        <tr key={error.id}>
-                          <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                            {formatDate(error.createdAt)}
-                          </td>
-                          <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
-                            {error.asin}
-                          </td>
-                          <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                            {error.errorType}
-                          </td>
-                          <td className="px-6 py-4 text-sm text-gray-500 max-w-xs truncate">
-                            {error.errorMessage}
-                          </td>
-                          <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                            <span className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${error.resolved ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'}`}>
-                              {error.resolved ? 'Resolved' : 'Active'}
-                            </span>
-                          </td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
+        </CardHeader>
+        <CardContent className="p-0">
+          {isLoading ? (
+            <div className="p-8 text-center">
+              <Loader2 className="h-8 w-8 animate-spin mx-auto mb-4" />
+              Loading API errors...
+            </div>
+          ) : !errorData?.recentErrors || errorData.recentErrors.length === 0 ? (
+            <div className="p-8 text-center text-gray-500">
+              <AlertTriangle className="h-12 w-12 mx-auto mb-4 opacity-50" />
+              <p className="text-lg font-medium mb-2">No API errors found</p>
+              <p>API error logs will appear here when errors occur</p>
+              {errorData && (
+                <p className="text-sm mt-2 text-blue-600">
+                  API returned: {JSON.stringify(errorData)}
+                </p>
               )}
-            </CardContent>
-          </Card>
-        </div>
-      )}
+            </div>
+          ) : (
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>ID</TableHead>
+                  <TableHead>ASIN</TableHead>
+                  <TableHead>Error Type</TableHead>
+                  <TableHead>Error Message</TableHead>
+                  <TableHead>Created At</TableHead>
+                  <TableHead>Status</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {errorData.recentErrors.map((error) => (
+                  <TableRow key={error.id}>
+                    
+                    {/* Error ID */}
+                    <TableCell className="font-mono text-sm">{error.id}</TableCell>
+
+                    {/* ASIN */}
+                    <TableCell className="font-mono text-sm">
+                      {error.asin}
+                    </TableCell>
+
+                    {/* Error Type */}
+                    <TableCell className="max-w-xs truncate">
+                      {error.errorType}
+                    </TableCell>
+
+                    {/* Error Message */}
+                    <TableCell className="max-w-xs truncate">
+                      {error.errorMessage}
+                    </TableCell>
+
+                    {/* Created At Timestamp */}
+                    <TableCell>
+                      <div className="text-sm">
+                        {new Date(error.createdAt).toLocaleString()}
+                      </div>
+                    </TableCell>
+
+                    {/* Resolved Status */}
+                    <TableCell>
+                      {getResolvedBadge(error.resolved)}
+                    </TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          )}
+        </CardContent>
+      </Card>
     </div>
   );
 }
