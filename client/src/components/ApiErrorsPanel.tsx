@@ -53,6 +53,13 @@ export default function ApiErrorsPanel() {
 
   const { data: errorStats, isLoading } = useQuery<ErrorStats>({
     queryKey: ['/api/admin/errors', refreshTrigger],
+    queryFn: async () => {
+      const response = await fetch('/api/admin/errors');
+      if (!response.ok) {
+        throw new Error('Failed to fetch API errors');
+      }
+      return response.json();
+    },
   });
 
   const handleRefresh = () => {
