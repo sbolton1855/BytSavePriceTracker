@@ -59,6 +59,9 @@ function Router() {
       <Route path="/admin-dashboard">
         <AdminDashboard />
       </Route>
+      <Route path="/admin">
+        <AdminHub />
+      </Route>
       <Route path="/admin/hub">
         <AdminHub />
       </Route>
