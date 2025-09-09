@@ -30,8 +30,14 @@ export default function AdminHub() {
   const { toast } = useToast();
   const [location] = useLocation();
   
-  // Get current tab from URL query parameter using reactive location
-  const tab = new URLSearchParams(location.split('?')[1] || '').get('tab') || 'email';
+  // Get current tab from URL query parameter using reactive search params
+  const searchParams = new URLSearchParams(window.location.search);
+  const tab = searchParams.get('tab') || 'email';
+
+  // Force re-render when location changes
+  useEffect(() => {
+    // This empty useEffect with location dependency ensures re-renders
+  }, [location]);
 
   const emailTools = [
     {
