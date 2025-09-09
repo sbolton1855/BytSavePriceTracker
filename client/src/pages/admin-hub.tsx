@@ -5,6 +5,10 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import AdminLayout from "@/components/AdminLayout";
 import AdminTabNav from "@/components/AdminTabNav";
+import EmailPanel from "@/components/EmailPanel";
+import AnalyticsPanel from "@/components/AnalyticsPanel";
+import ToolsPanel from "@/components/ToolsPanel";
+import ProductsPanel from "@/components/ProductsPanel";
 import { Link, useLocation } from "wouter";
 import { useState, useEffect } from "react";
 import { 
@@ -27,8 +31,7 @@ export default function AdminHub() {
   const [location] = useLocation();
   
   // Get current tab from URL query parameter
-  const urlParams = new URLSearchParams(location.split('?')[1] || '');
-  const activeTab = urlParams.get('tab') || 'email';
+  const tab = new URLSearchParams(window.location.search).get('tab') || 'email';
 
   const emailTools = [
     {
@@ -124,85 +127,10 @@ export default function AdminHub() {
     </Link>
   );
 
-  // Component placeholders
-  const EmailPanel = () => (
-    <Card>
-      <CardHeader>
-        <CardTitle className="flex items-center gap-2">
-          <Mail className="h-5 w-5" />
-          Email System
-        </CardTitle>
-        <CardDescription>Test and manage email functionality</CardDescription>
-      </CardHeader>
-      <CardContent>
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-          {emailTools.map((tool) => (
-            <ToolCard key={tool.name} tool={tool} />
-          ))}
-        </div>
-      </CardContent>
-    </Card>
-  );
-
-  const AnalyticsPanel = () => (
-    <Card>
-      <CardHeader>
-        <CardTitle className="flex items-center gap-2">
-          <BarChart3 className="h-5 w-5" />
-          Analytics & Monitoring
-        </CardTitle>
-        <CardDescription>System performance and error tracking</CardDescription>
-      </CardHeader>
-      <CardContent>
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-          {analyticsTools.map((tool) => (
-            <ToolCard key={tool.name} tool={tool} />
-          ))}
-        </div>
-      </CardContent>
-    </Card>
-  );
-
-  const ToolsPanel = () => (
-    <Card>
-      <CardHeader>
-        <CardTitle className="flex items-center gap-2">
-          <Settings className="h-5 w-5" />
-          System Tools
-        </CardTitle>
-        <CardDescription>Database and system management</CardDescription>
-      </CardHeader>
-      <CardContent>
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-          {systemTools.map((tool) => (
-            <ToolCard key={tool.name} tool={tool} />
-          ))}
-        </div>
-      </CardContent>
-    </Card>
-  );
-
-  const ProductsPanel = () => (
-    <Card>
-      <CardHeader>
-        <CardTitle className="flex items-center gap-2">
-          <Package className="h-5 w-5" />
-          Products Management
-        </CardTitle>
-        <CardDescription>View and manage all tracked products</CardDescription>
-      </CardHeader>
-      <CardContent>
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-          {productTools.map((tool) => (
-            <ToolCard key={tool.name} tool={tool} />
-          ))}
-        </div>
-      </CardContent>
-    </Card>
-  );
+  
 
   const renderTabContent = () => {
-    switch (activeTab) {
+    switch (tab) {
       case 'email':
       default:
         return <EmailPanel />;
@@ -235,7 +163,7 @@ export default function AdminHub() {
         </Card>
 
         {/* Tabbed Navigation */}
-        <AdminTabNav activeTab={activeTab} onTabChange={() => {}} />
+        <AdminTabNav activeTab={tab} onTabChange={() => {}} />
 
         {/* Tab Content */}
         {renderTabContent()}
