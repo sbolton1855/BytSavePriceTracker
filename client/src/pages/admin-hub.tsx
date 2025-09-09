@@ -84,21 +84,21 @@ export default function AdminHub() {
     {
       name: "Admin Dashboard",
       description: "System statistics and metrics",
-      href: "/admin-dashboard",
+      tabId: "dashboard",
       icon: BarChart3,
       badge: "Live"
     },
     {
       name: "API Monitor",
       description: "Monitor API performance and errors",
-      href: "/admin/api-monitor",
+      tabId: "api-monitor",
       icon: Activity,
       badge: "Real-time"
     },
     {
       name: "API Errors",
       description: "View and track API errors",
-      href: "/admin/api-errors",
+      tabId: "api-errors",
       icon: AlertTriangle,
       badge: "Debug"
     }
@@ -108,14 +108,14 @@ export default function AdminHub() {
     {
       name: "ASIN Inspector",
       description: "Inspect individual product data",
-      href: `/admin/asin-inspector`,
+      tabId: "asin-inspector",
       icon: Search,
       badge: "Debug"
     },
     {
       name: "Cache Management",
       description: "Manage system cache",
-      href: `/admin/cache`,
+      tabId: "cache-management",
       icon: Database,
       badge: "System"
     }
@@ -125,32 +125,189 @@ export default function AdminHub() {
     {
       name: "Manage Products",
       description: "View and manage all tracked products",
-      href: `/admin/products`,
+      tabId: "manage-products",
       icon: Package,
       badge: "Management"
     }
   ];
 
   const ToolCard = ({ tool }: { tool: any }) => (
-    <Link key={tool.name} href={tool.href}>
-      <Card className="cursor-pointer transition-all hover:shadow-md hover:scale-105">
-        <CardContent className="p-4">
-          <div className="flex items-start justify-between mb-3">
-            <tool.icon className="h-5 w-5 text-blue-600" />
-            <Badge variant="secondary" className="text-xs">
-              {tool.badge}
-            </Badge>
-          </div>
-          <h3 className="font-semibold mb-1">{tool.name}</h3>
-          <p className="text-sm text-gray-600 leading-relaxed">
-            {tool.description}
-          </p>
-        </CardContent>
-      </Card>
-    </Link>
+    <Card 
+      key={tool.name} 
+      className="cursor-pointer transition-all hover:shadow-md hover:scale-105"
+      onClick={() => handleTabChange(tool.tabId)}
+    >
+      <CardContent className="p-4">
+        <div className="flex items-start justify-between mb-3">
+          <tool.icon className="h-5 w-5 text-blue-600" />
+          <Badge variant="secondary" className="text-xs">
+            {tool.badge}
+          </Badge>
+        </div>
+        <h3 className="font-semibold mb-1">{tool.name}</h3>
+        <p className="text-sm text-gray-600 leading-relaxed">
+          {tool.description}
+        </p>
+      </CardContent>
+    </Card>
   );
 
   const renderTabContent = () => {
+    // Handle sub-tools within tabs
+    if (activeTab.includes('-')) {
+      const [mainTab, subTool] = activeTab.split('-', 2);
+      
+      switch (activeTab) {
+        case 'dashboard':
+          return (
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <BarChart3 className="h-5 w-5" />
+                  Admin Dashboard
+                </CardTitle>
+                <CardDescription>System statistics and metrics</CardDescription>
+              </CardHeader>
+              <CardContent>
+                <div className="space-y-6">
+                  <div className="text-center py-12">
+                    <BarChart3 className="h-16 w-16 mx-auto mb-4 text-blue-600" />
+                    <h3 className="text-xl font-semibold mb-2">System Analytics</h3>
+                    <p className="text-gray-600">Dashboard content will be loaded here</p>
+                    <Button className="mt-4" onClick={() => handleTabChange('analytics')}>
+                      Back to Analytics Tools
+                    </Button>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+          );
+        case 'api-monitor':
+          return (
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <Activity className="h-5 w-5" />
+                  API Monitor
+                </CardTitle>
+                <CardDescription>Monitor API performance and errors</CardDescription>
+              </CardHeader>
+              <CardContent>
+                <div className="space-y-6">
+                  <div className="text-center py-12">
+                    <Activity className="h-16 w-16 mx-auto mb-4 text-green-600" />
+                    <h3 className="text-xl font-semibold mb-2">API Performance</h3>
+                    <p className="text-gray-600">Real-time API monitoring will be displayed here</p>
+                    <Button className="mt-4" onClick={() => handleTabChange('analytics')}>
+                      Back to Analytics Tools
+                    </Button>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+          );
+        case 'api-errors':
+          return (
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <AlertTriangle className="h-5 w-5" />
+                  API Errors
+                </CardTitle>
+                <CardDescription>View and track API errors</CardDescription>
+              </CardHeader>
+              <CardContent>
+                <div className="space-y-6">
+                  <div className="text-center py-12">
+                    <AlertTriangle className="h-16 w-16 mx-auto mb-4 text-red-600" />
+                    <h3 className="text-xl font-semibold mb-2">Error Tracking</h3>
+                    <p className="text-gray-600">API error logs and debugging tools will be shown here</p>
+                    <Button className="mt-4" onClick={() => handleTabChange('analytics')}>
+                      Back to Analytics Tools
+                    </Button>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+          );
+        case 'asin-inspector':
+          return (
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <Search className="h-5 w-5" />
+                  ASIN Inspector
+                </CardTitle>
+                <CardDescription>Inspect individual product data</CardDescription>
+              </CardHeader>
+              <CardContent>
+                <div className="space-y-6">
+                  <div className="text-center py-12">
+                    <Search className="h-16 w-16 mx-auto mb-4 text-purple-600" />
+                    <h3 className="text-xl font-semibold mb-2">Product Inspector</h3>
+                    <p className="text-gray-600">ASIN inspection tools will be available here</p>
+                    <Button className="mt-4" onClick={() => handleTabChange('tools')}>
+                      Back to System Tools
+                    </Button>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+          );
+        case 'cache-management':
+          return (
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <Database className="h-5 w-5" />
+                  Cache Management
+                </CardTitle>
+                <CardDescription>Manage system cache</CardDescription>
+              </CardHeader>
+              <CardContent>
+                <div className="space-y-6">
+                  <div className="text-center py-12">
+                    <Database className="h-16 w-16 mx-auto mb-4 text-blue-600" />
+                    <h3 className="text-xl font-semibold mb-2">Cache Control</h3>
+                    <p className="text-gray-600">Cache management interface will be implemented here</p>
+                    <Button className="mt-4" onClick={() => handleTabChange('tools')}>
+                      Back to System Tools
+                    </Button>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+          );
+        case 'manage-products':
+          return (
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <Package className="h-5 w-5" />
+                  Manage Products
+                </CardTitle>
+                <CardDescription>View and manage all tracked products</CardDescription>
+              </CardHeader>
+              <CardContent>
+                <div className="space-y-6">
+                  <div className="text-center py-12">
+                    <Package className="h-16 w-16 mx-auto mb-4 text-green-600" />
+                    <h3 className="text-xl font-semibold mb-2">Product Management</h3>
+                    <p className="text-gray-600">Product management interface will be shown here</p>
+                    <Button className="mt-4" onClick={() => handleTabChange('products')}>
+                      Back to Products
+                    </Button>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+          );
+        default:
+          return null;
+      }
+    }
+
+    // Main tab content (tool grid views)
     switch (activeTab) {
       case 'email':
         return (
@@ -165,7 +322,22 @@ export default function AdminHub() {
             <CardContent>
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
                 {emailTools.map((tool) => (
-                  <ToolCard key={tool.name} tool={tool} />
+                  <Link key={tool.name} href={tool.href}>
+                    <Card className="cursor-pointer transition-all hover:shadow-md hover:scale-105">
+                      <CardContent className="p-4">
+                        <div className="flex items-start justify-between mb-3">
+                          <tool.icon className="h-5 w-5 text-blue-600" />
+                          <Badge variant="secondary" className="text-xs">
+                            {tool.badge}
+                          </Badge>
+                        </div>
+                        <h3 className="font-semibold mb-1">{tool.name}</h3>
+                        <p className="text-sm text-gray-600 leading-relaxed">
+                          {tool.description}
+                        </p>
+                      </CardContent>
+                    </Card>
+                  </Link>
                 ))}
               </div>
             </CardContent>
@@ -279,11 +451,9 @@ export default function AdminHub() {
                   Test Email
                 </Link>
               </Button>
-              <Button variant="outline" asChild>
-                <Link href="/admin-dashboard">
-                  <BarChart3 className="h-4 w-4 mr-2" />
-                  View Stats
-                </Link>
+              <Button variant="outline" onClick={() => handleTabChange('dashboard')}>
+                <BarChart3 className="h-4 w-4 mr-2" />
+                View Stats
               </Button>
               <Button variant="outline" asChild>
                 <Link href={`/admin/email-logs`}>
@@ -291,11 +461,9 @@ export default function AdminHub() {
                   Email Logs
                 </Link>
               </Button>
-              <Button variant="outline" asChild>
-                <Link href="/api-monitor">
-                  <AlertTriangle className="h-4 w-4 mr-2" />
-                  Check Errors
-                </Link>
+              <Button variant="outline" onClick={() => handleTabChange('api-errors')}>
+                <AlertTriangle className="h-4 w-4 mr-2" />
+                Check Errors
               </Button>
             </div>
           </CardContent>

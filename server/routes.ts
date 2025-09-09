@@ -223,18 +223,20 @@ export async function registerRoutes(app: Express): Promise<Server> {
     res.sendFile(path.join(__dirname, '../client/forgot-password.html'));
   });
 
-  // Admin Force Alerts Page
-  app.get('/admin/force-alerts', (req: Request, res: Response) => {
+  // Admin routes
+  app.get('/admin/hub', (req, res) => {
+    res.sendFile(path.join(__dirname, '..', 'client', 'index.html'));
+  });
+
+  app.get('/admin/force-alerts', (req, res) => {
     res.sendFile(path.join(__dirname, '../client/index.html'));
   });
 
-  // Admin Email Logs Page
-  app.get('/admin/email-logs', (req: Request, res: Response) => {
+  app.get('/admin/email-logs', (req, res) => {
     res.sendFile(path.join(__dirname, '../client/index.html'));
   });
 
-  // Admin Products Page
-  app.get('/admin/products', (req: Request, res: Response) => {
+  app.get('/admin/products', (req, res) => {
     res.sendFile(path.join(__dirname, '../client/index.html'));
   });
 

@@ -59,7 +59,7 @@ function Router() {
       <Route path="/admin-dashboard">
         <AdminDashboard />
       </Route>
-      <Route path="/admin">
+      <Route path="/admin/hub">
         <AdminHub />
       </Route>
       <Route path="/test-tracking">
