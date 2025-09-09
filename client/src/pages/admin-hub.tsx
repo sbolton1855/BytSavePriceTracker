@@ -132,7 +132,6 @@ export default function AdminHub() {
   const renderTabContent = () => {
     switch (tab) {
       case 'email':
-      default:
         return <EmailPanel />;
       case 'analytics':
         return <AnalyticsPanel />;
@@ -140,6 +139,8 @@ export default function AdminHub() {
         return <ToolsPanel />;
       case 'products':
         return <ProductsPanel />;
+      default:
+        return <EmailPanel />;
     }
   };
 
