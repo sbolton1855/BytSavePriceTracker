@@ -138,6 +138,20 @@ export const cache = {
     } catch (error) {
       console.warn('⚠️ [CACHE] Clear error:', (error as Error).message);
     }
+  },
+
+  // Helper method to check if cache is available
+  isAvailable() {
+    return client ? true : false;
+  },
+
+  // Product-specific cache methods
+  async getProduct(key: string) {
+    return this.get(`product:${key}`);
+  },
+
+  async setProduct(key: string, data: any, ttl: number = 3600) {
+    return this.set(`product:${key}`, data, ttl);
   }
 };
 
