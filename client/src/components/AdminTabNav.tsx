@@ -1,13 +1,14 @@
 
-import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Mail, BarChart3, Settings, Package } from "lucide-react";
+import React from 'react';
+import { Link } from 'wouter';
+import { Mail, BarChart3, Settings, Package } from 'lucide-react';
 
 interface AdminTabNavProps {
   activeTab: string;
   onTabChange: (tab: string) => void;
 }
 
-export default function AdminTabNav({ activeTab, onTabChange }: AdminTabNavProps) {
+export default function AdminTabNav({ activeTab }: AdminTabNavProps) {
   const tabs = [
     { id: 'email', label: 'Email', icon: Mail },
     { id: 'analytics', label: 'Analytics', icon: BarChart3 },
@@ -16,17 +17,19 @@ export default function AdminTabNav({ activeTab, onTabChange }: AdminTabNavProps
   ];
 
   return (
-    <div className="w-full">
-      <Tabs value={activeTab} onValueChange={onTabChange} className="w-full">
-        <TabsList className="grid w-full grid-cols-4">
-          {tabs.map((tab) => (
-            <TabsTrigger key={tab.id} value={tab.id} className="flex items-center gap-2">
-              <tab.icon className="h-4 w-4" />
-              {tab.label}
-            </TabsTrigger>
-          ))}
-        </TabsList>
-      </Tabs>
+    <div className="w-full overflow-x-auto">
+      <nav className="flex space-x-1 bg-muted p-1 rounded-md mb-8">
+        {tabs.map((tab) => (
+          <Link
+            key={tab.id}
+            href={`/admin?tab=${tab.id}`}
+            className="flex items-center gap-2 px-3 py-1.5 text-sm font-medium rounded-sm transition-all hover:bg-background hover:text-foreground"
+          >
+            <tab.icon className="h-4 w-4" />
+            <span className="hidden sm:inline">{tab.label}</span>
+          </Link>
+        ))}
+      </nav>
     </div>
   );
 }
