@@ -1,4 +1,3 @@
-
 import { useToast } from "@/hooks/use-toast";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -57,12 +56,14 @@ interface ProductSummary {
   currentPrice: number;
   trackedBy: string[];
   createdAt: string;
+  lastChecked?: string;
+  trackerCount?: number;
 }
 
 export default function AdminHub() {
   const { toast } = useToast();
   const [location, setLocation] = useLocation();
-  
+
   // Get tab from URL query parameter
   const tab = new URLSearchParams(window.location.search).get("tab") || "email";
   const [activeTab, setActiveTab] = useState(tab);
@@ -71,11 +72,19 @@ export default function AdminHub() {
   const [products, setProducts] = useState<ProductSummary[]>([]);
   const [productsLoading, setProductsLoading] = useState(false);
   const [productsError, setProductsError] = useState<string | null>(null);
-  
+  const [productsPagination, setProductsPagination] = useState({
+    page: 1,
+    limit: 25,
+    total: 0,
+    totalPages: 0,
+    hasNext: false,
+    hasPrev: false
+  });
+
   // Sorting and filtering state
-  const [sortBy, setSortBy] = useState<'createdAt' | 'price' | 'title' | 'asin'>('createdAt');
+  const [sortBy, setSortBy] = useState<'createdAt' | 'currentPrice' | 'title' | 'asin' | 'lastChecked'>('createdAt');
   const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('desc');
-  const [emailFilter, setEmailFilter] = useState('');
+  const [searchFilter, setSearchFilter] = useState('');
 
   // Update URL when tab changes
   const handleTabChange = (tab: string) => {
@@ -87,13 +96,15 @@ export default function AdminHub() {
   };
 
   // Sorting function
-  const handleSort = (column: 'createdAt' | 'price' | 'title' | 'asin') => {
+  const handleSort = (column: 'createdAt' | 'currentPrice' | 'title' | 'asin' | 'lastChecked') => {
     if (sortBy === column) {
       setSortOrder(sortOrder === 'asc' ? 'desc' : 'asc');
     } else {
       setSortBy(column);
       setSortOrder('desc');
     }
+    // Trigger refetch when sorting changes
+    fetchProductData();
   };
 
   // Get sort icon for column headers
@@ -104,44 +115,25 @@ export default function AdminHub() {
     return sortOrder === 'asc' ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />;
   };
 
-  // Filter and sort products
-  const filteredAndSortedProducts = products
-    .filter(product => {
-      if (!emailFilter) return true;
-      const searchTerm = emailFilter.toLowerCase();
-      return (
-        product.title.toLowerCase().includes(searchTerm) ||
-        product.asin.toLowerCase().includes(searchTerm) ||
-        product.trackedBy.some(email => 
-          email.toLowerCase().includes(searchTerm)
-        )
-      );
-    })
-    .sort((a, b) => {
-      let comparison = 0;
-      
-      switch (sortBy) {
-        case 'createdAt':
-          comparison = new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime();
-          break;
-        case 'price':
-          comparison = a.currentPrice - b.currentPrice;
-          break;
-        case 'title':
-          comparison = a.title.localeCompare(b.title);
-          break;
-        case 'asin':
-          comparison = a.asin.localeCompare(b.asin);
-          break;
-        default:
-          comparison = 0;
-      }
-      
-      return sortOrder === 'asc' ? comparison : -comparison;
-    });
+  // Handle pagination
+  const handlePageChange = (newPage: number) => {
+    fetchProductData(newPage);
+  };
 
-  // Fetch product tracking data
-  const fetchProductData = async () => {
+  // Handle search with debouncing
+  const handleSearch = (value: string) => {
+    setSearchFilter(value);
+    // Reset to page 1 when searching
+    setProductsPagination(prev => ({ ...prev, page: 1 }));
+    // Trigger search after a short delay
+    setTimeout(() => fetchProductData(1), 300);
+  };
+
+  // Products are already sorted and filtered on the server side
+  const displayedProducts = products;
+
+  // Fetch product tracking data with pagination and sorting
+  const fetchProductData = async (page = productsPagination.page) => {
     const token = AdminAuth.getToken();
     if (!token) {
       setProductsError("Admin authentication required");
@@ -150,27 +142,38 @@ export default function AdminHub() {
 
     setProductsLoading(true);
     setProductsError(null);
-    
+
     try {
       console.log("Fetching admin product data...");
-      const response = await fetch(`/api/admin/products?token=${token}`);
-      
+      const params = new URLSearchParams({
+        token,
+        page: page.toString(),
+        limit: productsPagination.limit.toString(),
+        sortBy,
+        sortOrder,
+        ...(searchFilter && { search: searchFilter })
+      });
+
+      const response = await fetch(`/api/admin/products?${params}`);
+
       if (!response.ok) {
         throw new Error(`Failed to fetch products: ${response.status}`);
       }
-      
-      const rawData: TrackedProductAdmin[] = await response.json();
-      console.log("Raw admin product data:", rawData);
-      
-      // Transform data into ProductSummary format
-      const productMap = new Map<string, ProductSummary>();
-      
-      rawData.forEach((item) => {
+
+      const result = await response.json();
+      console.log("Admin product API response:", result);
+
+      // Transform data into ProductSummary format with tracker counts
+      const productMap = new Map<string, ProductSummary & { lastChecked: string; trackerCount: number }>();
+
+      result.data.forEach((item: TrackedProductAdmin) => {
         const asin = item.product.asin;
-        
+
         if (productMap.has(asin)) {
           // Add email to existing product's trackedBy array
-          productMap.get(asin)!.trackedBy.push(item.email);
+          const existing = productMap.get(asin)!;
+          existing.trackedBy.push(item.email);
+          existing.trackerCount = existing.trackedBy.length;
         } else {
           // Create new product summary
           productMap.set(asin, {
@@ -178,16 +181,19 @@ export default function AdminHub() {
             title: item.product.title,
             currentPrice: item.product.currentPrice,
             trackedBy: [item.email],
-            createdAt: item.product.createdAt
+            createdAt: item.product.createdAt,
+            lastChecked: item.product.lastChecked,
+            trackerCount: 1
           });
         }
       });
-      
+
       const transformedProducts = Array.from(productMap.values());
       console.log("Transformed product data:", transformedProducts);
-      
+
       setProducts(transformedProducts);
-      
+      setProductsPagination(result.pagination);
+
     } catch (error) {
       console.error("Error fetching product data:", error);
       setProductsError(error instanceof Error ? error.message : "Failed to fetch product data");
@@ -202,7 +208,7 @@ export default function AdminHub() {
       const urlTab = new URLSearchParams(window.location.search).get("tab") || "email";
       setActiveTab(urlTab);
     };
-    
+
     window.addEventListener('popstate', handlePopState);
     return () => window.removeEventListener('popstate', handlePopState);
   }, []);
@@ -323,7 +329,7 @@ export default function AdminHub() {
     // Handle sub-tools within tabs
     if (activeTab.includes('-')) {
       const [mainTab, subTool] = activeTab.split('-', 2);
-      
+
       switch (activeTab) {
         case 'dashboard':
           return (
@@ -482,26 +488,27 @@ export default function AdminHub() {
                                   <Input
                                     type="text"
                                     placeholder="Search by title, ASIN, or email..."
-                                    value={emailFilter}
-                                    onChange={(e) => setEmailFilter(e.target.value)}
+                                    value={searchFilter}
+                                    onChange={(e) => handleSearch(e.target.value)}
                                     className="pl-10"
                                   />
                                 </div>
                               </div>
-                              
+
                               <div className="min-w-[150px]">
                                 <label className="text-sm font-medium text-gray-700 mb-1 block">
                                   Sort By
                                 </label>
                                 <select
                                   value={sortBy}
-                                  onChange={(e) => setSortBy(e.target.value as 'createdAt' | 'price' | 'title' | 'asin')}
+                                  onChange={(e) => setSortBy(e.target.value as 'createdAt' | 'currentPrice' | 'title' | 'asin' | 'lastChecked')}
                                   className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
                                 >
                                   <option value="createdAt">Date Added</option>
-                                  <option value="price">Price</option>
+                                  <option value="currentPrice">Price</option>
                                   <option value="title">Product Name</option>
                                   <option value="asin">ASIN</option>
+                                  <option value="lastChecked">Last Updated</option>
                                 </select>
                               </div>
 
@@ -527,9 +534,10 @@ export default function AdminHub() {
                                   variant="outline"
                                   size="sm"
                                   onClick={() => {
-                                    setEmailFilter('');
+                                    setSearchFilter('');
                                     setSortBy('createdAt');
                                     setSortOrder('desc');
+                                    fetchProductData(1);
                                   }}
                                 >
                                   Clear Filters
@@ -540,7 +548,7 @@ export default function AdminHub() {
                                 <Button
                                   variant="outline"
                                   size="sm"
-                                  onClick={fetchProductData}
+                                  onClick={() => fetchProductData()}
                                   disabled={productsLoading}
                                 >
                                   {productsLoading ? (
@@ -556,9 +564,9 @@ export default function AdminHub() {
                                   Debug API
                                 </Button>
                               </div>
-                              
+
                               <div className="text-sm text-gray-600">
-                                Showing {filteredAndSortedProducts.length} of {products.length} products
+                                Showing {products.length} of {productsPagination.total} products
                               </div>
                             </div>
                           </div>
@@ -598,25 +606,31 @@ export default function AdminHub() {
                           <h4 className="font-medium text-gray-800">Tracked Products</h4>
                           <p className="text-sm text-gray-600">All products currently being tracked by users (click column headers to sort)</p>
                         </div>
-                        
+
                         {products.length === 0 ? (
                           <div className="text-center py-8 text-gray-500">
                             <Package className="h-12 w-12 mx-auto mb-4 text-gray-400" />
                             <p>No tracked products found</p>
                             <p className="text-sm">Products will appear here once users start tracking them</p>
                           </div>
-                        ) : filteredAndSortedProducts.length === 0 ? (
+                        ) : displayedProducts.length === 0 && searchFilter ? (
                           <div className="text-center py-8 text-gray-500">
                             <Search className="h-12 w-12 mx-auto mb-4 text-gray-400" />
-                            <p>No products match your filter</p>
-                            <p className="text-sm">Try adjusting your email filter</p>
+                            <p>No products match your search: "{searchFilter}"</p>
+                            <p className="text-sm">Try adjusting your search terms</p>
+                          </div>
+                        ) : displayedProducts.length === 0 ? (
+                          <div className="text-center py-8 text-gray-500">
+                            <Package className="h-12 w-12 mx-auto mb-4 text-gray-400" />
+                            <p>No tracked products found</p>
+                            <p className="text-sm">Products will appear here once users start tracking them</p>
                           </div>
                         ) : (
                           <Table>
                             <TableHeader>
-                              <TableRow>
+                              <TableRow className="hover:bg-gray-50/50">
                                 <TableHead 
-                                  className="cursor-pointer hover:bg-gray-50 select-none"
+                                  className="cursor-pointer hover:bg-gray-100 select-none transition-colors"
                                   onClick={() => handleSort('title')}
                                 >
                                   <div className="flex items-center gap-1">
@@ -625,7 +639,7 @@ export default function AdminHub() {
                                   </div>
                                 </TableHead>
                                 <TableHead 
-                                  className="cursor-pointer hover:bg-gray-50 select-none"
+                                  className="cursor-pointer hover:bg-gray-100 select-none transition-colors"
                                   onClick={() => handleSort('asin')}
                                 >
                                   <div className="flex items-center gap-1">
@@ -634,24 +648,34 @@ export default function AdminHub() {
                                   </div>
                                 </TableHead>
                                 <TableHead 
-                                  className="cursor-pointer hover:bg-gray-50 select-none"
-                                  onClick={() => handleSort('price')}
+                                  className="cursor-pointer hover:bg-gray-100 select-none transition-colors"
+                                  onClick={() => handleSort('currentPrice')}
                                 >
                                   <div className="flex items-center gap-1">
                                     Current Price
-                                    {getSortIcon('price')}
+                                    {getSortIcon('currentPrice')}
                                   </div>
                                 </TableHead>
+                                <TableHead className="text-center"># of Trackers</TableHead>
                                 <TableHead>Tracked Emails</TableHead>
                                 <TableHead 
-                                  className="cursor-pointer hover:bg-gray-50 select-none"
+                                  className="cursor-pointer hover:bg-gray-100 select-none transition-colors"
+                                  onClick={() => handleSort('lastChecked')}
+                                >
+                                  <div className="flex items-center gap-1">
+                                    Last Updated
+                                    {getSortIcon('lastChecked')}
+                                  </div>
+                                </TableHead>
+                                <TableHead 
+                                  className="cursor-pointer hover:bg-gray-100 select-none transition-colors"
                                   onClick={() => handleSort('createdAt')}
                                 >
                                   <div className="flex items-center gap-1">
                                     Created Date
                                     {getSortIcon('createdAt')}
                                     {sortBy === 'createdAt' && (
-                                      <Badge variant="secondary" className="ml-1 text-xs">
+                                      <Badge variant="secondary" className="text-xs">
                                         Default
                                       </Badge>
                                     )}
@@ -660,24 +684,32 @@ export default function AdminHub() {
                               </TableRow>
                             </TableHeader>
                             <TableBody>
-                              {filteredAndSortedProducts.map((product) => (
-                                <TableRow key={product.asin}>
-                                  <TableCell className="max-w-xs">
-                                    <div className="truncate" title={product.title}>
+                              {displayedProducts.map((product) => (
+                                <TableRow 
+                                  key={product.asin}
+                                  className="hover:bg-gray-50/75 transition-colors border-b border-gray-200"
+                                >
+                                  <TableCell className="max-w-xs border-r border-gray-100">
+                                    <div className="truncate font-medium" title={product.title}>
                                       {product.title}
                                     </div>
                                   </TableCell>
-                                  <TableCell className="font-mono text-sm">
+                                  <TableCell className="font-mono text-sm border-r border-gray-100">
                                     {product.asin}
                                   </TableCell>
-                                  <TableCell className="font-medium">
+                                  <TableCell className="font-medium border-r border-gray-100">
                                     ${product.currentPrice.toFixed(2)}
                                   </TableCell>
-                                  <TableCell className="max-w-xs">
-                                    <div className="truncate" title={product.trackedBy.join(', ')}>
+                                  <TableCell className="text-center border-r border-gray-100">
+                                    <Badge variant="secondary" className="text-xs">
+                                      {(product as any).trackerCount || product.trackedBy.length}
+                                    </Badge>
+                                  </TableCell>
+                                  <TableCell className="max-w-xs border-r border-gray-100">
+                                    <div className="truncate text-sm" title={product.trackedBy.join(', ')}>
                                       {product.trackedBy.map((email, index) => (
                                         <span key={index}>
-                                          {emailFilter && email.toLowerCase().includes(emailFilter.toLowerCase()) ? (
+                                          {searchFilter && email.toLowerCase().includes(searchFilter.toLowerCase()) ? (
                                             <mark className="bg-yellow-200 px-1 rounded">
                                               {email}
                                             </mark>
@@ -688,6 +720,16 @@ export default function AdminHub() {
                                         </span>
                                       ))}
                                     </div>
+                                  </TableCell>
+                                  <TableCell className="text-sm text-gray-600 border-r border-gray-100">
+                                    {(product as any).lastChecked ? 
+                                      new Date((product as any).lastChecked).toLocaleDateString('en-US', {
+                                        year: 'numeric',
+                                        month: 'short',
+                                        day: 'numeric',
+                                        hour: '2-digit',
+                                        minute: '2-digit'
+                                      }) : 'N/A'}
                                   </TableCell>
                                   <TableCell className="text-sm text-gray-600">
                                     {new Date(product.createdAt).toLocaleDateString('en-US', {
@@ -700,6 +742,62 @@ export default function AdminHub() {
                               ))}
                             </TableBody>
                           </Table>
+                        )}
+
+                        {/* Pagination Controls */}
+                        {displayedProducts.length > 0 && productsPagination.totalPages > 1 && (
+                          <div className="flex items-center justify-between px-4 py-3 border-t border-gray-200">
+                            <div className="flex items-center gap-2 text-sm text-gray-600">
+                              <span>
+                                Showing page {productsPagination.page} of {productsPagination.totalPages}
+                              </span>
+                              <span className="text-gray-400">•</span>
+                              <span>
+                                {productsPagination.total} total products
+                              </span>
+                            </div>
+
+                            <div className="flex items-center gap-2">
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                onClick={() => handlePageChange(productsPagination.page - 1)}
+                                disabled={!productsPagination.hasPrev || productsLoading}
+                              >
+                                Previous
+                              </Button>
+
+                              {/* Page Numbers */}
+                              <div className="flex gap-1">
+                                {Array.from({ length: Math.min(5, productsPagination.totalPages) }, (_, i) => {
+                                  const page = Math.max(1, productsPagination.page - 2) + i;
+                                  if (page > productsPagination.totalPages) return null;
+
+                                  return (
+                                    <Button
+                                      key={page}
+                                      variant={page === productsPagination.page ? "default" : "outline"}
+                                      size="sm"
+                                      onClick={() => handlePageChange(page)}
+                                      disabled={productsLoading}
+                                      className="min-w-[2.5rem]"
+                                    >
+                                      {page}
+                                    </Button>
+                                  );
+                                })}
+                              </div>
+
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                onClick={() => handlePageChange(productsPagination.page + 1)}
+                                disabled={!productsPagination.hasNext || productsLoading}
+                              >
+                                Next
+                              </Button>
+                            </div>
+                          </div>
                         )}
                       </div>
                     </div>

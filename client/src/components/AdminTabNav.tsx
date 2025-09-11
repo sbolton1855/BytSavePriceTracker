@@ -8,7 +8,7 @@ interface AdminTabNavProps {
   onTabChange: (tab: string) => void;
 }
 
-export default function AdminTabNav({ activeTab }: AdminTabNavProps) {
+export default function AdminTabNav({ activeTab, onTabChange }: AdminTabNavProps) {
   const tabs = [
     { id: 'email', label: 'Email', icon: Mail },
     { id: 'analytics', label: 'Analytics', icon: BarChart3 },
@@ -23,6 +23,10 @@ export default function AdminTabNav({ activeTab }: AdminTabNavProps) {
           <Link
             key={tab.id}
             href={`/admin?tab=${tab.id}`}
+            onClick={(e) => {
+              e.preventDefault();
+              onTabChange(tab.id);
+            }}
             className={`inline-flex items-center justify-center whitespace-nowrap rounded-sm px-3 py-1.5 text-sm font-medium ring-offset-background transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 hover:bg-background hover:text-foreground gap-2 ${
               activeTab === tab.id 
                 ? 'bg-background text-foreground shadow-sm' 
