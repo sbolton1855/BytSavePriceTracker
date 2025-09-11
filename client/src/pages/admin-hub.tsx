@@ -1,4 +1,3 @@
-
 import { useToast } from "@/hooks/use-toast";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -64,7 +63,7 @@ interface ProductSummary {
 export default function AdminHub() {
   const { toast } = useToast();
   const [location, setLocation] = useLocation();
-  
+
   // Get tab from URL query parameter
   const tab = new URLSearchParams(window.location.search).get("tab") || "email";
   const [activeTab, setActiveTab] = useState(tab);
@@ -81,7 +80,7 @@ export default function AdminHub() {
     hasNext: false,
     hasPrev: false
   });
-  
+
   // Sorting and filtering state
   const [sortBy, setSortBy] = useState<'createdAt' | 'currentPrice' | 'title' | 'asin' | 'lastChecked'>('createdAt');
   const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('desc');
@@ -141,7 +140,7 @@ export default function AdminHub() {
 
     setProductsLoading(true);
     setProductsError(null);
-    
+
     try {
       console.log("Fetching admin product data...");
       const params = new URLSearchParams({
@@ -152,50 +151,71 @@ export default function AdminHub() {
         sortOrder,
         ...(searchFilter && { search: searchFilter })
       });
-      
+
       const response = await fetch(`/api/admin/products?${params}`);
-      
+
       if (!response.ok) {
         throw new Error(`Failed to fetch products: ${response.status}`);
       }
-      
+
       const result = await response.json();
       console.log("Admin product API response:", result);
-      
+
       // Transform data into ProductSummary format with tracker counts
       const productMap = new Map<string, ProductSummary & { lastChecked: string; trackerCount: number }>();
-      
-      result.data.forEach((item: TrackedProductAdmin) => {
-        const asin = item.product.asin;
-        
-        if (productMap.has(asin)) {
-          // Add email to existing product's trackedBy array
-          const existing = productMap.get(asin)!;
-          existing.trackedBy.push(item.email);
-          existing.trackerCount = existing.trackedBy.length;
-        } else {
-          // Create new product summary
-          productMap.set(asin, {
-            asin: item.product.asin,
-            title: item.product.title,
-            currentPrice: item.product.currentPrice,
-            trackedBy: [item.email],
-            createdAt: item.product.createdAt,
-            lastChecked: item.product.lastChecked,
-            trackerCount: 1
-          });
-        }
-      });
-      
+
+      // Check if result.data is an array before iterating
+      if (Array.isArray(result.data)) {
+        result.data.forEach((item: TrackedProductAdmin) => {
+          const asin = item.product.asin;
+
+          if (productMap.has(asin)) {
+            // Add email to existing product's trackedBy array
+            const existing = productMap.get(asin)!;
+            existing.trackedBy.push(item.email);
+            existing.trackerCount = existing.trackedBy.length;
+          } else {
+            // Create new product summary
+            productMap.set(asin, {
+              asin: item.product.asin,
+              title: item.product.title,
+              currentPrice: item.product.currentPrice,
+              trackedBy: [item.email],
+              createdAt: item.product.createdAt,
+              lastChecked: item.product.lastChecked,
+              trackerCount: 1
+            });
+          }
+        });
+      } else {
+        // Handle cases where result.data is not an array (e.g., undefined)
+        console.warn("API response 'data' is not an array, or is missing.");
+        setProducts([]); // Clear products if data is not in expected format
+      }
+
+
       const transformedProducts = Array.from(productMap.values());
       console.log("Transformed product data:", transformedProducts);
-      
+
       setProducts(transformedProducts);
-      setProductsPagination(result.pagination);
       
+      // Update pagination with actual data count from API
+      setProductsPagination(prev => ({
+        ...prev,
+        total: result.total || transformedProducts.length, // Use result.total if available, otherwise count from transformedProducts
+        totalPages: Math.ceil((result.total || transformedProducts.length) / prev.limit),
+        hasNext: page < Math.ceil((result.total || transformedProducts.length) / prev.limit),
+        hasPrev: page > 1,
+        page: page // Ensure the current page is set
+      }));
+
+
     } catch (error) {
       console.error("Error fetching product data:", error);
       setProductsError(error instanceof Error ? error.message : "Failed to fetch product data");
+      // Clear products and reset pagination on error
+      setProducts([]);
+      setProductsPagination(prev => ({ ...prev, total: 0, totalPages: 0, hasNext: false, hasPrev: false }));
     } finally {
       setProductsLoading(false);
     }
@@ -207,7 +227,7 @@ export default function AdminHub() {
       const urlTab = new URLSearchParams(window.location.search).get("tab") || "email";
       setActiveTab(urlTab);
     };
-    
+
     window.addEventListener('popstate', handlePopState);
     return () => window.removeEventListener('popstate', handlePopState);
   }, []);
@@ -325,7 +345,7 @@ export default function AdminHub() {
     // Handle sub-tools within tabs
     if (activeTab.includes('-')) {
       const [mainTab, subTool] = activeTab.split('-', 2);
-      
+
       switch (activeTab) {
         case 'dashboard':
           return (
@@ -490,7 +510,7 @@ export default function AdminHub() {
                                   />
                                 </div>
                               </div>
-                              
+
                               <div className="min-w-[150px]">
                                 <label className="text-sm font-medium text-gray-700 mb-1 block">
                                   Sort By
@@ -560,7 +580,7 @@ export default function AdminHub() {
                                   Debug API
                                 </Button>
                               </div>
-                              
+
                               <div className="text-sm text-gray-600">
                                 Showing {products.length} of {productsPagination.total} products
                               </div>
@@ -602,7 +622,7 @@ export default function AdminHub() {
                           <h4 className="font-medium text-gray-800">Tracked Products</h4>
                           <p className="text-sm text-gray-600">All products currently being tracked by users (click column headers to sort)</p>
                         </div>
-                        
+
                         {products.length === 0 ? (
                           <div className="text-center py-8 text-gray-500">
                             <Package className="h-12 w-12 mx-auto mb-4 text-gray-400" />
@@ -739,7 +759,7 @@ export default function AdminHub() {
                             </TableBody>
                           </Table>
                         )}
-                        
+
                         {/* Pagination Controls */}
                         {displayedProducts.length > 0 && productsPagination.totalPages > 1 && (
                           <div className="flex items-center justify-between px-4 py-3 border-t border-gray-200">
@@ -752,7 +772,7 @@ export default function AdminHub() {
                                 {productsPagination.total} total products
                               </span>
                             </div>
-                            
+
                             <div className="flex items-center gap-2">
                               <Button
                                 variant="outline"
@@ -762,13 +782,13 @@ export default function AdminHub() {
                               >
                                 Previous
                               </Button>
-                              
+
                               {/* Page Numbers */}
                               <div className="flex gap-1">
                                 {Array.from({ length: Math.min(5, productsPagination.totalPages) }, (_, i) => {
                                   const page = Math.max(1, productsPagination.page - 2) + i;
                                   if (page > productsPagination.totalPages) return null;
-                                  
+
                                   return (
                                     <Button
                                       key={page}
@@ -783,7 +803,7 @@ export default function AdminHub() {
                                   );
                                 })}
                               </div>
-                              
+
                               <Button
                                 variant="outline"
                                 size="sm"
