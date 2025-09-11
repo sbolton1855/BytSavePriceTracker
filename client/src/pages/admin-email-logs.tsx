@@ -69,8 +69,8 @@ export default function AdminEmailLogs() {
   const [searchEmail, setSearchEmail] = useState('');
   const [statusFilter, setStatusFilter] = useState('all');
   const [dataSource, setDataSource] = useState<'db' | 'sendgrid'>('db');
-  const [sortBy, setSortBy] = useState<string | null>(null);
-  const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('asc');
+  const [sortBy, setSortBy] = useState<string | null>('sentAt');
+  const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('desc');
 
   /**
    * Fetch email logs from backend API

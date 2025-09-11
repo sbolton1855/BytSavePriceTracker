@@ -1,5 +1,3 @@
-
-
 import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { useToast } from "@/hooks/use-toast";
@@ -37,14 +35,14 @@ interface ApiErrorsResponse {
 
 export default function ApiErrorsPanel() {
   const { toast } = useToast();
-  
+
   // State for filtering, sorting, and pagination
   const [currentPage, setCurrentPage] = useState(1);
   const [asinFilter, setAsinFilter] = useState('');
   const [searchAsin, setSearchAsin] = useState('');
   const [errorTypeFilter, setErrorTypeFilter] = useState('all');
   const [resolvedFilter, setResolvedFilter] = useState('all');
-  const [sortBy, setSortBy] = useState('createdAt');
+  const [sortBy, setSortBy] = useState<string | null>('createdAt');
   const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('desc');
 
   const { data: errorData, isLoading, refetch } = useQuery<ApiErrorsResponse>({
@@ -72,7 +70,7 @@ export default function ApiErrorsPanel() {
         params.append('resolved', resolvedFilter);
       }
 
-      params.append('sortBy', sortBy);
+      params.append('sortBy', sortBy!);
       params.append('sortOrder', sortOrder);
 
       const response = await fetch(`/api/admin/errors?${params}`, {
@@ -88,7 +86,7 @@ export default function ApiErrorsPanel() {
 
       const data = await response.json();
       console.log('[DEBUG] API Errors Response:', data);
-      
+
       return data;
     },
     enabled: !!AdminAuth.isAuthenticated(),
@@ -163,7 +161,7 @@ export default function ApiErrorsPanel() {
     if (sortBy !== column) {
       return <ArrowUpDown className="h-4 w-4 opacity-50" />;
     }
-    return sortOrder === 'desc' 
+    return sortOrder === 'desc'
       ? <ArrowDown className="h-4 w-4" />
       : <ArrowUp className="h-4 w-4" />;
   };
@@ -201,9 +199,9 @@ export default function ApiErrorsPanel() {
       'NETWORK_ERROR': { color: 'bg-gray-100 text-gray-800', label: 'Network Error' }
     };
 
-    const typeConfig = config[errorType as keyof typeof config] || { 
-      color: 'bg-blue-100 text-blue-800', 
-      label: errorType 
+    const typeConfig = config[errorType as keyof typeof config] || {
+      color: 'bg-blue-100 text-blue-800',
+      label: errorType
     };
 
     return (
@@ -215,7 +213,7 @@ export default function ApiErrorsPanel() {
 
   return (
     <div className="space-y-6">
-      
+
       {/* Controls Section - Search, Filter, Export, Refresh */}
       <Card>
         <CardHeader>
@@ -330,7 +328,7 @@ export default function ApiErrorsPanel() {
               <TableHeader>
                 <TableRow>
                   <TableHead>ID</TableHead>
-                  <TableHead 
+                  <TableHead
                     className="cursor-pointer hover:bg-gray-50 select-none"
                     onClick={() => handleSort('asin')}
                   >
@@ -339,7 +337,7 @@ export default function ApiErrorsPanel() {
                       {getSortIcon('asin')}
                     </div>
                   </TableHead>
-                  <TableHead 
+                  <TableHead
                     className="cursor-pointer hover:bg-gray-50 select-none"
                     onClick={() => handleSort('errorType')}
                   >
@@ -349,7 +347,7 @@ export default function ApiErrorsPanel() {
                     </div>
                   </TableHead>
                   <TableHead>Error Message</TableHead>
-                  <TableHead 
+                  <TableHead
                     className="cursor-pointer hover:bg-gray-50 select-none"
                     onClick={() => handleSort('createdAt')}
                   >
@@ -364,7 +362,7 @@ export default function ApiErrorsPanel() {
               <TableBody>
                 {errorData.errors.map((error) => (
                   <TableRow key={error.id}>
-                    
+
                     {/* Error ID */}
                     <TableCell className="font-mono text-sm">{error.id}</TableCell>
 
@@ -441,4 +439,3 @@ export default function ApiErrorsPanel() {
     </div>
   );
 }
-
