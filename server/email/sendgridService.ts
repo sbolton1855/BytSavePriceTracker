@@ -76,16 +76,23 @@ export async function sendEmail(to: string, subject: string, html: string): Prom
     messageId = responseHeaders['x-message-id'] || 
                 responseHeaders['X-Message-Id'] || 
                 responseHeaders['message-id'] ||
-                response[0].messageId ||
-                `fallback-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
+                response[0].messageId;
 
     console.log('[SendGrid] Email sent successfully:', {
       statusCode: response[0].statusCode,
       messageId: messageId,
       allHeaders: Object.keys(responseHeaders),
+      actualHeaders: responseHeaders,
       to: msg.to,
       subject: msg.subject
     });
+
+    // Log warning if no message ID found
+    if (!messageId) {
+      console.warn('[SendGrid] ⚠️ No message ID found in SendGrid response - webhook matching may fail');
+      console.warn('[SendGrid] Response headers:', responseHeaders);
+      messageId = `fallback-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
+    }
 
     // Best-effort database logging - never block email success
     try {
