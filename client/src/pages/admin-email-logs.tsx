@@ -31,7 +31,7 @@ import { Badge } from "@/components/ui/badge";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { ChevronLeft, ChevronRight, Eye, Download, Search, Loader2, RefreshCw, Clock, CheckCircle, XCircle, Mail, MousePointer, ChevronUpDown, ChevronUp, ChevronDown } from "lucide-react";
+import { ChevronLeft, ChevronRight, Eye, Download, Search, Loader2, RefreshCw, Clock, CheckCircle, XCircle, Mail, MousePointer, ArrowUpDown, ChevronUp, ChevronDown } from "lucide-react";
 import AdminLayout from "@/components/AdminLayout";
 import { AdminAuth } from "@/lib/admin-auth";
 
@@ -216,7 +216,7 @@ export default function AdminEmailLogs() {
    */
   const getSortIcon = (column: string) => {
     if (sortBy !== column) {
-      return <ChevronUpDown className="h-4 w-4 text-muted-foreground" />;
+      return <ArrowUpDown className="h-4 w-4 text-muted-foreground" />;
     }
     if (sortOrder === 'asc') {
       return <ChevronUp className="h-4 w-4" />;
