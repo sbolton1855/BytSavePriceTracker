@@ -163,10 +163,14 @@ export default function AdminHub() {
       const result = await response.json();
       console.log("Admin product API response:", result);
 
+      // Add safety check for result.data
+      const products = Array.isArray(result.data) ? result.data : [];
+      console.log("Processed products array:", products);
+
       // Transform data into ProductSummary format with tracker counts
       const productMap = new Map<string, ProductSummary & { lastChecked: string; trackerCount: number }>();
 
-      result.data.forEach((item: TrackedProductAdmin) => {
+      products.forEach((item: TrackedProductAdmin) => {
         const asin = item.product.asin;
 
         if (productMap.has(asin)) {
@@ -192,7 +196,14 @@ export default function AdminHub() {
       console.log("Transformed product data:", transformedProducts);
 
       setProducts(transformedProducts);
-      setProductsPagination(result.pagination);
+      setProductsPagination(result.pagination || {
+        page: 1,
+        limit: 25,
+        total: 0,
+        totalPages: 0,
+        hasNext: false,
+        hasPrev: false
+      });
 
     } catch (error) {
       console.error("Error fetching product data:", error);
@@ -463,6 +474,33 @@ export default function AdminHub() {
                         <span className="font-medium">Error Loading Products</span>
                       </div>
                       <p className="text-red-600 mt-1 text-sm">{productsError}</p>
+                      <Button 
+                        variant="outline" 
+                        size="sm" 
+                        onClick={() => fetchProductData()} 
+                        className="mt-3"
+                      >
+                        Try Again
+                      </Button>
+                    </div>
+                  )}
+
+                  {/* Empty Data State */}
+                  {!productsLoading && !productsError && (!products || products.length === 0) && (
+                    <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4">
+                      <div className="flex items-center gap-2 text-yellow-700">
+                        <AlertTriangle className="h-5 w-5" />
+                        <span className="font-medium">No Product Data</span>
+                      </div>
+                      <p className="text-yellow-600 mt-1 text-sm">No tracked products found. Data may still be loading or there might be a connectivity issue.</p>
+                      <Button 
+                        variant="outline" 
+                        size="sm" 
+                        onClick={() => fetchProductData()} 
+                        className="mt-3"
+                      >
+                        Refresh Data
+                      </Button>
                     </div>
                   )}
 
@@ -579,23 +617,25 @@ export default function AdminHub() {
                         <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
                           <div>
                             <span className="text-blue-600 font-medium">Total Products:</span>
-                            <div className="text-lg font-bold text-blue-800">{products.length}</div>
+                            <div className="text-lg font-bold text-blue-800">{Array.isArray(products) ? products.length : 0}</div>
                           </div>
                           <div>
                             <span className="text-blue-600 font-medium">Total Trackers:</span>
                             <div className="text-lg font-bold text-blue-800">
-                              {products.reduce((sum, p) => sum + p.trackedBy.length, 0)}
+                              {Array.isArray(products) ? products.reduce((sum, p) => sum + (Array.isArray(p.trackedBy) ? p.trackedBy.length : 0), 0) : 0}
                             </div>
                           </div>
                           <div>
                             <span className="text-blue-600 font-medium">Avg. Price:</span>
                             <div className="text-lg font-bold text-blue-800">
-                              ${products.length > 0 ? (products.reduce((sum, p) => sum + p.currentPrice, 0) / products.length).toFixed(2) : '0.00'}
+                              ${Array.isArray(products) && products.length > 0 ? (products.reduce((sum, p) => sum + (typeof p.currentPrice === 'number' ? p.currentPrice : 0), 0) / products.length).toFixed(2) : '0.00'}
                             </div>
                           </div>
                           <div>
                             <span className="text-blue-600 font-medium">Status:</span>
-                            <div className="text-lg font-bold text-green-600">Live</div>
+                            <div className="text-lg font-bold text-green-600">
+                              {Array.isArray(products) && products.length > 0 ? 'Live' : 'No Data'}
+                            </div>
                           </div>
                         </div>
                       </div>
@@ -607,13 +647,13 @@ export default function AdminHub() {
                           <p className="text-sm text-gray-600">All products currently being tracked by users (click column headers to sort)</p>
                         </div>
 
-                        {products.length === 0 ? (
+                        {!Array.isArray(products) || products.length === 0 ? (
                           <div className="text-center py-8 text-gray-500">
                             <Package className="h-12 w-12 mx-auto mb-4 text-gray-400" />
                             <p>No tracked products found</p>
                             <p className="text-sm">Products will appear here once users start tracking them</p>
                           </div>
-                        ) : displayedProducts.length === 0 && searchFilter ? (
+                        ) : !Array.isArray(displayedProducts) || (displayedProducts.length === 0 && searchFilter) ? (
                           <div className="text-center py-8 text-gray-500">
                             <Search className="h-12 w-12 mx-auto mb-4 text-gray-400" />
                             <p>No products match your search: "{searchFilter}"</p>
@@ -684,7 +724,7 @@ export default function AdminHub() {
                               </TableRow>
                             </TableHeader>
                             <TableBody>
-                              {displayedProducts.map((product) => (
+                              {Array.isArray(displayedProducts) && displayedProducts.map((product) => (
                                 <TableRow 
                                   key={product.asin}
                                   className="hover:bg-gray-50/75 transition-colors border-b border-gray-200"
@@ -706,8 +746,8 @@ export default function AdminHub() {
                                     </Badge>
                                   </TableCell>
                                   <TableCell className="max-w-xs border-r border-gray-100">
-                                    <div className="truncate text-sm" title={product.trackedBy.join(', ')}>
-                                      {product.trackedBy.map((email, index) => (
+                                    <div className="truncate text-sm" title={Array.isArray(product.trackedBy) ? product.trackedBy.join(', ') : ''}>
+                                      {Array.isArray(product.trackedBy) && product.trackedBy.map((email, index) => (
                                         <span key={index}>
                                           {searchFilter && email.toLowerCase().includes(searchFilter.toLowerCase()) ? (
                                             <mark className="bg-yellow-200 px-1 rounded">
@@ -716,7 +756,7 @@ export default function AdminHub() {
                                           ) : (
                                             email
                                           )}
-                                          {index < product.trackedBy.length - 1 && ', '}
+                                          {index < (Array.isArray(product.trackedBy) ? product.trackedBy.length - 1 : 0) && ', '}
                                         </span>
                                       ))}
                                     </div>
