@@ -2,6 +2,10 @@ import express from 'express';
 import { cache } from '../lib/cache';
 import { metrics } from '../lib/metrics';
 import { getProductInfo } from '../amazonApi';
+import { db } from '../db';
+import * as schema from '../../shared/schema';
+import { eq, desc, asc, or, ilike, sql } from 'drizzle-orm';
+import { adminAuth } from '../middleware/adminAuth';
 
 const router = express.Router();
 
@@ -102,6 +106,123 @@ router.post('/admin/recheck-prices', async (req, res) => {
     res.status(500).json({
       error: error instanceof Error ? error.message : 'Failed to recheck prices'
     });
+  }
+});
+
+// GET /api/admin/products - Fetch tracked products with pagination and sorting
+router.get('/admin/products', adminAuth, async (req, res) => {
+  console.log('Admin products endpoint accessed with query:', req.query);
+
+  try {
+    const page = parseInt(req.query.page as string) || 1;
+    const limit = parseInt(req.query.limit as string) || 25;
+    const sortBy = req.query.sortBy as string || 'createdAt';
+    const sortOrder = req.query.sortOrder as string || 'desc';
+    const search = req.query.search as string || '';
+
+    const offset = (page - 1) * limit;
+
+    // Build the base query
+    let query = db
+      .select({
+        id: schema.trackedProducts.id,
+        userId: schema.trackedProducts.userId,
+        email: schema.trackedProducts.email,
+        productId: schema.trackedProducts.productId,
+        targetPrice: schema.trackedProducts.targetPrice,
+        percentageAlert: schema.trackedProducts.percentageAlert,
+        percentageThreshold: schema.trackedProducts.percentageThreshold,
+        notified: schema.trackedProducts.notified,
+        createdAt: schema.trackedProducts.createdAt,
+        product: {
+          id: schema.products.id,
+          asin: schema.products.asin,
+          title: schema.products.title,
+          url: schema.products.url,
+          imageUrl: schema.products.imageUrl,
+          currentPrice: schema.products.currentPrice,
+          originalPrice: schema.products.originalPrice,
+          lastChecked: schema.products.lastChecked,
+          lowestPrice: schema.products.lowestPrice,
+          highestPrice: schema.products.highestPrice,
+          priceDropped: schema.products.priceDropped,
+          createdAt: schema.products.createdAt,
+          updatedAt: schema.products.updatedAt,
+        }
+      })
+      .from(schema.trackedProducts)
+      .leftJoin(
+        schema.products,
+        eq(schema.trackedProducts.productId, schema.products.id)
+      );
+
+    // Add search filter if provided
+    if (search) {
+      query = query.where(
+        or(
+          ilike(schema.products.title, `%${search}%`),
+          ilike(schema.products.asin, `%${search}%`),
+          ilike(schema.trackedProducts.email, `%${search}%`)
+        )
+      );
+    }
+
+    // Add sorting
+    const sortColumn = sortBy === 'title' ? schema.products.title :
+                      sortBy === 'asin' ? schema.products.asin :
+                      sortBy === 'currentPrice' ? schema.products.currentPrice :
+                      sortBy === 'lastChecked' ? schema.products.lastChecked :
+                      schema.trackedProducts.createdAt;
+
+    if (sortOrder === 'desc') {
+      query = query.orderBy(desc(sortColumn));
+    } else {
+      query = query.orderBy(asc(sortColumn));
+    }
+
+    // Get total count for pagination
+    const totalCountQuery = db
+      .select({ count: sql<number>`count(*)` })
+      .from(schema.trackedProducts)
+      .leftJoin(
+        schema.products,
+        eq(schema.trackedProducts.productId, schema.products.id)
+      );
+
+    if (search) {
+      totalCountQuery.where(
+        or(
+          ilike(schema.products.title, `%${search}%`),
+          ilike(schema.products.asin, `%${search}%`),
+          ilike(schema.trackedProducts.email, `%${search}%`)
+        )
+      );
+    }
+
+    const [trackedProducts, totalCount] = await Promise.all([
+      query.limit(limit).offset(offset),
+      totalCountQuery
+    ]);
+
+    const total = totalCount[0]?.count || 0;
+    const totalPages = Math.ceil(total / limit);
+
+    res.json({
+      data: trackedProducts,
+      pagination: {
+        page,
+        limit,
+        total,
+        totalPages,
+        hasNext: page < totalPages,
+        hasPrev: page > 1
+      },
+      sortBy,
+      sortOrder
+    });
+  } catch (error) {
+    console.error('Error fetching admin products:', error);
+    res.status(500).json({ error: 'Failed to fetch tracked products' });
   }
 });
 
