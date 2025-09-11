@@ -173,17 +173,18 @@ type AmazonSearchResult = z.infer<typeof amazonSearchResultSchema>;
 // Function to get detailed product information for multiple ASINs
 async function getDetailedProductInfo(asins: string[]): Promise<any[]> {
   // Check cache first
-  const cachedProducts = asins.map(asin => {
-    const product = cache.getProduct(asin);
+  const cachedProducts = await Promise.all(asins.map(async asin => {
+    const product = await cache.get(`product:${asin}`);
     if (product) {
       metrics.incrementCacheHits();
     } else {
       metrics.incrementCacheMisses();
     }
     return product;
-  }).filter(Boolean);
+  }));
+  const validCachedProducts = cachedProducts.filter(Boolean);
 
-  const uncachedAsins = asins.filter(asin => !cache.getProduct(asin));
+  const uncachedAsins = asins.filter(async (asin, index) => !cachedProducts[index]);
 
   if (uncachedAsins.length === 0) {
     return cachedProducts;
@@ -204,10 +205,10 @@ async function getDetailedProductInfo(asins: string[]): Promise<any[]> {
           url: product.DetailPageURL,
           couponDetected: product.Offers?.Listings?.[0]?.Promotions?.length > 0
         };
-        cache.setProduct(product.ASIN, mappedProduct);
+        await cache.set(`product:${product.ASIN}`, mappedProduct, 3600);
 
-        // Check for price drops
-        const oldPrice = cache.getPriceHistory(product.ASIN).slice(-1)[0]?.price;
+        // Check for price drops - simplified without price history
+        // const oldPrice = null; // Price history feature disabled for now
         const newPrice = mappedProduct.price;
 
         if (oldPrice && newPrice && newPrice < oldPrice) {
@@ -258,7 +259,7 @@ async function getProductInfo(asinOrUrl: string): Promise<AmazonProduct> {
 
   try {
     // Check cache first
-    const cachedProduct = await cache.getProduct(asin);
+    const cachedProduct = await cache.get(`product:${asin}`);
     if (cachedProduct && !isYumEarth) {
       console.log(`📦 Cache hit for ASIN ${asin}`);
       return cachedProduct;
@@ -356,12 +357,9 @@ async function getProductInfo(asinOrUrl: string): Promise<AmazonProduct> {
     };
 
     // Cache the result
-    await cache.setProduct(asin, product, 3600);
+    await cache.set(`product:${asin}`, product, 3600);
 
-    // Check for price drops
-    if (cache.hasPriceDrop(asin, currentPrice)) {
-      await logApiError(asin, 'PRICE_DROP', `Price dropped from ${cache.getPriceHistory(asin).slice(-1)[0].price} to ${currentPrice}`);
-    }
+    // Price drop detection disabled for now (would need separate price history system)
 
     return product;
   } catch (error) {

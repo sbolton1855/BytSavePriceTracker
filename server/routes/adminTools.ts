@@ -42,7 +42,7 @@ router.get('/admin/asin/:asin', async (req, res) => {
 
     // Clear cache for this ASIN if force refresh
     if (forceRefresh) {
-      await cache.remove(asin);
+      await cache.del(`product:${asin}`);
     }
 
     // Get product info
@@ -75,14 +75,14 @@ router.get('/admin/asin/:asin', async (req, res) => {
 router.post('/admin/recheck-prices', async (req, res) => {
   try {
     const { asins } = req.body as { asins: string[] };
-    
+
     if (!Array.isArray(asins)) {
       return res.status(400).json({ error: 'asins must be an array' });
     }
 
     // Clear cache for these ASINs
     for (const asin of asins) {
-      await cache.remove(asin);
+      await cache.del(`product:${asin}`);
     }
 
     // Fetch fresh data
@@ -105,4 +105,4 @@ router.post('/admin/recheck-prices', async (req, res) => {
   }
 });
 
-export default router; 
+export default router;
