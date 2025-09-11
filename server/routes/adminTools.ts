@@ -5,7 +5,8 @@ import { getProductInfo } from '../amazonApi';
 import { db } from '../db';
 import * as schema from '../../shared/schema';
 import { eq, desc, asc, or, ilike, sql } from 'drizzle-orm';
-import { adminAuth } from '../middleware/adminAuth';
+// Assuming requireAdmin middleware is correctly exported from '../middleware/adminAuth'
+import { requireAdmin } from '../middleware/adminAuth';
 
 const router = express.Router();
 
@@ -110,7 +111,7 @@ router.post('/admin/recheck-prices', async (req, res) => {
 });
 
 // GET /api/admin/products - Fetch tracked products with pagination and sorting
-router.get('/admin/products', adminAuth, async (req, res) => {
+router.get('/admin/products', requireAdmin, async (req, res) => {
   console.log('Admin products endpoint accessed with query:', req.query);
 
   try {
