@@ -79,9 +79,11 @@ export default function AdminHub() {
 
   // Update URL when tab changes
   const handleTabChange = (tab: string) => {
+    console.log(`handleTabChange called with tab: ${tab}`);
     setActiveTab(tab);
     const newUrl = `/admin?tab=${tab}`;
     window.history.pushState({}, '', newUrl);
+    setLocation(newUrl); // This ensures wouter updates the route
   };
 
   // Sorting function
@@ -297,7 +299,10 @@ export default function AdminHub() {
     <Card 
       key={tool.name} 
       className="cursor-pointer transition-all hover:shadow-md hover:scale-105"
-      onClick={() => handleTabChange(tool.tabId)}
+      onClick={() => {
+        console.log(`Navigating to tab: ${tool.tabId}`);
+        handleTabChange(tool.tabId);
+      }}
     >
       <CardContent className="p-4">
         <div className="flex items-start justify-between mb-3">
