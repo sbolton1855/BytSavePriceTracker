@@ -119,6 +119,7 @@ router.get('/admin/products', adminAuth, async (req, res) => {
     const sortBy = req.query.sortBy as string || 'createdAt';
     const sortOrder = req.query.sortOrder as string || 'desc';
     const search = req.query.search as string || '';
+    const status = req.query.status as string || '';
 
     const offset = (page - 1) * limit;
 
@@ -156,9 +157,12 @@ router.get('/admin/products', adminAuth, async (req, res) => {
         eq(schema.trackedProducts.productId, schema.products.id)
       );
 
+    // Build where conditions
+    const conditions = [];
+
     // Add search filter if provided
     if (search) {
-      query = query.where(
+      conditions.push(
         or(
           ilike(schema.products.title, `%${search}%`),
           ilike(schema.products.asin, `%${search}%`),
@@ -167,10 +171,28 @@ router.get('/admin/products', adminAuth, async (req, res) => {
       );
     }
 
+    // Add status filter if provided
+    if (status) {
+      if (status === 'active') {
+        conditions.push(eq(schema.trackedProducts.notified, false));
+      } else if (status === 'paused' || status === 'notified') {
+        conditions.push(eq(schema.trackedProducts.notified, true));
+      }
+    }
+
+    // Apply where conditions
+    if (conditions.length > 0) {
+      if (conditions.length === 1) {
+        query = query.where(conditions[0]);
+      } else {
+        query = query.where(sql`${conditions.join(' AND ')}`);
+      }
+    }
+
     // Add sorting
     const sortColumn = sortBy === 'title' ? schema.products.title :
                       sortBy === 'asin' ? schema.products.asin :
-                      sortBy === 'currentPrice' ? schema.products.currentPrice :
+                      sortBy === 'price' || sortBy === 'currentPrice' ? schema.products.currentPrice :
                       sortBy === 'lastChecked' ? schema.products.lastChecked :
                       schema.trackedProducts.createdAt;
 
@@ -180,8 +202,8 @@ router.get('/admin/products', adminAuth, async (req, res) => {
       query = query.orderBy(asc(sortColumn));
     }
 
-    // Get total count for pagination
-    const totalCountQuery = db
+    // Get total count for pagination with same filters
+    let totalCountQuery = db
       .select({ count: sql<number>`count(*)` })
       .from(schema.trackedProducts)
       .leftJoin(
@@ -189,14 +211,13 @@ router.get('/admin/products', adminAuth, async (req, res) => {
         eq(schema.trackedProducts.productId, schema.products.id)
       );
 
-    if (search) {
-      totalCountQuery.where(
-        or(
-          ilike(schema.products.title, `%${search}%`),
-          ilike(schema.products.asin, `%${search}%`),
-          ilike(schema.trackedProducts.email, `%${search}%`)
-        )
-      );
+    // Apply same where conditions to count query
+    if (conditions.length > 0) {
+      if (conditions.length === 1) {
+        totalCountQuery = totalCountQuery.where(conditions[0]);
+      } else {
+        totalCountQuery = totalCountQuery.where(sql`${conditions.join(' AND ')}`);
+      }
     }
 
     const [trackedProducts, totalCount] = await Promise.all([
@@ -205,20 +226,11 @@ router.get('/admin/products', adminAuth, async (req, res) => {
     ]);
 
     const total = totalCount[0]?.count || 0;
-    const totalPages = Math.ceil(total / limit);
 
+    // Return in the requested format
     res.json({
-      data: trackedProducts,
-      pagination: {
-        page,
-        limit,
-        total,
-        totalPages,
-        hasNext: page < totalPages,
-        hasPrev: page > 1
-      },
-      sortBy,
-      sortOrder
+      products: trackedProducts,
+      total
     });
   } catch (error) {
     console.error('Error fetching admin products:', error);
