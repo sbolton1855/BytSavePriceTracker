@@ -13,10 +13,10 @@ import { trackingFormSchema } from "@shared/schema";
 import { fetchSignedAmazonRequest } from './lib/awsSignedRequest';
 import amazonRouter from './routes/amazon';
 // import { db } from "./db"; // Duplicate import, remove one
-import { eq, sql, desc } from "drizzle-orm";
+import { eq, sql, desc, asc, like } from "drizzle-orm";
 import { renderPriceDropTemplate } from "./emailTemplates";
 import { sendEmail } from "./sendEmail";
-import { emailLogs, users, products, trackedProducts } from "../shared/schema";
+import { emailLogs, users, products, trackedProducts, apiErrors } from "../shared/schema"; // Ensure apiErrors is imported
 import adminDashboardRoutes from './routes/analytics';
 import adminAuthRoutes from './routes/adminAuth';
 import adminEmailRoutes from './routes/adminEmail';
@@ -175,10 +175,11 @@ const categoryFilters = {
 };
 
 // Middleware to check for admin token
-const requireAdminToken = (req: Request, res: Response, next: Function) => {
-  const token = req.query.token as string;
+const requireAdmin = async (req: Request, res: Response, next: Function) => {
+  const token = req.headers['x-admin-token'] as string; // Assuming token is in a header
   if (!token || token !== process.env.ADMIN_SECRET) {
-    return res.status(401).json({ error: 'Invalid admin token' });
+    console.warn('Access denied: Invalid or missing admin token');
+    return res.status(401).json({ error: 'Unauthorized: Invalid admin token' });
   }
   next();
 };
@@ -261,7 +262,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         sentAt: emailLogs.sentAt,
         createdAt: emailLogs.sentAt, // Use sentAt as createdAt
         status: emailLogs.status,
-        type: sql`CASE 
+        type: sql`CASE
           WHEN ${emailLogs.subject} LIKE '[TEST]%' THEN 'test'
           WHEN ${emailLogs.subject} LIKE '%Price Drop%' THEN 'price-drop'
           WHEN ${emailLogs.subject} LIKE '%Password Reset%' THEN 'reset'
@@ -296,32 +297,105 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       console.log('[AdminApiErrors] Loading API errors for admin');
 
-      const limit = req.query.limit ? parseInt(req.query.limit as string, 10) : 50;
+      // Parse query parameters with defaults
+      const page = parseInt(req.query.page as string) || 1;
+      const limit = Math.min(parseInt(req.query.limit as string) || 50, 200); // Max 200 per page
+      const asinFilter = req.query.asin as string;
+      const errorTypeFilter = req.query.errorType as string;
+      const resolvedFilter = req.query.resolved as string;
+      const sortBy = (req.query.sortBy as string) || 'createdAt';
+      const sortOrder = (req.query.sortOrder as string) || 'desc';
 
-      // Query the api_errors table directly
-      const apiErrors = await db
+      const offset = (page - 1) * limit;
+
+      console.log('📋 API Errors Query params:', { page, limit, asinFilter, errorTypeFilter, resolvedFilter, sortBy, sortOrder });
+
+      // Build where conditions based on filters
+      const whereConditions = [];
+
+      if (asinFilter) {
+        whereConditions.push(like(apiErrors.asin, `%${asinFilter}%`));
+      }
+
+      if (errorTypeFilter && errorTypeFilter !== 'all') {
+        whereConditions.push(eq(apiErrors.errorType, errorTypeFilter));
+      }
+
+      if (resolvedFilter && resolvedFilter !== 'all') {
+        const isResolved = resolvedFilter === 'resolved';
+        whereConditions.push(eq(apiErrors.resolved, isResolved));
+      }
+
+      // Get total count for pagination
+      let totalCountQuery = db.select({ count: sql<number>`count(*)` }).from(apiErrors);
+
+      if (whereConditions.length > 0) {
+        const whereClause = whereConditions.reduce((acc, condition) =>
+          acc ? sql`${acc} AND ${condition}` : condition
+        );
+        totalCountQuery = totalCountQuery.where(whereClause) as any;
+      }
+
+      const totalResult = await totalCountQuery;
+      const total = Number(totalResult[0]?.count) || 0;
+      const totalPages = Math.ceil(total / limit);
+
+      // Build the main query with sorting
+      let query = db
         .select({
-          id: sql`id`,
-          asin: sql`asin`,
-          errorType: sql`error_type`,
-          errorMessage: sql`error_message`, 
-          createdAt: sql`created_at`,
-          resolved: sql`resolved`
+          id: apiErrors.id,
+          asin: apiErrors.asin,
+          errorType: apiErrors.errorType,
+          errorMessage: apiErrors.errorMessage,
+          createdAt: apiErrors.createdAt,
+          resolved: apiErrors.resolved
         })
-        .from(sql`api_errors`)
-        .orderBy(sql`created_at DESC`)
-        .limit(limit);
+        .from(apiErrors)
+        .limit(limit)
+        .offset(offset);
 
+      // Apply where conditions
+      if (whereConditions.length > 0) {
+        const whereClause = whereConditions.reduce((acc, condition) =>
+          acc ? sql`${acc} AND ${condition}` : condition
+        );
+        query = query.where(whereClause) as any;
+      }
+
+      // Apply sorting
+      if (sortBy === 'createdAt') {
+        query = query.orderBy(sortOrder === 'desc' ? desc(apiErrors.createdAt) : asc(apiErrors.createdAt)) as any;
+      } else if (sortBy === 'errorType') {
+        query = query.orderBy(sortOrder === 'desc' ? desc(apiErrors.errorType) : asc(apiErrors.errorType)) as any;
+      } else if (sortBy === 'asin') {
+        query = query.orderBy(sortOrder === 'desc' ? desc(apiErrors.asin) : asc(apiErrors.asin)) as any;
+      } else {
+        // Default fallback to createdAt desc
+        query = query.orderBy(desc(apiErrors.createdAt)) as any;
+      }
+
+      const errors = await query;
+
+      console.log(`[AdminApiErrors] Found ${errors.length} errors, page ${page}/${totalPages}, total ${total}`);
+
+      // Return paginated results with metadata
       res.json({
-        total: apiErrors.length,
-        recentErrors: apiErrors
+        errors: errors,
+        recentErrors: errors, // Include both for compatibility
+        total: total,
+        pagination: {
+          page: page,
+          limit: limit,
+          total: total,
+          totalPages: totalPages
+        }
       });
+
     } catch (error) {
-      console.error('[AdminApiErrors] Error loading API errors:', error);
+      console.error('[AdminApiErrors] Error fetching API errors:', error);
       res.status(500).json({
-        error: error instanceof Error ? error.message : 'Failed to load API errors',
-        total: 0,
-        recentErrors: []
+        error: 'Failed to fetch API errors',
+        details: error instanceof Error ? error.message : 'Unknown error'
       });
     }
   });
@@ -345,9 +419,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
         try {
           // Get all tracking records for this ASIN
           const trackingRecords = await db.select()
-            .from(productTracking)
-            .leftJoin(users, eq(productTracking.userId, users.id))
-            .leftJoin(products, eq(productTracking.productId, products.id))
+            .from(trackedProducts)
+            .leftJoin(users, eq(trackedProducts.userId, users.id))
+            .leftJoin(products, eq(trackedProducts.productId, products.id))
             .where(eq(products.asin, asin));
 
           if (trackingRecords.length === 0) {
@@ -465,9 +539,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       // Get the tracked product with product details
       const trackedProduct = await db.select()
-        .from(productTracking)
-        .leftJoin(products, eq(productTracking.productId, products.id))
-        .where(eq(productTracking.id, trackedProductId))
+        .from(trackedProducts)
+        .leftJoin(products, eq(trackedProducts.productId, products.id))
+        .where(eq(trackedProducts.id, trackedProductId))
         .limit(1);
 
       if (trackedProduct.length === 0) {
@@ -492,12 +566,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const oldTargetPrice = tracked.targetPrice;
 
       // Update the tracked product
-      await db.update(productTracking)
+      await db.update(trackedProducts)
         .set({
           targetPrice: newTargetPrice,
           notified: false
         })
-        .where(eq(productTracking.id, trackedProductId));
+        .where(eq(trackedProducts.id, trackedProductId));
 
       console.log(`🧪 QA TEST: Updated tracked product ${trackedProductId}`);
       console.log(`  📦 Product: ${product.title} (ASIN: ${product.asin})`);
