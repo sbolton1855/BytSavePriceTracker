@@ -190,8 +190,19 @@ export default function AdminHub() {
       console.log("📋 Is result.data an array?", Array.isArray(result.data));
       console.log("📋 Is result itself an array?", Array.isArray(result));
 
-      // Add safety check for result.data
-      const products = Array.isArray(result.data) ? result.data : [];
+      // Handle both paginated response format and direct array format
+      let products = [];
+      if (Array.isArray(result.data)) {
+        // Paginated response format: { data: [...], pagination: {...} }
+        products = result.data;
+      } else if (Array.isArray(result)) {
+        // Direct array response format: [...]
+        products = result;
+      } else {
+        console.warn("Unexpected API response format:", result);
+        products = [];
+      }
+      
       console.log("✅ Processed products array:", products);
       console.log("📊 Products array length:", products.length);
 
@@ -224,14 +235,21 @@ export default function AdminHub() {
       console.log("Transformed product data:", transformedProducts);
 
       setProducts(transformedProducts);
-      setProductsPagination(result.pagination || {
-        page: 1,
-        limit: 25,
-        total: 0,
-        totalPages: 0,
-        hasNext: false,
-        hasPrev: false
-      });
+      
+      // Handle pagination - use provided pagination or create default for direct array
+      if (result.pagination) {
+        setProductsPagination(result.pagination);
+      } else {
+        // Direct array response - create simple pagination
+        setProductsPagination({
+          page: 1,
+          limit: transformedProducts.length,
+          total: transformedProducts.length,
+          totalPages: 1,
+          hasNext: false,
+          hasPrev: false
+        });
+      }
 
     } catch (error) {
       console.error("Error fetching product data:", error);
