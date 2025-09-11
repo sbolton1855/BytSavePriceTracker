@@ -3,6 +3,7 @@ import { useToast } from "@/hooks/use-toast";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import AdminLayout from "@/components/AdminLayout";
 import AdminTabNav from "@/components/AdminTabNav";
 import { Link, useLocation } from "wouter";
@@ -436,27 +437,61 @@ export default function AdminHub() {
                         </div>
                       </div>
 
-                      {/* Console Output Note */}
-                      <div className="bg-gray-50 border border-gray-200 rounded-lg p-4">
-                        <h4 className="font-medium text-gray-800 mb-2">Developer Debug Info</h4>
-                        <p className="text-sm text-gray-600 mb-2">
-                          Detailed product data has been logged to the browser console. Check DevTools → Console tab.
-                        </p>
-                        <div className="text-xs text-gray-500 font-mono bg-white p-2 rounded border">
-                          {products.length > 0 ? (
-                            <div>
-                              Example: {JSON.stringify({
-                                asin: products[0]?.asin || "B08WM3LMJF",
-                                title: products[0]?.title?.substring(0, 30) + "..." || "JBL Headphones",
-                                currentPrice: products[0]?.currentPrice || 29.99,
-                                trackedBy: products[0]?.trackedBy || ["bob@example.com", "jane@example.com"],
-                                createdAt: products[0]?.createdAt || "2025-09-11T14:23:12.000Z"
-                              }, null, 2)}
-                            </div>
-                          ) : (
-                            "No products loaded yet - click 'Refresh Data' to fetch."
-                          )}
+                      {/* Products Table */}
+                      <div className="bg-white border rounded-lg">
+                        <div className="p-4 border-b">
+                          <h4 className="font-medium text-gray-800">Tracked Products</h4>
+                          <p className="text-sm text-gray-600">All products currently being tracked by users</p>
                         </div>
+                        
+                        {products.length === 0 ? (
+                          <div className="text-center py-8 text-gray-500">
+                            <Package className="h-12 w-12 mx-auto mb-4 text-gray-400" />
+                            <p>No tracked products found</p>
+                            <p className="text-sm">Products will appear here once users start tracking them</p>
+                          </div>
+                        ) : (
+                          <Table>
+                            <TableHeader>
+                              <TableRow>
+                                <TableHead>Title</TableHead>
+                                <TableHead>ASIN</TableHead>
+                                <TableHead>Current Price</TableHead>
+                                <TableHead>Tracked Emails</TableHead>
+                                <TableHead>Created Date</TableHead>
+                              </TableRow>
+                            </TableHeader>
+                            <TableBody>
+                              {products.map((product) => (
+                                <TableRow key={product.asin}>
+                                  <TableCell className="max-w-xs">
+                                    <div className="truncate" title={product.title}>
+                                      {product.title}
+                                    </div>
+                                  </TableCell>
+                                  <TableCell className="font-mono text-sm">
+                                    {product.asin}
+                                  </TableCell>
+                                  <TableCell className="font-medium">
+                                    ${product.currentPrice.toFixed(2)}
+                                  </TableCell>
+                                  <TableCell className="max-w-xs">
+                                    <div className="truncate" title={product.trackedBy.join(', ')}>
+                                      {product.trackedBy.join(', ')}
+                                    </div>
+                                  </TableCell>
+                                  <TableCell className="text-sm text-gray-600">
+                                    {new Date(product.createdAt).toLocaleDateString('en-US', {
+                                      year: 'numeric',
+                                      month: 'short',
+                                      day: 'numeric'
+                                    })}
+                                  </TableCell>
+                                </TableRow>
+                              ))}
+                            </TableBody>
+                          </Table>
+                        )}
                       </div>
                     </div>
                   )}
