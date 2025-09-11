@@ -4,6 +4,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { Input } from "@/components/ui/input";
 import AdminLayout from "@/components/AdminLayout";
 import AdminTabNav from "@/components/AdminTabNav";
 import { Link, useLocation } from "wouter";
@@ -21,7 +22,10 @@ import {
   Users,
   Package,
   AlertTriangle,
-  Loader2
+  Loader2,
+  ChevronUp,
+  ChevronDown,
+  Filter
 } from "lucide-react";
 import ApiErrorsPanel from "@/components/ApiErrorsPanel";
 import { AdminAuth } from "@/lib/admin-auth";
@@ -67,6 +71,11 @@ export default function AdminHub() {
   const [products, setProducts] = useState<ProductSummary[]>([]);
   const [productsLoading, setProductsLoading] = useState(false);
   const [productsError, setProductsError] = useState<string | null>(null);
+  
+  // Sorting and filtering state
+  const [sortBy, setSortBy] = useState<'createdAt' | 'price' | 'title' | 'asin'>('createdAt');
+  const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('desc');
+  const [emailFilter, setEmailFilter] = useState('');
 
   // Update URL when tab changes
   const handleTabChange = (tab: string) => {
@@ -74,6 +83,55 @@ export default function AdminHub() {
     const newUrl = `/admin?tab=${tab}`;
     window.history.pushState({}, '', newUrl);
   };
+
+  // Sorting function
+  const handleSort = (column: 'createdAt' | 'price' | 'title' | 'asin') => {
+    if (sortBy === column) {
+      setSortOrder(sortOrder === 'asc' ? 'desc' : 'asc');
+    } else {
+      setSortBy(column);
+      setSortOrder('desc');
+    }
+  };
+
+  // Get sort icon for column headers
+  const getSortIcon = (column: string) => {
+    if (sortBy !== column) {
+      return <ChevronUp className="h-4 w-4 opacity-30" />;
+    }
+    return sortOrder === 'asc' ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />;
+  };
+
+  // Filter and sort products
+  const filteredAndSortedProducts = products
+    .filter(product => {
+      if (!emailFilter) return true;
+      return product.trackedBy.some(email => 
+        email.toLowerCase().includes(emailFilter.toLowerCase())
+      );
+    })
+    .sort((a, b) => {
+      let comparison = 0;
+      
+      switch (sortBy) {
+        case 'createdAt':
+          comparison = new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime();
+          break;
+        case 'price':
+          comparison = a.currentPrice - b.currentPrice;
+          break;
+        case 'title':
+          comparison = a.title.localeCompare(b.title);
+          break;
+        case 'asin':
+          comparison = a.asin.localeCompare(b.asin);
+          break;
+        default:
+          comparison = 0;
+      }
+      
+      return sortOrder === 'asc' ? comparison : -comparison;
+    });
 
   // Fetch product tracking data
   const fetchProductData = async () => {
@@ -437,11 +495,33 @@ export default function AdminHub() {
                         </div>
                       </div>
 
+                      {/* Email Filter */}
+                      <div className="bg-white border rounded-lg mb-4">
+                        <div className="p-4">
+                          <div className="flex items-center gap-2 mb-2">
+                            <Filter className="h-4 w-4 text-gray-500" />
+                            <h4 className="font-medium text-gray-800">Filter Products</h4>
+                          </div>
+                          <Input
+                            type="text"
+                            placeholder="Filter by email (e.g., 'john@example.com' or 'gmail')"
+                            value={emailFilter}
+                            onChange={(e) => setEmailFilter(e.target.value)}
+                            className="w-full max-w-md"
+                          />
+                          {emailFilter && (
+                            <p className="text-sm text-gray-600 mt-2">
+                              Showing {filteredAndSortedProducts.length} of {products.length} products
+                            </p>
+                          )}
+                        </div>
+                      </div>
+
                       {/* Products Table */}
                       <div className="bg-white border rounded-lg">
                         <div className="p-4 border-b">
                           <h4 className="font-medium text-gray-800">Tracked Products</h4>
-                          <p className="text-sm text-gray-600">All products currently being tracked by users</p>
+                          <p className="text-sm text-gray-600">All products currently being tracked by users (click column headers to sort)</p>
                         </div>
                         
                         {products.length === 0 ? (
@@ -450,19 +530,62 @@ export default function AdminHub() {
                             <p>No tracked products found</p>
                             <p className="text-sm">Products will appear here once users start tracking them</p>
                           </div>
+                        ) : filteredAndSortedProducts.length === 0 ? (
+                          <div className="text-center py-8 text-gray-500">
+                            <Search className="h-12 w-12 mx-auto mb-4 text-gray-400" />
+                            <p>No products match your filter</p>
+                            <p className="text-sm">Try adjusting your email filter</p>
+                          </div>
                         ) : (
                           <Table>
                             <TableHeader>
                               <TableRow>
-                                <TableHead>Title</TableHead>
-                                <TableHead>ASIN</TableHead>
-                                <TableHead>Current Price</TableHead>
+                                <TableHead 
+                                  className="cursor-pointer hover:bg-gray-50 select-none"
+                                  onClick={() => handleSort('title')}
+                                >
+                                  <div className="flex items-center gap-1">
+                                    Title
+                                    {getSortIcon('title')}
+                                  </div>
+                                </TableHead>
+                                <TableHead 
+                                  className="cursor-pointer hover:bg-gray-50 select-none"
+                                  onClick={() => handleSort('asin')}
+                                >
+                                  <div className="flex items-center gap-1">
+                                    ASIN
+                                    {getSortIcon('asin')}
+                                  </div>
+                                </TableHead>
+                                <TableHead 
+                                  className="cursor-pointer hover:bg-gray-50 select-none"
+                                  onClick={() => handleSort('price')}
+                                >
+                                  <div className="flex items-center gap-1">
+                                    Current Price
+                                    {getSortIcon('price')}
+                                  </div>
+                                </TableHead>
                                 <TableHead>Tracked Emails</TableHead>
-                                <TableHead>Created Date</TableHead>
+                                <TableHead 
+                                  className="cursor-pointer hover:bg-gray-50 select-none"
+                                  onClick={() => handleSort('createdAt')}
+                                >
+                                  <div className="flex items-center gap-1">
+                                    Created Date
+                                    {getSortIcon('createdAt')}
+                                    {sortBy === 'createdAt' && (
+                                      <Badge variant="secondary" className="ml-1 text-xs">
+                                        Default
+                                      </Badge>
+                                    )}
+                                  </div>
+                                </TableHead>
                               </TableRow>
                             </TableHeader>
                             <TableBody>
-                              {products.map((product) => (
+                              {filteredAndSortedProducts.map((product) => (
                                 <TableRow key={product.asin}>
                                   <TableCell className="max-w-xs">
                                     <div className="truncate" title={product.title}>
@@ -477,7 +600,18 @@ export default function AdminHub() {
                                   </TableCell>
                                   <TableCell className="max-w-xs">
                                     <div className="truncate" title={product.trackedBy.join(', ')}>
-                                      {product.trackedBy.join(', ')}
+                                      {product.trackedBy.map((email, index) => (
+                                        <span key={index}>
+                                          {emailFilter && email.toLowerCase().includes(emailFilter.toLowerCase()) ? (
+                                            <mark className="bg-yellow-200 px-1 rounded">
+                                              {email}
+                                            </mark>
+                                          ) : (
+                                            email
+                                          )}
+                                          {index < product.trackedBy.length - 1 && ', '}
+                                        </span>
+                                      ))}
                                     </div>
                                   </TableCell>
                                   <TableCell className="text-sm text-gray-600">
