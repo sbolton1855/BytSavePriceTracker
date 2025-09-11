@@ -164,7 +164,7 @@ export default function AdminHub() {
     setProductsError(null);
 
     try {
-      console.log("Fetching admin product data...");
+      console.log("🚀 BEFORE API CALL - Fetching admin product data...");
       const params = new URLSearchParams({
         token,
         page: page.toString(),
@@ -174,18 +174,26 @@ export default function AdminHub() {
         ...(searchFilter && { search: searchFilter })
       });
 
+      console.log("🔗 API URL:", `/api/admin/products?${params}`);
       const response = await fetch(`/api/admin/products?${params}`);
+
+      console.log("📡 AFTER API CALL - Response status:", response.status, response.statusText);
 
       if (!response.ok) {
         throw new Error(`Failed to fetch products: ${response.status}`);
       }
 
       const result = await response.json();
-      console.log("Admin product API response:", result);
+      console.log("📊 FULL API RESPONSE:", result);
+      console.log("📋 response.data:", result.data);
+      console.log("📋 response.pagination:", result.pagination);
+      console.log("📋 Is result.data an array?", Array.isArray(result.data));
+      console.log("📋 Is result itself an array?", Array.isArray(result));
 
       // Add safety check for result.data
       const products = Array.isArray(result.data) ? result.data : [];
-      console.log("Processed products array:", products);
+      console.log("✅ Processed products array:", products);
+      console.log("📊 Products array length:", products.length);
 
       // Transform data into ProductSummary format with tracker counts
       const productMap = new Map<string, ProductSummary & { lastChecked: string; trackerCount: number }>();
