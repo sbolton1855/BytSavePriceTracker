@@ -28,7 +28,10 @@ async function initializeRedis() {
     });
 
     client.on('error', (err: Error) => {
-      console.warn('⚠️ [CACHE] Redis error:', err.message);
+      // Only log Redis errors if we're not in development with no REDIS_URL
+      if (process.env.REDIS_URL || process.env.NODE_ENV !== 'development') {
+        console.warn('⚠️ [CACHE] Redis error:', err.message);
+      }
       redisAvailable = false;
     });
 
@@ -53,7 +56,10 @@ async function initializeRedis() {
     redisAvailable = true;
 
   } catch (error) {
-    console.warn('⚠️ [CACHE] Redis initialization failed:', (error as Error).message);
+    // Only log Redis init failures if we expect Redis to be available
+    if (process.env.REDIS_URL || process.env.NODE_ENV !== 'development') {
+      console.warn('⚠️ [CACHE] Redis initialization failed:', (error as Error).message);
+    }
     console.log('📋 [CACHE] Using in-memory cache as fallback');
     client = null;
     redisAvailable = false;
@@ -138,20 +144,6 @@ export const cache = {
     } catch (error) {
       console.warn('⚠️ [CACHE] Clear error:', (error as Error).message);
     }
-  },
-
-  // Helper method to check if cache is available
-  isAvailable() {
-    return client ? true : false;
-  },
-
-  // Product-specific cache methods
-  async getProduct(key: string) {
-    return this.get(`product:${key}`);
-  },
-
-  async setProduct(key: string, data: any, ttl: number = 3600) {
-    return this.set(`product:${key}`, data, ttl);
   }
 };
 

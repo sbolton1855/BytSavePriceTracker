@@ -98,6 +98,22 @@ export async function sendEmail(to: string, subject: string, html: string): Prom
     try {
       await ensureEmailLogsTable();
 
+      // Guard against duplicate inserts using SendGrid message ID
+      if (messageId && messageId !== 'null' && !messageId.startsWith('fallback-')) {
+        const existingLogs = await db.execute(sql`
+          SELECT id FROM email_logs WHERE sg_message_id = ${messageId} LIMIT 1
+        `);
+        
+        if (existingLogs.rows && existingLogs.rows.length > 0) {
+          console.log(`[EmailLog] ⚠️ Skipping duplicate log for message ID ${messageId}`);
+          return {
+            success: true,
+            messageId: messageId,
+            statusCode: response[0].statusCode
+          };
+        }
+      }
+
       const recipientEmail = msg.to;
       const subject = msg.subject;
       const previewHtml = html ? html.substring(0, 500) : null;
