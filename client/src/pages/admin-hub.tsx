@@ -7,7 +7,7 @@ import { Input } from "@/components/ui/input";
 import AdminLayout from "@/components/AdminLayout";
 import AdminTabNav from "@/components/AdminTabNav";
 import { Link, useLocation } from "wouter";
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { 
   Mail, 
   Send, 
@@ -130,7 +130,27 @@ export default function AdminHub() {
   };
 
   // Products are already sorted and filtered on the server side
-  const displayedProducts = products;
+  const displayedProducts = useMemo(() => {
+    console.log('Computing displayedProducts - products:', products, 'searchFilter:', searchFilter);
+
+    if (!Array.isArray(products)) {
+      console.log('Products is not an array:', typeof products);
+      return [];
+    }
+
+    let filtered = products;
+    if (searchFilter) {
+      filtered = products.filter(product => 
+        product.product?.title?.toLowerCase().includes(searchFilter.toLowerCase()) ||
+        product.product?.asin?.toLowerCase().includes(searchFilter.toLowerCase()) ||
+        product.email?.toLowerCase().includes(searchFilter.toLowerCase())
+      );
+      console.log('Filtered products by search:', filtered.length);
+    }
+
+    console.log('Final displayedProducts:', filtered.length);
+    return filtered;
+  }, [products, searchFilter]);
 
   // Fetch product tracking data with pagination and sorting
   const fetchProductData = async (page = productsPagination.page) => {
