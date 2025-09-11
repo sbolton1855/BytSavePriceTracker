@@ -31,7 +31,7 @@ import { Badge } from "@/components/ui/badge";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { ChevronLeft, ChevronRight, Eye, Download, Search, Loader2, RefreshCw, Clock, CheckCircle, XCircle, Mail, MousePointer } from "lucide-react";
+import { ChevronLeft, ChevronRight, Eye, Download, Search, Loader2, RefreshCw, Clock, CheckCircle, XCircle, Mail, MousePointer, ChevronUpDown, ChevronUp, ChevronDown } from "lucide-react";
 import AdminLayout from "@/components/AdminLayout";
 import { AdminAuth } from "@/lib/admin-auth";
 
@@ -69,6 +69,8 @@ export default function AdminEmailLogs() {
   const [searchEmail, setSearchEmail] = useState('');
   const [statusFilter, setStatusFilter] = useState('all');
   const [dataSource, setDataSource] = useState<'db' | 'sendgrid'>('db');
+  const [sortBy, setSortBy] = useState<string | null>(null);
+  const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('asc');
 
   /**
    * Fetch email logs from backend API
@@ -77,7 +79,7 @@ export default function AdminEmailLogs() {
    * Automatically refetches when filters change
    */
   const { data: emailLogs, isLoading, refetch } = useQuery<EmailLogsResponse>({
-    queryKey: ['admin-email-logs', currentPage, emailFilter, statusFilter, dataSource],
+    queryKey: ['admin-email-logs', currentPage, emailFilter, statusFilter, dataSource, sortBy, sortOrder],
     queryFn: async () => {
       // Don't fetch if SendGrid is selected (placeholder for now)
       if (dataSource === 'sendgrid') {
@@ -99,51 +101,25 @@ export default function AdminEmailLogs() {
       }
 
       const params = new URLSearchParams({
+        token: token,
         page: currentPage.toString(),
-        limit: '100' // Increased limit for debugging
+        limit: '200', // Show more results per page
+        sortBy: sortBy ?? '',
+        sortOrder: sortOrder,
+        ...(emailFilter && { recipientEmail: emailFilter }),
+        ...(statusFilter !== 'all' && { status: statusFilter })
       });
 
-      // Temporarily disable filters for debugging
-      // if (emailFilter.trim()) {
-      //   params.append('email', emailFilter.trim());
-      // }
-
-      // if (statusFilter !== 'all') {
-      //   params.append('status', statusFilter);
-      // }
-
-      const response = await fetch(`/api/admin/logs?${params}`, {
-        headers: {
-          'Authorization': `Bearer ${token}`,
-          'Content-Type': 'application/json'
-        }
-      });
-
+      const response = await fetch(`/api/admin/logs?${params}`);
       if (!response.ok) {
-        throw new Error(`HTTP ${response.status}: ${response.statusText}`);
-      }
-
-      const data = await response.json();
-      
-      // Debug logging to check API response
-      console.log('[DEBUG] API Response:', data);
-      console.log('[DEBUG] API Response rows:', data.rows);
-      
-      // Handle both 'rows' and 'logs' keys for backwards compatibility
-      const logs = data.rows || data.logs || [];
-      console.log('[DEBUG] Final logs array:', logs);
-      
-      return {
-        logs: logs,
-        pagination: data.pagination || {
-          page: 1,
-          limit: 20,
-          total: 0,
-          totalPages: 1
+        if (response.status === 403) {
+          AdminAuth.clearToken();
         }
-      };
+        throw new Error("Failed to fetch email logs");
+      }
+      return response.json();
     },
-    enabled: !!AdminAuth.isAuthenticated(),
+    enabled: AdminAuth.getToken() !== null,
   });
 
   /**
@@ -161,6 +137,8 @@ export default function AdminEmailLogs() {
     setSearchEmail('');
     setEmailFilter('');
     setStatusFilter('all');
+    setSortBy(null);
+    setSortOrder('asc');
     setCurrentPage(1);
   };
 
@@ -218,6 +196,32 @@ export default function AdminEmailLogs() {
         {statusConfig.label}
       </Badge>
     );
+  };
+
+  /**
+   * Handle column sorting
+   */
+  const handleSort = (column: string) => {
+    if (sortBy === column) {
+      setSortOrder(sortOrder === 'asc' ? 'desc' : 'asc');
+    } else {
+      setSortBy(column);
+      setSortOrder('asc');
+    }
+    setCurrentPage(1); // Reset to first page on sort
+  };
+
+  /**
+   * Get sort icon for a column
+   */
+  const getSortIcon = (column: string) => {
+    if (sortBy !== column) {
+      return <ChevronUpDown className="h-4 w-4 text-muted-foreground" />;
+    }
+    if (sortOrder === 'asc') {
+      return <ChevronUp className="h-4 w-4" />;
+    }
+    return <ChevronDown className="h-4 w-4" />;
   };
 
   return (
@@ -299,20 +303,20 @@ export default function AdminEmailLogs() {
                   onClick={async () => {
                     try {
                       console.log('[DEBUG] Testing API with token:', AdminAuth.getToken());
-                      
+
                       const response = await fetch('/api/admin/logs/debug', {
                         headers: { 
                           'Authorization': `Bearer ${AdminAuth.getToken()}`,
                           'Content-Type': 'application/json'
                         }
                       });
-                      
+
                       console.log('[DEBUG] Debug API response status:', response.status);
                       console.log('[DEBUG] Debug API response headers:', [...response.headers.entries()]);
-                      
+
                       const text = await response.text();
                       console.log('[DEBUG] Debug API raw response:', text);
-                      
+
                       try {
                         const data = JSON.parse(text);
                         console.log('[DEBUG] Debug API parsed data:', data);
@@ -386,13 +390,23 @@ export default function AdminEmailLogs() {
               <Table>
                 <TableHeader>
                   <TableRow>
-                    <TableHead>ID</TableHead>
-                    <TableHead>Recipient</TableHead>
+                    <TableHead onClick={() => handleSort('id')} className="cursor-pointer">
+                      ID {getSortIcon('id')}
+                    </TableHead>
+                    <TableHead onClick={() => handleSort('recipientEmail')} className="cursor-pointer">
+                      Recipient {getSortIcon('recipientEmail')}
+                    </TableHead>
                     <TableHead>Subject</TableHead>
-                    <TableHead>Status</TableHead>
+                    <TableHead onClick={() => handleSort('status')} className="cursor-pointer">
+                      Status {getSortIcon('status')}
+                    </TableHead>
                     <TableHead>Product</TableHead>
-                    <TableHead>Sent At</TableHead>
-                    <TableHead>Updated At</TableHead>
+                    <TableHead onClick={() => handleSort('sentAt')} className="cursor-pointer">
+                      Sent At {getSortIcon('sentAt')}
+                    </TableHead>
+                    <TableHead onClick={() => handleSort('updatedAt')} className="cursor-pointer">
+                      Updated At {getSortIcon('updatedAt')}
+                    </TableHead>
                     <TableHead className="text-right">Actions</TableHead>
                   </TableRow>
                 </TableHeader>

@@ -19,7 +19,7 @@ import express from 'express';
 import { requireAdmin } from '../middleware/requireAdmin.js';
 import { db } from '../db.js';
 import { emailLogs } from '../../shared/schema.js';
-import { desc, like, eq, sql } from 'drizzle-orm';
+import { desc, asc, eq, like, sql } from 'drizzle-orm';
 
 const router = express.Router();
 
@@ -30,15 +30,17 @@ router.get('/logs', requireAdmin, async (req, res) => {
   try {
     console.log('📊 Admin email logs requested');
 
-    // Parse query parameters with defaults
+    // Parse query parameters
     const page = parseInt(req.query.page as string) || 1;
-    const limit = Math.min(parseInt(req.query.limit as string) || 20, 200); // Max 200 per page
+    const limit = parseInt(req.query.pageSize as string) || parseInt(req.query.limit as string) || 20;
+    const offset = (page - 1) * limit;
+    const sortBy = (req.query.sortBy as string) || 'sentAt';
+    const sortOrder = (req.query.sortOrder as string) || 'desc';
+
     const emailFilter = req.query.email as string;
     const statusFilter = req.query.status as string;
 
-    const offset = (page - 1) * limit;
-
-    console.log('📋 Query params:', { page, limit, emailFilter, statusFilter });
+    console.log('📋 Query params:', { page, limit, emailFilter, statusFilter, sortBy, sortOrder });
 
     // Build where conditions based on filters
     const whereConditions = [];
@@ -49,6 +51,17 @@ router.get('/logs', requireAdmin, async (req, res) => {
 
     if (statusFilter && statusFilter !== 'all') {
       whereConditions.push(eq(emailLogs.status, statusFilter));
+    }
+
+    // Determine sorting
+    let orderByClause: any = desc(emailLogs.sentAt); // Default order
+    if (sortBy && sortOrder) {
+      const sortColumn = emailLogs[sortBy as keyof typeof emailLogs]; // Access column dynamically
+      if (sortColumn) {
+        orderByClause = sortOrder === 'asc' ? asc(sortColumn) : desc(sortColumn);
+      } else {
+        console.warn(`⚠️ Invalid sortBy parameter: ${sortBy}. Falling back to default.`);
+      }
     }
 
     // Get total count for pagination
@@ -69,7 +82,7 @@ router.get('/logs', requireAdmin, async (req, res) => {
     let query = db
       .select()
       .from(emailLogs)
-      .orderBy(desc(emailLogs.sentAt)) // Most recent first
+      .orderBy(orderByClause) // Use dynamic sorting
       .limit(limit)
       .offset(offset);
 
@@ -146,7 +159,7 @@ router.get('/logs/debug', requireAdmin, async (req, res) => {
 
     // Test database connection
     console.log('[DEBUG] Testing database connection...');
-    
+
     // Check if email_logs table exists
     const tableCheck = await db.execute(sql`
       SELECT name FROM sqlite_master 
