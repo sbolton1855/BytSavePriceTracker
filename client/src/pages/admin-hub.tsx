@@ -106,8 +106,13 @@ export default function AdminHub() {
   const filteredAndSortedProducts = products
     .filter(product => {
       if (!emailFilter) return true;
-      return product.trackedBy.some(email => 
-        email.toLowerCase().includes(emailFilter.toLowerCase())
+      const searchTerm = emailFilter.toLowerCase();
+      return (
+        product.title.toLowerCase().includes(searchTerm) ||
+        product.asin.toLowerCase().includes(searchTerm) ||
+        product.trackedBy.some(email => 
+          email.toLowerCase().includes(searchTerm)
+        )
       );
     })
     .sort((a, b) => {
@@ -425,26 +430,10 @@ export default function AdminHub() {
               </CardHeader>
               <CardContent>
                 <div className="space-y-6">
-                  {/* Refresh Button */}
-                  <div className="flex justify-between items-center">
-                    <div>
-                      <h3 className="text-lg font-medium">Tracked Products Overview</h3>
-                      <p className="text-sm text-gray-600">Products currently being tracked by users</p>
-                    </div>
-                    <Button 
-                      onClick={fetchProductData}
-                      disabled={productsLoading}
-                      variant="outline"
-                    >
-                      {productsLoading ? (
-                        <>
-                          <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                          Refreshing...
-                        </>
-                      ) : (
-                        'Refresh Data'
-                      )}
-                    </Button>
+                  {/* Page Header */}
+                  <div>
+                    <h3 className="text-lg font-medium">Tracked Products Overview</h3>
+                    <p className="text-sm text-gray-600">Products currently being tracked by users</p>
                   </div>
 
                   {/* Loading State */}
@@ -469,6 +458,109 @@ export default function AdminHub() {
                   {/* Data Display */}
                   {!productsLoading && !productsError && (
                     <div className="space-y-4">
+                      {/* Product Controls Panel */}
+                      <Card>
+                        <CardHeader>
+                          <CardTitle className="text-lg">Product Controls</CardTitle>
+                          <CardDescription>Manage and filter tracked products</CardDescription>
+                        </CardHeader>
+                        <CardContent>
+                          <div className="space-y-4">
+                            {/* Controls Row 1: Sort, Search, Status Filter */}
+                            <div className="flex flex-wrap gap-4 items-center">
+                              <div className="flex-1 min-w-[200px]">
+                                <label className="text-sm font-medium text-gray-700 mb-1 block">
+                                  Search Products
+                                </label>
+                                <div className="relative">
+                                  <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
+                                  <Input
+                                    type="text"
+                                    placeholder="Search by title, ASIN, or email..."
+                                    value={emailFilter}
+                                    onChange={(e) => setEmailFilter(e.target.value)}
+                                    className="pl-10"
+                                  />
+                                </div>
+                              </div>
+                              
+                              <div className="min-w-[150px]">
+                                <label className="text-sm font-medium text-gray-700 mb-1 block">
+                                  Sort By
+                                </label>
+                                <select
+                                  value={sortBy}
+                                  onChange={(e) => setSortBy(e.target.value as 'createdAt' | 'price' | 'title' | 'asin')}
+                                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                                >
+                                  <option value="createdAt">Date Added</option>
+                                  <option value="price">Price</option>
+                                  <option value="title">Product Name</option>
+                                  <option value="asin">ASIN</option>
+                                </select>
+                              </div>
+
+                              <div className="min-w-[120px]">
+                                <label className="text-sm font-medium text-gray-700 mb-1 block">
+                                  Status
+                                </label>
+                                <select
+                                  defaultValue="active"
+                                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                                >
+                                  <option value="active">Active</option>
+                                  <option value="paused">Paused</option>
+                                  <option value="all">All</option>
+                                </select>
+                              </div>
+                            </div>
+
+                            {/* Controls Row 2: Action Buttons */}
+                            <div className="flex flex-wrap gap-2 items-center justify-between">
+                              <div className="flex gap-2">
+                                <Button
+                                  variant="outline"
+                                  size="sm"
+                                  onClick={() => {
+                                    setEmailFilter('');
+                                    setSortBy('createdAt');
+                                    setSortOrder('desc');
+                                  }}
+                                >
+                                  Clear Filters
+                                </Button>
+                                <Button variant="outline" size="sm">
+                                  Export CSV
+                                </Button>
+                                <Button
+                                  variant="outline"
+                                  size="sm"
+                                  onClick={fetchProductData}
+                                  disabled={productsLoading}
+                                >
+                                  {productsLoading ? (
+                                    <>
+                                      <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                                      Refreshing...
+                                    </>
+                                  ) : (
+                                    'Refresh'
+                                  )}
+                                </Button>
+                                <Button variant="outline" size="sm">
+                                  Debug API
+                                </Button>
+                              </div>
+                              
+                              <div className="text-sm text-gray-600">
+                                Showing {filteredAndSortedProducts.length} of {products.length} products
+                              </div>
+                            </div>
+                          </div>
+                        </CardContent>
+                      </Card>
+
+                      {/* Product Data Summary */}
                       <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
                         <h4 className="font-medium text-blue-800 mb-2">Product Data Summary</h4>
                         <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
@@ -492,28 +584,6 @@ export default function AdminHub() {
                             <span className="text-blue-600 font-medium">Status:</span>
                             <div className="text-lg font-bold text-green-600">Live</div>
                           </div>
-                        </div>
-                      </div>
-
-                      {/* Email Filter */}
-                      <div className="bg-white border rounded-lg mb-4">
-                        <div className="p-4">
-                          <div className="flex items-center gap-2 mb-2">
-                            <Filter className="h-4 w-4 text-gray-500" />
-                            <h4 className="font-medium text-gray-800">Filter Products</h4>
-                          </div>
-                          <Input
-                            type="text"
-                            placeholder="Filter by email (e.g., 'john@example.com' or 'gmail')"
-                            value={emailFilter}
-                            onChange={(e) => setEmailFilter(e.target.value)}
-                            className="w-full max-w-md"
-                          />
-                          {emailFilter && (
-                            <p className="text-sm text-gray-600 mt-2">
-                              Showing {filteredAndSortedProducts.length} of {products.length} products
-                            </p>
-                          )}
                         </div>
                       </div>
 
