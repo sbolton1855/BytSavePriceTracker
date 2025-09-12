@@ -41,11 +41,11 @@ export default function ForceAlertsPanel() {
   const [selectedMode, setSelectedMode] = useState('');
   const [selectedProduct, setSelectedProduct] = useState<Product | null>(null);
   const [manualAsin, setManualAsin] = useState('');
-  const [recipientEmail, setRecipientEmail] = useState(process.env.ADMIN_EMAIL || 'admin@example.com');
+  const [recipientEmail, setRecipientEmail] = useState('admin@example.com');
   const [isTriggering, setIsTriggering] = useState(false);
   const [alertResults, setAlertResults] = useState<ForceAlertResult[]>([]);
 
-  const isDevelopment = process.env.NODE_ENV === 'development';
+  const isDevelopment = import.meta.env.DEV;
 
   // Load products on component mount
   useEffect(() => {
@@ -126,7 +126,7 @@ export default function ForceAlertsPanel() {
       let requestBody = {};
 
       // In development, always override recipient to admin email for safety
-      const finalRecipient = isDevelopment ? (process.env.ADMIN_EMAIL || 'admin@example.com') : recipientEmail;
+      const finalRecipient = isDevelopment ? 'admin@example.com' : recipientEmail;
 
       if (selectedMode === 'random') {
         endpoint = '/api/admin/force-alerts/random';
