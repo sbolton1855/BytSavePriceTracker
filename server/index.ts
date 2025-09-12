@@ -3,6 +3,7 @@ import dotenv from 'dotenv';
 dotenv.config();
 
 import express, { type Request, Response, NextFunction } from "express";
+import { createServer } from "http";
 import { registerRoutes } from "./routes";
 import { setupVite, serveStatic, log } from "./vite";
 import { configureAuth } from "./authService";
@@ -12,7 +13,6 @@ import adminAuthRoutes from "./routes/adminAuth.js";
 import adminEmailRoutes from "./routes/adminEmail.js";
 import adminEmailLogsRoutes from './routes/adminEmailLogs.js';
 import sendgridWebhookRoutes from './routes/sendgridWebhook';
-import LiveDealsPreview from "@/components/LiveDealsPreview";
 import { scheduleTokenCleanup } from './utils/tokenCleanup';
 import { fileURLToPath } from 'url';
 import { dirname } from 'path';
@@ -99,9 +99,6 @@ app.use((req, res, next) => {
 (async () => {
   const server = await registerRoutes(app);
 
-  // Initialize token cleanup
-  scheduleTokenCleanup();
-
   // importantly only setup vite in development and after
   // setting up all the other routes so the catch-all route
   // doesn't interfere with the other routes
@@ -116,7 +113,10 @@ app.use((req, res, next) => {
   // It is the only port that is not firewalled.
   const PORT = process.env.PORT || 5000;
 
-  app.listen(PORT, '0.0.0.0', () => {
+  server.listen(PORT, '0.0.0.0', () => {
     console.log(`Server running on http://0.0.0.0:${PORT}`);
+
+    // Start token cleanup scheduler
+    scheduleTokenCleanup();
   });
 })();
