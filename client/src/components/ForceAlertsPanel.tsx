@@ -1,18 +1,29 @@
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Loader2, Zap, AlertTriangle, CheckCircle } from "lucide-react";
+import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from '@/components/ui/command';
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
+import { Loader2, Zap, AlertTriangle, CheckCircle, Search, Mail, Shield } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { AdminAuth } from "@/lib/admin-auth";
+
+interface Product {
+  id: number;
+  asin: string;
+  title: string;
+  currentPrice: number;
+}
 
 interface ForceAlertResult {
   success: boolean;
   productId?: number;
   productTitle?: string;
+  asin?: string;
+  recipient?: string;
   alertsSent?: number;
   error?: string;
   timestamp: string;
@@ -21,13 +32,57 @@ interface ForceAlertResult {
 export default function ForceAlertsPanel() {
   const { toast } = useToast();
   
+  // State for products
+  const [products, setProducts] = useState<Product[]>([]);
+  const [loadingProducts, setLoadingProducts] = useState(false);
+  const [productSearchOpen, setProductSearchOpen] = useState(false);
+  
   // Form state
   const [selectedMode, setSelectedMode] = useState('');
-  const [customProductId, setCustomProductId] = useState('');
+  const [selectedProduct, setSelectedProduct] = useState<Product | null>(null);
+  const [manualAsin, setManualAsin] = useState('');
+  const [recipientEmail, setRecipientEmail] = useState(process.env.ADMIN_EMAIL || 'admin@example.com');
   const [isTriggering, setIsTriggering] = useState(false);
   const [alertResults, setAlertResults] = useState<ForceAlertResult[]>([]);
 
   const isDevelopment = process.env.NODE_ENV === 'development';
+
+  // Load products on component mount
+  useEffect(() => {
+    loadProducts();
+  }, []);
+
+  const loadProducts = async () => {
+    setLoadingProducts(true);
+    try {
+      const adminToken = AdminAuth.getToken();
+      if (!adminToken) {
+        throw new Error('No admin token available');
+      }
+
+      const response = await fetch('/api/admin/products', {
+        headers: {
+          'x-admin-token': adminToken
+        }
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to fetch products');
+      }
+
+      const data = await response.json();
+      setProducts(data.products || []);
+    } catch (error) {
+      console.error('Error loading products:', error);
+      toast({
+        title: "Error",
+        description: "Failed to load products for selection",
+        variant: "destructive"
+      });
+    } finally {
+      setLoadingProducts(false);
+    }
+  };
 
   const handleTriggerAlert = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -41,10 +96,19 @@ export default function ForceAlertsPanel() {
       return;
     }
 
-    if (selectedMode === 'custom' && !customProductId) {
+    if (selectedMode === 'custom' && !selectedProduct && !manualAsin) {
       toast({
         title: "Error",
-        description: "Please enter a product ID for custom testing",
+        description: "Please select a product or enter an ASIN for custom testing",
+        variant: "destructive"
+      });
+      return;
+    }
+
+    if (!recipientEmail) {
+      toast({
+        title: "Error",
+        description: "Please enter a recipient email",
         variant: "destructive"
       });
       return;
@@ -61,18 +125,30 @@ export default function ForceAlertsPanel() {
       let endpoint = '';
       let requestBody = {};
 
+      // In development, always override recipient to admin email for safety
+      const finalRecipient = isDevelopment ? (process.env.ADMIN_EMAIL || 'admin@example.com') : recipientEmail;
+
       if (selectedMode === 'random') {
-        // Trigger alerts for a random product
         endpoint = '/api/admin/force-alerts/random';
-        requestBody = { mode: 'random' };
+        requestBody = { 
+          mode: 'random',
+          testRecipient: finalRecipient 
+        };
       } else if (selectedMode === 'custom') {
-        // Trigger alerts for specific product ID
         endpoint = '/api/admin/force-alerts/product';
-        requestBody = { productId: parseInt(customProductId), mode: 'custom' };
+        const productIdentifier = selectedProduct ? selectedProduct.id : manualAsin;
+        requestBody = { 
+          productId: selectedProduct ? selectedProduct.id : undefined,
+          asin: selectedProduct ? selectedProduct.asin : manualAsin,
+          mode: 'custom',
+          testRecipient: finalRecipient 
+        };
       } else if (selectedMode === 'all') {
-        // Trigger all pending alerts (development only)
         endpoint = '/api/admin/force-alerts/all';
-        requestBody = { mode: 'all' };
+        requestBody = { 
+          mode: 'all',
+          testRecipient: isDevelopment ? finalRecipient : undefined 
+        };
       }
 
       const response = await fetch(endpoint, {
@@ -94,7 +170,9 @@ export default function ForceAlertsPanel() {
       const alertResult: ForceAlertResult = {
         success: true,
         productId: result.productId,
-        productTitle: result.productTitle,
+        productTitle: result.productTitle || selectedProduct?.title,
+        asin: result.asin || selectedProduct?.asin || manualAsin,
+        recipient: finalRecipient,
         alertsSent: result.alertsSent || 1,
         timestamp: new Date().toISOString()
       };
@@ -103,7 +181,7 @@ export default function ForceAlertsPanel() {
       
       toast({
         title: "Success",
-        description: `Force alert triggered successfully. ${result.alertsSent || 1} alert(s) sent.`,
+        description: `Force alert triggered successfully. Sent to ${finalRecipient}`,
       });
 
     } catch (error) {
@@ -112,7 +190,8 @@ export default function ForceAlertsPanel() {
       const alertResult: ForceAlertResult = {
         success: false,
         timestamp: new Date().toISOString(),
-        error: error instanceof Error ? error.message : "Failed to trigger alert"
+        error: error instanceof Error ? error.message : "Failed to trigger alert",
+        recipient: recipientEmail
       };
 
       setAlertResults(prev => [alertResult, ...prev]);
@@ -133,16 +212,26 @@ export default function ForceAlertsPanel() {
         <h3 className="text-lg font-medium">Force Price Drop Alerts</h3>
         <p className="text-sm text-gray-600">Manually trigger price drop alert emails for testing and validation</p>
       </div>
+
+      {/* Development Mode Warning */}
+      {isDevelopment && (
+        <div className="p-4 bg-amber-50 border border-amber-200 rounded-md">
+          <div className="flex items-center gap-2 text-amber-700">
+            <Shield className="h-5 w-5" />
+            <span className="font-medium">⚠️ Development Mode</span>
+          </div>
+          <p className="text-amber-600 mt-1 text-sm">
+            All alerts are redirected to admin@example.com for safety. Real users will not receive test emails.
+          </p>
+        </div>
+      )}
       
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
         <Card>
           <CardHeader>
             <CardTitle>Alert Trigger Controls</CardTitle>
             <CardDescription>
-              {isDevelopment ? 
-                'Development mode: Full testing controls available' : 
-                'Production mode: Basic alert triggering'
-              }
+              Configure and send test price drop alerts
             </CardDescription>
           </CardHeader>
           <CardContent>
@@ -157,6 +246,12 @@ export default function ForceAlertsPanel() {
                     <SelectValue placeholder="Select how to trigger alerts" />
                   </SelectTrigger>
                   <SelectContent>
+                    <SelectItem value="custom">
+                      <div>
+                        <div className="font-medium">Custom Product</div>
+                        <div className="text-sm text-gray-500">Send alert for specific product</div>
+                      </div>
+                    </SelectItem>
                     <SelectItem value="random">
                       <div>
                         <div className="font-medium">Random Product</div>
@@ -164,38 +259,104 @@ export default function ForceAlertsPanel() {
                       </div>
                     </SelectItem>
                     {isDevelopment && (
-                      <>
-                        <SelectItem value="custom">
-                          <div>
-                            <div className="font-medium">Custom Product ID</div>
-                            <div className="text-sm text-gray-500">Test with specific product</div>
-                          </div>
-                        </SelectItem>
-                        <SelectItem value="all">
-                          <div>
-                            <div className="font-medium">All Pending Alerts</div>
-                            <div className="text-sm text-gray-500">Trigger all ready alerts</div>
-                          </div>
-                        </SelectItem>
-                      </>
+                      <SelectItem value="all">
+                        <div>
+                          <div className="font-medium">Trigger All Alerts</div>
+                          <div className="text-sm text-gray-500">Run daily alert job (dev mode)</div>
+                        </div>
+                      </SelectItem>
                     )}
                   </SelectContent>
                 </Select>
               </div>
 
-              {selectedMode === 'custom' && isDevelopment && (
-                <div>
-                  <Label htmlFor="productId">Product ID</Label>
-                  <Input
-                    id="productId"
-                    type="number"
-                    value={customProductId}
-                    onChange={(e) => setCustomProductId(e.target.value)}
-                    placeholder="Enter product ID (e.g., 42)"
-                    min="1"
-                  />
+              {selectedMode === 'custom' && (
+                <div className="space-y-4">
+                  <div>
+                    <Label>Product Selection</Label>
+                    <Popover open={productSearchOpen} onOpenChange={setProductSearchOpen}>
+                      <PopoverTrigger asChild>
+                        <Button
+                          variant="outline"
+                          role="combobox"
+                          aria-expanded={productSearchOpen}
+                          className="w-full justify-between"
+                          disabled={loadingProducts}
+                        >
+                          {selectedProduct 
+                            ? `${selectedProduct.title.substring(0, 50)}... - ${selectedProduct.asin}`
+                            : "Search products..."
+                          }
+                          <Search className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                        </Button>
+                      </PopoverTrigger>
+                      <PopoverContent className="w-full p-0">
+                        <Command>
+                          <CommandInput placeholder="Search products by title or ASIN..." />
+                          <CommandList>
+                            <CommandEmpty>No products found.</CommandEmpty>
+                            <CommandGroup>
+                              {products.map((product) => (
+                                <CommandItem
+                                  key={product.id}
+                                  value={`${product.title} ${product.asin}`}
+                                  onSelect={() => {
+                                    setSelectedProduct(product);
+                                    setManualAsin('');
+                                    setProductSearchOpen(false);
+                                  }}
+                                >
+                                  <div className="flex flex-col">
+                                    <span className="font-medium">{product.title.substring(0, 60)}...</span>
+                                    <span className="text-sm text-gray-500">{product.asin} - ${product.currentPrice}</span>
+                                  </div>
+                                </CommandItem>
+                              ))}
+                            </CommandGroup>
+                          </CommandList>
+                        </Command>
+                      </PopoverContent>
+                    </Popover>
+                  </div>
+
+                  <div className="text-center text-sm text-gray-500">or</div>
+
+                  <div>
+                    <Label htmlFor="manualAsin">Manual ASIN Entry</Label>
+                    <Input
+                      id="manualAsin"
+                      value={manualAsin}
+                      onChange={(e) => {
+                        setManualAsin(e.target.value);
+                        if (e.target.value) {
+                          setSelectedProduct(null);
+                        }
+                      }}
+                      placeholder="Enter ASIN manually (e.g., B07XJ8C8F5)"
+                    />
+                  </div>
                 </div>
               )}
+
+              <div>
+                <Label htmlFor="recipient">Send To Email</Label>
+                <div className="flex items-center gap-2">
+                  <Mail className="h-4 w-4 text-gray-400" />
+                  <Input
+                    id="recipient"
+                    type="email"
+                    value={recipientEmail}
+                    onChange={(e) => setRecipientEmail(e.target.value)}
+                    placeholder="admin@example.com"
+                    disabled={isDevelopment}
+                  />
+                </div>
+                {isDevelopment && (
+                  <p className="text-xs text-gray-500 mt-1">
+                    Locked to admin email in development mode
+                  </p>
+                )}
+              </div>
 
               <div className="flex gap-2">
                 <Button 
@@ -208,18 +369,6 @@ export default function ForceAlertsPanel() {
                   {isTriggering ? 'Triggering Alert...' : 'Trigger Price Drop Alert'}
                 </Button>
               </div>
-
-              {isDevelopment && (
-                <div className="mt-4 p-3 bg-blue-50 border border-blue-200 rounded-md">
-                  <div className="flex items-center gap-2 text-blue-700">
-                    <AlertTriangle className="h-4 w-4" />
-                    <span className="font-medium">Development Mode</span>
-                  </div>
-                  <p className="text-blue-600 mt-1 text-sm">
-                    Additional testing options are available. Use responsibly to avoid spamming users.
-                  </p>
-                </div>
-              )}
             </form>
           </CardContent>
         </Card>
@@ -233,7 +382,7 @@ export default function ForceAlertsPanel() {
           </CardHeader>
           <CardContent>
             {alertResults.length === 0 ? (
-              <div className="border-2 border-dashed border-gray-300 rounded-lg h-[300px] flex flex-col items-center justify-center text-gray-500">
+              <div className="border-2 border-dashed border-gray-300 rounded-lg h-[400px] flex flex-col items-center justify-center text-gray-500">
                 <Zap className="h-12 w-12 mb-4 text-gray-400" />
                 <p className="text-center">
                   No alerts triggered yet.<br />
@@ -241,7 +390,7 @@ export default function ForceAlertsPanel() {
                 </p>
               </div>
             ) : (
-              <div className="space-y-4 max-h-[300px] overflow-y-auto">
+              <div className="space-y-4 max-h-[400px] overflow-y-auto">
                 {alertResults.map((result, index) => (
                   <div 
                     key={index}
@@ -257,7 +406,7 @@ export default function ForceAlertsPanel() {
                           <AlertTriangle className="h-4 w-4 text-red-600" />
                         )}
                         <span className="font-medium">
-                          {result.success ? 'Alert Triggered' : 'Alert Failed'}
+                          {result.success ? 'Alert Sent Successfully' : 'Alert Failed'}
                         </span>
                       </div>
                       <span className="text-sm text-gray-500">
@@ -266,14 +415,21 @@ export default function ForceAlertsPanel() {
                     </div>
                     
                     {result.productTitle && (
+                      <div className="mb-2">
+                        <p className="text-sm font-medium text-gray-700">Product:</p>
+                        <p className="text-sm text-gray-600">{result.productTitle}</p>
+                      </div>
+                    )}
+                    
+                    {result.asin && (
                       <p className="text-sm text-gray-600 mb-1">
-                        <strong>Product:</strong> {result.productTitle}
+                        <strong>ASIN:</strong> {result.asin}
                       </p>
                     )}
                     
-                    {result.productId && (
+                    {result.recipient && (
                       <p className="text-sm text-gray-600 mb-1">
-                        <strong>Product ID:</strong> {result.productId}
+                        <strong>Sent To:</strong> {result.recipient}
                       </p>
                     )}
                     
