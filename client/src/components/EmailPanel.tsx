@@ -14,6 +14,13 @@ export default function EmailPanel() {
       badge: "Core"
     },
     {
+      name: "Email Logs",
+      description: "View sent email history",
+      href: `/admin/email-logs`,
+      icon: FileText,
+      badge: "Logs"
+    },
+    {
       name: "Force Alerts",
       description: "Manually trigger price drop alerts",
       href: `/admin/force-alerts`,
