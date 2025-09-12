@@ -763,20 +763,21 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.get('/api/search', async (req: Request, res: Response) => {
     const query = req.query.q as string;
 
-    console.log("Search API called with query:", query);
+    console.log("🔍 Search API called with query:", query);
 
     if (!query || query.trim().length < 3) {
+      console.log("❌ Search query too short:", query);
       return res.status(400).json({ error: 'Search query must be at least 3 characters' });
     }
 
     try {
-      console.log("Calling Amazon API for search:", query.trim());
+      console.log("🌐 Calling Amazon API for search:", query.trim());
       const results = await searchAmazonProducts(query.trim());
 
-      console.log("Amazon API returned", results?.length || 0, "results");
+      console.log("📦 Amazon API returned", results?.length || 0, "results");
 
       if (!results || !Array.isArray(results)) {
-        console.error("Invalid results from Amazon API:", results);
+        console.error("⚠️ Invalid results from Amazon API:", results);
         return res.json({ items: [] });
       }
 
@@ -789,11 +790,16 @@ export async function registerRoutes(app: Express): Promise<Server> {
         couponDetected: item.Offers?.Listings?.[0]?.Promotions?.length > 0 || false
       }));
 
-      console.log("Formatted", formattedResults.length, "search results");
+      console.log("✅ Formatted", formattedResults.length, "search results");
       res.json({ items: formattedResults });
     } catch (error: any) {
-      console.error('Search error:', error.message);
-      res.status(500).json({ error: 'Search failed: ' + error.message });
+      console.error('❌ Search error:', error);
+      console.error('❌ Search error stack:', error.stack);
+      res.status(500).json({ 
+        error: 'Search failed', 
+        details: error.message,
+        timestamp: new Date().toISOString()
+      });
     }
   });
 

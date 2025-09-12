@@ -50,19 +50,19 @@ export default function ProductSearch({
     queryKey: ["/api/search", debouncedQuery],
     queryFn: async () => {
       if (!debouncedQuery || debouncedQuery.trim().length < 3) return [];
-      
+
       console.log("Searching for:", debouncedQuery);
       const res = await fetch(`/api/search?q=${encodeURIComponent(debouncedQuery.trim())}`);
-      
+
       if (!res.ok) {
         const error = await res.text();
         console.error("Search API error:", error);
         throw new Error(error || "Search failed");
       }
-      
+
       const data = await res.json();
       console.log("Search API response:", data);
-      
+
       // Handle both direct array and nested items structure
       if (Array.isArray(data)) {
         return data;
@@ -71,7 +71,7 @@ export default function ProductSearch({
       } else if (data.products && Array.isArray(data.products)) {
         return data.products;
       }
-      
+
       return [];
     },
     enabled: debouncedQuery.trim().length >= 3,
