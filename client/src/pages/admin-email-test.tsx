@@ -252,7 +252,7 @@ export default function AdminEmailTest() {
         <p className="text-muted-foreground">Test and preview email templates for BytSave notifications</p>
       </div>
       
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-8"></div>
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
         <Card>
           <CardHeader>
             <CardTitle>Email Template Testing</CardTitle>
