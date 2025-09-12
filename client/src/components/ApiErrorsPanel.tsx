@@ -84,7 +84,7 @@ export default function ApiErrorsPanel() {
       }
 
       const data = await response.json();
-      console.log('[DEBUG] API Errors Response:', data); // Added debug logging
+      console.log('[DEBUG] API Errors Response:', data);
 
       return data;
     },
@@ -156,10 +156,8 @@ export default function ApiErrorsPanel() {
   /**
    * Handle page change
    */
-  const handlePageChange = (newPage: number) => {
-    console.log(`[ApiErrorsPanel] Page change requested: ${currentPage} -> ${newPage}`); // Added debug logging
-    setCurrentPage(newPage);
-    // Refetch will happen automatically due to the dependency on currentPage
+  const handlePageChange = (page: number) => {
+    setCurrentPage(page);
   };
 
   // Define table columns using the LogTable format

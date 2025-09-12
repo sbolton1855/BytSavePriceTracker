@@ -295,74 +295,105 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Get API errors for admin analytics
   app.get('/api/admin/errors', requireAdmin, async (req, res) => {
     try {
-      const { 
-        page = 1, 
-        limit = 25,
-        search = '',
-        status = 'all',
-        sortBy = 'createdAt',
-        sortOrder = 'desc'
-      } = req.query;
+      console.log('[AdminApiErrors] Loading API errors for admin');
 
-      console.log(`[API Errors] Page request: ${page}, limit: ${limit}, search: "${search}", status: ${status}`);
+      // Parse query parameters with defaults
+      const page = parseInt(req.query.page as string) || 1;
+      const limit = Math.min(parseInt(req.query.limit as string) || 50, 200); // Max 200 per page
+      const asinFilter = req.query.asin as string;
+      const errorTypeFilter = req.query.errorType as string;
+      const resolvedFilter = req.query.resolved as string;
+      const sortBy = (req.query.sortBy as string) || 'createdAt';
+      const sortOrder = (req.query.sortOrder as string) || 'desc';
 
-      const pageNum = parseInt(page as string);
-      const limitNum = parseInt(limit as string);
-      const offset = (pageNum - 1) * limitNum;
+      const offset = (page - 1) * limit;
 
-      let whereConditions = [];
-      let params: any[] = [];
+      console.log('📋 API Errors Query params:', { page, limit, asinFilter, errorTypeFilter, resolvedFilter, sortBy, sortOrder });
 
-      // Search filter
-      if (search) {
-        whereConditions.push('(asin LIKE ? OR errorMessage LIKE ?)');
-        params.push(`%${search}%`, `%${search}%`);
+      // Build where conditions based on filters
+      const whereConditions = [];
+
+      if (asinFilter) {
+        whereConditions.push(like(apiErrors.asin, `%${asinFilter}%`));
       }
 
-      // Status filter
-      if (status !== 'all') {
-        const resolved = status === 'resolved' ? 1 : 0;
-        whereConditions.push('resolved = ?');
-        params.push(resolved);
+      if (errorTypeFilter && errorTypeFilter !== 'all') {
+        whereConditions.push(eq(apiErrors.errorType, errorTypeFilter));
       }
 
-      const whereClause = whereConditions.length > 0 ? 'WHERE ' + whereConditions.join(' AND ') : '';
+      if (resolvedFilter && resolvedFilter !== 'all') {
+        const isResolved = resolvedFilter === 'resolved';
+        whereConditions.push(eq(apiErrors.resolved, isResolved));
+      }
 
-      // Count total errors
-      const countQuery = `SELECT COUNT(*) as total FROM api_errors ${whereClause}`;
-      const totalResult = await db.execute(sql.raw(countQuery, params));
-      const total = Number(totalResult[0]?.total) || 0;
+      // Get total count for pagination
+      let totalCountQuery = db.select({ count: sql<number>`count(*)` }).from(apiErrors);
 
-      // Get errors with pagination
-      const orderDirection = sortOrder === 'desc' ? 'DESC' : 'ASC';
-      const errorsQuery = `
-        SELECT * FROM api_errors 
-        ${whereClause}
-        ORDER BY ${sortBy} ${orderDirection}
-        LIMIT ? OFFSET ?
-      `;
+      if (whereConditions.length > 0) {
+        const whereClause = whereConditions.reduce((acc, condition) =>
+          acc ? sql`${acc} AND ${condition}` : condition
+        );
+        totalCountQuery = totalCountQuery.where(whereClause) as any;
+      }
 
-      const errors = await db.execute(sql.raw(errorsQuery, [...params, limitNum, offset]));
+      const totalResult = await totalCountQuery;
+      const total = Number(totalResult[0]?.count) || 0;
+      const totalPages = Math.ceil(total / limit);
 
-      const totalPages = Math.ceil(total / limitNum);
+      // Build the main query with sorting
+      let query = db
+        .select({
+          id: apiErrors.id,
+          asin: apiErrors.asin,
+          errorType: apiErrors.errorType,
+          errorMessage: apiErrors.errorMessage,
+          createdAt: apiErrors.createdAt,
+          resolved: apiErrors.resolved
+        })
+        .from(apiErrors)
+        .limit(limit)
+        .offset(offset);
 
-      console.log(`[API Errors] Returning ${errors.length} errors, page ${pageNum}/${totalPages}`);
+      // Apply where conditions
+      if (whereConditions.length > 0) {
+        const whereClause = whereConditions.reduce((acc, condition) =>
+          acc ? sql`${acc} AND ${condition}` : condition
+        );
+        query = query.where(whereClause) as any;
+      }
 
+      // Apply sorting
+      if (sortBy === 'createdAt') {
+        query = query.orderBy(sortOrder === 'desc' ? desc(apiErrors.createdAt) : asc(apiErrors.createdAt)) as any;
+      } else if (sortBy === 'errorType') {
+        query = query.orderBy(sortOrder === 'desc' ? desc(apiErrors.errorType) : asc(apiErrors.errorType)) as any;
+      } else if (sortBy === 'asin') {
+        query = query.orderBy(sortOrder === 'desc' ? desc(apiErrors.asin) : asc(apiErrors.asin)) as any;
+      } else {
+        // Default fallback to createdAt desc
+        query = query.orderBy(desc(apiErrors.createdAt)) as any;
+      }
+
+      const errors = await query;
+
+      console.log(`[AdminApiErrors] Found ${errors.length} errors, page ${page}/${totalPages}, total ${total}`);
+
+      // Return paginated results with metadata
       res.json({
-        errors,
+        errors: errors,
+        recentErrors: errors, // Include both for compatibility
+        total: total,
         pagination: {
-          page: pageNum,
-          limit: limitNum,
-          total,
-          totalPages,
-          hasNext: pageNum < totalPages,
-          hasPrev: pageNum > 1
+          page: page,
+          limit: limit,
+          total: total,
+          totalPages: totalPages
         }
       });
 
     } catch (error) {
-      console.error('❌ Error fetching API errors:', error);
-      res.status(500).json({ 
+      console.error('[AdminApiErrors] Error fetching API errors:', error);
+      res.status(500).json({
         error: 'Failed to fetch API errors',
         details: error instanceof Error ? error.message : 'Unknown error'
       });
