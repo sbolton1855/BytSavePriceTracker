@@ -28,6 +28,7 @@ import {
 } from "lucide-react";
 import ApiErrorsPanel from "@/components/ApiErrorsPanel";
 import EmailLogsPanel from "@/components/EmailLogsPanel";
+import EmailTestPanel from "@/components/EmailTestPanel";
 import LogTable from "@/components/LogTable";
 import { AdminAuth } from "@/lib/admin-auth";
 
@@ -109,7 +110,7 @@ export default function AdminHub() {
     fetchProductData();
   };
 
-  
+
 
   // Handle pagination
   const handlePageChange = (newPage: number) => {
@@ -198,7 +199,7 @@ export default function AdminHub() {
         console.warn("Unexpected API response format:", result);
         products = [];
       }
-      
+
       console.log("✅ Processed products array:", products);
       console.log("📊 Products array length:", products.length);
 
@@ -231,7 +232,7 @@ export default function AdminHub() {
       console.log("Transformed product data:", transformedProducts);
 
       setProducts(transformedProducts);
-      
+
       // Handle pagination - use provided pagination or create default for direct array
       if (result.pagination) {
         setProductsPagination(result.pagination);
@@ -283,7 +284,7 @@ export default function AdminHub() {
     {
       name: "Email Testing",
       description: "Test email templates and sending",
-      href: `/admin/email-test`,
+      onClick: () => handleTabChange('email-test'), // Changed from href to onClick
       icon: Send,
       badge: "Core"
     },
@@ -362,6 +363,8 @@ export default function AdminHub() {
         if (tool.tabId) {
           console.log(`Navigating to tab: ${tool.tabId}`);
           handleTabChange(tool.tabId);
+        } else if (tool.onClick) {
+          tool.onClick();
         }
       }}
     >
@@ -440,6 +443,17 @@ export default function AdminHub() {
           return (
             <div className="space-y-6">
               <EmailLogsPanel />
+              <div className="pt-4">
+                <Button variant="outline" onClick={() => handleTabChange('email')}>
+                  Back to Email System
+                </Button>
+              </div>
+            </div>
+          );
+        case 'email-test': // Added case for email-test tab
+          return (
+            <div className="space-y-6">
+              <EmailTestPanel />
               <div className="pt-4">
                 <Button variant="outline" onClick={() => handleTabChange('email')}>
                   Back to Email System
@@ -802,7 +816,7 @@ export default function AdminHub() {
                         onRefresh={() => fetchProductData()}
                         onExport={() => {
                           if (!products || products.length === 0) return;
-                          
+
                           const csvContent = [
                             ['ASIN', 'Title', 'Current Price', 'Tracker Count', 'Tracked By', 'Last Updated', 'Created Date'],
                             ...products.map(product => [
@@ -997,21 +1011,17 @@ export default function AdminHub() {
           </CardHeader>
           <CardContent>
             <div className="flex flex-wrap gap-3">
-              <Button variant="outline" asChild>
-                <Link href={`/admin/email-test`}>
-                  <Mail className="h-4 w-4 mr-2" />
-                  Test Email
-                </Link>
+              <Button variant="outline" onClick={() => handleTabChange('email-test')}> {/* Changed to onClick */}
+                <Mail className="h-4 w-4 mr-2" />
+                Test Email
               </Button>
               <Button variant="outline" onClick={() => handleTabChange('dashboard')}>
                 <BarChart3 className="h-4 w-4 mr-2" />
                 View Stats
               </Button>
-              <Button variant="outline" asChild>
-                <Link href={`/admin/email-logs`}>
-                  <FileText className="h-4 w-4 mr-2" />
-                  Email Logs
-                </Link>
+              <Button variant="outline" onClick={() => handleTabChange('email-logs')}> {/* Changed to onClick */}
+                <FileText className="h-4 w-4 mr-2" />
+                Email Logs
               </Button>
               <Button variant="outline" onClick={() => handleTabChange('api-errors')}>
                 <AlertTriangle className="h-4 w-4 mr-2" />
