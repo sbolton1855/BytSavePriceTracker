@@ -246,12 +246,13 @@ export default function AdminEmailTest() {
   };
 
   return (
-    <AdminLayout
-      title="Email Testing Center"
-      description="Test and preview email templates for BytSave notifications"
-    >
+    <div className="space-y-6">
+      <div className="flex flex-col space-y-2">
+        <h1 className="text-3xl font-bold tracking-tight">Email Testing Center</h1>
+        <p className="text-muted-foreground">Test and preview email templates for BytSave notifications</p>
+      </div>
       
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-8"></div>
         <Card>
           <CardHeader>
             <CardTitle>Email Template Testing</CardTitle>
@@ -430,6 +431,6 @@ export default function AdminEmailTest() {
           </Card>
         )}
       </div>
-    </AdminLayout>
+    </div>
   );
 }

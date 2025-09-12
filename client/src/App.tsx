@@ -41,30 +41,9 @@ function Router() {
       <Route path="/admin/api-errors">
         <ApiMonitor />
       </Route>
-      <Route path="/admin/email-test">
-        <AdminEmailTest />
-      </Route>
-      <Route path="/admin/email-logs">
-        <AdminEmailLogs />
-      </Route>
-      <Route path="/admin/force-alerts">
-        <AdminForceAlerts />
-      </Route>
-      <Route path="/admin/email-center">
-        <AdminEmailCenter />
-      </Route>
-      <Route path="/admin/products">
-        <AdminProducts />
-      </Route>
-      <Route path="/admin-dashboard">
-        <AdminDashboard />
-      </Route>
-      <Route path="/admin">
-        <AdminHub />
-      </Route>
-      <Route path="/admin/hub">
-        <AdminHub />
-      </Route>
+      {/* Consolidated admin routes under AdminHub */}
+      <Route path="/admin" component={AdminHub} />
+      <Route path="/admin/:tab?" component={AdminHub} />
       <Route path="/test-tracking">
         <TestTracking />
       </Route>
