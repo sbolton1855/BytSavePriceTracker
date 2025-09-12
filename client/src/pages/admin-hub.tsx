@@ -27,6 +27,7 @@ import {
   Filter
 } from "lucide-react";
 import ApiErrorsPanel from "@/components/ApiErrorsPanel";
+import EmailLogsPanel from "@/components/EmailLogsPanel";
 import { AdminAuth } from "@/lib/admin-auth";
 
 // Product tracking data interface
@@ -294,7 +295,7 @@ export default function AdminHub() {
     {
       name: "Email Logs",
       description: "View sent email history",
-      href: `/admin/email-logs`,
+      tabId: "email-logs",
       icon: FileText,
       badge: "Logs"
     },
@@ -363,8 +364,10 @@ export default function AdminHub() {
       key={tool.name} 
       className="cursor-pointer transition-all hover:shadow-md hover:scale-105"
       onClick={() => {
-        console.log(`Navigating to tab: ${tool.tabId}`);
-        handleTabChange(tool.tabId);
+        if (tool.tabId) {
+          console.log(`Navigating to tab: ${tool.tabId}`);
+          handleTabChange(tool.tabId);
+        }
       }}
     >
       <CardContent className="p-4">
@@ -438,6 +441,17 @@ export default function AdminHub() {
           );
         case 'api-errors':
           return <ApiErrorsPanel />;
+        case 'email-logs':
+          return (
+            <div className="space-y-6">
+              <EmailLogsPanel />
+              <div className="pt-4">
+                <Button variant="outline" onClick={() => handleTabChange('email')}>
+                  Back to Email System
+                </Button>
+              </div>
+            </div>
+          );
         case 'asin-inspector':
           return (
             <Card>
@@ -919,22 +933,26 @@ export default function AdminHub() {
             <CardContent>
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
                 {emailTools.map((tool) => (
-                  <Link key={tool.name} href={tool.href}>
-                    <Card className="cursor-pointer transition-all hover:shadow-md hover:scale-105">
-                      <CardContent className="p-4">
-                        <div className="flex items-start justify-between mb-3">
-                          <tool.icon className="h-5 w-5 text-blue-600" />
-                          <Badge variant="secondary" className="text-xs">
-                            {tool.badge}
-                          </Badge>
-                        </div>
-                        <h3 className="font-semibold mb-1">{tool.name}</h3>
-                        <p className="text-sm text-gray-600 leading-relaxed">
-                          {tool.description}
-                        </p>
-                      </CardContent>
-                    </Card>
-                  </Link>
+                  tool.href ? (
+                    <Link key={tool.name} href={tool.href}>
+                      <Card className="cursor-pointer transition-all hover:shadow-md hover:scale-105">
+                        <CardContent className="p-4">
+                          <div className="flex items-start justify-between mb-3">
+                            <tool.icon className="h-5 w-5 text-blue-600" />
+                            <Badge variant="secondary" className="text-xs">
+                              {tool.badge}
+                            </Badge>
+                          </div>
+                          <h3 className="font-semibold mb-1">{tool.name}</h3>
+                          <p className="text-sm text-gray-600 leading-relaxed">
+                            {tool.description}
+                          </p>
+                        </CardContent>
+                      </Card>
+                    </Link>
+                  ) : (
+                    <ToolCard key={tool.name} tool={tool} />
+                  )
                 ))}
               </div>
             </CardContent>
