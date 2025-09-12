@@ -427,40 +427,7 @@ export default function AdminHub() {
         {/* Tab Content */}
         {renderTabContent()}
 
-        {/* Quick Actions - always visible */}
-        <Card className="mt-8">
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <Settings className="h-5 w-5" />
-              Quick Actions
-            </CardTitle>
-            <CardDescription>Frequently used admin shortcuts</CardDescription>
-          </CardHeader>
-          <CardContent>
-            <div className="flex flex-wrap gap-3">
-              <Button variant="outline" asChild>
-                <Link href={`/admin/email-test`}>
-                  <Mail className="h-4 w-4 mr-2" />
-                  Test Email
-                </Link>
-              </Button>
-              <Button variant="outline" onClick={() => handleTabChange('dashboard')}>
-                <BarChart3 className="h-4 w-4 mr-2" />
-                View Stats
-              </Button>
-              <Button variant="outline" asChild>
-                <Link href={`/admin/email-logs`}>
-                  <FileText className="h-4 w-4 mr-2" />
-                  Email Logs
-                </Link>
-              </Button>
-              <Button variant="outline" onClick={() => handleTabChange('api-errors')}>
-                <AlertTriangle className="h-4 w-4 mr-2" />
-                Check Errors
-              </Button>
-            </div>
-          </CardContent>
-        </Card>
+        
 
         </div>
     </AdminLayout>
