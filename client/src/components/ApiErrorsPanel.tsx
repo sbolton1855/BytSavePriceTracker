@@ -45,7 +45,7 @@ export default function ApiErrorsPanel() {
   const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('desc');
 
   const { data: errorData, isLoading, refetch } = useQuery<ApiErrorsResponse>({
-    queryKey: ['/api/admin/errors', currentPage, asinFilter, errorTypeFilter, resolvedFilter, sortBy, sortOrder],
+    queryKey: ['admin-errors', currentPage, asinFilter, errorTypeFilter, resolvedFilter, sortBy, sortOrder],
     queryFn: async () => {
       const token = AdminAuth.getToken() || 'admin-test-token';
       if (!token) {
