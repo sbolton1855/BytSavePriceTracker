@@ -27,6 +27,7 @@ import {
   Filter
 } from "lucide-react";
 import ApiErrorsPanel from "@/components/ApiErrorsPanel";
+import LogTable from "@/components/LogTable";
 import { AdminAuth } from "@/lib/admin-auth";
 
 // Product tracking data interface
@@ -92,7 +93,7 @@ export default function AdminHub() {
     setActiveTab(tab);
     const newUrl = `/admin?tab=${tab}`;
     window.history.pushState({}, '', newUrl);
-    setLocation(newUrl); // This ensures wouter updates the route
+    // Don't call setLocation to prevent admin hub reload
   };
 
   // Sorting function
@@ -487,417 +488,195 @@ export default function AdminHub() {
             </Card>
           );
         case 'manage-products':
-          return (
-            <Card>
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2">
-                  <Package className="h-5 w-5" />
-                  Manage Products
-                </CardTitle>
-                <CardDescription>View and manage all tracked products</CardDescription>
-              </CardHeader>
-              <CardContent>
-                <div className="space-y-6">
-                  {/* Page Header */}
-                  <div>
-                    <h3 className="text-lg font-medium">Tracked Products Overview</h3>
-                    <p className="text-sm text-gray-600">Products currently being tracked by users</p>
-                  </div>
+          const productColumns = [
+            {
+              key: 'title',
+              label: 'Title',
+              sortable: true,
+              render: (value: string) => (
+                <div className="truncate font-medium max-w-xs" title={value}>
+                  {value}
+                </div>
+              )
+            },
+            {
+              key: 'asin',
+              label: 'ASIN',
+              sortable: true,
+              render: (value: string) => (
+                <span className="font-mono text-sm">{value}</span>
+              )
+            },
+            {
+              key: 'currentPrice',
+              label: 'Current Price',
+              sortable: true,
+              render: (value: number) => (
+                <span className="font-medium">${value.toFixed(2)}</span>
+              )
+            },
+            {
+              key: 'trackerCount',
+              label: '# of Trackers',
+              className: 'text-center',
+              render: (value: number, row: any) => (
+                <Badge variant="secondary" className="text-xs">
+                  {value || (Array.isArray(row.trackedBy) ? row.trackedBy.length : 0)}
+                </Badge>
+              )
+            },
+            {
+              key: 'trackedBy',
+              label: 'Tracked Emails',
+              render: (value: string[], row: any) => (
+                <div className="truncate text-sm max-w-xs" title={Array.isArray(value) ? value.join(', ') : ''}>
+                  {Array.isArray(value) && value.map((email, index) => (
+                    <span key={index}>
+                      {searchFilter && email.toLowerCase().includes(searchFilter.toLowerCase()) ? (
+                        <mark className="bg-yellow-200 px-1 rounded">
+                          {email}
+                        </mark>
+                      ) : (
+                        email
+                      )}
+                      {index < value.length - 1 && ', '}
+                    </span>
+                  ))}
+                </div>
+              )
+            },
+            {
+              key: 'lastChecked',
+              label: 'Last Updated',
+              sortable: true,
+              render: (value: string) => (
+                <span className="text-sm text-gray-600">
+                  {value ? 
+                    new Date(value).toLocaleDateString('en-US', {
+                      year: 'numeric',
+                      month: 'short',
+                      day: 'numeric',
+                      hour: '2-digit',
+                      minute: '2-digit'
+                    }) : 'N/A'}
+                </span>
+              )
+            },
+            {
+              key: 'createdAt',
+              label: 'Created Date',
+              sortable: true,
+              render: (value: string) => (
+                <span className="text-sm text-gray-600">
+                  {new Date(value).toLocaleDateString('en-US', {
+                    year: 'numeric',
+                    month: 'short',
+                    day: 'numeric'
+                  })}
+                </span>
+              )
+            }
+          ];
 
-                  {/* Loading State */}
-                  {productsLoading && (
-                    <div className="text-center py-8">
-                      <Loader2 className="h-8 w-8 mx-auto mb-4 animate-spin text-blue-600" />
-                      <p className="text-gray-600">Loading product data...</p>
-                    </div>
-                  )}
-
-                  {/* Error State */}
-                  {productsError && (
-                    <div className="bg-red-50 border border-red-200 rounded-lg p-4">
-                      <div className="flex items-center gap-2 text-red-700">
-                        <AlertTriangle className="h-5 w-5" />
-                        <span className="font-medium">Error Loading Products</span>
-                      </div>
-                      <p className="text-red-600 mt-1 text-sm">{productsError}</p>
-                      <Button 
-                        variant="outline" 
-                        size="sm" 
-                        onClick={() => fetchProductData()} 
-                        className="mt-3"
-                      >
-                        Try Again
-                      </Button>
-                    </div>
-                  )}
-
-                  {/* Empty Data State */}
-                  {!productsLoading && !productsError && (!products || products.length === 0) && (
-                    <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4">
-                      <div className="flex items-center gap-2 text-yellow-700">
-                        <AlertTriangle className="h-5 w-5" />
-                        <span className="font-medium">No Product Data</span>
-                      </div>
-                      <p className="text-yellow-600 mt-1 text-sm">No tracked products found. Data may still be loading or there might be a connectivity issue.</p>
-                      <Button 
-                        variant="outline" 
-                        size="sm" 
-                        onClick={() => fetchProductData()} 
-                        className="mt-3"
-                      >
-                        Refresh Data
-                      </Button>
-                    </div>
-                  )}
-
-                  {/* Data Display */}
-                  {!productsLoading && !productsError && (
-                    <div className="space-y-4">
-                      {/* Product Controls Panel */}
-                      <Card>
-                        <CardHeader>
-                          <CardTitle className="text-lg">Product Controls</CardTitle>
-                          <CardDescription>Manage and filter tracked products</CardDescription>
-                        </CardHeader>
-                        <CardContent>
-                          <div className="space-y-4">
-                            {/* Controls Row 1: Sort, Search, Status Filter */}
-                            <div className="flex flex-wrap gap-4 items-center">
-                              <div className="flex-1 min-w-[200px]">
-                                <label className="text-sm font-medium text-gray-700 mb-1 block">
-                                  Search Products
-                                </label>
-                                <div className="relative">
-                                  <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
-                                  <Input
-                                    type="text"
-                                    placeholder="Search by title, ASIN, or email..."
-                                    value={searchFilter}
-                                    onChange={(e) => handleSearch(e.target.value)}
-                                    className="pl-10"
-                                  />
-                                </div>
-                              </div>
-
-                              <div className="min-w-[150px]">
-                                <label className="text-sm font-medium text-gray-700 mb-1 block">
-                                  Sort By
-                                </label>
-                                <select
-                                  value={sortBy}
-                                  onChange={(e) => setSortBy(e.target.value as 'createdAt' | 'currentPrice' | 'title' | 'asin' | 'lastChecked')}
-                                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                                >
-                                  <option value="createdAt">Date Added</option>
-                                  <option value="currentPrice">Price</option>
-                                  <option value="title">Product Name</option>
-                                  <option value="asin">ASIN</option>
-                                  <option value="lastChecked">Last Updated</option>
-                                </select>
-                              </div>
-
-                              <div className="min-w-[120px]">
-                                <label className="text-sm font-medium text-gray-700 mb-1 block">
-                                  Status
-                                </label>
-                                <select
-                                  defaultValue="active"
-                                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                                >
-                                  <option value="active">Active</option>
-                                  <option value="paused">Paused</option>
-                                  <option value="all">All</option>
-                                </select>
-                              </div>
-                            </div>
-
-                            {/* Controls Row 2: Action Buttons */}
-                            <div className="flex flex-wrap gap-2 items-center justify-between">
-                              <div className="flex gap-2">
-                                <Button
-                                  variant="outline"
-                                  size="sm"
-                                  onClick={() => {
-                                    setSearchFilter('');
-                                    setSortBy('createdAt');
-                                    setSortOrder('desc');
-                                    fetchProductData(1);
-                                  }}
-                                >
-                                  Clear Filters
-                                </Button>
-                                <Button variant="outline" size="sm">
-                                  Export CSV
-                                </Button>
-                                <Button
-                                  variant="outline"
-                                  size="sm"
-                                  onClick={() => fetchProductData()}
-                                  disabled={productsLoading}
-                                >
-                                  {productsLoading ? (
-                                    <>
-                                      <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                                      Refreshing...
-                                    </>
-                                  ) : (
-                                    'Refresh'
-                                  )}
-                                </Button>
-                                <Button variant="outline" size="sm">
-                                  Debug API
-                                </Button>
-                              </div>
-
-                              <div className="text-sm text-gray-600">
-                                Showing {products.length} of {productsPagination.total} products
-                              </div>
-                            </div>
-                          </div>
-                        </CardContent>
-                      </Card>
-
-                      {/* Product Data Summary */}
-                      <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
-                        <h4 className="font-medium text-blue-800 mb-2">Product Data Summary</h4>
-                        <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
-                          <div>
-                            <span className="text-blue-600 font-medium">Total Products:</span>
-                            <div className="text-lg font-bold text-blue-800">{Array.isArray(products) ? products.length : 0}</div>
-                          </div>
-                          <div>
-                            <span className="text-blue-600 font-medium">Total Trackers:</span>
-                            <div className="text-lg font-bold text-blue-800">
-                              {Array.isArray(products) ? products.reduce((sum, p) => sum + (Array.isArray(p.trackedBy) ? p.trackedBy.length : 0), 0) : 0}
-                            </div>
-                          </div>
-                          <div>
-                            <span className="text-blue-600 font-medium">Avg. Price:</span>
-                            <div className="text-lg font-bold text-blue-800">
-                              ${Array.isArray(products) && products.length > 0 ? (products.reduce((sum, p) => sum + (typeof p.currentPrice === 'number' ? p.currentPrice : 0), 0) / products.length).toFixed(2) : '0.00'}
-                            </div>
-                          </div>
-                          <div>
-                            <span className="text-blue-600 font-medium">Status:</span>
-                            <div className="text-lg font-bold text-green-600">
-                              {Array.isArray(products) && products.length > 0 ? 'Live' : 'No Data'}
-                            </div>
-                          </div>
-                        </div>
-                      </div>
-
-                      {/* Products Table */}
-                      <div className="bg-white border rounded-lg">
-                        <div className="p-4 border-b">
-                          <h4 className="font-medium text-gray-800">Tracked Products</h4>
-                          <p className="text-sm text-gray-600">All products currently being tracked by users (click column headers to sort)</p>
-                        </div>
-
-                        {!Array.isArray(products) || products.length === 0 ? (
-                          <div className="text-center py-8 text-gray-500">
-                            <Package className="h-12 w-12 mx-auto mb-4 text-gray-400" />
-                            <p>No tracked products found</p>
-                            <p className="text-sm">Products will appear here once users start tracking them</p>
-                          </div>
-                        ) : !Array.isArray(displayedProducts) || (displayedProducts.length === 0 && searchFilter) ? (
-                          <div className="text-center py-8 text-gray-500">
-                            <Search className="h-12 w-12 mx-auto mb-4 text-gray-400" />
-                            <p>No products match your search: "{searchFilter}"</p>
-                            <p className="text-sm">Try adjusting your search terms</p>
-                          </div>
-                        ) : displayedProducts.length === 0 ? (
-                          <div className="text-center py-8 text-gray-500">
-                            <Package className="h-12 w-12 mx-auto mb-4 text-gray-400" />
-                            <p>No tracked products found</p>
-                            <p className="text-sm">Products will appear here once users start tracking them</p>
-                          </div>
-                        ) : (
-                          <Table>
-                            <TableHeader>
-                              <TableRow className="hover:bg-gray-50/50">
-                                <TableHead 
-                                  className="cursor-pointer hover:bg-gray-100 select-none transition-colors"
-                                  onClick={() => handleSort('title')}
-                                >
-                                  <div className="flex items-center gap-1">
-                                    Title
-                                    {getSortIcon('title')}
-                                  </div>
-                                </TableHead>
-                                <TableHead 
-                                  className="cursor-pointer hover:bg-gray-100 select-none transition-colors"
-                                  onClick={() => handleSort('asin')}
-                                >
-                                  <div className="flex items-center gap-1">
-                                    ASIN
-                                    {getSortIcon('asin')}
-                                  </div>
-                                </TableHead>
-                                <TableHead 
-                                  className="cursor-pointer hover:bg-gray-100 select-none transition-colors"
-                                  onClick={() => handleSort('currentPrice')}
-                                >
-                                  <div className="flex items-center gap-1">
-                                    Current Price
-                                    {getSortIcon('currentPrice')}
-                                  </div>
-                                </TableHead>
-                                <TableHead className="text-center"># of Trackers</TableHead>
-                                <TableHead>Tracked Emails</TableHead>
-                                <TableHead 
-                                  className="cursor-pointer hover:bg-gray-100 select-none transition-colors"
-                                  onClick={() => handleSort('lastChecked')}
-                                >
-                                  <div className="flex items-center gap-1">
-                                    Last Updated
-                                    {getSortIcon('lastChecked')}
-                                  </div>
-                                </TableHead>
-                                <TableHead 
-                                  className="cursor-pointer hover:bg-gray-100 select-none transition-colors"
-                                  onClick={() => handleSort('createdAt')}
-                                >
-                                  <div className="flex items-center gap-1">
-                                    Created Date
-                                    {getSortIcon('createdAt')}
-                                    {sortBy === 'createdAt' && (
-                                      <Badge variant="secondary" className="text-xs">
-                                        Default
-                                      </Badge>
-                                    )}
-                                  </div>
-                                </TableHead>
-                              </TableRow>
-                            </TableHeader>
-                            <TableBody>
-                              {Array.isArray(displayedProducts) && displayedProducts.map((product) => (
-                                <TableRow 
-                                  key={product.asin}
-                                  className="hover:bg-gray-50/75 transition-colors border-b border-gray-200"
-                                >
-                                  <TableCell className="max-w-xs border-r border-gray-100">
-                                    <div className="truncate font-medium" title={product.title}>
-                                      {product.title}
-                                    </div>
-                                  </TableCell>
-                                  <TableCell className="font-mono text-sm border-r border-gray-100">
-                                    {product.asin}
-                                  </TableCell>
-                                  <TableCell className="font-medium border-r border-gray-100">
-                                    ${product.currentPrice.toFixed(2)}
-                                  </TableCell>
-                                  <TableCell className="text-center border-r border-gray-100">
-                                    <Badge variant="secondary" className="text-xs">
-                                      {(product as any).trackerCount || product.trackedBy.length}
-                                    </Badge>
-                                  </TableCell>
-                                  <TableCell className="max-w-xs border-r border-gray-100">
-                                    <div className="truncate text-sm" title={Array.isArray(product.trackedBy) ? product.trackedBy.join(', ') : ''}>
-                                      {Array.isArray(product.trackedBy) && product.trackedBy.map((email, index) => (
-                                        <span key={index}>
-                                          {searchFilter && email.toLowerCase().includes(searchFilter.toLowerCase()) ? (
-                                            <mark className="bg-yellow-200 px-1 rounded">
-                                              {email}
-                                            </mark>
-                                          ) : (
-                                            email
-                                          )}
-                                          {index < (Array.isArray(product.trackedBy) ? product.trackedBy.length - 1 : 0) && ', '}
-                                        </span>
-                                      ))}
-                                    </div>
-                                  </TableCell>
-                                  <TableCell className="text-sm text-gray-600 border-r border-gray-100">
-                                    {(product as any).lastChecked ? 
-                                      new Date((product as any).lastChecked).toLocaleDateString('en-US', {
-                                        year: 'numeric',
-                                        month: 'short',
-                                        day: 'numeric',
-                                        hour: '2-digit',
-                                        minute: '2-digit'
-                                      }) : 'N/A'}
-                                  </TableCell>
-                                  <TableCell className="text-sm text-gray-600">
-                                    {new Date(product.createdAt).toLocaleDateString('en-US', {
-                                      year: 'numeric',
-                                      month: 'short',
-                                      day: 'numeric'
-                                    })}
-                                  </TableCell>
-                                </TableRow>
-                              ))}
-                            </TableBody>
-                          </Table>
-                        )}
-
-                        {/* Pagination Controls */}
-                        {displayedProducts.length > 0 && productsPagination.totalPages > 1 && (
-                          <div className="flex items-center justify-between px-4 py-3 border-t border-gray-200">
-                            <div className="flex items-center gap-2 text-sm text-gray-600">
-                              <span>
-                                Showing page {productsPagination.page} of {productsPagination.totalPages}
-                              </span>
-                              <span className="text-gray-400">•</span>
-                              <span>
-                                {productsPagination.total} total products
-                              </span>
-                            </div>
-
-                            <div className="flex items-center gap-2">
-                              <Button
-                                variant="outline"
-                                size="sm"
-                                onClick={() => handlePageChange(productsPagination.page - 1)}
-                                disabled={!productsPagination.hasPrev || productsLoading}
-                              >
-                                Previous
-                              </Button>
-
-                              {/* Page Numbers */}
-                              <div className="flex gap-1">
-                                {Array.from({ length: Math.min(5, productsPagination.totalPages) }, (_, i) => {
-                                  const page = Math.max(1, productsPagination.page - 2) + i;
-                                  if (page > productsPagination.totalPages) return null;
-
-                                  return (
-                                    <Button
-                                      key={page}
-                                      variant={page === productsPagination.page ? "default" : "outline"}
-                                      size="sm"
-                                      onClick={() => handlePageChange(page)}
-                                      disabled={productsLoading}
-                                      className="min-w-[2.5rem]"
-                                    >
-                                      {page}
-                                    </Button>
-                                  );
-                                })}
-                              </div>
-
-                              <Button
-                                variant="outline"
-                                size="sm"
-                                onClick={() => handlePageChange(productsPagination.page + 1)}
-                                disabled={!productsPagination.hasNext || productsLoading}
-                              >
-                                Next
-                              </Button>
-                            </div>
-                          </div>
-                        )}
-                      </div>
-                    </div>
-                  )}
-
-                  {/* Back Button */}
-                  <div className="pt-4">
-                    <Button variant="outline" onClick={() => handleTabChange('products')}>
-                      Back to Products
-                    </Button>
+          const productSummary = (
+            <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+              <h4 className="font-medium text-blue-800 mb-2">Product Data Summary</h4>
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
+                <div>
+                  <span className="text-blue-600 font-medium">Total Products:</span>
+                  <div className="text-lg font-bold text-blue-800">{Array.isArray(products) ? products.length : 0}</div>
+                </div>
+                <div>
+                  <span className="text-blue-600 font-medium">Total Trackers:</span>
+                  <div className="text-lg font-bold text-blue-800">
+                    {Array.isArray(products) ? products.reduce((sum, p) => sum + (Array.isArray(p.trackedBy) ? p.trackedBy.length : 0), 0) : 0}
                   </div>
                 </div>
-              </CardContent>
-            </Card>
+                <div>
+                  <span className="text-blue-600 font-medium">Avg. Price:</span>
+                  <div className="text-lg font-bold text-blue-800">
+                    ${Array.isArray(products) && products.length > 0 ? (products.reduce((sum, p) => sum + (typeof p.currentPrice === 'number' ? p.currentPrice : 0), 0) / products.length).toFixed(2) : '0.00'}
+                  </div>
+                </div>
+                <div>
+                  <span className="text-blue-600 font-medium">Status:</span>
+                  <div className="text-lg font-bold text-green-600">
+                    {Array.isArray(products) && products.length > 0 ? 'Live' : 'No Data'}
+                  </div>
+                </div>
+              </div>
+            </div>
+          );
+
+          const extraControls = (
+            <>
+              <div className="min-w-[150px]">
+                <label className="text-sm font-medium text-gray-700 mb-1 block">
+                  Sort By
+                </label>
+                <select
+                  value={sortBy}
+                  onChange={(e) => setSortBy(e.target.value as 'createdAt' | 'currentPrice' | 'title' | 'asin' | 'lastChecked')}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                >
+                  <option value="createdAt">Date Added</option>
+                  <option value="currentPrice">Price</option>
+                  <option value="title">Product Name</option>
+                  <option value="asin">ASIN</option>
+                  <option value="lastChecked">Last Updated</option>
+                </select>
+              </div>
+              <div className="min-w-[120px]">
+                <label className="text-sm font-medium text-gray-700 mb-1 block">
+                  Status
+                </label>
+                <select
+                  defaultValue="active"
+                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                >
+                  <option value="active">Active</option>
+                  <option value="paused">Paused</option>
+                  <option value="all">All</option>
+                </select>
+              </div>
+            </>
+          );
+
+          return (
+            <div className="space-y-4">
+              <LogTable
+                title="Tracked Products"
+                description="All products currently being tracked by users"
+                icon={Package}
+                data={displayedProducts}
+                columns={productColumns}
+                loading={productsLoading}
+                error={productsError}
+                searchFilter={searchFilter}
+                sortBy={sortBy}
+                sortOrder={sortOrder}
+                pagination={productsPagination}
+                onSearch={handleSearch}
+                onSort={handleSort}
+                onPageChange={handlePageChange}
+                onRefresh={() => fetchProductData()}
+                onExport={() => {
+                  // TODO: Implement CSV export
+                  console.log('Export CSV clicked');
+                }}
+                extraControls={extraControls}
+                summary={productSummary}
+                emptyMessage="No tracked products found. Products will appear here once users start tracking them."
+                emptyIcon={Package}
+              />
+              
+              {/* Back Button */}
+              <div className="pt-4">
+                <Button variant="outline" onClick={() => handleTabChange('products')}>
+                  Back to Products
+                </Button>
+              </div>
+            </div>
           );
         default:
           return null;
@@ -1012,61 +791,49 @@ export default function AdminHub() {
       description="Comprehensive administrative control panel for BytSave system management"
     >
       <div className="space-y-6">
-        {/* System Status Overview */}
-        <Card className="border-green-200 bg-green-50">
-          <CardContent className="pt-6">
-            <div className="flex items-center gap-2 text-green-700">
-              <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse"></div>
-              <span className="font-medium">System Status: Online</span>
-            </div>
-            <p className="text-sm text-green-600 mt-1">
-              All admin tools are accessible and functioning normally.
-            </p>
-          </CardContent>
-        </Card>
-
         {/* Tabbed Navigation */}
         <AdminTabNav activeTab={activeTab} onTabChange={handleTabChange} />
 
         {/* Tab Content */}
         {renderTabContent()}
 
-        {/* Quick Actions - always visible */}
-        <Card className="mt-8">
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <Settings className="h-5 w-5" />
-              Quick Actions
-            </CardTitle>
-            <CardDescription>Frequently used admin shortcuts</CardDescription>
-          </CardHeader>
-          <CardContent>
-            <div className="flex flex-wrap gap-3">
-              <Button variant="outline" asChild>
-                <Link href={`/admin/email-test`}>
-                  <Mail className="h-4 w-4 mr-2" />
-                  Test Email
-                </Link>
-              </Button>
-              <Button variant="outline" onClick={() => handleTabChange('dashboard')}>
-                <BarChart3 className="h-4 w-4 mr-2" />
-                View Stats
-              </Button>
-              <Button variant="outline" asChild>
-                <Link href={`/admin/email-logs`}>
-                  <FileText className="h-4 w-4 mr-2" />
-                  Email Logs
-                </Link>
-              </Button>
-              <Button variant="outline" onClick={() => handleTabChange('api-errors')}>
-                <AlertTriangle className="h-4 w-4 mr-2" />
-                Check Errors
-              </Button>
-            </div>
-          </CardContent>
-        </Card>
-
-        </div>
+        {/* Quick Actions - only show on main tabs, not sub-tools */}
+        {!activeTab.includes('-') && (
+          <Card className="mt-8">
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <Settings className="h-5 w-5" />
+                Quick Actions
+              </CardTitle>
+              <CardDescription>Frequently used admin shortcuts</CardDescription>
+            </CardHeader>
+            <CardContent>
+              <div className="flex flex-wrap gap-3">
+                <Button variant="outline" asChild>
+                  <Link href={`/admin/email-test`}>
+                    <Mail className="h-4 w-4 mr-2" />
+                    Test Email
+                  </Link>
+                </Button>
+                <Button variant="outline" onClick={() => handleTabChange('dashboard')}>
+                  <BarChart3 className="h-4 w-4 mr-2" />
+                  View Stats
+                </Button>
+                <Button variant="outline" asChild>
+                  <Link href={`/admin/email-logs`}>
+                    <FileText className="h-4 w-4 mr-2" />
+                    Email Logs
+                  </Link>
+                </Button>
+                <Button variant="outline" onClick={() => handleTabChange('api-errors')}>
+                  <AlertTriangle className="h-4 w-4 mr-2" />
+                  Check Errors
+                </Button>
+              </div>
+            </CardContent>
+          </Card>
+        )}
+      </div>
     </AdminLayout>
   );
 }
