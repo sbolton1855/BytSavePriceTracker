@@ -45,7 +45,7 @@ export default function ApiErrorsPanel() {
   const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('desc');
 
   const { data: errorData, isLoading, refetch } = useQuery<ApiErrorsResponse>({
-    queryKey: ['admin-errors', currentPage, asinFilter, errorTypeFilter, resolvedFilter, sortBy, sortOrder],
+    queryKey: ['api-errors', currentPage, asinFilter, errorTypeFilter, resolvedFilter, sortBy, sortOrder],
     queryFn: async () => {
       const token = AdminAuth.getToken() || 'admin-test-token';
       if (!token) {
@@ -157,6 +157,7 @@ export default function ApiErrorsPanel() {
    * Handle page change
    */
   const handlePageChange = (page: number) => {
+    console.log(`[ApiErrorsPanel] onPageChange fired: currentPage ${currentPage} -> ${page}`);
     setCurrentPage(page);
   };
 

@@ -387,7 +387,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
           page: page,
           limit: limit,
           total: total,
-          totalPages: totalPages
+          totalPages: totalPages,
+          hasNext: page < totalPages,
+          hasPrev: page > 1
         }
       });
 
