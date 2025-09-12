@@ -91,7 +91,7 @@ const TableCell = React.forwardRef<
     {...props}
   />
 ))
-TableCell.displayName = "TableCell"</td>
+TableCell.displayName = "TableCell"
 
 const TableCaption = React.forwardRef<
   HTMLTableCaptionElement,
