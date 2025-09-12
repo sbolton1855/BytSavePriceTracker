@@ -28,6 +28,7 @@ import {
 } from "lucide-react";
 import ApiErrorsPanel from "@/components/ApiErrorsPanel";
 import EmailLogsPanel from "@/components/EmailLogsPanel";
+import LogTable from "@/components/LogTable";
 import { AdminAuth } from "@/lib/admin-auth";
 
 // Product tracking data interface
@@ -108,13 +109,7 @@ export default function AdminHub() {
     fetchProductData();
   };
 
-  // Get sort icon for column headers
-  const getSortIcon = (column: string) => {
-    if (sortBy !== column) {
-      return <ChevronUp className="h-4 w-4 opacity-30" />;
-    }
-    return sortOrder === 'asc' ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />;
-  };
+  
 
   // Handle pagination
   const handlePageChange = (newPage: number) => {
@@ -700,206 +695,148 @@ export default function AdminHub() {
                         </div>
                       </div>
 
-                      {/* Products Table */}
-                      <div className="bg-white border rounded-lg">
-                        <div className="p-4 border-b">
-                          <h4 className="font-medium text-gray-800">Tracked Products</h4>
-                          <p className="text-sm text-gray-600">All products currently being tracked by users (click column headers to sort)</p>
-                        </div>
-
-                        {!Array.isArray(products) || products.length === 0 ? (
-                          <div className="text-center py-8 text-gray-500">
-                            <Package className="h-12 w-12 mx-auto mb-4 text-gray-400" />
-                            <p>No tracked products found</p>
-                            <p className="text-sm">Products will appear here once users start tracking them</p>
-                          </div>
-                        ) : !Array.isArray(displayedProducts) || (displayedProducts.length === 0 && searchFilter) ? (
-                          <div className="text-center py-8 text-gray-500">
-                            <Search className="h-12 w-12 mx-auto mb-4 text-gray-400" />
-                            <p>No products match your search: "{searchFilter}"</p>
-                            <p className="text-sm">Try adjusting your search terms</p>
-                          </div>
-                        ) : displayedProducts.length === 0 ? (
-                          <div className="text-center py-8 text-gray-500">
-                            <Package className="h-12 w-12 mx-auto mb-4 text-gray-400" />
-                            <p>No tracked products found</p>
-                            <p className="text-sm">Products will appear here once users start tracking them</p>
-                          </div>
-                        ) : (
-                          <Table>
-                            <TableHeader>
-                              <TableRow className="hover:bg-gray-50/50">
-                                <TableHead 
-                                  className="cursor-pointer hover:bg-gray-100 select-none transition-colors"
-                                  onClick={() => handleSort('title')}
-                                >
-                                  <div className="flex items-center gap-1">
-                                    Title
-                                    {getSortIcon('title')}
-                                  </div>
-                                </TableHead>
-                                <TableHead 
-                                  className="cursor-pointer hover:bg-gray-100 select-none transition-colors"
-                                  onClick={() => handleSort('asin')}
-                                >
-                                  <div className="flex items-center gap-1">
-                                    ASIN
-                                    {getSortIcon('asin')}
-                                  </div>
-                                </TableHead>
-                                <TableHead 
-                                  className="cursor-pointer hover:bg-gray-100 select-none transition-colors"
-                                  onClick={() => handleSort('currentPrice')}
-                                >
-                                  <div className="flex items-center gap-1">
-                                    Current Price
-                                    {getSortIcon('currentPrice')}
-                                  </div>
-                                </TableHead>
-                                <TableHead className="text-center"># of Trackers</TableHead>
-                                <TableHead>Tracked Emails</TableHead>
-                                <TableHead 
-                                  className="cursor-pointer hover:bg-gray-100 select-none transition-colors"
-                                  onClick={() => handleSort('lastChecked')}
-                                >
-                                  <div className="flex items-center gap-1">
-                                    Last Updated
-                                    {getSortIcon('lastChecked')}
-                                  </div>
-                                </TableHead>
-                                <TableHead 
-                                  className="cursor-pointer hover:bg-gray-100 select-none transition-colors"
-                                  onClick={() => handleSort('createdAt')}
-                                >
-                                  <div className="flex items-center gap-1">
-                                    Created Date
-                                    {getSortIcon('createdAt')}
-                                    {sortBy === 'createdAt' && (
-                                      <Badge variant="secondary" className="text-xs">
-                                        Default
-                                      </Badge>
-                                    )}
-                                  </div>
-                                </TableHead>
-                              </TableRow>
-                            </TableHeader>
-                            <TableBody>
-                              {Array.isArray(displayedProducts) && displayedProducts.map((product) => (
-                                <TableRow 
-                                  key={product.asin}
-                                  className="hover:bg-gray-50/75 transition-colors border-b border-gray-200"
-                                >
-                                  <TableCell className="max-w-xs border-r border-gray-100">
-                                    <div className="truncate font-medium" title={product.title}>
-                                      {product.title}
-                                    </div>
-                                  </TableCell>
-                                  <TableCell className="font-mono text-sm border-r border-gray-100">
-                                    {product.asin}
-                                  </TableCell>
-                                  <TableCell className="font-medium border-r border-gray-100">
-                                    ${product.currentPrice.toFixed(2)}
-                                  </TableCell>
-                                  <TableCell className="text-center border-r border-gray-100">
-                                    <Badge variant="secondary" className="text-xs">
-                                      {(product as any).trackerCount || product.trackedBy.length}
-                                    </Badge>
-                                  </TableCell>
-                                  <TableCell className="max-w-xs border-r border-gray-100">
-                                    <div className="truncate text-sm" title={Array.isArray(product.trackedBy) ? product.trackedBy.join(', ') : ''}>
-                                      {Array.isArray(product.trackedBy) && product.trackedBy.map((email, index) => (
-                                        <span key={index}>
-                                          {searchFilter && email.toLowerCase().includes(searchFilter.toLowerCase()) ? (
-                                            <mark className="bg-yellow-200 px-1 rounded">
-                                              {email}
-                                            </mark>
-                                          ) : (
-                                            email
-                                          )}
-                                          {index < (Array.isArray(product.trackedBy) ? product.trackedBy.length - 1 : 0) && ', '}
-                                        </span>
-                                      ))}
-                                    </div>
-                                  </TableCell>
-                                  <TableCell className="text-sm text-gray-600 border-r border-gray-100">
-                                    {(product as any).lastChecked ? 
-                                      new Date((product as any).lastChecked).toLocaleDateString('en-US', {
-                                        year: 'numeric',
-                                        month: 'short',
-                                        day: 'numeric',
-                                        hour: '2-digit',
-                                        minute: '2-digit'
-                                      }) : 'N/A'}
-                                  </TableCell>
-                                  <TableCell className="text-sm text-gray-600">
-                                    {new Date(product.createdAt).toLocaleDateString('en-US', {
-                                      year: 'numeric',
-                                      month: 'short',
-                                      day: 'numeric'
-                                    })}
-                                  </TableCell>
-                                </TableRow>
-                              ))}
-                            </TableBody>
-                          </Table>
-                        )}
-
-                        {/* Pagination Controls */}
-                        {displayedProducts.length > 0 && productsPagination.totalPages > 1 && (
-                          <div className="flex items-center justify-between px-4 py-3 border-t border-gray-200">
-                            <div className="flex items-center gap-2 text-sm text-gray-600">
-                              <span>
-                                Showing page {productsPagination.page} of {productsPagination.totalPages}
-                              </span>
-                              <span className="text-gray-400">•</span>
-                              <span>
-                                {productsPagination.total} total products
-                              </span>
-                            </div>
-
-                            <div className="flex items-center gap-2">
-                              <Button
-                                variant="outline"
-                                size="sm"
-                                onClick={() => handlePageChange(productsPagination.page - 1)}
-                                disabled={!productsPagination.hasPrev || productsLoading}
-                              >
-                                Previous
-                              </Button>
-
-                              {/* Page Numbers */}
-                              <div className="flex gap-1">
-                                {Array.from({ length: Math.min(5, productsPagination.totalPages) }, (_, i) => {
-                                  const page = Math.max(1, productsPagination.page - 2) + i;
-                                  if (page > productsPagination.totalPages) return null;
-
-                                  return (
-                                    <Button
-                                      key={page}
-                                      variant={page === productsPagination.page ? "default" : "outline"}
-                                      size="sm"
-                                      onClick={() => handlePageChange(page)}
-                                      disabled={productsLoading}
-                                      className="min-w-[2.5rem]"
-                                    >
-                                      {page}
-                                    </Button>
-                                  );
-                                })}
+                      {/* Products LogTable */}
+                      <LogTable
+                        data={displayedProducts}
+                        loading={productsLoading}
+                        error={productsError}
+                        columns={[
+                          {
+                            key: 'title',
+                            label: 'Title',
+                            sortable: true,
+                            render: (value: string) => (
+                              <div className="max-w-xs truncate font-medium" title={value}>
+                                {value}
                               </div>
+                            )
+                          },
+                          {
+                            key: 'asin',
+                            label: 'ASIN',
+                            sortable: true,
+                            render: (value: string) => (
+                              <span className="font-mono text-sm">{value}</span>
+                            )
+                          },
+                          {
+                            key: 'currentPrice',
+                            label: 'Current Price',
+                            sortable: true,
+                            render: (value: number) => (
+                              <span className="font-medium">${value.toFixed(2)}</span>
+                            )
+                          },
+                          {
+                            key: 'trackerCount',
+                            label: '# of Trackers',
+                            render: (value: number, row: ProductSummary) => (
+                              <Badge variant="secondary" className="text-xs">
+                                {value || row.trackedBy.length}
+                              </Badge>
+                            ),
+                            className: 'text-center'
+                          },
+                          {
+                            key: 'trackedBy',
+                            label: 'Tracked Emails',
+                            render: (value: string[]) => (
+                              <div className="max-w-xs truncate text-sm" title={Array.isArray(value) ? value.join(', ') : ''}>
+                                {Array.isArray(value) && value.map((email, index) => (
+                                  <span key={index}>
+                                    {searchFilter && email.toLowerCase().includes(searchFilter.toLowerCase()) ? (
+                                      <mark className="bg-yellow-200 px-1 rounded">
+                                        {email}
+                                      </mark>
+                                    ) : (
+                                      email
+                                    )}
+                                    {index < value.length - 1 && ', '}
+                                  </span>
+                                ))}
+                              </div>
+                            )
+                          },
+                          {
+                            key: 'lastChecked',
+                            label: 'Last Updated',
+                            sortable: true,
+                            render: (value: string) => (
+                              <div className="text-sm text-gray-600">
+                                {value ? 
+                                  new Date(value).toLocaleDateString('en-US', {
+                                    year: 'numeric',
+                                    month: 'short',
+                                    day: 'numeric',
+                                    hour: '2-digit',
+                                    minute: '2-digit'
+                                  }) : 'N/A'}
+                              </div>
+                            )
+                          },
+                          {
+                            key: 'createdAt',
+                            label: 'Created Date',
+                            sortable: true,
+                            render: (value: string, row: ProductSummary) => (
+                              <div className="text-sm text-gray-600 flex items-center gap-2">
+                                {new Date(value).toLocaleDateString('en-US', {
+                                  year: 'numeric',
+                                  month: 'short',
+                                  day: 'numeric'
+                                })}
+                                {sortBy === 'createdAt' && (
+                                  <Badge variant="secondary" className="text-xs">
+                                    Default
+                                  </Badge>
+                                )}
+                              </div>
+                            )
+                          }
+                        ]}
+                        sortBy={sortBy || undefined}
+                        sortOrder={sortOrder}
+                        onSort={handleSort}
+                        pagination={productsPagination}
+                        onPageChange={handlePageChange}
+                        onRefresh={() => fetchProductData()}
+                        onExport={() => {
+                          if (!products || products.length === 0) return;
+                          
+                          const csvContent = [
+                            ['ASIN', 'Title', 'Current Price', 'Tracker Count', 'Tracked By', 'Last Updated', 'Created Date'],
+                            ...products.map(product => [
+                              product.asin,
+                              `"${product.title.replace(/"/g, '""')}"`,
+                              product.currentPrice.toFixed(2),
+                              product.trackerCount || product.trackedBy.length,
+                              `"${product.trackedBy.join(', ')}"`,
+                              (product as any).lastChecked ? new Date((product as any).lastChecked).toISOString() : 'N/A',
+                              new Date(product.createdAt).toISOString()
+                            ])
+                          ].map(row => row.join(',')).join('\n');
 
-                              <Button
-                                variant="outline"
-                                size="sm"
-                                onClick={() => handlePageChange(productsPagination.page + 1)}
-                                disabled={!productsPagination.hasNext || productsLoading}
-                              >
-                                Next
-                              </Button>
-                            </div>
-                          </div>
-                        )}
-                      </div>
+                          const blob = new Blob([csvContent], { type: 'text/csv' });
+                          const url = URL.createObjectURL(blob);
+                          const a = document.createElement('a');
+                          a.href = url;
+                          a.download = `products-${new Date().toISOString().split('T')[0]}.csv`;
+                          a.click();
+                          URL.revokeObjectURL(url);
+                        }}
+                        title="Tracked Products"
+                        emptyMessage="No tracked products found. Products will appear here once users start tracking them."
+                        emptyIcon={<Package className="h-12 w-12 mx-auto text-gray-400" />}
+                      >
+                        {/* Data source indicator */}
+                        <div className="flex items-center gap-4 text-sm text-gray-600 mb-4">
+                          <span><strong>Data source:</strong> DATABASE</span>
+                          <span><strong>Products shown:</strong> {displayedProducts.length}</span>
+                          {searchFilter && (
+                            <span><strong>Search:</strong> "{searchFilter}"</span>
+                          )}
+                        </div>
+                      </LogTable>
                     </div>
                   )}
 
