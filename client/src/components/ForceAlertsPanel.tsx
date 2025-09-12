@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -31,12 +30,12 @@ interface ForceAlertResult {
 
 export default function ForceAlertsPanel() {
   const { toast } = useToast();
-  
+
   // State for products
   const [products, setProducts] = useState<Product[]>([]);
-  const [loadingProducts, setLoadingProducts] = useState(false);
+  const [isLoadingProducts, setIsLoadingProducts] = useState(false); // Renamed from loadingProducts for clarity
   const [productSearchOpen, setProductSearchOpen] = useState(false);
-  
+
   // Form state
   const [selectedMode, setSelectedMode] = useState('');
   const [selectedProduct, setSelectedProduct] = useState<Product | null>(null);
@@ -49,44 +48,53 @@ export default function ForceAlertsPanel() {
 
   // Load products on component mount
   useEffect(() => {
-    loadProducts();
-  }, []);
+    const loadProducts = async () => {
+      setIsLoadingProducts(true);
+      try {
+        console.log('[ForceAlerts] Loading products...');
+        const response = await fetch('/api/admin/products', {
+          headers: {
+            'Authorization': `Bearer ${AdminAuth.getToken()}`,
+            'Content-Type': 'application/json'
+          }
+        });
 
-  const loadProducts = async () => {
-    setLoadingProducts(true);
-    try {
-      const adminToken = AdminAuth.getToken();
-      if (!adminToken) {
-        throw new Error('No admin token available');
-      }
-
-      const response = await fetch('/api/admin/products', {
-        headers: {
-          'x-admin-token': adminToken
+        if (!response.ok) {
+          const errorText = await response.text();
+          console.error('[ForceAlerts] Failed to load products:', response.status, errorText);
+          throw new Error(`Failed to load products: ${response.status}`);
         }
-      });
 
-      if (!response.ok) {
-        throw new Error('Failed to fetch products');
+        const data = await response.json();
+        console.log('[ForceAlerts] Loaded products:', data);
+
+        // Ensure data is an array
+        const productsArray = Array.isArray(data) ? data : (data.products || []);
+        setProducts(productsArray);
+
+        if (productsArray.length === 0) {
+          console.log('[ForceAlerts] No products found in database');
+        }
+      } catch (error) {
+        console.error('[ForceAlerts] Error loading products:', error);
+        toast({
+          title: "Error",
+          description: "Failed to load products from database",
+          variant: "destructive"
+        });
+        setProducts([]);
+      } finally {
+        setIsLoadingProducts(false);
       }
+    };
 
-      const data = await response.json();
-      setProducts(data.products || []);
-    } catch (error) {
-      console.error('Error loading products:', error);
-      toast({
-        title: "Error",
-        description: "Failed to load products for selection",
-        variant: "destructive"
-      });
-    } finally {
-      setLoadingProducts(false);
-    }
-  };
+    loadProducts();
+  }, [toast]);
+
 
   const handleTriggerAlert = async (e: React.FormEvent) => {
     e.preventDefault();
-    
+
     if (!selectedMode) {
       toast({
         title: "Error",
@@ -115,7 +123,7 @@ export default function ForceAlertsPanel() {
     }
 
     setIsTriggering(true);
-    
+
     try {
       const adminToken = AdminAuth.getToken();
       if (!adminToken) {
@@ -178,7 +186,7 @@ export default function ForceAlertsPanel() {
       };
 
       setAlertResults(prev => [alertResult, ...prev]);
-      
+
       toast({
         title: "Success",
         description: `Force alert triggered successfully. Sent to ${finalRecipient}`,
@@ -186,7 +194,7 @@ export default function ForceAlertsPanel() {
 
     } catch (error) {
       console.error('Force alert failed:', error);
-      
+
       const alertResult: ForceAlertResult = {
         success: false,
         timestamp: new Date().toISOString(),
@@ -195,7 +203,7 @@ export default function ForceAlertsPanel() {
       };
 
       setAlertResults(prev => [alertResult, ...prev]);
-      
+
       toast({
         title: "Error",
         description: error instanceof Error ? error.message : "Failed to trigger alert",
@@ -225,7 +233,7 @@ export default function ForceAlertsPanel() {
           </p>
         </div>
       )}
-      
+
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
         <Card>
           <CardHeader>
@@ -281,7 +289,7 @@ export default function ForceAlertsPanel() {
                           role="combobox"
                           aria-expanded={productSearchOpen}
                           className="w-full justify-between"
-                          disabled={loadingProducts}
+                          disabled={isLoadingProducts}
                         >
                           {selectedProduct 
                             ? `${selectedProduct.title.substring(0, 50)}... - ${selectedProduct.asin}`
@@ -413,32 +421,32 @@ export default function ForceAlertsPanel() {
                         {new Date(result.timestamp).toLocaleTimeString()}
                       </span>
                     </div>
-                    
+
                     {result.productTitle && (
                       <div className="mb-2">
                         <p className="text-sm font-medium text-gray-700">Product:</p>
                         <p className="text-sm text-gray-600">{result.productTitle}</p>
                       </div>
                     )}
-                    
+
                     {result.asin && (
                       <p className="text-sm text-gray-600 mb-1">
                         <strong>ASIN:</strong> {result.asin}
                       </p>
                     )}
-                    
+
                     {result.recipient && (
                       <p className="text-sm text-gray-600 mb-1">
                         <strong>Sent To:</strong> {result.recipient}
                       </p>
                     )}
-                    
+
                     {result.alertsSent && (
                       <p className="text-sm text-gray-600 mb-1">
                         <strong>Alerts Sent:</strong> {result.alertsSent}
                       </p>
                     )}
-                    
+
                     {result.error && (
                       <p className="text-sm text-red-600">
                         <strong>Error:</strong> {result.error}
