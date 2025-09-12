@@ -8,14 +8,14 @@ import AdminLayout from "@/components/AdminLayout";
 import AdminTabNav from "@/components/AdminTabNav";
 import { Link, useLocation } from "wouter";
 import { useState, useEffect, useMemo } from "react";
-import {
-  Mail,
-  Send,
-  FileText,
-  Zap,
-  BarChart3,
-  Activity,
-  Database,
+import { 
+  Mail, 
+  Send, 
+  FileText, 
+  Zap, 
+  BarChart3, 
+  Activity, 
+  Database, 
   Search,
   Settings,
   Users,
@@ -28,13 +28,8 @@ import {
 } from "lucide-react";
 import ApiErrorsPanel from "@/components/ApiErrorsPanel";
 import EmailLogsPanel from "@/components/EmailLogsPanel";
-import EmailPanel from "@/components/EmailPanel";
-import AnalyticsPanel from "@/components/AnalyticsPanel";
-import ToolsPanel from "@/components/ToolsPanel";
-import ProductsPanel from "@/components/ProductsPanel";
 import LogTable from "@/components/LogTable";
 import { AdminAuth } from "@/lib/admin-auth";
-import AdminEmailTest from "./admin-email-test";
 
 // Product tracking data interface
 interface TrackedProductAdmin {
@@ -114,7 +109,7 @@ export default function AdminHub() {
     fetchProductData();
   };
 
-
+  
 
   // Handle pagination
   const handlePageChange = (newPage: number) => {
@@ -141,7 +136,7 @@ export default function AdminHub() {
 
     let filtered = products;
     if (searchFilter) {
-      filtered = products.filter(product =>
+      filtered = products.filter(product => 
         product.product?.title?.toLowerCase().includes(searchFilter.toLowerCase()) ||
         product.product?.asin?.toLowerCase().includes(searchFilter.toLowerCase()) ||
         product.email?.toLowerCase().includes(searchFilter.toLowerCase())
@@ -203,7 +198,7 @@ export default function AdminHub() {
         console.warn("Unexpected API response format:", result);
         products = [];
       }
-
+      
       console.log("✅ Processed products array:", products);
       console.log("📊 Products array length:", products.length);
 
@@ -236,7 +231,7 @@ export default function AdminHub() {
       console.log("Transformed product data:", transformedProducts);
 
       setProducts(transformedProducts);
-
+      
       // Handle pagination - use provided pagination or create default for direct array
       if (result.pagination) {
         setProductsPagination(result.pagination);
@@ -360,8 +355,8 @@ export default function AdminHub() {
   ];
 
   const ToolCard = ({ tool }: { tool: any }) => (
-    <Card
-      key={tool.name}
+    <Card 
+      key={tool.name} 
       className="cursor-pointer transition-all hover:shadow-md hover:scale-105"
       onClick={() => {
         if (tool.tabId) {
@@ -386,25 +381,589 @@ export default function AdminHub() {
   );
 
   const renderTabContent = () => {
+    // Handle sub-tools within tabs
+    if (activeTab.includes('-')) {
+      const [mainTab, subTool] = activeTab.split('-', 2);
+
+      switch (activeTab) {
+        case 'dashboard':
+          return (
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <BarChart3 className="h-5 w-5" />
+                  Admin Dashboard
+                </CardTitle>
+                <CardDescription>System statistics and metrics</CardDescription>
+              </CardHeader>
+              <CardContent>
+                <div className="space-y-6">
+                  <div className="text-center py-12">
+                    <BarChart3 className="h-16 w-16 mx-auto mb-4 text-blue-600" />
+                    <h3 className="text-xl font-semibold mb-2">System Analytics</h3>
+                    <p className="text-gray-600">Dashboard content will be loaded here</p>
+                    <Button className="mt-4" onClick={() => handleTabChange('analytics')}>
+                      Back to Analytics Tools
+                    </Button>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+          );
+        case 'api-monitor':
+          return (
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <Activity className="h-5 w-5" />
+                  API Monitor
+                </CardTitle>
+                <CardDescription>Monitor API performance and errors</CardDescription>
+              </CardHeader>
+              <CardContent>
+                <div className="space-y-6">
+                  <div className="text-center py-12">
+                    <Activity className="h-16 w-16 mx-auto mb-4 text-green-600" />
+                    <h3 className="text-xl font-semibold mb-2">API Performance</h3>
+                    <p className="text-gray-600">Real-time API monitoring will be displayed here</p>
+                    <Button className="mt-4" onClick={() => handleTabChange('analytics')}>
+                      Back to Analytics Tools
+                    </Button>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+          );
+        case 'api-errors':
+          return <ApiErrorsPanel />;
+        case 'email-logs':
+          return (
+            <div className="space-y-6">
+              <EmailLogsPanel />
+              <div className="pt-4">
+                <Button variant="outline" onClick={() => handleTabChange('email')}>
+                  Back to Email System
+                </Button>
+              </div>
+            </div>
+          );
+        case 'asin-inspector':
+          return (
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <Search className="h-5 w-5" />
+                  ASIN Inspector
+                </CardTitle>
+                <CardDescription>Inspect individual product data</CardDescription>
+              </CardHeader>
+              <CardContent>
+                <div className="space-y-6">
+                  <div className="text-center py-12">
+                    <Search className="h-16 w-16 mx-auto mb-4 text-purple-600" />
+                    <h3 className="text-xl font-semibold mb-2">Product Inspector</h3>
+                    <p className="text-gray-600">ASIN inspection tools will be available here</p>
+                    <Button className="mt-4" onClick={() => handleTabChange('tools')}>
+                      Back to System Tools
+                    </Button>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+          );
+        case 'cache-management':
+          return (
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <Database className="h-5 w-5" />
+                  Cache Management
+                </CardTitle>
+                <CardDescription>Manage system cache</CardDescription>
+              </CardHeader>
+              <CardContent>
+                <div className="space-y-6">
+                  <div className="text-center py-12">
+                    <Database className="h-16 w-16 mx-auto mb-4 text-blue-600" />
+                    <h3 className="text-xl font-semibold mb-2">Cache Control</h3>
+                    <p className="text-gray-600">Cache management interface will be implemented here</p>
+                    <Button className="mt-4" onClick={() => handleTabChange('tools')}>
+                      Back to System Tools
+                    </Button>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+          );
+        case 'manage-products':
+          return (
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <Package className="h-5 w-5" />
+                  Manage Products
+                </CardTitle>
+                <CardDescription>View and manage all tracked products</CardDescription>
+              </CardHeader>
+              <CardContent>
+                <div className="space-y-6">
+                  {/* Page Header */}
+                  <div>
+                    <h3 className="text-lg font-medium">Tracked Products Overview</h3>
+                    <p className="text-sm text-gray-600">Products currently being tracked by users</p>
+                  </div>
+
+                  {/* Loading State */}
+                  {productsLoading && (
+                    <div className="text-center py-8">
+                      <Loader2 className="h-8 w-8 mx-auto mb-4 animate-spin text-blue-600" />
+                      <p className="text-gray-600">Loading product data...</p>
+                    </div>
+                  )}
+
+                  {/* Error State */}
+                  {productsError && (
+                    <div className="bg-red-50 border border-red-200 rounded-lg p-4">
+                      <div className="flex items-center gap-2 text-red-700">
+                        <AlertTriangle className="h-5 w-5" />
+                        <span className="font-medium">Error Loading Products</span>
+                      </div>
+                      <p className="text-red-600 mt-1 text-sm">{productsError}</p>
+                      <Button 
+                        variant="outline" 
+                        size="sm" 
+                        onClick={() => fetchProductData()} 
+                        className="mt-3"
+                      >
+                        Try Again
+                      </Button>
+                    </div>
+                  )}
+
+                  {/* Empty Data State */}
+                  {!productsLoading && !productsError && (!products || products.length === 0) && (
+                    <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4">
+                      <div className="flex items-center gap-2 text-yellow-700">
+                        <AlertTriangle className="h-5 w-5" />
+                        <span className="font-medium">No Product Data</span>
+                      </div>
+                      <p className="text-yellow-600 mt-1 text-sm">No tracked products found. Data may still be loading or there might be a connectivity issue.</p>
+                      <Button 
+                        variant="outline" 
+                        size="sm" 
+                        onClick={() => fetchProductData()} 
+                        className="mt-3"
+                      >
+                        Refresh Data
+                      </Button>
+                    </div>
+                  )}
+
+                  {/* Data Display */}
+                  {!productsLoading && !productsError && (
+                    <div className="space-y-4">
+                      {/* Product Controls Panel */}
+                      <Card>
+                        <CardHeader>
+                          <CardTitle className="text-lg">Product Controls</CardTitle>
+                          <CardDescription>Manage and filter tracked products</CardDescription>
+                        </CardHeader>
+                        <CardContent>
+                          <div className="space-y-4">
+                            {/* Controls Row 1: Sort, Search, Status Filter */}
+                            <div className="flex flex-wrap gap-4 items-center">
+                              <div className="flex-1 min-w-[200px]">
+                                <label className="text-sm font-medium text-gray-700 mb-1 block">
+                                  Search Products
+                                </label>
+                                <div className="relative">
+                                  <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
+                                  <Input
+                                    type="text"
+                                    placeholder="Search by title, ASIN, or email..."
+                                    value={searchFilter}
+                                    onChange={(e) => handleSearch(e.target.value)}
+                                    className="pl-10"
+                                  />
+                                </div>
+                              </div>
+
+                              <div className="min-w-[150px]">
+                                <label className="text-sm font-medium text-gray-700 mb-1 block">
+                                  Sort By
+                                </label>
+                                <select
+                                  value={sortBy}
+                                  onChange={(e) => setSortBy(e.target.value as 'createdAt' | 'currentPrice' | 'title' | 'asin' | 'lastChecked')}
+                                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                                >
+                                  <option value="createdAt">Date Added</option>
+                                  <option value="currentPrice">Price</option>
+                                  <option value="title">Product Name</option>
+                                  <option value="asin">ASIN</option>
+                                  <option value="lastChecked">Last Updated</option>
+                                </select>
+                              </div>
+
+                              <div className="min-w-[120px]">
+                                <label className="text-sm font-medium text-gray-700 mb-1 block">
+                                  Status
+                                </label>
+                                <select
+                                  defaultValue="active"
+                                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                                >
+                                  <option value="active">Active</option>
+                                  <option value="paused">Paused</option>
+                                  <option value="all">All</option>
+                                </select>
+                              </div>
+                            </div>
+
+                            {/* Controls Row 2: Action Buttons */}
+                            <div className="flex flex-wrap gap-2 items-center justify-between">
+                              <div className="flex gap-2">
+                                <Button
+                                  variant="outline"
+                                  size="sm"
+                                  onClick={() => {
+                                    setSearchFilter('');
+                                    setSortBy('createdAt');
+                                    setSortOrder('desc');
+                                    fetchProductData(1);
+                                  }}
+                                >
+                                  Clear Filters
+                                </Button>
+                                <Button variant="outline" size="sm">
+                                  Export CSV
+                                </Button>
+                                <Button
+                                  variant="outline"
+                                  size="sm"
+                                  onClick={() => fetchProductData()}
+                                  disabled={productsLoading}
+                                >
+                                  {productsLoading ? (
+                                    <>
+                                      <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                                      Refreshing...
+                                    </>
+                                  ) : (
+                                    'Refresh'
+                                  )}
+                                </Button>
+                                <Button variant="outline" size="sm">
+                                  Debug API
+                                </Button>
+                              </div>
+
+                              <div className="text-sm text-gray-600">
+                                Showing {products.length} of {productsPagination.total} products
+                              </div>
+                            </div>
+                          </div>
+                        </CardContent>
+                      </Card>
+
+                      {/* Product Data Summary */}
+                      <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+                        <h4 className="font-medium text-blue-800 mb-2">Product Data Summary</h4>
+                        <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
+                          <div>
+                            <span className="text-blue-600 font-medium">Total Products:</span>
+                            <div className="text-lg font-bold text-blue-800">{Array.isArray(products) ? products.length : 0}</div>
+                          </div>
+                          <div>
+                            <span className="text-blue-600 font-medium">Total Trackers:</span>
+                            <div className="text-lg font-bold text-blue-800">
+                              {Array.isArray(products) ? products.reduce((sum, p) => sum + (Array.isArray(p.trackedBy) ? p.trackedBy.length : 0), 0) : 0}
+                            </div>
+                          </div>
+                          <div>
+                            <span className="text-blue-600 font-medium">Avg. Price:</span>
+                            <div className="text-lg font-bold text-blue-800">
+                              ${Array.isArray(products) && products.length > 0 ? (products.reduce((sum, p) => sum + (typeof p.currentPrice === 'number' ? p.currentPrice : 0), 0) / products.length).toFixed(2) : '0.00'}
+                            </div>
+                          </div>
+                          <div>
+                            <span className="text-blue-600 font-medium">Status:</span>
+                            <div className="text-lg font-bold text-green-600">
+                              {Array.isArray(products) && products.length > 0 ? 'Live' : 'No Data'}
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+
+                      {/* Products LogTable */}
+                      <LogTable
+                        data={displayedProducts}
+                        loading={productsLoading}
+                        error={productsError}
+                        columns={[
+                          {
+                            key: 'title',
+                            label: 'Title',
+                            sortable: true,
+                            render: (value: string) => (
+                              <div className="max-w-xs truncate font-medium" title={value}>
+                                {value}
+                              </div>
+                            )
+                          },
+                          {
+                            key: 'asin',
+                            label: 'ASIN',
+                            sortable: true,
+                            render: (value: string) => (
+                              <span className="font-mono text-sm">{value}</span>
+                            )
+                          },
+                          {
+                            key: 'currentPrice',
+                            label: 'Current Price',
+                            sortable: true,
+                            render: (value: number) => (
+                              <span className="font-medium">${value.toFixed(2)}</span>
+                            )
+                          },
+                          {
+                            key: 'trackerCount',
+                            label: '# of Trackers',
+                            render: (value: number, row: ProductSummary) => (
+                              <Badge variant="secondary" className="text-xs">
+                                {value || row.trackedBy.length}
+                              </Badge>
+                            ),
+                            className: 'text-center'
+                          },
+                          {
+                            key: 'trackedBy',
+                            label: 'Tracked Emails',
+                            render: (value: string[]) => (
+                              <div className="max-w-xs truncate text-sm" title={Array.isArray(value) ? value.join(', ') : ''}>
+                                {Array.isArray(value) && value.map((email, index) => (
+                                  <span key={index}>
+                                    {searchFilter && email.toLowerCase().includes(searchFilter.toLowerCase()) ? (
+                                      <mark className="bg-yellow-200 px-1 rounded">
+                                        {email}
+                                      </mark>
+                                    ) : (
+                                      email
+                                    )}
+                                    {index < value.length - 1 && ', '}
+                                  </span>
+                                ))}
+                              </div>
+                            )
+                          },
+                          {
+                            key: 'lastChecked',
+                            label: 'Last Updated',
+                            sortable: true,
+                            render: (value: string) => (
+                              <div className="text-sm text-gray-600">
+                                {value ? 
+                                  new Date(value).toLocaleDateString('en-US', {
+                                    year: 'numeric',
+                                    month: 'short',
+                                    day: 'numeric',
+                                    hour: '2-digit',
+                                    minute: '2-digit'
+                                  }) : 'N/A'}
+                              </div>
+                            )
+                          },
+                          {
+                            key: 'createdAt',
+                            label: 'Created Date',
+                            sortable: true,
+                            render: (value: string, row: ProductSummary) => (
+                              <div className="text-sm text-gray-600 flex items-center gap-2">
+                                {new Date(value).toLocaleDateString('en-US', {
+                                  year: 'numeric',
+                                  month: 'short',
+                                  day: 'numeric'
+                                })}
+                                {sortBy === 'createdAt' && (
+                                  <Badge variant="secondary" className="text-xs">
+                                    Default
+                                  </Badge>
+                                )}
+                              </div>
+                            )
+                          }
+                        ]}
+                        sortBy={sortBy || undefined}
+                        sortOrder={sortOrder}
+                        onSort={handleSort}
+                        pagination={productsPagination}
+                        onPageChange={handlePageChange}
+                        onRefresh={() => fetchProductData()}
+                        onExport={() => {
+                          if (!products || products.length === 0) return;
+                          
+                          const csvContent = [
+                            ['ASIN', 'Title', 'Current Price', 'Tracker Count', 'Tracked By', 'Last Updated', 'Created Date'],
+                            ...products.map(product => [
+                              product.asin,
+                              `"${product.title.replace(/"/g, '""')}"`,
+                              product.currentPrice.toFixed(2),
+                              product.trackerCount || product.trackedBy.length,
+                              `"${product.trackedBy.join(', ')}"`,
+                              (product as any).lastChecked ? new Date((product as any).lastChecked).toISOString() : 'N/A',
+                              new Date(product.createdAt).toISOString()
+                            ])
+                          ].map(row => row.join(',')).join('\n');
+
+                          const blob = new Blob([csvContent], { type: 'text/csv' });
+                          const url = URL.createObjectURL(blob);
+                          const a = document.createElement('a');
+                          a.href = url;
+                          a.download = `products-${new Date().toISOString().split('T')[0]}.csv`;
+                          a.click();
+                          URL.revokeObjectURL(url);
+                        }}
+                        title="Tracked Products"
+                        emptyMessage="No tracked products found. Products will appear here once users start tracking them."
+                        emptyIcon={<Package className="h-12 w-12 mx-auto text-gray-400" />}
+                      >
+                        {/* Data source indicator */}
+                        <div className="flex items-center gap-4 text-sm text-gray-600 mb-4">
+                          <span><strong>Data source:</strong> DATABASE</span>
+                          <span><strong>Products shown:</strong> {displayedProducts.length}</span>
+                          {searchFilter && (
+                            <span><strong>Search:</strong> "{searchFilter}"</span>
+                          )}
+                        </div>
+                      </LogTable>
+                    </div>
+                  )}
+
+                  {/* Back Button */}
+                  <div className="pt-4">
+                    <Button variant="outline" onClick={() => handleTabChange('products')}>
+                      Back to Products
+                    </Button>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+          );
+        default:
+          return null;
+      }
+    }
+
+    // Main tab content (tool grid views)
     switch (activeTab) {
       case 'email':
-        return <EmailPanel />;
-      case 'email-test':
-        return <AdminEmailTest />;
+        return (
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <Mail className="h-5 w-5" />
+                Email System
+              </CardTitle>
+              <CardDescription>Test and manage email functionality</CardDescription>
+            </CardHeader>
+            <CardContent>
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                {emailTools.map((tool) => (
+                  tool.href ? (
+                    <Link key={tool.name} href={tool.href}>
+                      <Card className="cursor-pointer transition-all hover:shadow-md hover:scale-105">
+                        <CardContent className="p-4">
+                          <div className="flex items-start justify-between mb-3">
+                            <tool.icon className="h-5 w-5 text-blue-600" />
+                            <Badge variant="secondary" className="text-xs">
+                              {tool.badge}
+                            </Badge>
+                          </div>
+                          <h3 className="font-semibold mb-1">{tool.name}</h3>
+                          <p className="text-sm text-gray-600 leading-relaxed">
+                            {tool.description}
+                          </p>
+                        </CardContent>
+                      </Card>
+                    </Link>
+                  ) : (
+                    <ToolCard key={tool.name} tool={tool} />
+                  )
+                ))}
+              </div>
+            </CardContent>
+          </Card>
+        );
+
       case 'analytics':
-        return <AnalyticsPanel />;
+        return (
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <BarChart3 className="h-5 w-5" />
+                Analytics & Monitoring
+              </CardTitle>
+              <CardDescription>System performance and error tracking</CardDescription>
+            </CardHeader>
+            <CardContent>
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                {analyticsTools.map((tool) => (
+                  <ToolCard key={tool.name} tool={tool} />
+                ))}
+              </div>
+            </CardContent>
+          </Card>
+        );
+
       case 'tools':
-        return <ToolsPanel />;
+        return (
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <Settings className="h-5 w-5" />
+                System Tools
+              </CardTitle>
+              <CardDescription>Database and system management</CardDescription>
+            </CardHeader>
+            <CardContent>
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                {systemTools.map((tool) => (
+                  <ToolCard key={tool.name} tool={tool} />
+                ))}
+              </div>
+            </CardContent>
+          </Card>
+        );
+
       case 'products':
-        return <ProductsPanel />;
+        return (
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <Package className="h-5 w-5" />
+                Products Management
+              </CardTitle>
+              <CardDescription>View and manage all tracked products</CardDescription>
+            </CardHeader>
+            <CardContent>
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                {productTools.map((tool) => (
+                  <ToolCard key={tool.name} tool={tool} />
+                ))}
+              </div>
+            </CardContent>
+          </Card>
+        );
+
       default:
-        return <EmailPanel />;
+        return null;
     }
   };
 
   return (
-    <AdminLayout
-      title="Admin Hub"
+    <AdminLayout 
+      title="Admin Hub" 
       description="Comprehensive administrative control panel for BytSave system management"
     >
       <div className="space-y-6">
@@ -427,7 +986,40 @@ export default function AdminHub() {
         {/* Tab Content */}
         {renderTabContent()}
 
-        
+        {/* Quick Actions - always visible */}
+        <Card className="mt-8">
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <Settings className="h-5 w-5" />
+              Quick Actions
+            </CardTitle>
+            <CardDescription>Frequently used admin shortcuts</CardDescription>
+          </CardHeader>
+          <CardContent>
+            <div className="flex flex-wrap gap-3">
+              <Button variant="outline" asChild>
+                <Link href={`/admin/email-test`}>
+                  <Mail className="h-4 w-4 mr-2" />
+                  Test Email
+                </Link>
+              </Button>
+              <Button variant="outline" onClick={() => handleTabChange('dashboard')}>
+                <BarChart3 className="h-4 w-4 mr-2" />
+                View Stats
+              </Button>
+              <Button variant="outline" asChild>
+                <Link href={`/admin/email-logs`}>
+                  <FileText className="h-4 w-4 mr-2" />
+                  Email Logs
+                </Link>
+              </Button>
+              <Button variant="outline" onClick={() => handleTabChange('api-errors')}>
+                <AlertTriangle className="h-4 w-4 mr-2" />
+                Check Errors
+              </Button>
+            </div>
+          </CardContent>
+        </Card>
 
         </div>
     </AdminLayout>
