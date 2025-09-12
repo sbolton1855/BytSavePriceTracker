@@ -761,59 +761,39 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   // Search for Amazon products
   app.get('/api/search', async (req: Request, res: Response) => {
-    // console.log('🔍 [ROUTE] /api/search - Request received');
-    // console.log('[ROUTE] Query params:', req.query);
-    // console.log('[ROUTE] Headers:', req.headers);
+    const query = req.query.q as string;
+
+    console.log("Search API called with query:", query);
+
+    if (!query || query.trim().length < 3) {
+      return res.status(400).json({ error: 'Search query must be at least 3 characters' });
+    }
 
     try {
-      const { q, searchIndex } = req.query;
+      console.log("Calling Amazon API for search:", query.trim());
+      const results = await searchAmazonProducts(query.trim());
 
-      if (!q || typeof q !== 'string') {
-        console.error('[ROUTE] Invalid query parameter:', { q, type: typeof q });
-        return res.status(400).json({ error: 'Search query is required' });
+      console.log("Amazon API returned", results?.length || 0, "results");
+
+      if (!results || !Array.isArray(results)) {
+        console.error("Invalid results from Amazon API:", results);
+        return res.json({ items: [] });
       }
 
-      // console.log(`[ROUTE] Processing search for: "${q}" with searchIndex: ${searchIndex}`);
-
-      // Use custom SigV4 search
-      const items = await searchAmazonProducts(q);
-      // console.log('[ROUTE] Search results from Amazon:', {
-      //   itemCount: items?.length || 0,
-      //   hasResults: !!items
-      // });
-
-      if (!items) {
-        console.error('[ROUTE] No results object returned from searchAmazonProducts');
-        return res.status(500).json({ error: 'Search returned invalid data' });
-      }
-
-      // Format results with affiliate links
-      const formattedResults = await Promise.all(items.map(async (result: any) => {
-        // Check if product exists in our database to get its ID
-        const existingProduct = await storage.getProductByAsin(result.ASIN);
-
-        return {
-          asin: result.ASIN,
-          title: result.ItemInfo?.Title?.DisplayValue || 'Unknown Product',
-          price: result.Offers?.Listings?.[0]?.Price?.Amount || null,
-          imageUrl: result.Images?.Primary?.Small?.URL || undefined,
-          url: result.DetailPageURL || `https://www.amazon.com/dp/${result.ASIN}`,
-          couponDetected: result.Offers?.Listings?.[0]?.Promotions?.length > 0,
-          id: existingProduct?.id, // Include ID if product exists in DB
-          affiliateUrl: addAffiliateTag(result.DetailPageURL || `https://www.amazon.com/dp/${result.ASIN}`, AFFILIATE_TAG),
-        };
+      const formattedResults = results.map((item: any) => ({
+        asin: item.ASIN,
+        title: item.ItemInfo?.Title?.DisplayValue || 'Unknown Product',
+        price: item.Offers?.Listings?.[0]?.Price?.Amount || null,
+        imageUrl: item.Images?.Primary?.Medium?.URL || item.Images?.Primary?.Small?.URL || null,
+        url: item.DetailPageURL || `https://www.amazon.com/dp/${item.ASIN}`,
+        couponDetected: item.Offers?.Listings?.[0]?.Promotions?.length > 0 || false
       }));
 
-      // console.log('[ROUTE] Formatted ${formattedResults.length} results');
-
-      res.json({
-        items: formattedResults,
-        totalPages: 1 // Not available from this endpoint, so set to 1
-      });
-    } catch (error) {
-      console.error('❌ [ROUTE] Search error:', error);
-      console.error('[ROUTE] Error stack:', error instanceof Error ? error.stack : 'No stack trace');
-      res.status(500).json({ error: 'Search failed' });
+      console.log("Formatted", formattedResults.length, "search results");
+      res.json({ items: formattedResults });
+    } catch (error: any) {
+      console.error('Search error:', error.message);
+      res.status(500).json({ error: 'Search failed: ' + error.message });
     }
   });
 
@@ -2709,7 +2689,7 @@ Respond with just the analysis text, no JSON needed.
   // Import and use force alerts routes
   const forceAlertsRoutes = await import('./routes/forceAlerts');
   app.use('/api/admin/force-alerts', forceAlertsRoutes.default);
-  
+
   // Mount products endpoint for admin use
   app.use('/api/admin', forceAlertsRoutes.default);
   app.use('/api/admin/force-alerts', forceAlertsRoutes.default);

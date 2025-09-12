@@ -49,16 +49,34 @@ export default function ProductSearch({
   const { data: searchResults, isLoading: isSearching } = useQuery<SearchProduct[]>({
     queryKey: ["/api/search", debouncedQuery],
     queryFn: async () => {
-      if (!debouncedQuery || debouncedQuery.length < 3) return [];
-      const res = await fetch(`/api/search?q=${encodeURIComponent(debouncedQuery)}`);
+      if (!debouncedQuery || debouncedQuery.trim().length < 3) return [];
+      
+      console.log("Searching for:", debouncedQuery);
+      const res = await fetch(`/api/search?q=${encodeURIComponent(debouncedQuery.trim())}`);
+      
       if (!res.ok) {
         const error = await res.text();
+        console.error("Search API error:", error);
         throw new Error(error || "Search failed");
       }
+      
       const data = await res.json();
-      return data.items || [];
+      console.log("Search API response:", data);
+      
+      // Handle both direct array and nested items structure
+      if (Array.isArray(data)) {
+        return data;
+      } else if (data.items && Array.isArray(data.items)) {
+        return data.items;
+      } else if (data.products && Array.isArray(data.products)) {
+        return data.products;
+      }
+      
+      return [];
     },
-    enabled: debouncedQuery.length >= 3
+    enabled: debouncedQuery.trim().length >= 3,
+    retry: 2,
+    staleTime: 30000 // Cache results for 30 seconds
   });
 
   useEffect(() => {
