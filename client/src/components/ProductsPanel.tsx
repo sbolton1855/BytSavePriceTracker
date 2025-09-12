@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { useToast } from "@/hooks/use-toast";
@@ -88,7 +87,7 @@ export default function ProductsPanel() {
       }
 
       const result = await response.json();
-      
+
       // Handle both paginated response format and direct array format
       let rawProducts = [];
       if (Array.isArray(result.data)) {
@@ -150,8 +149,8 @@ export default function ProductsPanel() {
       render: (value: string, row: ProductSummary) => (
         <div className="flex items-center gap-3 max-w-xs">
           {row.imageUrl && (
-            <img 
-              src={row.imageUrl} 
+            <img
+              src={row.imageUrl}
               alt={value}
               className="w-12 h-12 object-cover rounded border flex-shrink-0"
               onError={(e) => {
@@ -231,7 +230,9 @@ export default function ProductsPanel() {
 
   // Handle pagination
   const handlePageChange = (newPage: number) => {
+    console.log(`[ProductsPanel] Page change requested: ${currentPage} -> ${newPage}`);
     setCurrentPage(newPage);
+    // Refetch will happen automatically due to the dependency on currentPage
   };
 
   // Handle search with debouncing
@@ -282,8 +283,8 @@ export default function ProductsPanel() {
   const products = productsResponse?.products || [];
   const totalProducts = products.length;
   const totalTrackers = products.reduce((sum, p) => sum + p.trackerCount, 0);
-  const avgPrice = totalProducts > 0 
-    ? products.reduce((sum, p) => sum + p.currentPrice, 0) / totalProducts 
+  const avgPrice = totalProducts > 0
+    ? products.reduce((sum, p) => sum + p.currentPrice, 0) / totalProducts
     : 0;
 
   return (

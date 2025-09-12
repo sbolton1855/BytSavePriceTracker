@@ -119,6 +119,21 @@ export default function LogTable({
   };
 
   /**
+   * Handle page change with bounds checking
+   */
+  const handlePageChange = (newPage: number) => {
+    if (!onPageChange || !pagination) return;
+    
+    // Ensure page is within valid bounds
+    const validPage = Math.max(1, Math.min(newPage, pagination.totalPages));
+    
+    if (validPage !== pagination.page) {
+      console.log(`[LogTable] Page change: ${pagination.page} -> ${validPage}`);
+      onPageChange(validPage);
+    }
+  };
+
+  /**
    * Render pagination controls
    */
   const renderPagination = () => {
@@ -136,7 +151,7 @@ export default function LogTable({
           <Button
             variant="outline"
             size="sm"
-            onClick={() => onPageChange && onPageChange(pagination.page - 1)}
+            onClick={() => handlePageChange(pagination.page - 1)}
             disabled={!pagination.hasPrev || pagination.page <= 1}
           >
             <ChevronLeft className="h-4 w-4" />
@@ -150,7 +165,7 @@ export default function LogTable({
           <Button
             variant="outline"
             size="sm"
-            onClick={() => onPageChange && onPageChange(pagination.page + 1)}
+            onClick={() => handlePageChange(pagination.page + 1)}
             disabled={!pagination.hasNext || pagination.page >= pagination.totalPages}
           >
             Next
