@@ -28,6 +28,10 @@ import {
 } from "lucide-react";
 import ApiErrorsPanel from "@/components/ApiErrorsPanel";
 import EmailLogsPanel from "@/components/EmailLogsPanel";
+import EmailPanel from "@/components/EmailPanel";
+import AnalyticsPanel from "@/components/AnalyticsPanel";
+import ToolsPanel from "@/components/ToolsPanel";
+import ProductsPanel from "@/components/ProductsPanel";
 import LogTable from "@/components/LogTable";
 import { AdminAuth } from "@/lib/admin-auth";
 import AdminEmailTest from "./admin-email-test";
