@@ -253,7 +253,7 @@ export default function LogTable({
                 {columns.map((column) => (
                   <TableHead
                     key={column.key}
-                    className={`${
+                    className={`border-0 ${
                       column.sortable && onSort
                         ? 'cursor-pointer hover:bg-gray-100 select-none transition-colors'
                         : ''
@@ -272,12 +272,12 @@ export default function LogTable({
               {data.map((row, rowIndex) => (
                 <TableRow 
                   key={rowIndex}
-                  className="hover:bg-gray-50/75 transition-colors border-b border-gray-200"
+                  className="hover:bg-gray-50/75 transition-colors border-b border-gray-200 border-x-0"
                 >
                   {columns.map((column) => (
                     <TableCell
                       key={column.key}
-                      className={column.className || ''}
+                      className={`border-0 ${column.className || ''}`}
                     >
                       {column.render 
                         ? column.render(row[column.key], row)
