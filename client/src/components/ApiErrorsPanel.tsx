@@ -4,11 +4,10 @@ import { useToast } from "@/hooks/use-toast";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Badge } from "@/components/ui/badge";
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Loader2, RefreshCw, AlertTriangle, CheckCircle, XCircle, Search, Download, ChevronLeft, ChevronRight, ArrowUpDown, ArrowUp, ArrowDown } from "lucide-react";
+import { AlertTriangle, Search, CheckCircle, XCircle } from "lucide-react";
 import { AdminAuth } from "@/lib/admin-auth";
+import LogTable, { LogColumn, StatusBadge, ErrorTypeBadge } from "@/components/LogTable";
 
 // API Error interface matching the backend structure
 interface ApiError {
@@ -155,66 +154,99 @@ export default function ApiErrorsPanel() {
   };
 
   /**
-   * Get sort icon for column header
+   * Handle page change
    */
-  const getSortIcon = (column: string) => {
-    if (sortBy !== column) {
-      return <ArrowUpDown className="h-4 w-4 opacity-50" />;
+  const handlePageChange = (page: number) => {
+    setCurrentPage(page);
+  };
+
+  // Define table columns using the LogTable format
+  const columns: LogColumn[] = [
+    {
+      key: 'id',
+      label: 'ID',
+      sortable: true,
+      render: (value: number) => (
+        <span className="font-mono text-sm">{value}</span>
+      )
+    },
+    {
+      key: 'asin',
+      label: 'ASIN',
+      sortable: true,
+      render: (value: string) => (
+        <span className="font-mono text-sm">{value}</span>
+      )
+    },
+    {
+      key: 'errorType',
+      label: 'Error Type',
+      sortable: true,
+      render: (value: string) => <ErrorTypeBadge type={value} />
+    },
+    {
+      key: 'errorMessage',
+      label: 'Error Message',
+      render: (value: string) => (
+        <div className="max-w-xs truncate" title={value}>
+          {value}
+        </div>
+      )
+    },
+    {
+      key: 'createdAt',
+      label: 'Created At',
+      sortable: true,
+      render: (value: string) => (
+        <div className="text-sm">
+          {new Date(value).toLocaleString()}
+        </div>
+      )
+    },
+    {
+      key: 'resolved',
+      label: 'Status',
+      sortable: true,
+      render: (value: boolean) => <StatusBadge active={!value} />
     }
-    return sortOrder === 'desc'
-      ? <ArrowDown className="h-4 w-4" />
-      : <ArrowUp className="h-4 w-4" />;
-  };
+  ];
 
-  /**
-   * Get appropriate badge for resolved status
-   */
-  const getResolvedBadge = (resolved: boolean) => {
-    if (resolved) {
-      return (
-        <Badge className="bg-green-100 text-green-800 flex items-center gap-1">
-          <CheckCircle className="h-3 w-3" />
-          Resolved
-        </Badge>
-      );
-    } else {
-      return (
-        <Badge className="bg-red-100 text-red-800 flex items-center gap-1">
-          <XCircle className="h-3 w-3" />
-          Active
-        </Badge>
-      );
-    }
-  };
-
-  /**
-   * Get appropriate badge color for error type
-   */
-  const getErrorTypeBadge = (errorType: string) => {
-    const config = {
-      'PRICE_MISMATCH': { color: 'bg-orange-100 text-orange-800', label: 'Price Mismatch' },
-      'API_FAILURE': { color: 'bg-red-100 text-red-800', label: 'API Failure' },
-      'RATE_LIMIT': { color: 'bg-yellow-100 text-yellow-800', label: 'Rate Limited' },
-      'INVALID_RESPONSE': { color: 'bg-purple-100 text-purple-800', label: 'Invalid Response' },
-      'NETWORK_ERROR': { color: 'bg-gray-100 text-gray-800', label: 'Network Error' }
-    };
-
-    const typeConfig = config[errorType as keyof typeof config] || {
-      color: 'bg-blue-100 text-blue-800',
-      label: errorType
-    };
-
-    return (
-      <Badge className={typeConfig.color}>
-        {typeConfig.label}
-      </Badge>
-    );
-  };
+  // Calculate summary statistics
+  const activeErrors = errorData?.errors?.filter(error => !error.resolved).length || 0;
+  const resolvedErrors = errorData?.errors?.filter(error => error.resolved).length || 0;
 
   return (
     <div className="space-y-6">
+      {/* API Error Summary Card */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <AlertTriangle className="h-5 w-5 text-red-600" />
+            API Error Monitor
+          </CardTitle>
+          <CardDescription>
+            Amazon API errors and debugging information
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            <div className="text-center p-4 bg-red-50 rounded-lg">
+              <div className="text-2xl font-bold text-red-700">{activeErrors}</div>
+              <div className="text-sm text-red-600">Active Errors</div>
+            </div>
+            <div className="text-center p-4 bg-green-50 rounded-lg">
+              <div className="text-2xl font-bold text-green-700">{resolvedErrors}</div>
+              <div className="text-sm text-green-600">Resolved Errors</div>
+            </div>
+            <div className="text-center p-4 bg-blue-50 rounded-lg">
+              <div className="text-2xl font-bold text-blue-700">{errorData?.total || 0}</div>
+              <div className="text-sm text-blue-600">Total Errors</div>
+            </div>
+          </div>
+        </CardContent>
+      </Card>
 
-      {/* Controls Section - Search, Filter, Export, Refresh */}
+      {/* Controls Section */}
       <Card>
         <CardHeader>
           <CardTitle>API Error Controls</CardTitle>
@@ -224,7 +256,6 @@ export default function ApiErrorsPanel() {
         </CardHeader>
         <CardContent>
           <div className="flex flex-wrap gap-4 items-end">
-
             {/* ASIN Search */}
             <div className="flex-1 min-w-[200px]">
               <label className="text-sm font-medium mb-2 block">Search by ASIN</label>
@@ -274,168 +305,30 @@ export default function ApiErrorsPanel() {
               </Select>
             </div>
 
-            {/* Action Buttons */}
-            <div className="flex gap-2">
-              <Button onClick={clearFilters} variant="outline">
-                Clear Filters
-              </Button>
-              <Button onClick={exportErrors} variant="outline" disabled={!errorData?.errors?.length}>
-                <Download className="h-4 w-4 mr-2" />
-                Export CSV
-              </Button>
-              <Button onClick={() => refetch()} disabled={isLoading} variant="outline">
-                {isLoading ? (
-                  <Loader2 className="h-4 w-4 animate-spin mr-2" />
-                ) : (
-                  <RefreshCw className="h-4 w-4 mr-2" />
-                )}
-                Refresh
-              </Button>
-            </div>
+            {/* Clear Filters Button */}
+            <Button onClick={clearFilters} variant="outline">
+              Clear Filters
+            </Button>
           </div>
         </CardContent>
       </Card>
 
-      {/* API Errors Table */}
-      <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <AlertTriangle className="h-5 w-5 text-red-600" />
-            API Error Monitor
-          </CardTitle>
-          <CardDescription>
-            Amazon API errors and debugging information
-          </CardDescription>
-          <div className="flex items-center gap-4 text-sm text-gray-600 mt-2">
-            <span><strong>Total Errors:</strong> {errorData?.total || 0}</span>
-            <span><strong>Showing:</strong> {errorData?.errors?.length || 0} results</span>
-          </div>
-        </CardHeader>
-        <CardContent className="p-0">
-          {isLoading ? (
-            <div className="p-8 text-center">
-              <Loader2 className="h-8 w-8 animate-spin mx-auto mb-4" />
-              Loading API errors...
-            </div>
-          ) : !errorData?.errors || errorData.errors.length === 0 ? (
-            <div className="p-8 text-center text-gray-500">
-              <AlertTriangle className="h-12 w-12 mx-auto mb-4 opacity-50" />
-              <p className="text-lg font-medium mb-2">No API errors found</p>
-              <p>API error logs will appear here when errors occur</p>
-            </div>
-          ) : (
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>ID</TableHead>
-                  <TableHead
-                    className="cursor-pointer hover:bg-gray-50 select-none"
-                    onClick={() => handleSort('asin')}
-                  >
-                    <div className="flex items-center gap-1">
-                      ASIN
-                      {getSortIcon('asin')}
-                    </div>
-                  </TableHead>
-                  <TableHead
-                    className="cursor-pointer hover:bg-gray-50 select-none"
-                    onClick={() => handleSort('errorType')}
-                  >
-                    <div className="flex items-center gap-1">
-                      Error Type
-                      {getSortIcon('errorType')}
-                    </div>
-                  </TableHead>
-                  <TableHead>Error Message</TableHead>
-                  <TableHead
-                    className="cursor-pointer hover:bg-gray-50 select-none"
-                    onClick={() => handleSort('createdAt')}
-                  >
-                    <div className="flex items-center gap-1">
-                      Created At
-                      {getSortIcon('createdAt')}
-                    </div>
-                  </TableHead>
-                  <TableHead>Status</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {errorData.errors.map((error) => (
-                  <TableRow key={error.id}>
-
-                    {/* Error ID */}
-                    <TableCell className="font-mono text-sm">{error.id}</TableCell>
-
-                    {/* ASIN */}
-                    <TableCell className="font-mono text-sm">
-                      {error.asin}
-                    </TableCell>
-
-                    {/* Error Type */}
-                    <TableCell>
-                      {getErrorTypeBadge(error.errorType)}
-                    </TableCell>
-
-                    {/* Error Message */}
-                    <TableCell className="max-w-xs truncate">
-                      <div title={error.errorMessage}>
-                        {error.errorMessage}
-                      </div>
-                    </TableCell>
-
-                    {/* Created At Timestamp */}
-                    <TableCell>
-                      <div className="text-sm">
-                        {new Date(error.createdAt).toLocaleString()}
-                      </div>
-                    </TableCell>
-
-                    {/* Resolved Status */}
-                    <TableCell>
-                      {getResolvedBadge(error.resolved)}
-                    </TableCell>
-                  </TableRow>
-                ))}
-              </TableBody>
-            </Table>
-          )}
-        </CardContent>
-      </Card>
-
-      {/* Pagination Controls */}
-      {errorData && errorData.pagination && errorData.pagination.totalPages > 1 && (
-        <div className="flex items-center justify-between mt-6">
-          <div className="text-sm text-gray-600">
-            Showing {((errorData.pagination.page - 1) * errorData.pagination.limit) + 1} to {Math.min(errorData.pagination.page * errorData.pagination.limit, errorData.pagination.total)} of {errorData.pagination.total} results
-          </div>
-
-          <div className="flex items-center gap-2">
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => setCurrentPage(errorData.pagination.page - 1)}
-              disabled={errorData.pagination.page <= 1}
-            >
-              <ChevronLeft className="h-4 w-4" />
-              Previous
-            </Button>
-
-            <span className="text-sm font-medium">
-              Page {errorData.pagination.page} of {errorData.pagination.totalPages}
-            </span>
-
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => setCurrentPage(errorData.pagination.page + 1)}
-              disabled={errorData.pagination.page >= errorData.pagination.totalPages}
-            >
-              Next
-              <ChevronRight className="h-4 w-4" />
-            </Button>
-          </div>
-        </div>
-      )}
+      {/* Log Table */}
+      <LogTable
+        data={errorData?.errors || []}
+        loading={isLoading}
+        columns={columns}
+        sortBy={sortBy || undefined}
+        sortOrder={sortOrder}
+        onSort={handleSort}
+        pagination={errorData?.pagination}
+        onPageChange={handlePageChange}
+        onRefresh={() => refetch()}
+        onExport={exportErrors}
+        title="API Error Logs"
+        emptyMessage="No API errors found. This is good news!"
+        emptyIcon={<CheckCircle className="h-12 w-12 mx-auto text-green-400" />}
+      />
     </div>
   );
 }
