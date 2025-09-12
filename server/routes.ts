@@ -795,8 +795,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error: any) {
       console.error('❌ Search error:', error);
       console.error('❌ Search error stack:', error.stack);
-      res.status(500).json({ 
-        error: 'Search failed', 
+      res.status(500).json({
+        error: 'Search failed',
         details: error.message,
         timestamp: new Date().toISOString()
       });
