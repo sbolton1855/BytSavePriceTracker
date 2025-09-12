@@ -307,13 +307,6 @@ export default function AdminHub() {
 
   const analyticsTools = [
     {
-      name: "Admin Dashboard",
-      description: "System statistics and metrics",
-      tabId: "dashboard",
-      icon: BarChart3,
-      badge: "Live"
-    },
-    {
       name: "API Monitor",
       description: "Monitor API performance and errors",
       tabId: "api-monitor",
