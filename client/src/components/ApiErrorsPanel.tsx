@@ -1,9 +1,14 @@
-import React, { useState, useEffect } from "react";
-import { Badge } from "@/components/ui/badge";
+import { useState } from "react";
+import { useQuery } from "@tanstack/react-query";
+import { useToast } from "@/hooks/use-toast";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import LogTable from "./LogTable";
+import { Input } from "@/components/ui/input";
+import { Badge } from "@/components/ui/badge";
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Loader2, RefreshCw, AlertTriangle, CheckCircle, XCircle, Search, Download, ChevronLeft, ChevronRight, ArrowUpDown, ArrowUp, ArrowDown } from "lucide-react";
 import { AdminAuth } from "@/lib/admin-auth";
-import { AlertTriangle, CheckCircle, Clock, XCircle } from "lucide-react";
 
 // API Error interface matching the backend structure
 interface ApiError {
@@ -15,326 +20,422 @@ interface ApiError {
   resolved: boolean;
 }
 
-// Pagination interface for API errors
-interface ApiErrorsPagination {
-  page: number;
-  limit: number;
+// Response structure for API errors with pagination
+interface ApiErrorsResponse {
+  errors: ApiError[];
+  recentErrors: ApiError[]; // For compatibility
   total: number;
-  totalPages: number;
-  hasNext: boolean;
-  hasPrev: boolean;
+  pagination: {
+    page: number;
+    limit: number;
+    total: number;
+    totalPages: number;
+  };
 }
 
 export default function ApiErrorsPanel() {
-  const [errors, setErrors] = useState<ApiError[]>([]);
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-  const [searchFilter, setSearchFilter] = useState('');
-  const [sortBy, setSortBy] = useState<'createdAt' | 'errorType' | 'asin'>('createdAt');
+  const { toast } = useToast();
+
+  // State for filtering, sorting, and pagination
+  const [currentPage, setCurrentPage] = useState(1);
+  const [asinFilter, setAsinFilter] = useState('');
+  const [searchAsin, setSearchAsin] = useState('');
+  const [errorTypeFilter, setErrorTypeFilter] = useState('all');
+  const [resolvedFilter, setResolvedFilter] = useState('all');
+  const [sortBy, setSortBy] = useState<string | null>('createdAt');
   const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('desc');
-  const [statusFilter, setStatusFilter] = useState<'all' | 'resolved' | 'unresolved'>('all');
-  const [pagination, setPagination] = useState<ApiErrorsPagination>({
-    page: 1,
-    limit: 25,
-    total: 0,
-    totalPages: 0,
-    hasNext: false,
-    hasPrev: false
-  });
 
-  // Fetch errors from the API
-  const fetchErrors = async (page = pagination.page) => {
-    const token = AdminAuth.getToken();
-    if (!token) {
-      setError("Admin authentication required");
-      return;
-    }
+  const { data: errorData, isLoading, refetch } = useQuery<ApiErrorsResponse>({
+    queryKey: ['/api/admin/errors', currentPage, asinFilter, errorTypeFilter, resolvedFilter, sortBy, sortOrder],
+    queryFn: async () => {
+      const token = AdminAuth.getToken() || 'admin-test-token';
+      if (!token) {
+        throw new Error("Unauthorized");
+      }
 
-    setLoading(true);
-    setError(null);
-
-    try {
       const params = new URLSearchParams({
-        token,
-        page: page.toString(),
-        limit: pagination.limit.toString(),
-        sortBy,
-        sortOrder,
-        ...(searchFilter && { search: searchFilter }),
-        ...(statusFilter !== 'all' && { status: statusFilter })
+        page: currentPage.toString(),
+        limit: '50'
       });
 
-      const response = await fetch(`/api/admin/errors?${params}`);
+      if (asinFilter.trim()) {
+        params.append('asin', asinFilter.trim());
+      }
+
+      if (errorTypeFilter !== 'all') {
+        params.append('errorType', errorTypeFilter);
+      }
+
+      if (resolvedFilter !== 'all') {
+        params.append('resolved', resolvedFilter);
+      }
+
+      params.append('sortBy', sortBy!);
+      params.append('sortOrder', sortOrder);
+
+      const response = await fetch(`/api/admin/errors?${params}`, {
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        }
+      });
 
       if (!response.ok) {
-        throw new Error(`Failed to fetch errors: ${response.status}`);
+        throw new Error(`HTTP ${response.status}: ${response.statusText}`);
       }
 
-      const result = await response.json();
-      console.log('[DEBUG] API Errors Response:', result);
+      const data = await response.json();
+      console.log('[DEBUG] API Errors Response:', data);
 
-      setErrors(result.errors || []);
+      return data;
+    },
+    enabled: !!AdminAuth.isAuthenticated(),
+  });
 
-      // Update pagination state based on API response
-      if (result.pagination) {
-        setPagination(result.pagination);
-      } else {
-        // Fallback pagination if API doesn't return it
-        setPagination({
-          page: 1,
-          limit: result.errors?.length || 0,
-          total: result.errors?.length || 0,
-          totalPages: 1,
-          hasNext: false,
-          hasPrev: false
-        });
-      }
-    } catch (err) {
-      console.error("Error fetching API errors:", err);
-      setError(err instanceof Error ? err.message : "Failed to fetch API errors");
-    } finally {
-      setLoading(false);
-    }
+  /**
+   * Handle ASIN search - apply filter when user searches
+   */
+  const handleSearch = () => {
+    setAsinFilter(searchAsin);
+    setCurrentPage(1);
   };
 
-  // Handle sorting by column
-  const handleSort = (column: 'createdAt' | 'errorType' | 'asin') => {
+  /**
+   * Clear all filters and reset to default view
+   */
+  const clearFilters = () => {
+    setSearchAsin('');
+    setAsinFilter('');
+    setErrorTypeFilter('all');
+    setResolvedFilter('all');
+    setSortBy('createdAt');
+    setSortOrder('desc');
+    setCurrentPage(1);
+  };
+
+  /**
+   * Export error logs to CSV
+   */
+  const exportErrors = () => {
+    if (!errorData?.errors) return;
+
+    const csvContent = [
+      ['ID', 'ASIN', 'Error Type', 'Error Message', 'Created At', 'Resolved'],
+      ...errorData.errors.map(error => [
+        error.id.toString(),
+        error.asin,
+        error.errorType,
+        error.errorMessage,
+        new Date(error.createdAt).toISOString(),
+        error.resolved ? 'Yes' : 'No'
+      ])
+    ].map(row => row.map(cell => `"${cell}"`).join(',')).join('\n');
+
+    const blob = new Blob([csvContent], { type: 'text/csv' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `api-errors-${new Date().toISOString().split('T')[0]}.csv`;
+    a.click();
+  };
+
+  /**
+   * Handle sorting column click
+   */
+  const handleSort = (column: string) => {
     if (sortBy === column) {
-      // Toggle sort order if the same column is clicked
-      setSortOrder(sortOrder === 'asc' ? 'desc' : 'asc');
+      // Toggle sort order
+      setSortOrder(sortOrder === 'desc' ? 'asc' : 'desc');
     } else {
-      // Set new column to sort by and reset order to descending
+      // New column, default to desc
       setSortBy(column);
       setSortOrder('desc');
     }
-    // Fetch data with new sorting parameters, resetting to the first page
-    fetchErrors(1);
+    setCurrentPage(1);
   };
 
-  // Handle search input changes
-  const handleSearch = (value: string) => {
-    setSearchFilter(value);
-    // Reset to the first page when search filter changes
-    setPagination(prev => ({ ...prev, page: 1 }));
-    // Debounce the fetch call to avoid excessive requests
-    setTimeout(() => fetchErrors(1), 300);
+  /**
+   * Get sort icon for column header
+   */
+  const getSortIcon = (column: string) => {
+    if (sortBy !== column) {
+      return <ArrowUpDown className="h-4 w-4 opacity-50" />;
+    }
+    return sortOrder === 'desc'
+      ? <ArrowDown className="h-4 w-4" />
+      : <ArrowUp className="h-4 w-4" />;
   };
 
-  // Handle page change for pagination
-  const handlePageChange = (newPage: number) => {
-    fetchErrors(newPage);
-  };
-
-  // Function to resolve an error by its ID
-  const resolveError = async (errorId: number) => {
-    const token = AdminAuth.getToken();
-    if (!token) return;
-
-    try {
-      const response = await fetch(`/api/admin/errors/${errorId}/resolve`, {
-        method: 'PATCH',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ token }) // Assuming token is needed in the body as well
-      });
-
-      if (response.ok) {
-        // Refresh the errors list after resolving
-        fetchErrors();
-      }
-    } catch (err) {
-      console.error("Error resolving error:", err);
-      // Optionally show a toast notification for error
+  /**
+   * Get appropriate badge for resolved status
+   */
+  const getResolvedBadge = (resolved: boolean) => {
+    if (resolved) {
+      return (
+        <Badge className="bg-green-100 text-green-800 flex items-center gap-1">
+          <CheckCircle className="h-3 w-3" />
+          Resolved
+        </Badge>
+      );
+    } else {
+      return (
+        <Badge className="bg-red-100 text-red-800 flex items-center gap-1">
+          <XCircle className="h-3 w-3" />
+          Active
+        </Badge>
+      );
     }
   };
 
-  // Fetch errors on component mount
-  useEffect(() => {
-    fetchErrors();
-  }, []);
+  /**
+   * Get appropriate badge color for error type
+   */
+  const getErrorTypeBadge = (errorType: string) => {
+    const config = {
+      'PRICE_MISMATCH': { color: 'bg-orange-100 text-orange-800', label: 'Price Mismatch' },
+      'API_FAILURE': { color: 'bg-red-100 text-red-800', label: 'API Failure' },
+      'RATE_LIMIT': { color: 'bg-yellow-100 text-yellow-800', label: 'Rate Limited' },
+      'INVALID_RESPONSE': { color: 'bg-purple-100 text-purple-800', label: 'Invalid Response' },
+      'NETWORK_ERROR': { color: 'bg-gray-100 text-gray-800', label: 'Network Error' }
+    };
 
-  // Define columns for the LogTable component
-  const errorColumns = [
-    {
-      key: 'createdAt',
-      label: 'Date',
-      sortable: true,
-      // Custom rendering for the date column
-      render: (value: string) => (
-        <span className="text-sm">
-          {new Date(value).toLocaleDateString('en-US', {
-            year: 'numeric',
-            month: 'short',
-            day: 'numeric',
-            hour: '2-digit',
-            minute: '2-digit'
-          })}
-        </span>
-      )
-    },
-    {
-      key: 'asin',
-      label: 'ASIN',
-      sortable: true,
-      // Custom rendering for the ASIN column
-      render: (value: string) => (
-        <span className="font-mono text-sm">{value}</span>
-      )
-    },
-    {
-      key: 'errorType',
-      label: 'Error Type',
-      sortable: true,
-      // Custom rendering for error type with colored badges
-      render: (value: string) => {
-        const typeColors: { [key: string]: string } = {
-          'PRICE_MISMATCH': 'bg-yellow-100 text-yellow-800',
-          'SCRAPE_ERROR': 'bg-red-100 text-red-800',
-          'API_ERROR': 'bg-blue-100 text-blue-800',
-          'TIMEOUT': 'bg-orange-100 text-orange-800'
-        };
+    const typeConfig = config[errorType as keyof typeof config] || {
+      color: 'bg-blue-100 text-blue-800',
+      label: errorType
+    };
 
-        return (
-          <Badge className={typeColors[value] || 'bg-gray-100 text-gray-800'}>
-            {value.replace(/_/g, ' ')} {/* Replace underscores with spaces for readability */}
-          </Badge>
-        );
-      }
-    },
-    {
-      key: 'errorMessage',
-      label: 'Message',
-      // Custom rendering for error message with truncation
-      render: (value: string) => (
-        <div className="max-w-sm truncate" title={value}>
-          {value}
-        </div>
-      )
-    },
-    {
-      key: 'resolved',
-      label: 'Status',
-      // Custom rendering for status with resolve button
-      render: (value: boolean, row: ApiError) => (
-        <div className="flex items-center gap-2">
-          {value ? (
-            <Badge variant="secondary" className="bg-green-100 text-green-800">
-              <CheckCircle className="h-3 w-3 mr-1" />
-              Resolved
-            </Badge>
+    return (
+      <Badge className={typeConfig.color}>
+        {typeConfig.label}
+      </Badge>
+    );
+  };
+
+  return (
+    <div className="space-y-6">
+
+      {/* Controls Section - Search, Filter, Export, Refresh */}
+      <Card>
+        <CardHeader>
+          <CardTitle>API Error Controls</CardTitle>
+          <CardDescription>
+            Search, filter, and export API error data
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          <div className="flex flex-wrap gap-4 items-end">
+
+            {/* ASIN Search */}
+            <div className="flex-1 min-w-[200px]">
+              <label className="text-sm font-medium mb-2 block">Search by ASIN</label>
+              <div className="flex gap-2">
+                <Input
+                  placeholder="Enter ASIN..."
+                  value={searchAsin}
+                  onChange={(e) => setSearchAsin(e.target.value)}
+                  onKeyPress={(e) => e.key === 'Enter' && handleSearch()}
+                />
+                <Button onClick={handleSearch} variant="outline">
+                  <Search className="h-4 w-4" />
+                </Button>
+              </div>
+            </div>
+
+            {/* Error Type Filter */}
+            <div className="min-w-[180px]">
+              <label className="text-sm font-medium mb-2 block">Filter by Error Type</label>
+              <Select value={errorTypeFilter} onValueChange={setErrorTypeFilter}>
+                <SelectTrigger>
+                  <SelectValue placeholder="All types" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All Types</SelectItem>
+                  <SelectItem value="PRICE_MISMATCH">Price Mismatch</SelectItem>
+                  <SelectItem value="API_FAILURE">API Failure</SelectItem>
+                  <SelectItem value="RATE_LIMIT">Rate Limited</SelectItem>
+                  <SelectItem value="INVALID_RESPONSE">Invalid Response</SelectItem>
+                  <SelectItem value="NETWORK_ERROR">Network Error</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+
+            {/* Resolved Status Filter */}
+            <div className="min-w-[150px]">
+              <label className="text-sm font-medium mb-2 block">Filter by Status</label>
+              <Select value={resolvedFilter} onValueChange={setResolvedFilter}>
+                <SelectTrigger>
+                  <SelectValue placeholder="All statuses" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All Statuses</SelectItem>
+                  <SelectItem value="active">Active</SelectItem>
+                  <SelectItem value="resolved">Resolved</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+
+            {/* Action Buttons */}
+            <div className="flex gap-2">
+              <Button onClick={clearFilters} variant="outline">
+                Clear Filters
+              </Button>
+              <Button onClick={exportErrors} variant="outline" disabled={!errorData?.errors?.length}>
+                <Download className="h-4 w-4 mr-2" />
+                Export CSV
+              </Button>
+              <Button onClick={() => refetch()} disabled={isLoading} variant="outline">
+                {isLoading ? (
+                  <Loader2 className="h-4 w-4 animate-spin mr-2" />
+                ) : (
+                  <RefreshCw className="h-4 w-4 mr-2" />
+                )}
+                Refresh
+              </Button>
+            </div>
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* API Errors Table */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <AlertTriangle className="h-5 w-5 text-red-600" />
+            API Error Monitor
+          </CardTitle>
+          <CardDescription>
+            Amazon API errors and debugging information
+          </CardDescription>
+          <div className="flex items-center gap-4 text-sm text-gray-600 mt-2">
+            <span><strong>Total Errors:</strong> {errorData?.total || 0}</span>
+            <span><strong>Showing:</strong> {errorData?.errors?.length || 0} results</span>
+          </div>
+        </CardHeader>
+        <CardContent className="p-0">
+          {isLoading ? (
+            <div className="p-8 text-center">
+              <Loader2 className="h-8 w-8 animate-spin mx-auto mb-4" />
+              Loading API errors...
+            </div>
+          ) : !errorData?.errors || errorData.errors.length === 0 ? (
+            <div className="p-8 text-center text-gray-500">
+              <AlertTriangle className="h-12 w-12 mx-auto mb-4 opacity-50" />
+              <p className="text-lg font-medium mb-2">No API errors found</p>
+              <p>API error logs will appear here when errors occur</p>
+            </div>
           ) : (
-            <Badge variant="secondary" className="bg-red-100 text-red-800">
-              <XCircle className="h-3 w-3 mr-1" />
-              Open
-            </Badge>
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>ID</TableHead>
+                  <TableHead
+                    className="cursor-pointer hover:bg-gray-50 select-none"
+                    onClick={() => handleSort('asin')}
+                  >
+                    <div className="flex items-center gap-1">
+                      ASIN
+                      {getSortIcon('asin')}
+                    </div>
+                  </TableHead>
+                  <TableHead
+                    className="cursor-pointer hover:bg-gray-50 select-none"
+                    onClick={() => handleSort('errorType')}
+                  >
+                    <div className="flex items-center gap-1">
+                      Error Type
+                      {getSortIcon('errorType')}
+                    </div>
+                  </TableHead>
+                  <TableHead>Error Message</TableHead>
+                  <TableHead
+                    className="cursor-pointer hover:bg-gray-50 select-none"
+                    onClick={() => handleSort('createdAt')}
+                  >
+                    <div className="flex items-center gap-1">
+                      Created At
+                      {getSortIcon('createdAt')}
+                    </div>
+                  </TableHead>
+                  <TableHead>Status</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {errorData.errors.map((error) => (
+                  <TableRow key={error.id}>
+
+                    {/* Error ID */}
+                    <TableCell className="font-mono text-sm">{error.id}</TableCell>
+
+                    {/* ASIN */}
+                    <TableCell className="font-mono text-sm">
+                      {error.asin}
+                    </TableCell>
+
+                    {/* Error Type */}
+                    <TableCell>
+                      {getErrorTypeBadge(error.errorType)}
+                    </TableCell>
+
+                    {/* Error Message */}
+                    <TableCell className="max-w-xs truncate">
+                      <div title={error.errorMessage}>
+                        {error.errorMessage}
+                      </div>
+                    </TableCell>
+
+                    {/* Created At Timestamp */}
+                    <TableCell>
+                      <div className="text-sm">
+                        {new Date(error.createdAt).toLocaleString()}
+                      </div>
+                    </TableCell>
+
+                    {/* Resolved Status */}
+                    <TableCell>
+                      {getResolvedBadge(error.resolved)}
+                    </TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
           )}
-          {!value && (
+        </CardContent>
+      </Card>
+
+      {/* Pagination Controls */}
+      {errorData && errorData.pagination && errorData.pagination.totalPages > 1 && (
+        <div className="flex items-center justify-between mt-6">
+          <div className="text-sm text-gray-600">
+            Showing {((errorData.pagination.page - 1) * errorData.pagination.limit) + 1} to {Math.min(errorData.pagination.page * errorData.pagination.limit, errorData.pagination.total)} of {errorData.pagination.total} results
+          </div>
+
+          <div className="flex items-center gap-2">
             <Button
               variant="outline"
               size="sm"
-              onClick={() => resolveError(row.id)}
-              className="ml-2"
+              onClick={() => setCurrentPage(errorData.pagination.page - 1)}
+              disabled={errorData.pagination.page <= 1}
             >
-              Resolve
+              <ChevronLeft className="h-4 w-4" />
+              Previous
             </Button>
-          )}
-        </div>
-      )
-    }
-  ];
 
-  // Summary component to display error statistics
-  const errorSummary = (
-    <div className="bg-red-50 border border-red-200 rounded-lg p-4">
-      <h4 className="font-medium text-red-800 mb-2">Error Summary</h4>
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
-        <div>
-          <span className="text-red-600 font-medium">Total Errors:</span>
-          <div className="text-lg font-bold text-red-800">{errors.length}</div>
-        </div>
-        <div>
-          <span className="text-red-600 font-medium">Open:</span>
-          <div className="text-lg font-bold text-red-800">
-            {errors.filter(e => !e.resolved).length}
+            <span className="text-sm font-medium">
+              Page {errorData.pagination.page} of {errorData.pagination.totalPages}
+            </span>
+
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setCurrentPage(errorData.pagination.page + 1)}
+              disabled={errorData.pagination.page >= errorData.pagination.totalPages}
+            >
+              Next
+              <ChevronRight className="h-4 w-4" />
+            </Button>
           </div>
         </div>
-        <div>
-          <span className="text-red-600 font-medium">Resolved:</span>
-          <div className="text-lg font-bold text-green-600">
-            {errors.filter(e => e.resolved).length}
-          </div>
-        </div>
-        <div>
-          <span className="text-red-600 font-medium">Status:</span>
-          <div className={`text-lg font-bold ${errors.filter(e => !e.resolved).length > 0 ? 'text-red-600' : 'text-green-600'}`}>
-            {errors.filter(e => !e.resolved).length > 0 ? 'Needs Action' : 'All Clear'}
-          </div>
-        </div>
-      </div>
+      )}
     </div>
-  );
-
-  // Extra controls for filtering status
-  const extraControls = (
-    <div className="min-w-[120px]">
-      <label className="text-sm font-medium text-gray-700 mb-1 block">
-        Status
-      </label>
-      <select
-        value={statusFilter}
-        onChange={(e) => {
-          setStatusFilter(e.target.value as 'all' | 'resolved' | 'unresolved');
-          fetchErrors(1); // Fetch data when filter changes
-        }}
-        className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-      >
-        <option value="all">All Errors</option>
-        <option value="unresolved">Open Only</option>
-        <option value="resolved">Resolved Only</option>
-      </select>
-    </div>
-  );
-
-  // Filter errors based on search and status (client-side filtering if needed, though API handles most)
-  const filteredErrors = errors.filter(errorItem => {
-    const matchesSearch = !searchFilter ||
-      errorItem.asin.toLowerCase().includes(searchFilter.toLowerCase()) ||
-      errorItem.errorType.toLowerCase().includes(searchFilter.toLowerCase()) ||
-      errorItem.errorMessage.toLowerCase().includes(searchFilter.toLowerCase());
-
-    const matchesStatus = statusFilter === 'all' ||
-      (statusFilter === 'resolved' && errorItem.resolved) ||
-      (statusFilter === 'unresolved' && !errorItem.resolved);
-
-    return matchesSearch && matchesStatus;
-  });
-
-  return (
-    <LogTable
-      title="API Errors"
-      description="System errors and issues that require attention"
-      icon={AlertTriangle} // Icon for the panel title
-      data={filteredErrors} // Data to display in the table
-      columns={errorColumns} // Column definitions for the table
-      loading={loading} // Loading state indicator
-      error={error} // Error message to display
-      searchFilter={searchFilter} // Current search filter value
-      sortBy={sortBy} // Current sort by column
-      sortOrder={sortOrder} // Current sort order
-      pagination={pagination} // Pagination details
-      onSearch={handleSearch} // Handler for search input
-      onSort={handleSort} // Handler for column sorting
-      onPageChange={handlePageChange} // Handler for page changes
-      onRefresh={() => fetchErrors()} // Handler for refresh action
-      onExport={() => {
-        // TODO: Implement CSV export for errors
-        console.log('Export errors CSV clicked');
-      }}
-      extraControls={extraControls} // Additional controls to render alongside search
-      summary={errorSummary} // Summary component to display statistics
-      emptyMessage="No API errors found. System is running smoothly!" // Message when no data is present
-      emptyIcon={CheckCircle} // Icon to display when no data is present
-    />
   );
 }
