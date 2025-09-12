@@ -3,12 +3,14 @@ import { useState, useEffect } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { useToast } from "@/hooks/use-toast";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { Badge } from "@/components/ui/badge";
 import { Package, Search } from "lucide-react";
 import { AdminAuth } from "@/lib/admin-auth";
 import LogTable, { LogColumn } from "@/components/LogTable";
 
-// Product data interface based on API response
+// Product tracking data interface
 interface TrackedProductAdmin {
   id: number;
   userId: string | null;
@@ -21,29 +23,29 @@ interface TrackedProductAdmin {
     asin: string;
     title: string;
     url: string;
+    imageUrl?: string;
     currentPrice: number;
     originalPrice: number | null;
     lastChecked: string;
     createdAt: string;
-    imageUrl?: string;
   };
 }
 
-// Simplified data structure for display
+// Simplified data structure for admin display
 interface ProductSummary {
   asin: string;
   title: string;
+  imageUrl?: string;
   currentPrice: number;
   trackedBy: string[];
   createdAt: string;
-  lastChecked: string;
+  lastChecked?: string;
   trackerCount: number;
-  imageUrl?: string;
 }
 
-// API response structure
+// Response structure for products with pagination
 interface ProductsResponse {
-  products: ProductSummary[];
+  data: ProductSummary[];
   pagination: {
     page: number;
     limit: number;
@@ -60,11 +62,10 @@ export default function ProductsPanel() {
   // State for filtering, sorting, and pagination
   const [currentPage, setCurrentPage] = useState(1);
   const [searchFilter, setSearchFilter] = useState('');
-  const [sortBy, setSortBy] = useState<string>('createdAt');
+  const [sortBy, setSortBy] = useState<string | null>('createdAt');
   const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('desc');
 
-  // Fetch products data
-  const { data: productsData, isLoading, refetch, error } = useQuery<ProductSummary[]>({
+  const { data: productsData, isLoading, refetch } = useQuery<ProductSummary[]>({
     queryKey: ['admin-products', currentPage, searchFilter, sortBy, sortOrder],
     queryFn: async () => {
       const token = AdminAuth.getToken();
@@ -76,13 +77,12 @@ export default function ProductsPanel() {
         token,
         page: currentPage.toString(),
         limit: '25',
-        sortBy,
+        sortBy: sortBy || 'createdAt',
         sortOrder,
         ...(searchFilter && { search: searchFilter })
       });
 
       const response = await fetch(`/api/admin/products?${params}`);
-      
       if (!response.ok) {
         throw new Error(`Failed to fetch products: ${response.status}`);
       }
@@ -115,115 +115,42 @@ export default function ProductsPanel() {
           productMap.set(asin, {
             asin: item.product.asin,
             title: item.product.title,
+            imageUrl: item.product.imageUrl,
             currentPrice: item.product.currentPrice,
             trackedBy: [item.email],
             createdAt: item.product.createdAt,
             lastChecked: item.product.lastChecked,
-            trackerCount: 1,
-            imageUrl: item.product.imageUrl
+            trackerCount: 1
           });
         }
       });
 
       return Array.from(productMap.values());
-    },
-    refetchInterval: 30000 // Refetch every 30 seconds
+    }
   });
-
-  // Create pagination data
-  const pagination = {
-    page: currentPage,
-    limit: 25,
-    total: productsData?.length || 0,
-    totalPages: Math.ceil((productsData?.length || 0) / 25),
-    hasNext: currentPage < Math.ceil((productsData?.length || 0) / 25),
-    hasPrev: currentPage > 1
-  };
-
-  // Handle search with debouncing
-  const handleSearch = (value: string) => {
-    setSearchFilter(value);
-    setCurrentPage(1); // Reset to page 1 when searching
-  };
-
-  // Handle sorting
-  const handleSort = (column: string) => {
-    if (sortBy === column) {
-      setSortOrder(sortOrder === 'asc' ? 'desc' : 'asc');
-    } else {
-      setSortBy(column);
-      setSortOrder('desc');
-    }
-    setCurrentPage(1); // Reset to page 1 when sorting
-  };
-
-  // Handle pagination
-  const handlePageChange = (newPage: number) => {
-    setCurrentPage(newPage);
-  };
-
-  // Export products to CSV
-  const exportProducts = () => {
-    if (!productsData?.length) {
-      toast({
-        title: "No data to export",
-        description: "There are no products to export.",
-        variant: "destructive"
-      });
-      return;
-    }
-
-    const csvContent = [
-      ['ASIN', 'Title', 'Current Price', 'Trackers', 'Tracked Emails', 'Last Updated', 'Created Date'].join(','),
-      ...productsData.map(product => [
-        product.asin,
-        `"${product.title.replace(/"/g, '""')}"`,
-        product.currentPrice,
-        product.trackerCount,
-        `"${product.trackedBy.join(', ')}"`,
-        new Date(product.lastChecked).toISOString(),
-        new Date(product.createdAt).toISOString()
-      ].join(','))
-    ].join('\n');
-
-    const blob = new Blob([csvContent], { type: 'text/csv' });
-    const url = window.URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = `products_${new Date().toISOString().split('T')[0]}.csv`;
-    a.click();
-    window.URL.revokeObjectURL(url);
-
-    toast({
-      title: "Export successful",
-      description: `Exported ${productsData.length} products to CSV.`
-    });
-  };
 
   // Define table columns using the LogTable format
   const columns: LogColumn[] = [
     {
-      key: 'product',
+      key: 'title',
       label: 'Product',
-      render: (value: any, row: ProductSummary) => (
-        <div className="flex items-start gap-3 max-w-md">
+      sortable: true,
+      render: (value: string, row: ProductSummary) => (
+        <div className="flex items-center gap-3 max-w-xs">
           {row.imageUrl && (
             <img 
               src={row.imageUrl} 
-              alt={row.title}
+              alt={value}
               className="w-12 h-12 object-cover rounded border flex-shrink-0"
               onError={(e) => {
-                e.currentTarget.style.display = 'none';
+                const target = e.target as HTMLImageElement;
+                target.style.display = 'none';
               }}
             />
           )}
-          <div className="min-w-0 flex-1">
-            <div className="font-medium text-sm leading-tight mb-1 line-clamp-2" title={row.title}>
-              {row.title}
-            </div>
-            <div className="text-xs text-gray-500 font-mono">
-              {row.asin}
-            </div>
+          <div className="truncate" title={value}>
+            <div className="font-medium truncate">{value}</div>
+            <div className="text-xs text-gray-500 font-mono">{row.asin}</div>
           </div>
         </div>
       )
@@ -234,7 +161,8 @@ export default function ProductsPanel() {
       sortable: true,
       render: (value: string) => (
         <span className="font-mono text-sm">{value}</span>
-      )
+      ),
+      className: 'hidden md:table-cell'
     },
     {
       key: 'currentPrice',
@@ -249,12 +177,11 @@ export default function ProductsPanel() {
       label: '# of Trackers',
       sortable: true,
       render: (value: number) => (
-        <div className="text-center">
-          <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
-            {value}
-          </span>
-        </div>
-      )
+        <Badge variant="secondary" className="text-xs">
+          {value}
+        </Badge>
+      ),
+      className: 'text-center'
     },
     {
       key: 'lastChecked',
@@ -262,9 +189,10 @@ export default function ProductsPanel() {
       sortable: true,
       render: (value: string) => (
         <div className="text-sm">
-          {new Date(value).toLocaleString()}
+          {value ? new Date(value).toLocaleString() : 'N/A'}
         </div>
-      )
+      ),
+      className: 'hidden lg:table-cell'
     },
     {
       key: 'createdAt',
@@ -274,106 +202,191 @@ export default function ProductsPanel() {
         <div className="text-sm">
           {new Date(value).toLocaleDateString()}
         </div>
-      )
+      ),
+      className: 'hidden lg:table-cell'
     }
   ];
 
+  // Handle sorting
+  const handleSort = (column: string) => {
+    if (sortBy === column) {
+      setSortOrder(sortOrder === 'asc' ? 'desc' : 'asc');
+    } else {
+      setSortBy(column);
+      setSortOrder('desc');
+    }
+  };
+
+  // Handle pagination
+  const handlePageChange = (newPage: number) => {
+    setCurrentPage(newPage);
+  };
+
+  // Handle search with debouncing
+  const handleSearch = (value: string) => {
+    setSearchFilter(value);
+    setCurrentPage(1); // Reset to page 1 when searching
+  };
+
+  // Export products to CSV
+  const exportProducts = () => {
+    if (!productsData || productsData.length === 0) {
+      toast({
+        title: "No data to export",
+        description: "There are no products to export.",
+        variant: "destructive"
+      });
+      return;
+    }
+
+    const csvHeaders = ['ASIN', 'Title', 'Current Price', 'Tracker Count', 'Tracked By', 'Last Updated', 'Created Date'];
+    const csvRows = productsData.map(product => [
+      product.asin,
+      `"${product.title.replace(/"/g, '""')}"`,
+      product.currentPrice.toFixed(2),
+      product.trackerCount,
+      `"${product.trackedBy.join(', ')}"`,
+      product.lastChecked ? new Date(product.lastChecked).toISOString() : 'N/A',
+      new Date(product.createdAt).toISOString()
+    ]);
+
+    const csvContent = [csvHeaders.join(','), ...csvRows.map(row => row.join(','))].join('\n');
+    const blob = new Blob([csvContent], { type: 'text/csv' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = `products-export-${new Date().toISOString().split('T')[0]}.csv`;
+    link.click();
+    URL.revokeObjectURL(url);
+
+    toast({
+      title: "Export successful",
+      description: `Exported ${productsData.length} products to CSV.`
+    });
+  };
+
+  // Calculate summary statistics
+  const totalProducts = productsData?.length || 0;
+  const totalTrackers = productsData?.reduce((sum, p) => sum + p.trackerCount, 0) || 0;
+  const avgPrice = totalProducts > 0 
+    ? (productsData?.reduce((sum, p) => sum + p.currentPrice, 0) || 0) / totalProducts 
+    : 0;
+
+  // Create pagination object for LogTable
+  const pagination = {
+    page: currentPage,
+    limit: 25,
+    total: totalProducts,
+    totalPages: Math.ceil(totalProducts / 25),
+    hasNext: currentPage < Math.ceil(totalProducts / 25),
+    hasPrev: currentPage > 1
+  };
+
   return (
-    <div className="space-y-6">
-      {/* Summary Card */}
-      <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <Package className="h-5 w-5" />
-            Products Management
-          </CardTitle>
-          <CardDescription>
-            View and manage all tracked products
-          </CardDescription>
-        </CardHeader>
-        <CardContent>
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
-            <div>
-              <span className="text-gray-600 font-medium">Total Products:</span>
-              <div className="text-lg font-bold text-blue-800">
-                {productsData?.length || 0}
+    <Card>
+      <CardHeader>
+        <CardTitle className="flex items-center gap-2">
+          <Package className="h-5 w-5" />
+          Products Management
+        </CardTitle>
+        <CardDescription>View and manage all tracked products</CardDescription>
+      </CardHeader>
+      <CardContent>
+        <div className="space-y-6">
+          {/* Product Data Summary */}
+          <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+            <h4 className="font-medium text-blue-800 mb-2">Product Data Summary</h4>
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
+              <div>
+                <span className="text-blue-600 font-medium">Total Products:</span>
+                <div className="text-lg font-bold text-blue-800">{totalProducts}</div>
               </div>
-            </div>
-            <div>
-              <span className="text-gray-600 font-medium">Total Trackers:</span>
-              <div className="text-lg font-bold text-blue-800">
-                {productsData?.reduce((sum, p) => sum + p.trackerCount, 0) || 0}
+              <div>
+                <span className="text-blue-600 font-medium">Total Trackers:</span>
+                <div className="text-lg font-bold text-blue-800">{totalTrackers}</div>
               </div>
-            </div>
-            <div>
-              <span className="text-gray-600 font-medium">Avg. Price:</span>
-              <div className="text-lg font-bold text-blue-800">
-                ${productsData?.length ? (productsData.reduce((sum, p) => sum + p.currentPrice, 0) / productsData.length).toFixed(2) : '0.00'}
+              <div>
+                <span className="text-blue-600 font-medium">Avg. Price:</span>
+                <div className="text-lg font-bold text-blue-800">${avgPrice.toFixed(2)}</div>
               </div>
-            </div>
-            <div>
-              <span className="text-gray-600 font-medium">Status:</span>
-              <div className="text-lg font-bold text-green-600">
-                {productsData?.length ? 'Live' : 'No Data'}
+              <div>
+                <span className="text-blue-600 font-medium">Status:</span>
+                <div className="text-lg font-bold text-green-600">
+                  {totalProducts > 0 ? 'Live' : 'No Data'}
+                </div>
               </div>
             </div>
           </div>
-        </CardContent>
-      </Card>
 
-      {/* Search Controls */}
-      <Card>
-        <CardHeader>
-          <CardTitle className="text-lg">Product Filters</CardTitle>
-          <CardDescription>Search and filter tracked products</CardDescription>
-        </CardHeader>
-        <CardContent>
-          <div className="flex gap-4 items-center">
-            <div className="flex-1 max-w-md">
-              <label className="text-sm font-medium text-gray-700 mb-1 block">
-                Search Products
-              </label>
-              <div className="relative">
-                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
-                <Input
-                  type="text"
-                  placeholder="Search by title or ASIN..."
-                  value={searchFilter}
-                  onChange={(e) => handleSearch(e.target.value)}
-                  className="pl-10"
-                />
+          {/* Product Controls Panel */}
+          <Card>
+            <CardHeader>
+              <CardTitle className="text-lg">Product Controls</CardTitle>
+              <CardDescription>Search, filter, and manage tracked products</CardDescription>
+            </CardHeader>
+            <CardContent>
+              <div className="flex flex-wrap gap-4 items-center">
+                <div className="flex-1 min-w-[200px]">
+                  <label className="text-sm font-medium text-gray-700 mb-1 block">
+                    Search Products
+                  </label>
+                  <div className="relative">
+                    <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
+                    <Input
+                      type="text"
+                      placeholder="Search by title or ASIN..."
+                      value={searchFilter}
+                      onChange={(e) => handleSearch(e.target.value)}
+                      className="pl-10"
+                    />
+                  </div>
+                </div>
+
+                <div className="flex gap-2">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => {
+                      setSearchFilter('');
+                      setSortBy('createdAt');
+                      setSortOrder('desc');
+                      setCurrentPage(1);
+                    }}
+                  >
+                    Clear Filters
+                  </Button>
+                </div>
               </div>
-            </div>
-          </div>
-        </CardContent>
-      </Card>
+            </CardContent>
+          </Card>
 
-      {/* Products Table */}
-      <LogTable
-        data={productsData || []}
-        loading={isLoading}
-        error={error?.message || null}
-        columns={columns}
-        sortBy={sortBy}
-        sortOrder={sortOrder}
-        onSort={handleSort}
-        pagination={pagination}
-        onPageChange={handlePageChange}
-        onRefresh={() => refetch()}
-        onExport={exportProducts}
-        title="Tracked Products"
-        emptyMessage="No tracked products found. Products will appear here once users start tracking them."
-        emptyIcon={<Package className="h-12 w-12 mx-auto text-gray-400" />}
-      >
-        {/* Data source indicator */}
-        <div className="flex items-center gap-4 text-sm text-gray-600 mb-4">
-          <span><strong>Data source:</strong> DATABASE</span>
-          <span><strong>Products shown:</strong> {productsData?.length || 0}</span>
-          {searchFilter && (
-            <span><strong>Filtered by:</strong> "{searchFilter}"</span>
-          )}
+          {/* Products Table */}
+          <LogTable
+            data={productsData || []}
+            loading={isLoading}
+            columns={columns}
+            sortBy={sortBy || undefined}
+            sortOrder={sortOrder}
+            onSort={handleSort}
+            pagination={pagination}
+            onPageChange={handlePageChange}
+            onRefresh={() => refetch()}
+            onExport={exportProducts}
+            title="Tracked Products"
+            emptyMessage="No tracked products found. Products will appear here once users start tracking them."
+            emptyIcon={<Package className="h-12 w-12 mx-auto text-gray-400" />}
+          >
+            {/* Data source indicator */}
+            <div className="flex items-center gap-4 text-sm text-gray-600 mb-4">
+              <span><strong>Data source:</strong> DATABASE</span>
+              <span><strong>Products shown:</strong> {productsData?.length || 0}</span>
+              {searchFilter && (
+                <span><strong>Search:</strong> "{searchFilter}"</span>
+              )}
+            </div>
+          </LogTable>
         </div>
-      </LogTable>
-    </div>
+      </CardContent>
+    </Card>
   );
 }
