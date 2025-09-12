@@ -29,6 +29,7 @@ import {
 import ApiErrorsPanel from "@/components/ApiErrorsPanel";
 import EmailLogsPanel from "@/components/EmailLogsPanel";
 import EmailTestPanel from "@/components/EmailTestPanel";
+import ForceAlertsPanel from "@/components/ForceAlertsPanel";
 import LogTable from "@/components/LogTable";
 import { AdminAuth } from "@/lib/admin-auth";
 
@@ -298,7 +299,7 @@ export default function AdminHub() {
     {
       name: "Force Alerts",
       description: "Manually trigger price drop alerts",
-      href: `/admin/force-alerts`,
+      tabId: "force-alerts",
       icon: Zap,
       badge: "Testing"
     }
@@ -454,6 +455,17 @@ export default function AdminHub() {
           return (
             <div className="space-y-6">
               <EmailTestPanel />
+              <div className="pt-4">
+                <Button variant="outline" onClick={() => handleTabChange('email')}>
+                  Back to Email System
+                </Button>
+              </div>
+            </div>
+          );
+        case 'force-alerts':
+          return (
+            <div className="space-y-6">
+              <ForceAlertsPanel />
               <div className="pt-4">
                 <Button variant="outline" onClick={() => handleTabChange('email')}>
                   Back to Email System
@@ -884,26 +896,7 @@ export default function AdminHub() {
             <CardContent>
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
                 {emailTools.map((tool) => (
-                  tool.href ? (
-                    <Link key={tool.name} href={tool.href}>
-                      <Card className="cursor-pointer transition-all hover:shadow-md hover:scale-105">
-                        <CardContent className="p-4">
-                          <div className="flex items-start justify-between mb-3">
-                            <tool.icon className="h-5 w-5 text-blue-600" />
-                            <Badge variant="secondary" className="text-xs">
-                              {tool.badge}
-                            </Badge>
-                          </div>
-                          <h3 className="font-semibold mb-1">{tool.name}</h3>
-                          <p className="text-sm text-gray-600 leading-relaxed">
-                            {tool.description}
-                          </p>
-                        </CardContent>
-                      </Card>
-                    </Link>
-                  ) : (
-                    <ToolCard key={tool.name} tool={tool} />
-                  )
+                  <ToolCard key={tool.name} tool={tool} />
                 ))}
               </div>
             </CardContent>

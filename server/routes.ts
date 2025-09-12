@@ -2706,6 +2706,10 @@ Respond with just the analysis text, no JSON needed.
   // Email testing routes
   app.use('/api/admin', emailTestRoutes);
 
+  // Import and use force alerts routes
+  const forceAlertsRoutes = await import('./routes/forceAlerts');
+  app.use('/api/admin/force-alerts', forceAlertsRoutes.default);
+
   // Affiliate redirect routes
   const affiliateRoutes = await import('./routes/affiliate');
   app.use('/', affiliateRoutes.default);
