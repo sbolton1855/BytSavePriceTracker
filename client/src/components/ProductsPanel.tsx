@@ -45,7 +45,7 @@ interface ProductSummary {
 
 // Response structure for products with pagination
 interface ProductsResponse {
-  data: ProductSummary[];
+  products: ProductSummary[];
   pagination: {
     page: number;
     limit: number;
@@ -65,7 +65,7 @@ export default function ProductsPanel() {
   const [sortBy, setSortBy] = useState<string | null>('createdAt');
   const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('desc');
 
-  const { data: productsData, isLoading, refetch } = useQuery<ProductSummary[]>({
+  const { data: productsResponse, isLoading, refetch } = useQuery<ProductsResponse>({
     queryKey: ['admin-products', currentPage, searchFilter, sortBy, sortOrder],
     queryFn: async () => {
       const token = AdminAuth.getToken();
@@ -90,19 +90,19 @@ export default function ProductsPanel() {
       const result = await response.json();
       
       // Handle both paginated response format and direct array format
-      let products = [];
+      let rawProducts = [];
       if (Array.isArray(result.data)) {
-        products = result.data;
+        rawProducts = result.data;
       } else if (Array.isArray(result)) {
-        products = result;
+        rawProducts = result;
       } else {
-        products = [];
+        rawProducts = [];
       }
 
       // Transform data into ProductSummary format with tracker counts
       const productMap = new Map<string, ProductSummary>();
 
-      products.forEach((item: TrackedProductAdmin) => {
+      rawProducts.forEach((item: TrackedProductAdmin) => {
         const asin = item.product.asin;
 
         if (productMap.has(asin)) {
@@ -125,7 +125,19 @@ export default function ProductsPanel() {
         }
       });
 
-      return Array.from(productMap.values());
+      const products = Array.from(productMap.values());
+
+      // Create pagination object
+      const pagination = {
+        page: currentPage,
+        limit: 25,
+        total: products.length,
+        totalPages: Math.ceil(products.length / 25),
+        hasNext: currentPage < Math.ceil(products.length / 25),
+        hasPrev: currentPage > 1
+      };
+
+      return { products, pagination };
     }
   });
 
@@ -230,7 +242,8 @@ export default function ProductsPanel() {
 
   // Export products to CSV
   const exportProducts = () => {
-    if (!productsData || productsData.length === 0) {
+    const products = productsResponse?.products || [];
+    if (products.length === 0) {
       toast({
         title: "No data to export",
         description: "There are no products to export.",
@@ -240,7 +253,7 @@ export default function ProductsPanel() {
     }
 
     const csvHeaders = ['ASIN', 'Title', 'Current Price', 'Tracker Count', 'Tracked By', 'Last Updated', 'Created Date'];
-    const csvRows = productsData.map(product => [
+    const csvRows = products.map(product => [
       product.asin,
       `"${product.title.replace(/"/g, '""')}"`,
       product.currentPrice.toFixed(2),
@@ -261,39 +274,30 @@ export default function ProductsPanel() {
 
     toast({
       title: "Export successful",
-      description: `Exported ${productsData.length} products to CSV.`
+      description: `Exported ${products.length} products to CSV.`
     });
   };
 
   // Calculate summary statistics
-  const totalProducts = productsData?.length || 0;
-  const totalTrackers = productsData?.reduce((sum, p) => sum + p.trackerCount, 0) || 0;
+  const products = productsResponse?.products || [];
+  const totalProducts = products.length;
+  const totalTrackers = products.reduce((sum, p) => sum + p.trackerCount, 0);
   const avgPrice = totalProducts > 0 
-    ? (productsData?.reduce((sum, p) => sum + p.currentPrice, 0) || 0) / totalProducts 
+    ? products.reduce((sum, p) => sum + p.currentPrice, 0) / totalProducts 
     : 0;
 
-  // Create pagination object for LogTable
-  const pagination = {
-    page: currentPage,
-    limit: 25,
-    total: totalProducts,
-    totalPages: Math.ceil(totalProducts / 25),
-    hasNext: currentPage < Math.ceil(totalProducts / 25),
-    hasPrev: currentPage > 1
-  };
-
   return (
-    <Card>
-      <CardHeader>
-        <CardTitle className="flex items-center gap-2">
-          <Package className="h-5 w-5" />
-          Products Management
-        </CardTitle>
-        <CardDescription>View and manage all tracked products</CardDescription>
-      </CardHeader>
-      <CardContent>
-        <div className="space-y-6">
-          {/* Product Data Summary */}
+    <div className="space-y-6">
+      {/* Product Data Summary */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <Package className="h-5 w-5" />
+            Products Management
+          </CardTitle>
+          <CardDescription>View and manage all tracked products</CardDescription>
+        </CardHeader>
+        <CardContent>
           <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
             <h4 className="font-medium text-blue-800 mb-2">Product Data Summary</h4>
             <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
@@ -317,76 +321,76 @@ export default function ProductsPanel() {
               </div>
             </div>
           </div>
+        </CardContent>
+      </Card>
 
-          {/* Product Controls Panel */}
-          <Card>
-            <CardHeader>
-              <CardTitle className="text-lg">Product Controls</CardTitle>
-              <CardDescription>Search, filter, and manage tracked products</CardDescription>
-            </CardHeader>
-            <CardContent>
-              <div className="flex flex-wrap gap-4 items-center">
-                <div className="flex-1 min-w-[200px]">
-                  <label className="text-sm font-medium text-gray-700 mb-1 block">
-                    Search Products
-                  </label>
-                  <div className="relative">
-                    <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
-                    <Input
-                      type="text"
-                      placeholder="Search by title or ASIN..."
-                      value={searchFilter}
-                      onChange={(e) => handleSearch(e.target.value)}
-                      className="pl-10"
-                    />
-                  </div>
-                </div>
-
-                <div className="flex gap-2">
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={() => {
-                      setSearchFilter('');
-                      setSortBy('createdAt');
-                      setSortOrder('desc');
-                      setCurrentPage(1);
-                    }}
-                  >
-                    Clear Filters
-                  </Button>
-                </div>
+      {/* Product Controls Panel */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="text-lg">Product Controls</CardTitle>
+          <CardDescription>Search, filter, and manage tracked products</CardDescription>
+        </CardHeader>
+        <CardContent>
+          <div className="flex flex-wrap gap-4 items-center">
+            <div className="flex-1 min-w-[200px]">
+              <label className="text-sm font-medium text-gray-700 mb-1 block">
+                Search Products
+              </label>
+              <div className="relative">
+                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
+                <Input
+                  type="text"
+                  placeholder="Search by title or ASIN..."
+                  value={searchFilter}
+                  onChange={(e) => handleSearch(e.target.value)}
+                  className="pl-10"
+                />
               </div>
-            </CardContent>
-          </Card>
-
-          {/* Products Table */}
-          <LogTable
-            data={productsData || []}
-            loading={isLoading}
-            columns={columns}
-            sortBy={sortBy || undefined}
-            sortOrder={sortOrder}
-            onSort={handleSort}
-            pagination={pagination}
-            onPageChange={handlePageChange}
-            onRefresh={() => refetch()}
-            onExport={exportProducts}
-            title="Tracked Products"
-            emptyMessage="No tracked products found. Products will appear here once users start tracking them."
-            emptyIcon={<Package className="h-12 w-12 mx-auto text-gray-400" />}
-          >
-            {/* Data source indicator */}
-            <div className="flex items-center gap-4 text-sm text-gray-600 mb-4">
-              <span><strong>Data source:</strong> DATABASE</span>
-              <span><strong>Products shown:</strong> {productsData?.length || 0}</span>
-              {searchFilter && (
-                <span><strong>Search:</strong> "{searchFilter}"</span>
-              )}
             </div>
-          </LogTable>
+
+            <div className="flex gap-2">
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => {
+                  setSearchFilter('');
+                  setSortBy('createdAt');
+                  setSortOrder('desc');
+                  setCurrentPage(1);
+                }}
+              >
+                Clear Filters
+              </Button>
+            </div>
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* Products Table */}
+      <LogTable
+        data={products}
+        loading={isLoading}
+        columns={columns}
+        sortBy={sortBy || undefined}
+        sortOrder={sortOrder}
+        onSort={handleSort}
+        pagination={productsResponse?.pagination}
+        onPageChange={handlePageChange}
+        onRefresh={() => refetch()}
+        onExport={exportProducts}
+        title="Tracked Products"
+        emptyMessage="No tracked products found. Products will appear here once users start tracking them."
+        emptyIcon={<Package className="h-12 w-12 mx-auto text-gray-400" />}
+      >
+        {/* Data source indicator */}
+        <div className="flex items-center gap-4 text-sm text-gray-600 mb-4">
+          <span><strong>Data source:</strong> DATABASE</span>
+          <span><strong>Products shown:</strong> {products.length}</span>
+          {searchFilter && (
+            <span><strong>Search:</strong> "{searchFilter}"</span>
+          )}
         </div>
-      </CardContent>
-    </Card>
+      </LogTable>
+    </div>
   );
 }
