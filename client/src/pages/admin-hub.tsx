@@ -26,8 +26,13 @@ import {
   ChevronDown,
   Filter
 } from "lucide-react";
-import ApiErrorsPanel from "@/components/ApiErrorsPanel";
-import { AdminAuth } from "@/lib/admin-auth";
+import ApiErrorsPanel from '@/components/ApiErrorsPanel';
+import AnalyticsPanel from '@/components/AnalyticsPanel';
+import ProductsPanel from '@/components/ProductsPanel';
+import EmailPanel from '@/components/EmailPanel';
+import EmailLogsPanel from '@/components/EmailLogsPanel';
+import ToolsPanel from '@/components/ToolsPanel';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 
 // Product tracking data interface
 interface TrackedProductAdmin {
@@ -202,7 +207,7 @@ export default function AdminHub() {
         console.warn("Unexpected API response format:", result);
         products = [];
       }
-      
+
       console.log("✅ Processed products array:", products);
       console.log("📊 Products array length:", products.length);
 
@@ -235,7 +240,7 @@ export default function AdminHub() {
       console.log("Transformed product data:", transformedProducts);
 
       setProducts(transformedProducts);
-      
+
       // Handle pagination - use provided pagination or create default for direct array
       if (result.pagination) {
         setProductsPagination(result.pagination);
@@ -1026,10 +1031,39 @@ export default function AdminHub() {
         </Card>
 
         {/* Tabbed Navigation */}
-        <AdminTabNav activeTab={activeTab} onTabChange={handleTabChange} />
+        <Tabs defaultValue={activeTab} onValueChange={(value) => handleTabChange(value)} className="w-full">
+          <TabsList className="grid w-full grid-cols-7">
+          <TabsTrigger value="dashboard">Dashboard</TabsTrigger>
+          <TabsTrigger value="api-errors">API Errors</TabsTrigger>
+          <TabsTrigger value="analytics">Analytics</TabsTrigger>
+          <TabsTrigger value="manage-products">Products</TabsTrigger>
+          <TabsTrigger value="email">Email</TabsTrigger>
+          <TabsTrigger value="email-logs">Email Logs</TabsTrigger>
+          <TabsTrigger value="tools">Tools</TabsTrigger>
+        </TabsList>
+          <TabsContent value="dashboard" className="mt-6">
+            {renderTabContent()}
+          </TabsContent>
+          <TabsContent value="api-errors" className="mt-6">
+            {renderTabContent()}
+          </TabsContent>
+          <TabsContent value="analytics" className="mt-6">
+            {renderTabContent()}
+          </TabsContent>
+          <TabsContent value="manage-products" className="mt-6">
+            {renderTabContent()}
+          </TabsContent>
+          <TabsContent value="email" className="mt-6">
+          <EmailPanel />
+        </TabsContent>
 
-        {/* Tab Content */}
-        {renderTabContent()}
+        <TabsContent value="email-logs" className="mt-6">
+          <EmailLogsPanel />
+        </TabsContent>
+          <TabsContent value="tools" className="mt-6">
+            {renderTabContent()}
+          </TabsContent>
+        </Tabs>
 
         {/* Quick Actions - always visible */}
         <Card className="mt-8">
