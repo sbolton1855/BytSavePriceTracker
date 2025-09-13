@@ -98,14 +98,20 @@ const isEmailConfigured = () => {
 
 // Helper function to get the correct domain for OAuth callbacks
 function getBaseDomain(): string {
-  // First try REPLIT_APP_URL (most reliable for deployed apps)
+  // First priority: BASE_URL (most flexible for deployment)
+  if (process.env.BASE_URL) {
+    console.log(`🌐 Using BASE_URL for OAuth: ${process.env.BASE_URL}`);
+    return process.env.BASE_URL;
+  }
+  
+  // Second priority: REPLIT_APP_URL (reliable for deployed apps)
   if (process.env.REPLIT_APP_URL) {
     const appUrl = process.env.REPLIT_APP_URL;
     console.log(`🌐 Using REPLIT_APP_URL for OAuth: ${appUrl}`);
     return appUrl;
   }
   
-  // Try custom domain override
+  // Third priority: Custom domain override
   if (process.env.CALLBACK_BASE_URL) {
     console.log(`🌐 Using CALLBACK_BASE_URL for OAuth: ${process.env.CALLBACK_BASE_URL}`);
     return process.env.CALLBACK_BASE_URL;
@@ -211,7 +217,8 @@ export function configureAuth(app: Express) {
     console.log(`🔧 Setting up Google OAuth with Client ID: ${process.env.GOOGLE_CLIENT_ID?.substring(0, 8)}...`);
     console.log(`🔗 Using callback URL: ${callbackUrl}`);
     console.log(`🌐 Base domain detected: ${domain}`);
-    console.log(`📋 Environment variables available:`);
+    console.log(`📋 Environment variables available (in priority order):`);
+    console.log(`   BASE_URL: ${process.env.BASE_URL || 'NOT SET'}`);
     console.log(`   REPLIT_APP_URL: ${process.env.REPLIT_APP_URL || 'NOT SET'}`);
     console.log(`   CALLBACK_BASE_URL: ${process.env.CALLBACK_BASE_URL || 'NOT SET'}`);
     console.log(`   REPL_SLUG: ${process.env.REPL_SLUG || 'NOT SET'}`);
