@@ -103,27 +103,27 @@ function getBaseDomain(): string {
     console.log(`🌐 Using BASE_URL for OAuth: ${process.env.BASE_URL}`);
     return process.env.BASE_URL;
   }
-  
+
   // Second priority: REPLIT_APP_URL (reliable for deployed apps)
   if (process.env.REPLIT_APP_URL) {
     const appUrl = process.env.REPLIT_APP_URL;
     console.log(`🌐 Using REPLIT_APP_URL for OAuth: ${appUrl}`);
     return appUrl;
   }
-  
+
   // Third priority: Custom domain override
   if (process.env.CALLBACK_BASE_URL) {
     console.log(`🌐 Using CALLBACK_BASE_URL for OAuth: ${process.env.CALLBACK_BASE_URL}`);
     return process.env.CALLBACK_BASE_URL;
   }
-  
+
   // Legacy fallback for older Replit environments
   if (process.env.REPL_SLUG && process.env.REPL_OWNER) {
     const legacyUrl = `https://${process.env.REPL_OWNER}.${process.env.REPL_SLUG}.replit.dev`;
     console.log(`🌐 Using legacy REPL_SLUG/REPL_OWNER for OAuth: ${legacyUrl}`);
     return legacyUrl;
   }
-  
+
   // Development fallback
   console.log(`🌐 Using development fallback for OAuth: http://localhost:5000`);
   return 'http://localhost:5000';
@@ -137,7 +137,7 @@ export function configureAuth(app: Express) {
   }
 
   const sessionSecret = process.env.SESSION_SECRET || Math.random().toString(36).substring(2);
-  
+
   // Set SendGrid API key if available
   if (process.env.SENDGRID_API_KEY) {
     sgMail.setApiKey(process.env.SENDGRID_API_KEY);
@@ -153,7 +153,7 @@ export function configureAuth(app: Express) {
 
   // Configure Express to trust proxy (required for Replit)
   app.set('trust proxy', 1);
-  
+
   // Configure session middleware
   app.use(session({
     store: sessionStore,
@@ -216,7 +216,7 @@ export function configureAuth(app: Express) {
   if (process.env.GOOGLE_CLIENT_ID && process.env.GOOGLE_CLIENT_SECRET) {
     const domain = getBaseDomain();
     const callbackUrl = `${domain}/api/auth/google/callback`;
-    
+
     console.log(`🔧 Setting up Google OAuth with Client ID: ${process.env.GOOGLE_CLIENT_ID?.substring(0, 8)}...`);
     console.log(`🔗 Using callback URL: ${callbackUrl}`);
     console.log(`🌐 Base domain detected: ${domain}`);
@@ -227,7 +227,7 @@ export function configureAuth(app: Express) {
     console.log(`   REPL_SLUG: ${process.env.REPL_SLUG || 'NOT SET'}`);
     console.log(`   REPL_OWNER: ${process.env.REPL_OWNER || 'NOT SET'}`);
     console.log(`⚠️  EXPECTED Google Cloud Console Redirect URI: ${callbackUrl}`);
-    
+
     passport.use(new GoogleStrategy({
       clientID: process.env.GOOGLE_CLIENT_ID,
       clientSecret: process.env.GOOGLE_CLIENT_SECRET,
@@ -236,9 +236,9 @@ export function configureAuth(app: Express) {
     async (accessToken, refreshToken, profile, done) => {
       try {
         console.log(`👤 Google OAuth callback received for user: ${profile.emails?.[0]?.value}`);
-        
+
         const email = profile.emails?.[0]?.value;
-        
+
         if (!email) {
           console.error('❌ No email found in Google profile');
           return done(new Error('No email found in Google profile'), false);
@@ -246,7 +246,7 @@ export function configureAuth(app: Express) {
 
         // Check if user exists by email
         let user = await storage.getUserByEmail(email);
-        
+
         if (!user) {
           console.log(`✨ Creating new user for Google login: ${email}`);
           // Create new user with Google data
@@ -309,14 +309,14 @@ export function configureAuth(app: Express) {
   app.get('/api/auth/google', (req, res, next) => {
     const currentDomain = getBaseDomain();
     const expectedRedirectUri = `${currentDomain}/api/auth/google/callback`;
-    
+
     console.log(`🚀 Starting Google OAuth flow from: ${req.get('host')}`);
     console.log(`🔗 Referer: ${req.get('referer') || 'none'}`);
     console.log(`🎯 REDIRECT_URI being sent to Google: ${expectedRedirectUri}`);
     console.log(`📋 Verify this matches your Google Cloud Console settings exactly:`);
     console.log(`   Authorized JavaScript origins: ${currentDomain}`);
     console.log(`   Authorized redirect URIs: ${expectedRedirectUri}`);
-    
+
     passport.authenticate('google', { scope: ['profile', 'email'] })(req, res, next);
   });
 
@@ -324,14 +324,14 @@ export function configureAuth(app: Express) {
     // Detect protocol - trust X-Forwarded-Proto header for Replit
     const forwardedProto = req.get('X-Forwarded-Proto');
     const detectedProtocol = forwardedProto || req.protocol;
-    
+
     // Force HTTPS when running in Replit environment
     const isReplit = process.env.REPLIT_APP_URL || process.env.REPL_SLUG;
     const correctedProtocol = isReplit ? 'https' : detectedProtocol;
-    
+
     const actualCallbackUrl = `${correctedProtocol}://${req.get('host')}${req.originalUrl}`;
     const expectedCallbackUrl = `${getBaseDomain()}/api/auth/google/callback`;
-    
+
     console.log(`📞 Google OAuth callback received`);
     console.log(`🌐 Environment detection - isReplit: ${!!isReplit}`);
     console.log(`🔒 Protocol detection - req.protocol: ${req.protocol}, X-Forwarded-Proto: ${forwardedProto}, corrected: ${correctedProtocol}`);
@@ -341,7 +341,7 @@ export function configureAuth(app: Express) {
     console.log(`📋 Query params:`, req.query);
     console.log(`🌐 Request host: ${req.get('host')}`);
     console.log(`📝 Session ID before auth: ${req.sessionID}`);
-    
+
     passport.authenticate('google', { 
       failureRedirect: '/auth?error=google_auth_failed',
       failureMessage: true 
@@ -355,14 +355,26 @@ export function configureAuth(app: Express) {
       email: req.user?.email,
       provider: req.user?.provider
     });
-    
+    console.log(`🍪 Session data before redirect:`, {
+      sessionID: req.sessionID,
+      session: req.session,
+      cookies: req.headers.cookie,
+      isAuthenticated: req.isAuthenticated()
+    });
+
     // Force session save to ensure persistence
     req.session.save((err) => {
       if (err) {
         console.error('❌ Session save error:', err);
         return res.redirect('/auth?error=session_save_failed');
       }
-      console.log(`💾 Session saved successfully`);
+
+      console.log('✅ Session saved successfully, redirecting to dashboard');
+      console.log(`🍪 Final session state:`, {
+        sessionID: req.sessionID,
+        passport: req.session.passport,
+        authenticated: req.isAuthenticated()
+      });
       res.redirect('/dashboard');
     });
   });
@@ -410,7 +422,7 @@ export function configureAuth(app: Express) {
 
           // Generate secure random token (32 bytes = 64 hex chars)
           const resetToken = randomBytes(32).toString('hex');
-          
+
           // Set expiration to 1 hour from now for production
           const expiresAt = new Date(Date.now() + 60 * 60 * 1000);
 
@@ -427,7 +439,7 @@ export function configureAuth(app: Express) {
 
           // Use SendGrid service directly for better error handling
           const { sendGridEmail } = await import('./emailService');
-          
+
           const emailHtml = `
             <!DOCTYPE html>
             <html>
