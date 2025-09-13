@@ -229,7 +229,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     res.sendFile(path.join(__dirname, '../client/index.html'));
   });
 
-  // Import the middleware
+  // Import the middleware at the top level
   const { requireAdmin } = await import('./middleware/requireAdmin');
 
   // Admin email templates route
@@ -2487,12 +2487,7 @@ Respond with just the analysis text, no JSON needed.
   });
 
   // Get all tracked products for admin
-  app.get('/api/admin/products', async (req: Request, res: Response) => {
-    const { token } = req.query;
-
-    if (!token || token !== process.env.ADMIN_SECRET) {
-      return res.status(403).json({ error: 'Unauthorized' });
-    }
+  app.get('/api/admin/products', requireAdmin, async (req: Request, res: Response) => {
 
     try {
       const trackedProductsList = await db

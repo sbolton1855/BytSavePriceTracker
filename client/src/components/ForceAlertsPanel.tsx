@@ -52,9 +52,9 @@ export default function ForceAlertsPanel() {
       setIsLoadingProducts(true);
       try {
         console.log('[ForceAlerts] Loading products...');
-        const response = await fetch('/api/admin/products', {
+        const adminToken = AdminAuth.getToken();
+        const response = await fetch(`/api/admin/products?token=${adminToken}`, {
           headers: {
-            'Authorization': `Bearer ${AdminAuth.getToken()}`,
             'Content-Type': 'application/json'
           }
         });
