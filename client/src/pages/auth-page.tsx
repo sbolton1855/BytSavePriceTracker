@@ -327,6 +327,20 @@ function LoginForm({
           )}
         </Button>
 
+        <div className="text-center mt-4">
+          <Button 
+            type="button" 
+            variant="link" 
+            className="text-sm text-muted-foreground hover:text-primary"
+            onClick={() => window.location.href = '/forgot-password.html'}
+          >
+            Forgot your password?
+          </Button>
+        </div>
+      </form>
+
+      {/* Google OAuth - Outside of form */}
+      <div className="px-6 pb-2">
         <div className="relative my-4">
           <div className="absolute inset-0 flex items-center">
             <span className="w-full border-t" />
@@ -358,18 +372,7 @@ function LoginForm({
           </svg>
           Sign in with Google
         </Button>
-
-        <div className="text-center mt-4">
-          <Button 
-            type="button" 
-            variant="link" 
-            className="text-sm text-muted-foreground hover:text-primary"
-            onClick={() => window.location.href = '/forgot-password.html'}
-          >
-            Forgot your password?
-          </Button>
-        </div>
-      </form>
+      </div>
     </Form>
   );
 }
@@ -583,6 +586,10 @@ function RegisterForm({
           )}
         </Button>
 
+        </form>
+
+      {/* Google OAuth - Outside of form */}
+      <div className="px-6 pb-2">
         <div className="relative my-4">
           <div className="absolute inset-0 flex items-center">
             <span className="w-full border-t" />
@@ -614,7 +621,7 @@ function RegisterForm({
           </svg>
           Sign up with Google
         </Button>
-      </form>
+      </div>
     </Form>
   );
 }
