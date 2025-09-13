@@ -755,12 +755,33 @@ export function configureAuth(app: Express) {
 
   // Auth check route (alternative endpoint)
   app.get('/api/auth/me', (req, res) => {
+    console.log('🔍 /api/auth/me endpoint hit - isAuthenticated:', req.isAuthenticated());
     if (req.isAuthenticated()) {
+      console.log('✅ User authenticated:', req.user?.email);
       res.json({ 
         authenticated: true, 
         user: req.user 
       });
     } else {
+      console.log('❌ User not authenticated');
+      res.json({ 
+        authenticated: false, 
+        user: null 
+      });
+    }
+  });
+
+  // Simple /me route for auth checking
+  app.get('/me', (req, res) => {
+    console.log('🔍 /me endpoint hit - isAuthenticated:', req.isAuthenticated());
+    if (req.user) {
+      console.log('✅ User found on /me:', req.user?.email);
+      res.json({ 
+        authenticated: true, 
+        user: req.user 
+      });
+    } else {
+      console.log('❌ No user found on /me');
       res.json({ 
         authenticated: false, 
         user: null 
