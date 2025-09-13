@@ -752,6 +752,21 @@ export function configureAuth(app: Express) {
       res.status(401).json({ message: 'Not authenticated' });
     }
   });
+
+  // Auth check route (alternative endpoint)
+  app.get('/api/auth/me', (req, res) => {
+    if (req.isAuthenticated()) {
+      res.json({ 
+        authenticated: true, 
+        user: req.user 
+      });
+    } else {
+      res.json({ 
+        authenticated: false, 
+        user: null 
+      });
+    }
+  });
 }
 
 // Middleware to ensure authentication

@@ -37,12 +37,20 @@ export default function AuthPage() {
         if (response.ok) {
           const authData = await response.json();
           console.log("✅ /api/auth/me response:", authData);
+          console.log("✅ /api/auth/me response type:", typeof authData);
+          console.log("✅ /api/auth/me response keys:", Object.keys(authData || {}));
+          console.log("✅ authData.authenticated:", authData?.authenticated);
+          console.log("✅ authData.user:", authData?.user);
+          console.log("✅ authData itself (if it's the user object):", authData?.id ? "Has ID - might be user object" : "No ID - not user object");
           
-          if (authData && authData.authenticated === true) {
+          // Check if authData.authenticated === true OR if authData is the user object itself
+          if ((authData && authData.authenticated === true) || (authData && authData.id)) {
             console.log("🚀 User is authenticated, redirecting to dashboard...");
             setLocation("/dashboard");
           } else {
             console.log("❌ User is not authenticated");
+            console.log("❌ Debug: authData.authenticated =", authData?.authenticated);
+            console.log("❌ Debug: authData.id =", authData?.id);
           }
         } else {
           const errorText = await response.text();
