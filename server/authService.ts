@@ -151,6 +151,9 @@ export function configureAuth(app: Express) {
     createTableIfMissing: false, // We've already created it with Drizzle
   });
 
+  // Configure Express to trust proxy (required for Replit)
+  app.set('trust proxy', 1);
+  
   // Configure session middleware
   app.use(session({
     store: sessionStore,
@@ -318,25 +321,50 @@ export function configureAuth(app: Express) {
   });
 
   app.get('/api/auth/google/callback', (req, res, next) => {
-    const actualCallbackUrl = `${req.protocol}://${req.get('host')}${req.originalUrl}`;
+    // Detect protocol - trust X-Forwarded-Proto header for Replit
+    const forwardedProto = req.get('X-Forwarded-Proto');
+    const detectedProtocol = forwardedProto || req.protocol;
+    
+    // Force HTTPS when running in Replit environment
+    const isReplit = process.env.REPLIT_APP_URL || process.env.REPL_SLUG;
+    const correctedProtocol = isReplit ? 'https' : detectedProtocol;
+    
+    const actualCallbackUrl = `${correctedProtocol}://${req.get('host')}${req.originalUrl}`;
     const expectedCallbackUrl = `${getBaseDomain()}/api/auth/google/callback`;
     
     console.log(`📞 Google OAuth callback received`);
+    console.log(`🌐 Environment detection - isReplit: ${!!isReplit}`);
+    console.log(`🔒 Protocol detection - req.protocol: ${req.protocol}, X-Forwarded-Proto: ${forwardedProto}, corrected: ${correctedProtocol}`);
     console.log(`🔗 Actual callback URL: ${actualCallbackUrl}`);
     console.log(`🎯 Expected callback URL: ${expectedCallbackUrl}`);
     console.log(`✅ URLs match: ${actualCallbackUrl.startsWith(expectedCallbackUrl)}`);
     console.log(`📋 Query params:`, req.query);
     console.log(`🌐 Request host: ${req.get('host')}`);
-    console.log(`🔒 Request protocol: ${req.protocol}`);
+    console.log(`📝 Session ID before auth: ${req.sessionID}`);
     
     passport.authenticate('google', { 
       failureRedirect: '/auth?error=google_auth_failed',
       failureMessage: true 
     })(req, res, next);
   }, (req, res) => {
-    console.log(`✅ Google OAuth successful, redirecting to dashboard`);
-    // Successful authentication, redirect to dashboard
-    res.redirect('/dashboard');
+    console.log(`✅ Google OAuth successful for user: ${req.user?.email}`);
+    console.log(`📝 Session ID after auth: ${req.sessionID}`);
+    console.log(`🔐 Session authenticated: ${req.isAuthenticated()}`);
+    console.log(`👤 User object:`, {
+      id: req.user?.id,
+      email: req.user?.email,
+      provider: req.user?.provider
+    });
+    
+    // Force session save to ensure persistence
+    req.session.save((err) => {
+      if (err) {
+        console.error('❌ Session save error:', err);
+        return res.redirect('/auth?error=session_save_failed');
+      }
+      console.log(`💾 Session saved successfully`);
+      res.redirect('/dashboard');
+    });
   });
 
   // Logout route
