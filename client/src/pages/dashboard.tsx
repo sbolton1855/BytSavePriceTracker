@@ -9,6 +9,7 @@ import { useAuth } from "@/hooks/use-auth";
 import { useToast } from "@/hooks/use-toast";
 
 const Dashboard: React.FC = () => {
+  console.log("📍 Router mounted: /dashboard");
   const { user } = useAuth();
   const { toast } = useToast();
   const [refreshTrigger, setRefreshTrigger] = useState(0);
