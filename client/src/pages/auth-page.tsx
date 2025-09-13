@@ -340,9 +340,13 @@ function LoginForm({
           type="button" 
           variant="outline" 
           className="w-full" 
-          onClick={() => {
-            console.log("🔄 Redirecting to Google OAuth...");
-            window.location.href = '/api/auth/google';
+          onClick={(e) => {
+            e.preventDefault();
+            if (!isSubmitting) {
+              setIsSubmitting(true);
+              console.log("🔄 Redirecting to Google OAuth...");
+              window.location.href = '/api/auth/google';
+            }
           }}
           disabled={isSubmitting}
         >
@@ -592,9 +596,13 @@ function RegisterForm({
           type="button" 
           variant="outline" 
           className="w-full" 
-          onClick={() => {
-            console.log("🔄 Redirecting to Google OAuth...");
-            window.location.href = '/api/auth/google';
+          onClick={(e) => {
+            e.preventDefault();
+            if (!isSubmitting) {
+              setIsSubmitting(true);
+              console.log("🔄 Redirecting to Google OAuth...");
+              window.location.href = '/api/auth/google';
+            }
           }}
           disabled={isSubmitting}
         >
