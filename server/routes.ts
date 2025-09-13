@@ -1985,6 +1985,49 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Google OAuth configuration diagnostic endpoint
+  app.get('/api/debug/google-oauth', async (req: Request, res: Response) => {
+    try {
+      const domain = process.env.REPL_SLUG && process.env.REPL_OWNER 
+        ? `https://${process.env.REPL_OWNER}.${process.env.REPL_SLUG}.replit.dev`
+        : process.env.CALLBACK_BASE_URL || 'http://localhost:5000';
+      
+      const expectedCallbackUrl = `${domain}/api/auth/google/callback`;
+      
+      const diagnostics = {
+        success: true,
+        configuration: {
+          clientId: process.env.GOOGLE_CLIENT_ID ? 
+            `${process.env.GOOGLE_CLIENT_ID.substring(0, 8)}...` : 'NOT SET',
+          clientSecret: process.env.GOOGLE_CLIENT_SECRET ? 'SET' : 'NOT SET',
+          baseDomain: domain,
+          callbackUrl: expectedCallbackUrl,
+          replSlug: process.env.REPL_SLUG || 'NOT SET',
+          replOwner: process.env.REPL_OWNER || 'NOT SET'
+        },
+        expectedGoogleCloudConsoleSettings: {
+          clientType: 'Web application',
+          authorizedJavaScriptOrigins: [domain],
+          authorizedRedirectUris: [expectedCallbackUrl]
+        },
+        verificationSteps: [
+          'Verify your Google Cloud Console OAuth 2.0 Client ID matches the configuration above',
+          'Ensure the Authorized JavaScript origins includes: ' + domain,
+          'Ensure the Authorized redirect URIs includes: ' + expectedCallbackUrl,
+          'Make sure your Client ID and Secret in .env match Google Cloud Console'
+        ]
+      };
+
+      res.json(diagnostics);
+    } catch (error: any) {
+      console.error('Google OAuth diagnostic error:', error);
+      res.status(500).json({
+        success: false,
+        error: error.message || 'Failed to generate OAuth diagnostics'
+      });
+    }
+  });
+
   // Environment variable diagnostic endpoint
   app.get('/api/debug/env-vars', async (req: Request, res: Response) => {
     try {

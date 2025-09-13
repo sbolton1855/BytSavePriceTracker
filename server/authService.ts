@@ -96,6 +96,22 @@ const isEmailConfigured = () => {
   return !!(process.env.SENDGRID_API_KEY && process.env.EMAIL_FROM);
 };
 
+// Helper function to get the correct domain for OAuth callbacks
+function getBaseDomain(): string {
+  // For production/deployed Replit apps
+  if (process.env.REPL_SLUG && process.env.REPL_OWNER) {
+    return `https://${process.env.REPL_OWNER}.${process.env.REPL_SLUG}.replit.dev`;
+  }
+  
+  // For custom domains or manual override
+  if (process.env.CALLBACK_BASE_URL) {
+    return process.env.CALLBACK_BASE_URL;
+  }
+  
+  // Fallback for development
+  return 'http://localhost:5000';
+}
+
 // Function to initialize authentication
 export function configureAuth(app: Express) {
   // Secret is required for session
@@ -178,16 +194,26 @@ export function configureAuth(app: Express) {
 
   // Configure Google OAuth Strategy
   if (process.env.GOOGLE_CLIENT_ID && process.env.GOOGLE_CLIENT_SECRET) {
+    const domain = getBaseDomain();
+    const callbackUrl = `${domain}/api/auth/google/callback`;
+    
+    console.log(`🔧 Setting up Google OAuth with Client ID: ${process.env.GOOGLE_CLIENT_ID?.substring(0, 8)}...`);
+    console.log(`🔗 Using callback URL: ${callbackUrl}`);
+    console.log(`🌐 Base domain detected: ${domain}`);
+    
     passport.use(new GoogleStrategy({
       clientID: process.env.GOOGLE_CLIENT_ID,
       clientSecret: process.env.GOOGLE_CLIENT_SECRET,
-      callbackURL: "/api/auth/google/callback"
+      callbackURL: callbackUrl
     },
     async (accessToken, refreshToken, profile, done) => {
       try {
+        console.log(`👤 Google OAuth callback received for user: ${profile.emails?.[0]?.value}`);
+        
         const email = profile.emails?.[0]?.value;
         
         if (!email) {
+          console.error('❌ No email found in Google profile');
           return done(new Error('No email found in Google profile'), false);
         }
 
@@ -195,6 +221,7 @@ export function configureAuth(app: Express) {
         let user = await storage.getUserByEmail(email);
         
         if (!user) {
+          console.log(`✨ Creating new user for Google login: ${email}`);
           // Create new user with Google data
           user = await storage.upsertUser({
             email,
@@ -207,6 +234,7 @@ export function configureAuth(app: Express) {
             password: null, // No password for OAuth users
           });
         } else {
+          console.log(`✅ Existing user found for Google login: ${email}`);
           // Update existing user with Google data if they don't have it
           if (!user.provider || user.provider === 'local') {
             user = await storage.upsertUser({
@@ -218,14 +246,15 @@ export function configureAuth(app: Express) {
           }
         }
 
+        console.log(`✅ Google OAuth successful for: ${email}`);
         return done(null, dbUserToExpressUser(user));
       } catch (error) {
-        console.error('Google OAuth error:', error);
+        console.error('❌ Google OAuth error:', error);
         return done(error, false);
       }
     }));
   } else {
-    console.warn('Google OAuth not configured. Set GOOGLE_CLIENT_ID and GOOGLE_CLIENT_SECRET environment variables.');
+    console.warn('⚠️  Google OAuth not configured. Missing GOOGLE_CLIENT_ID and/or GOOGLE_CLIENT_SECRET environment variables.');
   }
 
   // Serialize user for session storage
@@ -250,17 +279,26 @@ export function configureAuth(app: Express) {
   // Note: OAuth providers removed - using local authentication only
 
   // Google OAuth routes
-  app.get('/api/auth/google',
-    passport.authenticate('google', { scope: ['profile', 'email'] })
-  );
+  app.get('/api/auth/google', (req, res, next) => {
+    console.log(`🚀 Starting Google OAuth flow from: ${req.get('host')}`);
+    console.log(`🔗 Referer: ${req.get('referer') || 'none'}`);
+    passport.authenticate('google', { scope: ['profile', 'email'] })(req, res, next);
+  });
 
-  app.get('/api/auth/google/callback',
-    passport.authenticate('google', { failureRedirect: '/auth?error=google_auth_failed' }),
-    (req, res) => {
-      // Successful authentication, redirect to dashboard
-      res.redirect('/dashboard');
-    }
-  );
+  app.get('/api/auth/google/callback', (req, res, next) => {
+    console.log(`📞 Google OAuth callback received`);
+    console.log(`🔗 Full callback URL: ${req.protocol}://${req.get('host')}${req.originalUrl}`);
+    console.log(`📋 Query params:`, req.query);
+    
+    passport.authenticate('google', { 
+      failureRedirect: '/auth?error=google_auth_failed',
+      failureMessage: true 
+    })(req, res, next);
+  }, (req, res) => {
+    console.log(`✅ Google OAuth successful, redirecting to dashboard`);
+    // Successful authentication, redirect to dashboard
+    res.redirect('/dashboard');
+  });
 
   // Logout route
   app.post('/api/logout', (req, res, next) => {
