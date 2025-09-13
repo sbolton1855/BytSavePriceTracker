@@ -17,12 +17,12 @@ export default function AuthPage() {
   const { user, isLoading } = useAuth();
   const [activeTab, setActiveTab] = useState<string>("login");
   const [isSubmitting, setIsSubmitting] = useState(false);
-  
+
   // Redirect if user is already logged in
   if (user && !isLoading) {
     return <Redirect to="/dashboard" />;
   }
-  
+
   return (
     <div className="min-h-screen flex flex-col md:flex-row">
       {/* Hero Section */}
@@ -61,7 +61,7 @@ export default function AuthPage() {
           </div>
         </div>
       </div>
-      
+
       {/* Auth Forms */}
       <div className="w-full md:w-1/2 p-8 flex items-center justify-center">
         <Card className="w-full max-w-md">
@@ -75,13 +75,13 @@ export default function AuthPage() {
                 : "Sign up to start tracking Amazon prices"}
             </CardDescription>
           </CardHeader>
-          
+
           <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v)} className="w-full">
             <TabsList className="grid w-full grid-cols-2">
               <TabsTrigger value="login">Login</TabsTrigger>
               <TabsTrigger value="register">Register</TabsTrigger>
             </TabsList>
-            
+
             <TabsContent value="login">
               <LoginForm 
                 setIsSubmitting={setIsSubmitting} 
@@ -89,7 +89,7 @@ export default function AuthPage() {
                 setActiveTab={setActiveTab} 
               />
             </TabsContent>
-            
+
             <TabsContent value="register">
               <RegisterForm 
                 setIsSubmitting={setIsSubmitting} 
@@ -98,7 +98,7 @@ export default function AuthPage() {
               />
             </TabsContent>
           </Tabs>
-          
+
           {/* Footer with helpful message and action buttons */}
           <CardFooter className="flex flex-col space-y-4 mt-4 border-t pt-4">
             <div className="text-sm text-center space-y-2">
@@ -151,7 +151,7 @@ function LoginForm({
   const { login } = useAuth();
   const [showPassword, setShowPassword] = useState(false);
   const [userNotFound, setUserNotFound] = useState(false);
-  
+
   const form = useForm<z.infer<typeof loginSchema>>({
     resolver: zodResolver(loginSchema),
     defaultValues: {
@@ -160,7 +160,7 @@ function LoginForm({
     },
     mode: "onChange", // Validates on change
   });
-  
+
   async function onSubmit(values: z.infer<typeof loginSchema>) {
     try {
       setIsSubmitting(true);
@@ -168,7 +168,7 @@ function LoginForm({
       await login(values);
     } catch (error: any) {
       console.error("Login error:", error);
-      
+
       // Check for specific error messages from backend
       if (error.message?.includes("Account not found") || error.response?.data?.userNotFound) {
         setUserNotFound(true);
@@ -191,15 +191,15 @@ function LoginForm({
       setIsSubmitting(false);
     }
   }
-  
+
   const togglePasswordVisibility = () => {
     setShowPassword(!showPassword);
   };
-  
+
   const switchToRegister = () => {
     setActiveTab("register");
   };
-  
+
   return (
     <Form {...form}>
       <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4 px-6 py-2">
@@ -208,7 +208,7 @@ function LoginForm({
             {form.formState.errors.root.message}
           </div>
         )}
-        
+
         <FormField
           control={form.control}
           name="email"
@@ -222,7 +222,7 @@ function LoginForm({
             </FormItem>
           )}
         />
-        
+
         <FormField
           control={form.control}
           name="password"
@@ -253,7 +253,7 @@ function LoginForm({
             </FormItem>
           )}
         />
-        
+
         {userNotFound && (
           <div className="text-sm text-primary p-2 rounded flex flex-col items-center">
             <p className="mb-2">New to BytSave? Create an account to get started.</p>
@@ -268,7 +268,7 @@ function LoginForm({
             </Button>
           </div>
         )}
-        
+
         <Button type="submit" className="w-full" disabled={isSubmitting}>
           {isSubmitting ? (
             <>
@@ -279,7 +279,7 @@ function LoginForm({
             "Login"
           )}
         </Button>
-        
+
         <div className="relative my-4">
           <div className="absolute inset-0 flex items-center">
             <span className="w-full border-t" />
@@ -288,7 +288,7 @@ function LoginForm({
             <span className="bg-background px-2 text-muted-foreground">Or continue with</span>
           </div>
         </div>
-        
+
         <button
           type="button"
           className="w-full flex items-center justify-center px-4 py-3 border border-[#dadce0] rounded-md bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 transition-colors duration-200 disabled:opacity-50 disabled:cursor-not-allowed"
@@ -303,7 +303,7 @@ function LoginForm({
           </svg>
           <span className="text-sm font-medium text-gray-700">Sign in with Google</span>
         </button>
-        
+
         <div className="text-center mt-4">
           <Button 
             type="button" 
@@ -332,7 +332,7 @@ function RegisterForm({
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [emailExists, setEmailExists] = useState(false);
-  
+
   const form = useForm<z.infer<typeof registerSchema>>({
     resolver: zodResolver(registerSchema),
     defaultValues: {
@@ -342,12 +342,12 @@ function RegisterForm({
     },
     mode: "onChange", // Validate fields as they change
   });
-  
+
   async function onSubmit(values: z.infer<typeof registerSchema>) {
     try {
       setIsSubmitting(true);
       setEmailExists(false);
-      
+
       // Perform client-side validation
       if (values.password !== values.passwordConfirm) {
         form.setError("passwordConfirm", {
@@ -357,13 +357,13 @@ function RegisterForm({
         setIsSubmitting(false);
         return;
       }
-      
+
       // Only send email and password to server (API only needs these two fields)
       const { email, password } = values;
       await register({ email, password } as any);
     } catch (error: any) {
       console.error("Registration error:", error);
-      
+
       // Handle different types of registration errors
       if (error.response?.data?.emailExists || 
           error.message?.includes("email already exists") || 
@@ -395,11 +395,11 @@ function RegisterForm({
       setIsSubmitting(false);
     }
   }
-  
+
   const togglePasswordVisibility = () => {
     setShowPassword(!showPassword);
   };
-  
+
   const toggleConfirmPasswordVisibility = () => {
     setShowConfirmPassword(!showConfirmPassword);
   };
@@ -407,7 +407,7 @@ function RegisterForm({
   const switchToLogin = () => {
     setActiveTab("login");
   };
-  
+
   return (
     <Form {...form}>
       <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4 px-6 py-2">
@@ -416,7 +416,7 @@ function RegisterForm({
             {form.formState.errors.root.message}
           </div>
         )}
-        
+
         <FormField
           control={form.control}
           name="email"
@@ -430,7 +430,7 @@ function RegisterForm({
             </FormItem>
           )}
         />
-        
+
         <FormField
           control={form.control}
           name="password"
@@ -464,7 +464,7 @@ function RegisterForm({
             </FormItem>
           )}
         />
-        
+
         <FormField
           control={form.control}
           name="passwordConfirm"
@@ -495,7 +495,7 @@ function RegisterForm({
             </FormItem>
           )}
         />
-        
+
         {emailExists && (
           <div className="text-sm text-primary p-2 rounded flex flex-col items-center">
             <p className="mb-2">This email is already registered. Switch to login instead.</p>
@@ -510,11 +510,11 @@ function RegisterForm({
             </Button>
           </div>
         )}
-        
+
         <div className="text-xs text-muted-foreground">
           <span className="text-destructive">*</span> Required fields
         </div>
-        
+
         <Button type="submit" className="w-full" disabled={isSubmitting}>
           {isSubmitting ? (
             <>
@@ -525,7 +525,7 @@ function RegisterForm({
             "Create Account"
           )}
         </Button>
-        
+
         <div className="relative my-4">
           <div className="absolute inset-0 flex items-center">
             <span className="w-full border-t" />
@@ -534,7 +534,7 @@ function RegisterForm({
             <span className="bg-background px-2 text-muted-foreground">Or continue with</span>
           </div>
         </div>
-        
+
         <button
           type="button"
           className="w-full flex items-center justify-center px-4 py-3 border border-[#dadce0] rounded-md bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 transition-colors duration-200 disabled:opacity-50 disabled:cursor-not-allowed"
@@ -549,8 +549,6 @@ function RegisterForm({
           </svg>
           <span className="text-sm font-medium text-gray-700">Sign in with Google</span>
         </button>
-        </Button>
-      </form>
-    </Form>
+       </form>
   );
 }
