@@ -70,6 +70,15 @@ export default function ForceAlertsPanel() {
 
         // Ensure data is an array
         const productsArray = Array.isArray(data) ? data : (data.products || []);
+        
+        // Debug log each product to inspect what the API returns
+        productsArray.forEach((item, index) => {
+          console.log(`[ForceAlerts] Product data ${index}:`, item);
+          if (item.product) {
+            console.log(`[ForceAlerts] Product ${index} details:`, item.product);
+          }
+        });
+        
         setProducts(productsArray);
 
         if (productsArray.length === 0) {
@@ -292,7 +301,7 @@ export default function ForceAlertsPanel() {
                           disabled={isLoadingProducts}
                         >
                           {selectedProduct 
-                            ? `${selectedProduct.title.substring(0, 50)}... - ${selectedProduct.asin}`
+                            ? `${(selectedProduct.title || 'Unnamed Product').substring(0, 50)}... - ${selectedProduct.asin || 'No ASIN'}`
                             : "Search products..."
                           }
                           <Search className="ml-2 h-4 w-4 shrink-0 opacity-50" />
@@ -304,22 +313,31 @@ export default function ForceAlertsPanel() {
                           <CommandList>
                             <CommandEmpty>No products found.</CommandEmpty>
                             <CommandGroup>
-                              {products.map((product) => (
+                              {products.map((product) => {
+                                // Extract product data safely - handle both direct product and nested product structures
+                const productData = product.product || product;
+                const title = productData.title || 'Unnamed Product';
+                const asin = productData.asin || 'No ASIN';
+                const price = productData.currentPrice || 0;
+                const displayTitle = title.length > 60 ? `${title.substring(0, 60)}...` : title;
+                
+                return (
                                 <CommandItem
-                                  key={product.id}
-                                  value={`${product.title} ${product.asin}`}
+                                  key={product.id || productData.id}
+                                  value={`${title} ${asin}`}
                                   onSelect={() => {
-                                    setSelectedProduct(product);
+                                    setSelectedProduct(productData);
                                     setManualAsin('');
                                     setProductSearchOpen(false);
                                   }}
                                 >
                                   <div className="flex flex-col">
-                                    <span className="font-medium">{product.title.substring(0, 60)}...</span>
-                                    <span className="text-sm text-gray-500">{product.asin} - ${product.currentPrice}</span>
+                                    <span className="font-medium">{displayTitle}</span>
+                                    <span className="text-sm text-gray-500">{asin} - ${price}</span>
                                   </div>
                                 </CommandItem>
-                              ))}
+                                );
+                              })}
                             </CommandGroup>
                           </CommandList>
                         </Command>
