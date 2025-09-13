@@ -1,6 +1,6 @@
 import passport from "passport";
 import { Strategy as LocalStrategy } from "passport-local";
-// OAuth strategies removed - using local authentication only
+import { Strategy as GoogleStrategy } from "passport-google-oauth20";
 import { scrypt, randomBytes, timingSafeEqual } from "crypto";
 import { promisify } from "util";
 import session from "express-session";
@@ -176,6 +176,58 @@ export function configureAuth(app: Express) {
     }
   ));
 
+  // Configure Google OAuth Strategy
+  if (process.env.GOOGLE_CLIENT_ID && process.env.GOOGLE_CLIENT_SECRET) {
+    passport.use(new GoogleStrategy({
+      clientID: process.env.GOOGLE_CLIENT_ID,
+      clientSecret: process.env.GOOGLE_CLIENT_SECRET,
+      callbackURL: "/api/auth/google/callback"
+    },
+    async (accessToken, refreshToken, profile, done) => {
+      try {
+        const email = profile.emails?.[0]?.value;
+        
+        if (!email) {
+          return done(new Error('No email found in Google profile'), false);
+        }
+
+        // Check if user exists by email
+        let user = await storage.getUserByEmail(email);
+        
+        if (!user) {
+          // Create new user with Google data
+          user = await storage.upsertUser({
+            email,
+            username: profile.displayName || null,
+            firstName: profile.name?.givenName || null,
+            lastName: profile.name?.familyName || null,
+            profileImageUrl: profile.photos?.[0]?.value || null,
+            provider: 'google',
+            providerId: profile.id,
+            password: null, // No password for OAuth users
+          });
+        } else {
+          // Update existing user with Google data if they don't have it
+          if (!user.provider || user.provider === 'local') {
+            user = await storage.upsertUser({
+              ...user,
+              provider: 'google',
+              providerId: profile.id,
+              profileImageUrl: user.profileImageUrl || profile.photos?.[0]?.value || null,
+            });
+          }
+        }
+
+        return done(null, dbUserToExpressUser(user));
+      } catch (error) {
+        console.error('Google OAuth error:', error);
+        return done(error, false);
+      }
+    }));
+  } else {
+    console.warn('Google OAuth not configured. Set GOOGLE_CLIENT_ID and GOOGLE_CLIENT_SECRET environment variables.');
+  }
+
   // Serialize user for session storage
   passport.serializeUser((user: Express.User, done) => {
     done(null, user.id);
@@ -196,6 +248,19 @@ export function configureAuth(app: Express) {
   });
 
   // Note: OAuth providers removed - using local authentication only
+
+  // Google OAuth routes
+  app.get('/api/auth/google',
+    passport.authenticate('google', { scope: ['profile', 'email'] })
+  );
+
+  app.get('/api/auth/google/callback',
+    passport.authenticate('google', { failureRedirect: '/auth?error=google_auth_failed' }),
+    (req, res) => {
+      // Successful authentication, redirect to dashboard
+      res.redirect('/dashboard');
+    }
+  );
 
   // Logout route
   app.post('/api/logout', (req, res, next) => {
