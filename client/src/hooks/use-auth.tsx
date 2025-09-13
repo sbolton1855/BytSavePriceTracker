@@ -39,7 +39,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     queryFn: async () => {
       try {
         const res = await fetch("/api/user", {
-          credentials: 'include', // Ensure cookies are sent
+          credentials: 'include',
         });
         if (!res.ok) {
           if (res.status === 401) {
@@ -54,10 +54,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       }
     },
     retry: false,
-    staleTime: 10 * 60 * 1000, // 10 minutes - longer to prevent frequent checks
-    gcTime: 15 * 60 * 1000, // 15 minutes cache time
+    staleTime: 15 * 60 * 1000, // 15 minutes - longer to prevent frequent checks
+    gcTime: 20 * 60 * 1000, // 20 minutes cache time
     initialData: null,
-    refetchOnWindowFocus: false, // Prevent refetch on focus to avoid unnecessary auth checks
+    refetchOnWindowFocus: false,
+    refetchOnMount: false, // Prevent automatic refetch on component mount
   });
 
   // Register mutation

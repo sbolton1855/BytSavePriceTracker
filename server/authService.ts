@@ -375,7 +375,13 @@ export function configureAuth(app: Express) {
         passport: req.session.passport,
         authenticated: req.isAuthenticated()
       });
-      res.redirect('/dashboard');
+      
+      // Use a more reliable redirect approach
+      res.writeHead(302, {
+        'Location': '/dashboard',
+        'Set-Cookie': req.get('Set-Cookie') || []
+      });
+      res.end();
     });
   });
 
