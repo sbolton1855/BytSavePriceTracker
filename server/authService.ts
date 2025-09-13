@@ -98,17 +98,28 @@ const isEmailConfigured = () => {
 
 // Helper function to get the correct domain for OAuth callbacks
 function getBaseDomain(): string {
-  // For production/deployed Replit apps
-  if (process.env.REPL_SLUG && process.env.REPL_OWNER) {
-    return `https://${process.env.REPL_OWNER}.${process.env.REPL_SLUG}.replit.dev`;
+  // First try REPLIT_APP_URL (most reliable for deployed apps)
+  if (process.env.REPLIT_APP_URL) {
+    const appUrl = process.env.REPLIT_APP_URL;
+    console.log(`🌐 Using REPLIT_APP_URL for OAuth: ${appUrl}`);
+    return appUrl;
   }
   
-  // For custom domains or manual override
+  // Try custom domain override
   if (process.env.CALLBACK_BASE_URL) {
+    console.log(`🌐 Using CALLBACK_BASE_URL for OAuth: ${process.env.CALLBACK_BASE_URL}`);
     return process.env.CALLBACK_BASE_URL;
   }
   
-  // Fallback for development
+  // Legacy fallback for older Replit environments
+  if (process.env.REPL_SLUG && process.env.REPL_OWNER) {
+    const legacyUrl = `https://${process.env.REPL_OWNER}.${process.env.REPL_SLUG}.replit.dev`;
+    console.log(`🌐 Using legacy REPL_SLUG/REPL_OWNER for OAuth: ${legacyUrl}`);
+    return legacyUrl;
+  }
+  
+  // Development fallback
+  console.log(`🌐 Using development fallback for OAuth: http://localhost:5000`);
   return 'http://localhost:5000';
 }
 
@@ -200,6 +211,12 @@ export function configureAuth(app: Express) {
     console.log(`🔧 Setting up Google OAuth with Client ID: ${process.env.GOOGLE_CLIENT_ID?.substring(0, 8)}...`);
     console.log(`🔗 Using callback URL: ${callbackUrl}`);
     console.log(`🌐 Base domain detected: ${domain}`);
+    console.log(`📋 Environment variables available:`);
+    console.log(`   REPLIT_APP_URL: ${process.env.REPLIT_APP_URL || 'NOT SET'}`);
+    console.log(`   CALLBACK_BASE_URL: ${process.env.CALLBACK_BASE_URL || 'NOT SET'}`);
+    console.log(`   REPL_SLUG: ${process.env.REPL_SLUG || 'NOT SET'}`);
+    console.log(`   REPL_OWNER: ${process.env.REPL_OWNER || 'NOT SET'}`);
+    console.log(`⚠️  EXPECTED Google Cloud Console Redirect URI: ${callbackUrl}`);
     
     passport.use(new GoogleStrategy({
       clientID: process.env.GOOGLE_CLIENT_ID,
@@ -286,9 +303,16 @@ export function configureAuth(app: Express) {
   });
 
   app.get('/api/auth/google/callback', (req, res, next) => {
+    const actualCallbackUrl = `${req.protocol}://${req.get('host')}${req.originalUrl}`;
+    const expectedCallbackUrl = `${getBaseDomain()}/api/auth/google/callback`;
+    
     console.log(`📞 Google OAuth callback received`);
-    console.log(`🔗 Full callback URL: ${req.protocol}://${req.get('host')}${req.originalUrl}`);
+    console.log(`🔗 Actual callback URL: ${actualCallbackUrl}`);
+    console.log(`🎯 Expected callback URL: ${expectedCallbackUrl}`);
+    console.log(`✅ URLs match: ${actualCallbackUrl.startsWith(expectedCallbackUrl)}`);
     console.log(`📋 Query params:`, req.query);
+    console.log(`🌐 Request host: ${req.get('host')}`);
+    console.log(`🔒 Request protocol: ${req.protocol}`);
     
     passport.authenticate('google', { 
       failureRedirect: '/auth?error=google_auth_failed',
