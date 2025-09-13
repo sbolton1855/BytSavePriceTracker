@@ -262,7 +262,7 @@ function LoginForm({
             <FormItem>
               <FormLabel>Email</FormLabel>
               <FormControl>
-                <Input placeholder="you@example.com" autoComplete="off" {...field} />
+                <Input placeholder="you@example.com" autoComplete="new-email" {...field} />
               </FormControl>
               <FormMessage />
             </FormItem>
@@ -280,7 +280,7 @@ function LoginForm({
                   <Input 
                     type={showPassword ? "text" : "password"} 
                     placeholder="••••••••" 
-                    autoComplete="off"
+                    autoComplete="new-password"
                     {...field} 
                   />
                 </FormControl>
@@ -340,7 +340,7 @@ function LoginForm({
       </form>
 
       {/* Google OAuth - Outside of form */}
-      <div className="px-6 pb-2">
+      <div className="mt-4 px-6 pb-2">
         <div className="relative my-4">
           <div className="absolute inset-0 flex items-center">
             <span className="w-full border-t" />
@@ -482,7 +482,7 @@ function RegisterForm({
             <FormItem>
               <FormLabel>Email <span className="text-destructive">*</span></FormLabel>
               <FormControl>
-                <Input placeholder="you@example.com" autoComplete="off" {...field} />
+                <Input placeholder="you@example.com" autoComplete="new-email" {...field} />
               </FormControl>
               <FormMessage />
             </FormItem>
@@ -500,7 +500,7 @@ function RegisterForm({
                   <Input 
                     type={showPassword ? "text" : "password"} 
                     placeholder="••••••••" 
-                    autoComplete="off"
+                    autoComplete="new-password"
                     {...field} 
                   />
                 </FormControl>
@@ -535,7 +535,7 @@ function RegisterForm({
                   <Input 
                     type={showConfirmPassword ? "text" : "password"} 
                     placeholder="••••••••" 
-                    autoComplete="off"
+                    autoComplete="new-password"
                     {...field} 
                   />
                 </FormControl>
@@ -589,7 +589,7 @@ function RegisterForm({
         </form>
 
       {/* Google OAuth - Outside of form */}
-      <div className="px-6 pb-2">
+      <div className="mt-4 px-6 pb-2">
         <div className="relative my-4">
           <div className="absolute inset-0 flex items-center">
             <span className="w-full border-t" />
