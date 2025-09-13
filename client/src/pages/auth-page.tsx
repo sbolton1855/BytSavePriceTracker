@@ -549,6 +549,7 @@ function RegisterForm({
           </svg>
           <span className="text-sm font-medium text-gray-700">Sign in with Google</span>
         </button>
-       </form>
+      </form>
+    </Form>
   );
 }
