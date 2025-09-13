@@ -23,8 +23,8 @@ export default function AuthPage() {
   useEffect(() => {
     const checkAuthStatus = async () => {
       try {
-        console.log("🔍 Checking authentication status on auth page mount...");
-        const response = await fetch("/api/user", {
+        console.log("🔍 Checking authentication status via /api/auth/me...");
+        const response = await fetch("/api/auth/me", {
           method: "GET",
           credentials: "include", // Ensure cookies are sent
           headers: {
@@ -32,33 +32,29 @@ export default function AuthPage() {
           },
         });
         
-        console.log("🔍 Auth check response status:", response.status);
-        console.log("🔍 Auth check response headers:", Object.fromEntries(response.headers.entries()));
+        console.log("🔍 /api/auth/me response status:", response.status);
         
         if (response.ok) {
-          const userData = await response.json();
-          console.log("✅ Auth check response data:", userData);
+          const authData = await response.json();
+          console.log("✅ /api/auth/me response:", authData);
           
-          if (userData && userData.id) {
+          if (authData && authData.authenticated === true) {
             console.log("🚀 User is authenticated, redirecting to dashboard...");
             setLocation("/dashboard");
           } else {
-            console.log("❌ User data exists but no ID, not authenticated");
+            console.log("❌ User is not authenticated");
           }
         } else {
           const errorText = await response.text();
-          console.log("❌ Auth check failed:", response.status, errorText);
+          console.log("❌ /api/auth/me failed:", response.status, errorText);
         }
       } catch (error) {
         console.error("❌ Error checking auth status:", error);
       }
     };
 
-    // Only check if not already loading from useAuth hook
-    if (!isLoading) {
-      checkAuthStatus();
-    }
-  }, [isLoading, setLocation]);
+    checkAuthStatus();
+  }, []);
   
   // Redirect if user is already logged in (from useAuth hook)
   if (user && !isLoading) {
