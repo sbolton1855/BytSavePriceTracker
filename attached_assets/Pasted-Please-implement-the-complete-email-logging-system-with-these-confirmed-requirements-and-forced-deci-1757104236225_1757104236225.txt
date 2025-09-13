@@ -1,0 +1,37 @@
+Please implement the complete email logging system with these confirmed requirements and forced decisions:
+
+- Database Schema:
+  - Use `recipient_email` consistently (standardized naming).
+  - Fields: id (PK), recipient_email, product_id (nullable FK), subject, preview_html, status, sg_message_id, sent_at, updated_at.
+  - product_id must always be nullable; only populated for product-related emails.
+
+- SendGrid Service:
+  - Capture sg_message_id from the response body (not headers).
+  - Always insert a new row into email_logs when sendEmail() is called with status = "pending".
+
+- Webhook Handler:
+  - Create `/webhook/sendgrid` route.
+  - Accept SendGrid event POSTs without authentication for now (forced decision).
+  - Add a TODO with code comment for signature validation later.
+  - Update email_logs status based on events: pending, sent, delivered, bounced, opened, clicked, spam_reported.
+
+- Admin Interface:
+  - Update email logs page to show recipient_email, subject, status, sent_at, and preview_html.
+  - Allow sorting/filtering by most recent.
+  - Ensure clear inline comments explaining what each part of the UI does.
+
+- Code Commenting and Documentation (new requirement):
+  - Add inline comments in migrations, backend routes, and sendEmail service functions explaining what the code is doing and why.
+  - Add a top-level comment block for each major file (`sendgridService.ts`, `/webhook/sendgrid` handler, admin-email-logs.tsx) describing:
+    - The purpose of the file
+    - How it fits into the email logging system
+    - What future maintainers should look out for
+  - Mark all TODOs (like webhook signature validation) clearly in comments.
+
+- Goal:
+  - Local logs always created on send.
+  - Status updated later when SendGrid webhook fires.
+  - Admins can see both the attempt and the final status.
+  - The code is self-explanatory with clear comments, so future maintainers can understand the flow quickly.
+
+Implement migrations, backend updates, admin UI changes, and ensure code is thoroughly commented.

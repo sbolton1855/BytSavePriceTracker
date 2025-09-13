@@ -1,0 +1,42 @@
+Open `server/email/sendgridService.ts`.
+
+In the function that actually sends emails (the one that calls `sgMail.send(msg)`), make EXACTLY these changes and nothing else:
+
+1) Add TRACE logs:
+   - At function entry: console.log('[EmailSend] start', { to: recipientEmail, subject });
+   - Before send:        console.log('[EmailSend] calling SendGrid');
+   - After send:         console.log('[EmailSend] SendGrid status:', resp?.statusCode, 'x-message-id:', resp?.headers?.['x-message-id'] || resp?.headers?.['X-Message-Id']);
+
+2) Separate SendGrid errors from DB errors with clear try/catch blocks:
+   - Wrap ONLY `sgMail.send(msg)` in a try/catch and set `let sendOk = false;` then `sendOk = true;` on success.
+   - In the catch for SendGrid, log `console.error('[EmailSend] SendGrid error:', err)` and keep `sendOk = false;` (do not throw).
+
+3) Update latest matching log to `sent` ONLY if `sendOk === true`:
+   - After a successful send, run a best-effort update:
+       UPDATE email_logs
+          SET status='sent', updated_at=NOW()
+        WHERE id = (
+          SELECT id FROM email_logs
+           WHERE recipient_email=$1 AND subject=$2
+           ORDER BY id DESC
+           LIMIT 1
+        );
+     Params: [recipientEmail, subject]
+   - Log the result: `console.log('[EmailLog] update->sent rowCount:', result.rowCount);`
+   - Wrap in its own try/catch and DO NOT throw on failure.
+
+4) Mark `failed` ONLY when SendGrid actually failed:
+   - Inside the SendGrid catch block (from step 2), after logging the error, best-effort:
+       UPDATE email_logs
+          SET status='failed', updated_at=NOW()
+        WHERE id = (
+          SELECT id FROM email_logs
+           WHERE recipient_email=$1 AND subject=$2
+           ORDER BY id DESC
+           LIMIT 1
+        );
+     Params: [recipientEmail, subject]
+   - Log the result: `console.log('[EmailLog] update->failed rowCount:', result.rowCount);`
+   - Wrap in try/catch and DO NOT throw.
+
+5) Do not change any other logic or signatures. Keep all DB work best-effort (never break sending because logging failed).

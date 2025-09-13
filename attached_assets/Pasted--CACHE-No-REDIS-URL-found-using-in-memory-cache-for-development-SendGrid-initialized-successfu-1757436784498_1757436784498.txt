@@ -1,0 +1,88 @@
+📋 [CACHE] No REDIS_URL found, using in-memory cache for development
+SendGrid initialized successfully with API key from Replit Secrets
+[AWS] Credential Check on Load:
+[AWS] ACCESS_KEY present: true
+[AWS] ACCESS_KEY length: 20
+[AWS] ACCESS_KEY starts with: AKIAJ...
+[AWS] SECRET_KEY present: true
+[AWS] SECRET_KEY length: 40
+>>> [DEBUG] LOADED AMAZON ROUTER from server/routes/amazon.ts
+Redis Client Error Error: connect ECONNREFUSED 127.0.0.1:6379
+    at TCPConnectWrap.afterConnect [as oncomplete] (node:net:1611:16) {
+  errno: -111,
+  code: 'ECONNREFUSED',
+  syscall: 'connect',
+  address: '127.0.0.1',
+  port: 6379
+}
+Running from server/index.ts
+Starting price checker background service...
+🔧 Mounting admin email routes at /api/admin...
+✅ Admin email routes mounted successfully
+📅 Password reset token cleanup scheduled
+Redis Client Error Error: connect ECONNREFUSED 127.0.0.1:6379
+    at TCPConnectWrap.afterConnect [as oncomplete] (node:net:1611:16) {
+  errno: -111,
+  code: 'ECONNREFUSED',
+  syscall: 'connect',
+  address: '127.0.0.1',
+  port: 6379
+}
+Server running on port 5000
+📅 Password reset token cleanup scheduled
+Redis Client Error Error: connect ECONNREFUSED 127.0.0.1:6379
+    at TCPConnectWrap.afterConnect [as oncomplete] (node:net:1611:16) {
+  errno: -111,
+  code: 'ECONNREFUSED',
+  syscall: 'connect',
+  address: '127.0.0.1',
+  port: 6379
+}
+Error fetching product from custom SigV4: TypeError: cache.getProduct is not a function
+    at getProductInfo (/home/runner/workspace/server/amazonApi.ts:261:39)
+    at getProductInfoSafe (/home/runner/workspace/server/amazonApi.ts:385:24)
+    at updateProductPrice (/home/runner/workspace/server/priceChecker.ts:52:30)
+    at checkPricesAndNotify (/home/runner/workspace/server/priceChecker.ts:337:31)
+    at process.processTicksAndRejections (node:internal/process/task_queues:95:5)
+🚫 Failed to fetch ASIN B0DWMZN47Z (UNKNOWN): Failed to fetch product information from Amazon: cache.getProduct is not a function
+Error: No product data returned for ASIN B0DWMZN47Z. (API failure 1/5, product failure 1/5)
+Redis Client Error Error: connect ECONNREFUSED 127.0.0.1:6379
+    at TCPConnectWrap.afterConnect [as oncomplete] (node:net:1611:16) {
+  errno: -111,
+  code: 'ECONNREFUSED',
+  syscall: 'connect',
+  address: '127.0.0.1',
+  port: 6379
+}
+Redis Client Error Error: connect ECONNREFUSED 127.0.0.1:6379
+    at TCPConnectWrap.afterConnect [as oncomplete] (node:net:1611:16) {
+  errno: -111,
+  code: 'ECONNREFUSED',
+  syscall: 'connect',
+  address: '127.0.0.1',
+  port: 6379
+}
+Error fetching product from custom SigV4: TypeError: cache.getProduct is not a function
+    at getProductInfo (/home/runner/workspace/server/amazonApi.ts:261:39)
+    at getProductInfoSafe (/home/runner/workspace/server/amazonApi.ts:385:24)
+    at updateProductPrice (/home/runner/workspace/server/priceChecker.ts:52:30)
+    at checkPricesAndNotify (/home/runner/workspace/server/priceChecker.ts:337:31)
+🚫 Failed to fetch ASIN B0DXWP12C8 (UNKNOWN): Failed to fetch product information from Amazon: cache.getProduct is not a function
+Error: No product data returned for ASIN B0DXWP12C8. (API failure 2/5, product failure 1/5)
+Redis Client Error Error: connect ECONNREFUSED 127.0.0.1:6379
+    at TCPConnectWrap.afterConnect [as oncomplete] (node:net:1611:16) {
+  errno: -111,
+  code: 'ECONNREFUSED',
+  syscall: 'connect',
+  address: '127.0.0.1',
+  port: 6379
+}
+4:52:49 PM [vite] Pre-transform error: /home/runner/workspace/client/src/components/AdminTabNav.tsx: Identifier 'AdminTabNav' has already been declared. (46:24)
+
+  44 | }
+  45 |
+> 46 | export default function AdminTabNav({ activeTab, onTabChange }: AdminTabNavProps) {
+     |                         ^
+  47 |   const tabs = [
+  48 |     { id: 'email', label: 'Email', icon: Mail },
+  49 |     { id: 'analytics', label: 'Analytics', icon: BarChart3 },

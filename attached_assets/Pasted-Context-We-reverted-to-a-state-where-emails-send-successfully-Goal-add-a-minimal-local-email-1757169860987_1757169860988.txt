@@ -1,0 +1,77 @@
+Context
+- We reverted to a state where emails send successfully.
+- Goal: add a minimal local email_logs table and log each send.
+- Constraints: no psql in container; use our existing DB client; keep diffs small.
+- Rule: logging must NEVER block email sending (best-effort only). No webhook yet.
+
+Please implement these steps exactly, one by one, verifying after each before moving on.
+
+STEP 1 — Ensure email_logs table (idempotent)
+1. Create server/db/ensureEmailLogs.ts that exports:
+   export async function ensureEmailLogsTable(dbOrClient) { /* uses our existing DB helper/client */ }
+   It should run this SQL (adjust types to our DB helper syntax, but keep semantics):
+     CREATE TABLE IF NOT EXISTS email_logs (
+       id BIGSERIAL PRIMARY KEY,
+       recipient_email TEXT NOT NULL,
+       subject TEXT NOT NULL,
+       status TEXT NOT NULL DEFAULT 'pending', -- allowed later: sent, delivered, bounced, opened, clicked, spam_reported
+       sg_message_id TEXT,  -- capture from SendGrid response if available; allow null for now
+       preview_html TEXT,
+       sent_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+       updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+     );
+     CREATE INDEX IF NOT EXISTS idx_email_logs_recipient ON email_logs(recipient_email);
+     CREATE INDEX IF NOT EXISTS idx_email_logs_sent_at ON email_logs(sent_at DESC);
+
+   NOTE: Use the SAME DB client we already use elsewhere (e.g., the one powering products/price_history). Do not introduce a new driver. If we have a shared db helper, import and use it here.
+
+STEP 2 — Temporary sanity endpoint
+2. Add route GET /api/email/test-db:
+   - Calls ensureEmailLogsTable.
+   - Inserts one test row:
+       recipient_email='test@example.com',
+       subject='Sanity Check Email',
+       status='pending',
+       sg_message_id='sanity-' + Date.now()
+     RETURNING id, recipient_email, subject, status, sg_message_id, sent_at.
+   - Then SELECT last 5 rows (id, recipient_email, subject, status, sg_message_id, sent_at) ORDER BY id DESC.
+   - Return JSON: { inserted, recent }
+   - Add console.log lines at start/end and on error.
+   - Mark the file/handler with a big comment: // TEMP DEBUG – remove after verification.
+
+STEP 3 — Best-effort logging on send (do NOT break emails)
+3. Patch server/email/sendgridService.ts (or the module that actually calls sgMail.send):
+   - At the top, add a short doc comment describing the flow and env vars (SENDGRID_API_KEY, FROM_EMAIL, BASE_URL).
+   - Around the send call, add clear logs:
+       console.log("[SendGrid] sending", { to: recipientEmail, subject });
+   - After a successful send (status 202 or no throw), do a best-effort insert into email_logs with:
+       recipient_email, subject, status='sent', sg_message_id=<from response if available>, preview_html (if we already have it handy)
+     IMPORTANT:
+       * Wrap the insert in try/catch and console.error on failure.
+       * Never throw or reject if the insert fails; return success for email sending anyway.
+   - Message ID capture: try response headers['x-message-id']; if unavailable, fallback to a generated value like "no-header-" + Date.now().
+
+STEP 4 — Minimal admin fetch API (if missing)
+4. Add/confirm a simple route GET /api/admin/email-logs?limit=50 that returns the latest rows:
+   SELECT id, recipient_email, subject, status, sg_message_id, sent_at
+   FROM email_logs ORDER BY id DESC LIMIT $limit (default 50).
+   Again: small, read-only, with console logs and basic validation.
+
+STEP 5 — Acceptance checks (run these after applying)
+A. Hit GET /api/email/test-db in the browser.
+   - Expect JSON with "inserted" and "recent". "inserted" should be the sanity row.
+B. Use the Admin "Send Test Email" action as usual.
+   - Watch console: expect "[SendGrid] sending ..." then a best-effort insert log.
+C. Hit GET /api/admin/email-logs.
+   - Expect to see your sanity row + the test email row with status 'sent'.
+
+NOTES / RULES
+- Keep diffs minimal; reuse our existing DB client/helper.
+- Logging must be best-effort only; never block or break the send flow.
+- No webhook in this pass. No psql. No schema tools. Pure code-ensured table with CREATE TABLE IF NOT EXISTS.
+- Add small, clear comments at the top of new/changed files stating purpose and future TODO (webhook, statuses).
+
+When done, show me:
+- The diff of added/changed files.
+- A short console transcript from steps A/B/C.
+- A one-paragraph summary of how to remove the TEMP /api/email/test-db route after verification.
