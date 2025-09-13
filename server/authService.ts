@@ -304,8 +304,16 @@ export function configureAuth(app: Express) {
 
   // Google OAuth routes
   app.get('/api/auth/google', (req, res, next) => {
+    const currentDomain = getBaseDomain();
+    const expectedRedirectUri = `${currentDomain}/api/auth/google/callback`;
+    
     console.log(`🚀 Starting Google OAuth flow from: ${req.get('host')}`);
     console.log(`🔗 Referer: ${req.get('referer') || 'none'}`);
+    console.log(`🎯 REDIRECT_URI being sent to Google: ${expectedRedirectUri}`);
+    console.log(`📋 Verify this matches your Google Cloud Console settings exactly:`);
+    console.log(`   Authorized JavaScript origins: ${currentDomain}`);
+    console.log(`   Authorized redirect URIs: ${expectedRedirectUri}`);
+    
     passport.authenticate('google', { scope: ['profile', 'email'] })(req, res, next);
   });
 
