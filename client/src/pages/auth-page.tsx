@@ -1,5 +1,5 @@
-import { useState } from "react";
-import { Redirect } from "wouter";
+import { useState, useEffect } from "react";
+import { Redirect, useLocation } from "wouter";
 import { z } from "zod";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -17,8 +17,50 @@ export default function AuthPage() {
   const { user, isLoading } = useAuth();
   const [activeTab, setActiveTab] = useState<string>("login");
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [, setLocation] = useLocation();
   
-  // Redirect if user is already logged in
+  // Check authentication status on mount
+  useEffect(() => {
+    const checkAuthStatus = async () => {
+      try {
+        console.log("🔍 Checking authentication status on auth page mount...");
+        const response = await fetch("/api/user", {
+          method: "GET",
+          credentials: "include", // Ensure cookies are sent
+          headers: {
+            "Content-Type": "application/json",
+          },
+        });
+        
+        console.log("🔍 Auth check response status:", response.status);
+        console.log("🔍 Auth check response headers:", Object.fromEntries(response.headers.entries()));
+        
+        if (response.ok) {
+          const userData = await response.json();
+          console.log("✅ Auth check response data:", userData);
+          
+          if (userData && userData.id) {
+            console.log("🚀 User is authenticated, redirecting to dashboard...");
+            setLocation("/dashboard");
+          } else {
+            console.log("❌ User data exists but no ID, not authenticated");
+          }
+        } else {
+          const errorText = await response.text();
+          console.log("❌ Auth check failed:", response.status, errorText);
+        }
+      } catch (error) {
+        console.error("❌ Error checking auth status:", error);
+      }
+    };
+
+    // Only check if not already loading from useAuth hook
+    if (!isLoading) {
+      checkAuthStatus();
+    }
+  }, [isLoading, setLocation]);
+  
+  // Redirect if user is already logged in (from useAuth hook)
   if (user && !isLoading) {
     return <Redirect to="/dashboard" />;
   }
