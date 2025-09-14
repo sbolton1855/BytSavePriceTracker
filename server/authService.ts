@@ -134,10 +134,10 @@ export function configureAuth(app: Express) {
     saveUninitialized: false,
     name: 'bytesave.sid', // Custom session name
     cookie: { 
-      secure: false, // Set to false for Replit deployment
       httpOnly: true,
+      secure: true, // HTTPS required for Replit
+      sameSite: 'none', // Allow cross-origin cookies
       maxAge: 30 * 24 * 60 * 60 * 1000, // 30 days
-      sameSite: 'lax',
       domain: undefined // Let the browser handle this automatically
     }
   }));
@@ -295,9 +295,20 @@ export function configureAuth(app: Express) {
     console.log(`[AUTH DEBUG] Session after OAuth: ${req.sessionID}`);
     console.log(`[AUTH DEBUG] User after OAuth:`, req.user);
     console.log(`[AUTH DEBUG] isAuthenticated after OAuth: ${req.isAuthenticated()}`);
+    console.log(`[AUTH DEBUG] Session passport data:`, req.session?.passport);
+    console.log(`[AUTH DEBUG] Session cookie will be set with domain: ${req.headers.host}`);
     
-    // Successful authentication, redirect to dashboard
-    res.redirect('/dashboard');
+    // Force session save before redirect
+    req.session.save((err) => {
+      if (err) {
+        console.error('Session save error:', err);
+      } else {
+        console.log('✅ Session saved successfully');
+      }
+      
+      // Successful authentication, redirect to dashboard
+      res.redirect('/dashboard');
+    });
   });
 
   // Logout route
@@ -686,13 +697,19 @@ export function configureAuth(app: Express) {
   // Add /api/auth/me route that mirrors /api/user for compatibility
   app.get('/api/auth/me', (req, res) => {
     console.log(`[AUTH DEBUG] /api/auth/me called from ${req.ip}`);
+    console.log(`[AUTH DEBUG] Origin: ${req.headers.origin}`);
+    console.log(`[AUTH DEBUG] Cookies received:`, req.headers.cookie);
     console.log(`[AUTH DEBUG] Session ID: ${req.sessionID}`);
     console.log(`[AUTH DEBUG] Session exists: ${!!req.session}`);
-    console.log(`[AUTH DEBUG] Session data:`, req.session);
+    console.log(`[AUTH DEBUG] Session.user exists: ${!!req.session?.user}`);
+    console.log(`[AUTH DEBUG] Session passport: ${JSON.stringify(req.session?.passport)}`);
     console.log(`[AUTH DEBUG] isAuthenticated(): ${req.isAuthenticated()}`);
     console.log(`[AUTH DEBUG] User object:`, req.user);
     
-    if (req.isAuthenticated()) {
+    // Force JSON response
+    res.setHeader('Content-Type', 'application/json');
+    
+    if (req.isAuthenticated() && req.user) {
       console.log(`[AUTH DEBUG] /api/auth/me returning authenticated user: ${req.user.email}`);
       res.json({ 
         authenticated: true,
