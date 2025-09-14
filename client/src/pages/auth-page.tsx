@@ -1,5 +1,5 @@
-import { useState, useEffect, useRef } from "react";
-import { Redirect, useLocation } from "wouter";
+import { useState } from "react";
+import { Redirect } from "wouter";
 import { z } from "zod";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -14,70 +14,15 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Loader2 } from "lucide-react";
 
 export default function AuthPage() {
-  console.log("🔥 Rendering AuthPage");
-  
   const { user, isLoading } = useAuth();
   const [activeTab, setActiveTab] = useState<string>("login");
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [, setLocation] = useLocation();
-  const hasRedirected = useRef(false);
-
-  // Check authentication status on mount
-  useEffect(() => {
-    const checkAuthStatus = async () => {
-      try {
-        console.log("🔍 Checking authentication status via /api/auth/me...");
-        const response = await fetch("/api/auth/me", {
-          method: "GET",
-          credentials: "include", // Ensure cookies are sent
-          headers: {
-            "Content-Type": "application/json",
-          },
-        });
-
-        console.log("🔍 /api/auth/me response status:", response.status);
-
-        if (response.ok) {
-          const authData = await response.json();
-          console.log("✅ /api/auth/me response:", authData);
-          console.log("✅ /api/auth/me response type:", typeof authData);
-          console.log("✅ /api/auth/me response keys:", Object.keys(authData || {}));
-          console.log("✅ authData.authenticated:", authData?.authenticated);
-          console.log("✅ authData.user:", authData?.user);
-          console.log("✅ authData itself (if it's the user object):", authData?.id ? "Has ID - might be user object" : "No ID - not user object");
-
-          // Check if authData.authenticated === true OR if authData is the user object itself
-          if ((authData && authData.authenticated === true) || (authData && authData.id)) {
-            if (!hasRedirected.current) {
-              console.log("🚀 User is authenticated, redirecting to dashboard...");
-              hasRedirected.current = true;
-              setLocation("/dashboard");
-            } else {
-              console.log("🛡️ Redirect already triggered, skipping...");
-            }
-          } else {
-            console.log("❌ User is not authenticated");
-            console.log("❌ Debug: authData.authenticated =", authData?.authenticated);
-            console.log("❌ Debug: authData.id =", authData?.id);
-          }
-        } else {
-          const errorText = await response.text();
-          console.log("❌ /api/auth/me failed:", response.status, errorText);
-        }
-      } catch (error) {
-        console.error("❌ Error checking auth status:", error);
-      }
-    };
-
-    checkAuthStatus();
-  }, []);
-
-  // Redirect if user is already logged in (from useAuth hook)
-  if (user && !isLoading && !hasRedirected.current) {
-    hasRedirected.current = true;
+  
+  // Redirect if user is already logged in
+  if (user && !isLoading) {
     return <Redirect to="/dashboard" />;
   }
-
+  
   return (
     <div className="min-h-screen flex flex-col md:flex-row">
       {/* Hero Section */}
@@ -116,7 +61,7 @@ export default function AuthPage() {
           </div>
         </div>
       </div>
-
+      
       {/* Auth Forms */}
       <div className="w-full md:w-1/2 p-8 flex items-center justify-center">
         <Card className="w-full max-w-md">
@@ -130,13 +75,13 @@ export default function AuthPage() {
                 : "Sign up to start tracking Amazon prices"}
             </CardDescription>
           </CardHeader>
-
+          
           <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v)} className="w-full">
             <TabsList className="grid w-full grid-cols-2">
               <TabsTrigger value="login">Login</TabsTrigger>
               <TabsTrigger value="register">Register</TabsTrigger>
             </TabsList>
-
+            
             <TabsContent value="login">
               <LoginForm 
                 setIsSubmitting={setIsSubmitting} 
@@ -144,7 +89,7 @@ export default function AuthPage() {
                 setActiveTab={setActiveTab} 
               />
             </TabsContent>
-
+            
             <TabsContent value="register">
               <RegisterForm 
                 setIsSubmitting={setIsSubmitting} 
@@ -153,7 +98,7 @@ export default function AuthPage() {
               />
             </TabsContent>
           </Tabs>
-
+          
           {/* Footer with helpful message and action buttons */}
           <CardFooter className="flex flex-col space-y-4 mt-4 border-t pt-4">
             <div className="text-sm text-center space-y-2">
@@ -206,7 +151,7 @@ function LoginForm({
   const { login } = useAuth();
   const [showPassword, setShowPassword] = useState(false);
   const [userNotFound, setUserNotFound] = useState(false);
-
+  
   const form = useForm<z.infer<typeof loginSchema>>({
     resolver: zodResolver(loginSchema),
     defaultValues: {
@@ -215,7 +160,7 @@ function LoginForm({
     },
     mode: "onChange", // Validates on change
   });
-
+  
   async function onSubmit(values: z.infer<typeof loginSchema>) {
     try {
       setIsSubmitting(true);
@@ -223,7 +168,7 @@ function LoginForm({
       await login(values);
     } catch (error: any) {
       console.error("Login error:", error);
-
+      
       // Check for specific error messages from backend
       if (error.message?.includes("Account not found") || error.response?.data?.userNotFound) {
         setUserNotFound(true);
@@ -246,15 +191,15 @@ function LoginForm({
       setIsSubmitting(false);
     }
   }
-
+  
   const togglePasswordVisibility = () => {
     setShowPassword(!showPassword);
   };
-
+  
   const switchToRegister = () => {
     setActiveTab("register");
   };
-
+  
   return (
     <Form {...form}>
       <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4 px-6 py-2">
@@ -263,7 +208,7 @@ function LoginForm({
             {form.formState.errors.root.message}
           </div>
         )}
-
+        
         <FormField
           control={form.control}
           name="email"
@@ -271,13 +216,13 @@ function LoginForm({
             <FormItem>
               <FormLabel>Email</FormLabel>
               <FormControl>
-                <Input placeholder="you@example.com" autoComplete="new-email" {...field} />
+                <Input placeholder="you@example.com" {...field} />
               </FormControl>
               <FormMessage />
             </FormItem>
           )}
         />
-
+        
         <FormField
           control={form.control}
           name="password"
@@ -289,7 +234,6 @@ function LoginForm({
                   <Input 
                     type={showPassword ? "text" : "password"} 
                     placeholder="••••••••" 
-                    autoComplete="new-password"
                     {...field} 
                   />
                 </FormControl>
@@ -309,7 +253,7 @@ function LoginForm({
             </FormItem>
           )}
         />
-
+        
         {userNotFound && (
           <div className="text-sm text-primary p-2 rounded flex flex-col items-center">
             <p className="mb-2">New to BytSave? Create an account to get started.</p>
@@ -324,7 +268,7 @@ function LoginForm({
             </Button>
           </div>
         )}
-
+        
         <Button type="submit" className="w-full" disabled={isSubmitting}>
           {isSubmitting ? (
             <>
@@ -335,7 +279,32 @@ function LoginForm({
             "Login"
           )}
         </Button>
-
+        
+        <div className="relative my-4">
+          <div className="absolute inset-0 flex items-center">
+            <span className="w-full border-t" />
+          </div>
+          <div className="relative flex justify-center text-xs uppercase">
+            <span className="bg-background px-2 text-muted-foreground">Or continue with</span>
+          </div>
+        </div>
+        
+        <Button 
+          type="button" 
+          variant="outline" 
+          className="w-full" 
+          onClick={() => window.location.href = '/api/auth/google'}
+          disabled={isSubmitting}
+        >
+          <svg className="mr-2 h-4 w-4" viewBox="0 0 24 24">
+            <path fill="currentColor" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/>
+            <path fill="currentColor" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"/>
+            <path fill="currentColor" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z"/>
+            <path fill="currentColor" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"/>
+          </svg>
+          Sign in with Google
+        </Button>
+        
         <div className="text-center mt-4">
           <Button 
             type="button" 
@@ -347,41 +316,6 @@ function LoginForm({
           </Button>
         </div>
       </form>
-
-      {/* Google OAuth - Outside of form */}
-      <div className="mt-4 px-6 pb-2">
-        <div className="relative my-4">
-          <div className="absolute inset-0 flex items-center">
-            <span className="w-full border-t" />
-          </div>
-          <div className="relative flex justify-center text-xs uppercase">
-            <span className="bg-background px-2 text-muted-foreground">Or continue with</span>
-          </div>
-        </div>
-
-        <Button 
-          type="button" 
-          variant="outline" 
-          className="w-full" 
-          onClick={(e) => {
-            e.preventDefault();
-            if (!isSubmitting) {
-              setIsSubmitting(true);
-              console.log("🔄 Redirecting to Google OAuth...");
-              window.location.href = '/api/auth/google';
-            }
-          }}
-          disabled={isSubmitting}
-        >
-          <svg className="mr-2 h-4 w-4" viewBox="0 0 24 24">
-            <path fill="currentColor" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/>
-            <path fill="currentColor" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"/>
-            <path fill="currentColor" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z"/>
-            <path fill="currentColor" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"/>
-          </svg>
-          Sign in with Google
-        </Button>
-      </div>
     </Form>
   );
 }
@@ -399,7 +333,7 @@ function RegisterForm({
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [emailExists, setEmailExists] = useState(false);
-
+  
   const form = useForm<z.infer<typeof registerSchema>>({
     resolver: zodResolver(registerSchema),
     defaultValues: {
@@ -409,12 +343,12 @@ function RegisterForm({
     },
     mode: "onChange", // Validate fields as they change
   });
-
+  
   async function onSubmit(values: z.infer<typeof registerSchema>) {
     try {
       setIsSubmitting(true);
       setEmailExists(false);
-
+      
       // Perform client-side validation
       if (values.password !== values.passwordConfirm) {
         form.setError("passwordConfirm", {
@@ -424,13 +358,13 @@ function RegisterForm({
         setIsSubmitting(false);
         return;
       }
-
+      
       // Only send email and password to server (API only needs these two fields)
       const { email, password } = values;
       await register({ email, password } as any);
     } catch (error: any) {
       console.error("Registration error:", error);
-
+      
       // Handle different types of registration errors
       if (error.response?.data?.emailExists || 
           error.message?.includes("email already exists") || 
@@ -462,11 +396,11 @@ function RegisterForm({
       setIsSubmitting(false);
     }
   }
-
+  
   const togglePasswordVisibility = () => {
     setShowPassword(!showPassword);
   };
-
+  
   const toggleConfirmPasswordVisibility = () => {
     setShowConfirmPassword(!showConfirmPassword);
   };
@@ -474,7 +408,7 @@ function RegisterForm({
   const switchToLogin = () => {
     setActiveTab("login");
   };
-
+  
   return (
     <Form {...form}>
       <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4 px-6 py-2">
@@ -483,7 +417,7 @@ function RegisterForm({
             {form.formState.errors.root.message}
           </div>
         )}
-
+        
         <FormField
           control={form.control}
           name="email"
@@ -491,13 +425,13 @@ function RegisterForm({
             <FormItem>
               <FormLabel>Email <span className="text-destructive">*</span></FormLabel>
               <FormControl>
-                <Input placeholder="you@example.com" autoComplete="new-email" {...field} />
+                <Input placeholder="you@example.com" {...field} />
               </FormControl>
               <FormMessage />
             </FormItem>
           )}
         />
-
+        
         <FormField
           control={form.control}
           name="password"
@@ -509,7 +443,6 @@ function RegisterForm({
                   <Input 
                     type={showPassword ? "text" : "password"} 
                     placeholder="••••••••" 
-                    autoComplete="new-password"
                     {...field} 
                   />
                 </FormControl>
@@ -532,7 +465,7 @@ function RegisterForm({
             </FormItem>
           )}
         />
-
+        
         <FormField
           control={form.control}
           name="passwordConfirm"
@@ -544,7 +477,6 @@ function RegisterForm({
                   <Input 
                     type={showConfirmPassword ? "text" : "password"} 
                     placeholder="••••••••" 
-                    autoComplete="new-password"
                     {...field} 
                   />
                 </FormControl>
@@ -564,7 +496,7 @@ function RegisterForm({
             </FormItem>
           )}
         />
-
+        
         {emailExists && (
           <div className="text-sm text-primary p-2 rounded flex flex-col items-center">
             <p className="mb-2">This email is already registered. Switch to login instead.</p>
@@ -579,11 +511,11 @@ function RegisterForm({
             </Button>
           </div>
         )}
-
+        
         <div className="text-xs text-muted-foreground">
           <span className="text-destructive">*</span> Required fields
         </div>
-
+        
         <Button type="submit" className="w-full" disabled={isSubmitting}>
           {isSubmitting ? (
             <>
@@ -594,11 +526,7 @@ function RegisterForm({
             "Create Account"
           )}
         </Button>
-
-        </form>
-
-      {/* Google OAuth - Outside of form */}
-      <div className="mt-4 px-6 pb-2">
+        
         <div className="relative my-4">
           <div className="absolute inset-0 flex items-center">
             <span className="w-full border-t" />
@@ -607,19 +535,12 @@ function RegisterForm({
             <span className="bg-background px-2 text-muted-foreground">Or continue with</span>
           </div>
         </div>
-
+        
         <Button 
           type="button" 
           variant="outline" 
           className="w-full" 
-          onClick={(e) => {
-            e.preventDefault();
-            if (!isSubmitting) {
-              setIsSubmitting(true);
-              console.log("🔄 Redirecting to Google OAuth...");
-              window.location.href = '/api/auth/google';
-            }
-          }}
+          onClick={() => window.location.href = '/api/auth/google'}
           disabled={isSubmitting}
         >
           <svg className="mr-2 h-4 w-4" viewBox="0 0 24 24">
@@ -630,7 +551,7 @@ function RegisterForm({
           </svg>
           Sign up with Google
         </Button>
-      </div>
+      </form>
     </Form>
   );
 }
