@@ -20,7 +20,11 @@ import { dirname } from 'path';
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
 
-const BASE_URL = process.env.BASE_URL || "http://localhost:5000";
+// Use the actual domain for OAuth callbacks
+const BASE_URL = process.env.REPLIT_APP_URL || 
+  (process.env.REPL_SLUG && process.env.REPL_OWNER 
+    ? `https://${process.env.REPL_OWNER}.${process.env.REPL_SLUG}.replit.dev`
+    : process.env.BASE_URL || "http://localhost:5000");
 console.log("🌐 Using BASE_URL for OAuth:", BASE_URL);
 
 // Extend the Express.User type

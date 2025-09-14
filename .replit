@@ -23,7 +23,7 @@ localPort = 6379
 externalPort = 3000
 
 [workflows]
-runButton = "Clean Development Server"
+runButton = "Fixed Development Server"
 
 [[workflows.workflow]]
 name = "Project"
@@ -87,6 +87,23 @@ mode = "sequential"
 [[workflows.workflow.tasks]]
 task = "shell.exec"
 args = "pkill -f \"tsx server/index.ts\" || true"
+
+[[workflows.workflow.tasks]]
+task = "shell.exec"
+args = "sleep 2"
+
+[[workflows.workflow.tasks]]
+task = "shell.exec"
+args = "NODE_ENV=development tsx server/index.ts"
+
+[[workflows.workflow]]
+name = "Fixed Development Server"
+author = 533416
+mode = "sequential"
+
+[[workflows.workflow.tasks]]
+task = "shell.exec"
+args = "redis-server --daemonize yes --port 6379"
 
 [[workflows.workflow.tasks]]
 task = "shell.exec"
