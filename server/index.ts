@@ -21,32 +21,15 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
 const app = express();
 
-// Add CORS configuration for cookie handling
-app.use((req, res, next) => {
-  const origin = req.headers.origin;
-  console.log(`[CORS] Request from origin: ${origin}`);
-  
-  // Allow requests from the specific Replit origin
-  const allowedOrigin = 'https://f387a246-37c5-4883-8c86-d114beeb1939-00-4mzroumvci77.spock.replit.dev';
-  
-  res.header('Access-Control-Allow-Credentials', 'true');
-  
-  if (origin === allowedOrigin) {
-    res.header('Access-Control-Allow-Origin', origin);
-  } else if (!origin) {
-    // For same-origin requests (no Origin header)
-    res.header('Access-Control-Allow-Origin', allowedOrigin);
-  }
-  
-  res.header('Access-Control-Allow-Methods', 'GET,PUT,POST,DELETE,OPTIONS');
-  res.header('Access-Control-Allow-Headers', 'Origin,X-Requested-With,Content-Type,Accept,Authorization,Cache-Control');
-  
-  if (req.method === 'OPTIONS') {
-    res.sendStatus(200);
-  } else {
-    next();
-  }
-});
+// Add trust proxy for Replit
+app.set("trust proxy", 1);
+
+// Configure CORS with proper credentials support
+const cors = require('cors');
+app.use(cors({
+  origin: "https://f387a246-37c5-4883-8c86-d114beeb1939-00-4mzroumvci77.spock.replit.dev",
+  credentials: true
+}));
 
 app.use(express.json());
 app.use(express.urlencoded({ extended: false }));

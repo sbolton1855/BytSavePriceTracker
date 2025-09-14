@@ -152,7 +152,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   // Logout function
   const logout = async () => {
     try {
-      await fetch("/api/logout", { method: "POST" });
+      await fetch("/api/logout", { 
+        method: "POST",
+        credentials: 'include'
+      });
       queryClient.setQueryData(["/api/user"], null);
       toast({
         title: "Logged out",

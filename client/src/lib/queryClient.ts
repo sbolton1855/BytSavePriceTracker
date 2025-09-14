@@ -9,15 +9,17 @@ async function throwIfResNotOk(res: Response) {
 
 export async function apiRequest(
   method: string,
-  url: string,
+  endpoint: string,
   data?: any
 ): Promise<Response> {
+  const url = endpoint.startsWith("/") ? endpoint : `/${endpoint}`;
+
   const options: RequestInit = {
     method,
+    credentials: 'include', // Always include credentials for session cookies
     headers: {
       "Content-Type": "application/json",
     },
-    credentials: 'include', // Always include cookies for session management
   };
 
   if (data) {
