@@ -297,16 +297,30 @@ function LoginForm({
             try {
               // First check if already authenticated
               const response = await fetch('/api/auth/me', { credentials: 'include' });
+              console.log("👤 /api/auth/me status:", response.status);
+
+              // Handle 304 Not Modified as already authenticated
+              if (response.status === 304) {
+                console.log("✅ Already authenticated (304), redirecting to dashboard");
+                window.location.href = "/dashboard";
+                return;
+              }
 
               // Check if response is JSON
               const contentType = response.headers.get('content-type');
               if (contentType && contentType.includes('application/json')) {
-                const data = await response.json();
-                console.log("✅ /api/auth/me response:", data);
+                try {
+                  const data = await response.json();
+                  console.log("✅ /api/auth/me response:", data);
 
-                if (data.authenticated === true || data.user) {
-                  window.location.href = "/dashboard";
-                  return;
+                  if (data.authenticated === true || data.user) {
+                    window.location.href = "/dashboard";
+                    return;
+                  }
+                } catch (parseError) {
+                  console.log("❌ Failed to parse JSON response:", parseError);
+                  const rawText = await response.text();
+                  console.log("📄 Raw response text:", rawText);
                 }
               } else {
                 console.log("✅ Auth endpoint returned non-JSON, proceeding with OAuth");
@@ -568,16 +582,30 @@ function RegisterForm({
             try {
               // First check if already authenticated
               const response = await fetch('/api/auth/me', { credentials: 'include' });
+              console.log("👤 /api/auth/me status:", response.status);
+
+              // Handle 304 Not Modified as already authenticated
+              if (response.status === 304) {
+                console.log("✅ Already authenticated (304), redirecting to dashboard");
+                window.location.href = "/dashboard";
+                return;
+              }
 
               // Check if response is JSON
               const contentType = response.headers.get('content-type');
               if (contentType && contentType.includes('application/json')) {
-                const data = await response.json();
-                console.log("✅ /api/auth/me response:", data);
+                try {
+                  const data = await response.json();
+                  console.log("✅ /api/auth/me response:", data);
 
-                if (data.authenticated === true || data.user) {
-                  window.location.href = "/dashboard";
-                  return;
+                  if (data.authenticated === true || data.user) {
+                    window.location.href = "/dashboard";
+                    return;
+                  }
+                } catch (parseError) {
+                  console.log("❌ Failed to parse JSON response:", parseError);
+                  const rawText = await response.text();
+                  console.log("📄 Raw response text:", rawText);
                 }
               } else {
                 console.log("✅ Auth endpoint returned non-JSON, proceeding with OAuth");
