@@ -200,39 +200,24 @@ function LoginForm({
     setActiveTab("register");
   };
 
-  // Helper function to check authentication status
-  const checkAuthStatus = async () => {
+  const handleGoogleLogin = async () => {
     try {
-      const response = await fetch('/api/auth/me', { credentials: 'include' });
-      console.log("👤 /api/auth/me status:", response.status);
-
-      if (response.status === 304) {
-        console.log("✅ Already authenticated (304)");
-        return { authenticated: true };
-      }
-
-      const contentType = response.headers.get('content-type');
-      if (contentType && contentType.includes('application/json')) {
-        try {
-          const data = await response.json();
-          console.log("✅ /api/auth/me response:", data);
-          if (data.authenticated === true || data.user) {
-            return { authenticated: true, user: data.user };
-          }
-        } catch (parseError) {
-          console.log("❌ Failed to parse JSON response:", parseError);
-          const rawText = await response.text();
-          console.log("📄 Raw response text:", rawText);
+      const res = await fetch("/api/auth/me", { credentials: "include" });
+      if (res.ok) {
+        const data = await res.json();
+        console.log("Auth check:", data);
+        if (data.authenticated) {
+          console.log("🔀 Already authenticated, redirecting to dashboard...");
+          window.location.href = "/dashboard";
+          return;
         }
-      } else {
-        console.log("✅ Auth endpoint returned non-JSON");
       }
-    } catch (error) {
-      console.log("✅ Auth check failed:", error);
+    } catch (err) {
+      console.warn("Auth check failed, falling back to Google OAuth:", err);
     }
-    return { authenticated: false };
+    console.log("🔀 Redirecting to Google OAuth...");
+    window.location.href = "/api/auth/google";
   };
-
 
   return (
     <Form {...form}>
@@ -327,23 +312,7 @@ function LoginForm({
           type="button" 
           variant="outline" 
           className="w-full" 
-          onClick={async (e) => {
-            e.preventDefault();
-            console.log("🔵 Google login button clicked");
-
-            // First check authentication status
-            const authResult = await checkAuthStatus();
-
-            if (authResult.authenticated) {
-              console.log("✅ Already authenticated, redirecting to dashboard");
-              window.location.href = "/dashboard";
-              return;
-            }
-
-            // Not authenticated, proceed with Google OAuth
-            console.log("🔄 Not authenticated, starting Google OAuth redirect");
-            window.location.href = '/api/auth/google';
-          }}
+          onClick={handleGoogleLogin}
           disabled={isSubmitting}
         >
           <svg className="mr-2 h-4 w-4" viewBox="0 0 24 24">
@@ -459,39 +428,24 @@ function RegisterForm({
     setActiveTab("login");
   };
 
-  // Helper function to check authentication status
-  const checkAuthStatus = async () => {
+  const handleGoogleLogin = async () => {
     try {
-      const response = await fetch('/api/auth/me', { credentials: 'include' });
-      console.log("👤 /api/auth/me status:", response.status);
-
-      if (response.status === 304) {
-        console.log("✅ Already authenticated (304)");
-        return { authenticated: true };
-      }
-
-      const contentType = response.headers.get('content-type');
-      if (contentType && contentType.includes('application/json')) {
-        try {
-          const data = await response.json();
-          console.log("✅ /api/auth/me response:", data);
-          if (data.authenticated === true || data.user) {
-            return { authenticated: true, user: data.user };
-          }
-        } catch (parseError) {
-          console.log("❌ Failed to parse JSON response:", parseError);
-          const rawText = await response.text();
-          console.log("📄 Raw response text:", rawText);
+      const res = await fetch("/api/auth/me", { credentials: "include" });
+      if (res.ok) {
+        const data = await res.json();
+        console.log("Auth check:", data);
+        if (data.authenticated) {
+          console.log("🔀 Already authenticated, redirecting to dashboard...");
+          window.location.href = "/dashboard";
+          return;
         }
-      } else {
-        console.log("✅ Auth endpoint returned non-JSON");
       }
-    } catch (error) {
-      console.log("✅ Auth check failed:", error);
+    } catch (err) {
+      console.warn("Auth check failed, falling back to Google OAuth:", err);
     }
-    return { authenticated: false };
+    console.log("🔀 Redirecting to Google OAuth...");
+    window.location.href = "/api/auth/google";
   };
-
 
   return (
     <Form {...form}>
@@ -624,23 +578,7 @@ function RegisterForm({
           type="button" 
           variant="outline" 
           className="w-full" 
-          onClick={async (e) => {
-            e.preventDefault();
-            console.log("🔵 Google login button clicked");
-
-            // First check authentication status
-            const authResult = await checkAuthStatus();
-
-            if (authResult.authenticated) {
-              console.log("✅ Already authenticated, redirecting to dashboard");
-              window.location.href = "/dashboard";
-              return;
-            }
-
-            // Not authenticated, proceed with Google OAuth
-            console.log("🔄 Not authenticated, starting Google OAuth redirect");
-            window.location.href = '/api/auth/google';
-          }}
+          onClick={handleGoogleLogin}
           disabled={isSubmitting}
         >
           <svg className="mr-2 h-4 w-4" viewBox="0 0 24 24">
