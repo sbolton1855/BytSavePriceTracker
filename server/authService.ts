@@ -21,6 +21,9 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
 
 const BASE_URL = process.env.BASE_URL;
+if (!process.env.BASE_URL) {
+  console.error("❌ BASE_URL is not set in .env!");
+}
 console.log("🌐 Using BASE_URL for OAuth:", BASE_URL);
 
 // Extend the Express.User type
@@ -183,6 +186,8 @@ export function configureAuth(app: Express) {
 
   // Configure Google OAuth Strategy
   if (process.env.GOOGLE_CLIENT_ID && process.env.GOOGLE_CLIENT_SECRET) {
+    console.log("🎯 Google OAuth callback →", `${process.env.BASE_URL}/api/auth/google/callback`);
+    
     const callbackUrl = `${process.env.BASE_URL}/api/auth/google/callback`;
     
     console.log(`🔧 Setting up Google OAuth with Client ID: ${process.env.GOOGLE_CLIENT_ID?.substring(0, 8)}...`);
