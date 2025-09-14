@@ -25,7 +25,7 @@ const app = express();
 app.set("trust proxy", 1);
 
 // Configure CORS with proper credentials support
-const cors = require('cors');
+import cors from 'cors';
 app.use(cors({
   origin: "https://f387a246-37c5-4883-8c86-d114beeb1939-00-4mzroumvci77.spock.replit.dev",
   credentials: true
