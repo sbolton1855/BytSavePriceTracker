@@ -327,7 +327,10 @@ function LoginForm({
           type="button" 
           variant="outline" 
           className="w-full" 
-          onClick={async () => {
+          onClick={async (e) => {
+            e.preventDefault();
+            console.log("🔵 Google login button clicked");
+
             // First check authentication status
             const authResult = await checkAuthStatus();
 
@@ -338,7 +341,7 @@ function LoginForm({
             }
 
             // Not authenticated, proceed with Google OAuth
-            console.log("🔄 Not authenticated, starting Google OAuth");
+            console.log("🔄 Not authenticated, starting Google OAuth redirect");
             window.location.href = '/api/auth/google';
           }}
           disabled={isSubmitting}
@@ -621,7 +624,10 @@ function RegisterForm({
           type="button" 
           variant="outline" 
           className="w-full" 
-          onClick={async () => {
+          onClick={async (e) => {
+            e.preventDefault();
+            console.log("🔵 Google login button clicked");
+
             // First check authentication status
             const authResult = await checkAuthStatus();
 
@@ -632,7 +638,7 @@ function RegisterForm({
             }
 
             // Not authenticated, proceed with Google OAuth
-            console.log("🔄 Not authenticated, starting Google OAuth");
+            console.log("🔄 Not authenticated, starting Google OAuth redirect");
             window.location.href = '/api/auth/google';
           }}
           disabled={isSubmitting}
