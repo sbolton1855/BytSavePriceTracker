@@ -24,10 +24,26 @@ const app = express();
 // Add trust proxy for Replit
 app.set("trust proxy", 1);
 
-// Configure CORS with proper credentials support
+// Configure CORS with proper credentials support  
 import cors from 'cors';
 app.use(cors({
-  origin: "https://f387a246-37c5-4883-8c86-d114beeb1939-00-4mzroumvci77.spock.replit.dev",
+  origin: function(origin, callback) {
+    // Allow requests with no origin (mobile apps, etc.)
+    if (!origin) return callback(null, true);
+    
+    // Allow your Replit domain and localhost for development
+    const allowedOrigins = [
+      'https://f387a246-37c5-4883-8c86-d114beeb1939-00-4mzroumvci77.spock.replit.dev',
+      'http://localhost:5173',
+      'http://localhost:5000'
+    ];
+    
+    if (allowedOrigins.includes(origin)) {
+      callback(null, true);
+    } else {
+      callback(new Error('Not allowed by CORS'));
+    }
+  },
   credentials: true
 }));
 

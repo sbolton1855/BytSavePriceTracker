@@ -40,14 +40,15 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       try {
         console.log("[CLIENT AUTH] Fetching user data...");
         const res = await fetch("/api/user", {
-          credentials: 'include', // Ensure cookies are sent
+          credentials: 'include',
           headers: {
+            'Accept': 'application/json',
             'Content-Type': 'application/json',
           },
         });
         
         console.log("[CLIENT AUTH] Response status:", res.status);
-        console.log("[CLIENT AUTH] Response headers:", Object.fromEntries(res.headers.entries()));
+        console.log("[CLIENT AUTH] Response URL:", res.url);
         
         if (!res.ok) {
           if (res.status === 401) {
@@ -55,9 +56,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
             return null;
           }
           
-          // Log the actual response for debugging
           const text = await res.text();
-          console.error("[CLIENT AUTH] Non-JSON response:", text.substring(0, 200));
+          console.error("[CLIENT AUTH] Error response:", text.substring(0, 500));
           throw new Error(`Failed to fetch user data: ${res.status}`);
         }
         
@@ -65,7 +65,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         if (!contentType || !contentType.includes('application/json')) {
           const text = await res.text();
           console.error("[CLIENT AUTH] Expected JSON but got:", contentType);
-          console.error("[CLIENT AUTH] Response body:", text.substring(0, 200));
+          console.error("[CLIENT AUTH] Response body:", text.substring(0, 500));
+          
+          // If we got HTML, it might be a redirect - check if we're on the login page
+          if (text.includes('<html') && window.location.pathname !== '/auth') {
+            console.log("[CLIENT AUTH] Got HTML response, might need to redirect to auth");
+            return null;
+          }
+          
           throw new Error("Server returned non-JSON response");
         }
         
@@ -73,15 +80,18 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         console.log("[CLIENT AUTH] Successfully fetched user:", userData.email);
         return userData;
       } catch (error) {
-        console.error("Error fetching user:", error);
+        console.error("[CLIENT AUTH] Error fetching user:", error);
         return null;
       }
     },
-    retry: false,
-    staleTime: 10 * 60 * 1000, // 10 minutes - longer to prevent frequent checks
-    gcTime: 15 * 60 * 1000, // 15 minutes cache time
-    initialData: null,
-    refetchOnWindowFocus: false, // Prevent refetch on focus to avoid unnecessary auth checks
+    retry: (failureCount, error) => {
+      // Don't retry on auth errors
+      return failureCount < 2 && !error.message.includes('JSON');
+    },
+    staleTime: 5 * 60 * 1000, // 5 minutes
+    gcTime: 10 * 60 * 1000, // 10 minutes cache time
+    refetchOnWindowFocus: true, // Enable refetch to catch OAuth returns
+    refetchOnMount: true,
   });
 
   // Register mutation

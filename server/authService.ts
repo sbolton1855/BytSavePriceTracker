@@ -132,13 +132,12 @@ export function configureAuth(app: Express) {
     secret: sessionSecret,
     resave: false,
     saveUninitialized: false,
-    name: 'bytesave.sid', // Custom session name
+    name: 'connect.sid', // Use default session name
     cookie: { 
       httpOnly: true,
-      secure: true, // HTTPS required for Replit
-      sameSite: 'none', // Allow cross-origin cookies
+      secure: process.env.NODE_ENV === 'production', // Only secure in production
+      sameSite: process.env.NODE_ENV === 'production' ? 'none' : 'lax',
       maxAge: 30 * 24 * 60 * 60 * 1000, // 30 days
-      domain: undefined // Let the browser handle this automatically
     }
   }));
 
@@ -285,28 +284,27 @@ export function configureAuth(app: Express) {
   app.get('/api/auth/google/callback', (req, res, next) => {
     console.log(`📞 Google OAuth callback received`);
     console.log(`📋 Query params:`, req.query);
+    console.log(`📋 Request headers:`, req.headers);
     
     passport.authenticate('google', { 
       failureRedirect: '/auth?error=google_auth_failed',
       failureMessage: true 
     })(req, res, next);
   }, (req, res) => {
-    console.log(`✅ Google OAuth successful`);
-    console.log(`[AUTH DEBUG] Session after OAuth: ${req.sessionID}`);
-    console.log(`[AUTH DEBUG] User after OAuth:`, req.user);
-    console.log(`[AUTH DEBUG] isAuthenticated after OAuth: ${req.isAuthenticated()}`);
+    console.log(`✅ Google OAuth successful for user: ${req.user?.email}`);
+    console.log(`[AUTH DEBUG] Session ID: ${req.sessionID}`);
+    console.log(`[AUTH DEBUG] User object:`, req.user);
+    console.log(`[AUTH DEBUG] isAuthenticated: ${req.isAuthenticated()}`);
     console.log(`[AUTH DEBUG] Session passport data:`, req.session?.passport);
-    console.log(`[AUTH DEBUG] Session cookie will be set with domain: ${req.headers.host}`);
     
     // Force session save before redirect
     req.session.save((err) => {
       if (err) {
-        console.error('Session save error:', err);
-      } else {
-        console.log('✅ Session saved successfully');
+        console.error('❌ Session save error:', err);
+        return res.redirect('/auth?error=session_save_failed');
       }
       
-      // Successful authentication, redirect to dashboard
+      console.log('✅ Session saved successfully, redirecting to dashboard');
       res.redirect('/dashboard');
     });
   });
