@@ -559,8 +559,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
 
       // Validate tracked product ID
-      const trackedProductId = parseInt(id, 10);
-      if (isNaN(trackedProductId)) {
+      const productId = parseInt(id, 10);
+      if (isNaN(productId)) {
         return res.status(400).json({
           success: false,
           error: 'Invalid tracked product ID'
@@ -571,13 +571,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const trackedProduct = await db.select()
         .from(trackedProducts)
         .leftJoin(products, eq(trackedProducts.productId, products.id))
-        .where(eq(trackedProducts.id, trackedProductId))
+        .where(eq(trackedProducts.id, productId))
         .limit(1);
 
       if (trackedProduct.length === 0) {
         return res.status(404).json({
           success: false,
-          error: `Tracked product with ID ${trackedProductId} not found`
+          error: `Tracked product with ID ${productId} not found`
         });
       }
 
@@ -593,7 +593,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       // Calculate new target price (current price + $10 to ensure alert triggers)
       const newTargetPrice = product.currentPrice + 10;
-      const oldTargetPrice = tracked.targetPrice;
+      const originalTargetPrice = tracked.targetPrice;
 
       // Update the tracked product
       await db.update(trackedProducts)
@@ -601,12 +601,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
           targetPrice: newTargetPrice,
           notified: false
         })
-        .where(eq(trackedProducts.id, trackedProductId));
+        .where(eq(trackedProducts.id, productId));
 
-      console.log(`🧪 QA TEST: Updated tracked product ${trackedProductId}`);
+      console.log(`🧪 QA TEST: Updated tracked product ${productId}`);
       console.log(`  📦 Product: ${product.title} (ASIN: ${product.asin})`);
       console.log(`  💰 Current Price: $${product.currentPrice}`);
-      console.log(`  🎯 Target Price: $${oldTargetPrice} → $${newTargetPrice}`);
+      console.log(`  🎯 Target Price: $${originalTargetPrice} → $${newTargetPrice}`);
       console.log(`  🔔 Notified: true → false`);
       console.log(`  📧 Email: ${tracked.email}`);
 
@@ -614,14 +614,17 @@ export async function registerRoutes(app: Express): Promise<Server> {
         success: true,
         message: 'Price drop simulation configured successfully',
         data: {
-          trackedProductId,
-          productTitle: product.title,
-          asin: product.asin,
-          currentPrice: product.currentPrice,
-          oldTargetPrice,
-          newTargetPrice,
-          email: tracked.email,
-          notified: false
+          trackedProductId: productId,
+          productTitle: trackedProduct[0].product?.title || 'Unknown Product',
+          asin: trackedProduct[0].product?.asin || 'Unknown ASIN',
+          currentPrice: trackedProduct[0].product?.currentPrice || 0,
+          oldTargetPrice: originalTargetPrice,
+          newTargetPrice: newTargetPrice,
+          email: trackedProduct[0].email,
+          notified: false,
+          lastAlertSent: null,
+          cooldownHours: trackedProduct[0].cooldownHours || 48,
+          cooldownStatus: 'Reset - ready for new alert'
         },
         nextStep: `Call GET /api/run-daily-alerts?token=${process.env.ALERT_TRIGGER_TOKEN} to trigger alerts`
       });
@@ -2016,16 +2019,16 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Google OAuth configuration diagnostic endpoint
   app.get('/api/debug/google-oauth', async (req: Request, res: Response) => {
     try {
-      const domain = process.env.REPL_SLUG && process.env.REPL_OWNER 
+      const domain = process.env.REPL_SLUG && process.env.REPL_OWNER
         ? `https://${process.env.REPL_OWNER}.${process.env.REPL_SLUG}.replit.dev`
         : process.env.CALLBACK_BASE_URL || 'http://localhost:5000';
-      
+
       const expectedCallbackUrl = `${domain}/api/auth/google/callback`;
-      
+
       const diagnostics = {
         success: true,
         configuration: {
-          clientId: process.env.GOOGLE_CLIENT_ID ? 
+          clientId: process.env.GOOGLE_CLIENT_ID ?
             `${process.env.GOOGLE_CLIENT_ID.substring(0, 8)}...` : 'NOT SET',
           clientSecret: process.env.GOOGLE_CLIENT_SECRET ? 'SET' : 'NOT SET',
           baseDomain: domain,

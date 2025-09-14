@@ -165,10 +165,10 @@ export class DatabaseStorage implements IStorage {
       if (!product || item.notified) {
         continue;
       }
-      
+
       // Check price condition based on alert type
       let shouldAlert = false;
-      
+
       if (item.percentageAlert && item.percentageThreshold && product.originalPrice) {
         // Percentage-based alert: current price is at least X% lower than original
         const targetDiscountPrice = product.originalPrice * (1 - item.percentageThreshold / 100);
@@ -177,7 +177,7 @@ export class DatabaseStorage implements IStorage {
         // Fixed price alert: current price is at or below target price
         shouldAlert = product.currentPrice <= item.targetPrice;
       }
-      
+
       if (shouldAlert) {
         result.push({ ...item, product });
       }
@@ -208,17 +208,51 @@ export class DatabaseStorage implements IStorage {
   }
 
   async getAllTrackedProductsWithDetails(): Promise<(TrackedProduct & { product: Product })[]> {
-    const result: (TrackedProduct & { product: Product })[] = [];
-    const trackedItems = await db.select().from(trackedProducts);
+    try {
+      const results = await db
+        .select({
+          id: trackedProducts.id,
+          userId: trackedProducts.userId,
+          email: trackedProducts.email,
+          productId: trackedProducts.productId,
+          targetPrice: trackedProducts.targetPrice,
+          percentageAlert: trackedProducts.percentageAlert,
+          percentageThreshold: trackedProducts.percentageThreshold,
+          notified: trackedProducts.notified,
+          lastAlertSent: trackedProducts.lastAlertSent,
+          cooldownHours: trackedProducts.cooldownHours,
+          lastNotifiedPrice: trackedProducts.lastNotifiedPrice,
+          createdAt: trackedProducts.createdAt,
+          product: {
+            id: products.id,
+            asin: products.asin,
+            title: products.title,
+            url: products.url,
+            imageUrl: products.imageUrl,
+            currentPrice: products.currentPrice,
+            originalPrice: products.originalPrice,
+            lastChecked: products.lastChecked,
+            lowestPrice: products.lowestPrice,
+            highestPrice: products.highestPrice,
+          },
+        })
+        .from(trackedProducts)
+        .innerJoin(products, eq(trackedProducts.productId, products.id));
 
-    for (const item of trackedItems) {
-      const product = await this.getProduct(item.productId);
-      if (product) {
-        result.push({ ...item, product });
-      }
+      return results.map((row) => ({
+        ...row,
+        userId: row.userId ?? 0,
+        createdAt: new Date(row.createdAt),
+        lastAlertSent: row.lastAlertSent ? new Date(row.lastAlertSent) : null,
+        product: {
+          ...row.product,
+          lastChecked: new Date(row.product.lastChecked),
+        },
+      }));
+    } catch (error) {
+      console.error('Error getting tracked products with details:', error);
+      throw error;
     }
-
-    return result;
   }
 
   async getTrackedProductsWithDetailsByEmail(email: string): Promise<(TrackedProduct & { product: Product })[]> {

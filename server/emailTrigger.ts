@@ -95,9 +95,49 @@ export function shouldTriggerAlert(
 ): boolean {
   console.log(`🔍 QA: Checking alert criteria for tracked product ID ${trackedProduct.id}`);
   
-  // If already notified, don't send again
-  if (trackedProduct.notified) {
-    console.log(`⏭️  QA: Skipping - already notified (notified=${trackedProduct.notified})`);
+  // Check if cooldown is still active
+  if (trackedProduct.lastAlertSent) {
+    const cooldownHours = trackedProduct.cooldownHours || 48;
+    const lastAlertTime = new Date(trackedProduct.lastAlertSent);
+    const currentTime = new Date();
+    const hoursSinceLastAlert = (currentTime.getTime() - lastAlertTime.getTime()) / (1000 * 60 * 60);
+    
+    console.log(`⏰ QA: Cooldown Check:`);
+    console.log(`   - Last Alert: ${lastAlertTime.toISOString()}`);
+    console.log(`   - Current Time: ${currentTime.toISOString()}`);
+    console.log(`   - Hours Since Last Alert: ${hoursSinceLastAlert.toFixed(2)}`);
+    console.log(`   - Cooldown Period: ${cooldownHours} hours`);
+    
+    if (hoursSinceLastAlert < cooldownHours) {
+      // Check if price has rebounded significantly (>5% above last notified price)
+      if (trackedProduct.lastNotifiedPrice) {
+        const reboundThreshold = trackedProduct.lastNotifiedPrice * 1.05; // 5% above last alert price
+        const hasRebounded = product.currentPrice > reboundThreshold;
+        
+        console.log(`📈 QA: Rebound Check:`);
+        console.log(`   - Last Notified Price: $${trackedProduct.lastNotifiedPrice}`);
+        console.log(`   - Rebound Threshold (5%): $${reboundThreshold.toFixed(2)}`);
+        console.log(`   - Current Price: $${product.currentPrice}`);
+        console.log(`   - Has Rebounded: ${hasRebounded}`);
+        
+        if (hasRebounded) {
+          console.log(`🔄 QA: Price rebounded >5% - cooldown reset allowed`);
+          return false; // Will reset cooldown in processPriceAlerts if price conditions are met
+        }
+      }
+      
+      console.log(`⏭️  QA: Skipping - still in cooldown (${(cooldownHours - hoursSinceLastAlert).toFixed(1)} hours remaining)`);
+      return false;
+    } else {
+      console.log(`✅ QA: Cooldown expired - proceeding with alert check`);
+    }
+  } else {
+    console.log(`🆕 QA: No previous alert sent - proceeding with alert check`);
+  }
+  
+  // Legacy notified flag check (keeping for backward compatibility)
+  if (trackedProduct.notified && !trackedProduct.lastAlertSent) {
+    console.log(`⏭️  QA: Skipping - legacy notified flag set (no timestamp)`);
     return false;
   }
 
@@ -158,6 +198,28 @@ export async function processPriceAlerts(): Promise<number> {
         console.log(`   📧 Email: ${trackedProduct.email}`);
         console.log(`   🔔 Already Notified: ${trackedProduct.notified}`);
         
+        // Check for price rebound reset first
+        if (trackedProduct.lastAlertSent && trackedProduct.lastNotifiedPrice) {
+          const reboundThreshold = trackedProduct.lastNotifiedPrice * 1.05; // 5% above last alert price
+          const hasRebounded = trackedProduct.product.currentPrice > reboundThreshold;
+          
+          if (hasRebounded) {
+            console.log(`🔄 QA: Price rebounded >5% above last alert price - resetting cooldown`);
+            console.log(`   - Last Alert Price: $${trackedProduct.lastNotifiedPrice}`);
+            console.log(`   - Current Price: $${trackedProduct.product.currentPrice}`);
+            console.log(`   - Rebound Threshold: $${reboundThreshold.toFixed(2)}`);
+            
+            // Reset cooldown flags
+            await storage.updateTrackedProduct(trackedProduct.id, { 
+              notified: false,
+              lastAlertSent: null,
+              lastNotifiedPrice: null
+            });
+            console.log(`✅ QA: Cooldown reset completed`);
+            continue; // Skip to next product - will be eligible next cycle
+          }
+        }
+
         const shouldAlert = shouldTriggerAlert(trackedProduct.product, trackedProduct);
 
         // Check if this tracked product requires an alert
@@ -179,10 +241,18 @@ export async function processPriceAlerts(): Promise<number> {
             console.log(`   📧 To: ${trackedProduct.email}`);
             console.log(`   📦 Product: ${trackedProduct.product.title}`);
             
-            // Mark as notified to prevent duplicate emails
-            console.log(`🔄 QA: Updating notified flag to true...`);
-            await storage.updateTrackedProduct(trackedProduct.id, { notified: true });
-            console.log(`✅ QA: Notified flag updated successfully`);
+            // Update cooldown tracking
+            const currentTime = new Date();
+            console.log(`🔄 QA: Updating cooldown tracking...`);
+            await storage.updateTrackedProduct(trackedProduct.id, { 
+              notified: true,
+              lastAlertSent: currentTime,
+              lastNotifiedPrice: trackedProduct.product.currentPrice
+            });
+            console.log(`✅ QA: Cooldown tracking updated successfully`);
+            console.log(`   - Alert Sent At: ${currentTime.toISOString()}`);
+            console.log(`   - Price When Alerted: $${trackedProduct.product.currentPrice}`);
+            console.log(`   - Next Alert Available After: ${new Date(currentTime.getTime() + (trackedProduct.cooldownHours || 48) * 60 * 60 * 1000).toISOString()}`);
             
             alertCount++;
           } else {
