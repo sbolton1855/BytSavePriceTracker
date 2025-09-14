@@ -20,6 +20,23 @@ const Navbar: React.FC = () => {
   const { user, isLoading, isAuthenticated } = useAuth();
   const [isOpen, setIsOpen] = useState(false);
 
+  const handleLogout = async () => {
+    try {
+      const res = await fetch("/api/logout", {
+        method: "GET",
+        credentials: "include"
+      });
+      if (res.ok) {
+        console.log("✅ Logged out");
+        window.location.href = "/auth"; // send back to login
+      } else {
+        console.warn("⚠️ Logout failed");
+      }
+    } catch (err) {
+      console.error("❌ Logout error:", err);
+    }
+  };
+
   const NavLinks = () => (
     <>
       <Link href="/">
@@ -117,8 +134,8 @@ const Navbar: React.FC = () => {
                   <DropdownMenuItem asChild>
                     <Link href="/dashboard">Dashboard</Link>
                   </DropdownMenuItem>
-                  <DropdownMenuItem asChild>
-                    <a href="/api/logout">Logout</a>
+                  <DropdownMenuItem onClick={handleLogout}>
+                    Logout
                   </DropdownMenuItem>
                 </DropdownMenuContent>
               </DropdownMenu>
@@ -159,8 +176,8 @@ const Navbar: React.FC = () => {
                   <DropdownMenuItem asChild>
                     <Link href="/dashboard">Dashboard</Link>
                   </DropdownMenuItem>
-                  <DropdownMenuItem asChild>
-                    <a href="/api/logout">Logout</a>
+                  <DropdownMenuItem onClick={handleLogout}>
+                    Logout
                   </DropdownMenuItem>
                 </DropdownMenuContent>
               </DropdownMenu>
@@ -169,7 +186,7 @@ const Navbar: React.FC = () => {
                 <Button className="mr-2" size="sm">Sign In</Button>
               </Link>
             )}
-            
+
             <Sheet open={isOpen} onOpenChange={setIsOpen}>
               <SheetTrigger asChild>
                 <Button variant="ghost" size="sm" className="p-2">
