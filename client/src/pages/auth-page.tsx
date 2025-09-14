@@ -200,6 +200,40 @@ function LoginForm({
     setActiveTab("register");
   };
 
+  // Helper function to check authentication status
+  const checkAuthStatus = async () => {
+    try {
+      const response = await fetch('/api/auth/me', { credentials: 'include' });
+      console.log("👤 /api/auth/me status:", response.status);
+
+      if (response.status === 304) {
+        console.log("✅ Already authenticated (304)");
+        return { authenticated: true };
+      }
+
+      const contentType = response.headers.get('content-type');
+      if (contentType && contentType.includes('application/json')) {
+        try {
+          const data = await response.json();
+          console.log("✅ /api/auth/me response:", data);
+          if (data.authenticated === true || data.user) {
+            return { authenticated: true, user: data.user };
+          }
+        } catch (parseError) {
+          console.log("❌ Failed to parse JSON response:", parseError);
+          const rawText = await response.text();
+          console.log("📄 Raw response text:", rawText);
+        }
+      } else {
+        console.log("✅ Auth endpoint returned non-JSON");
+      }
+    } catch (error) {
+      console.log("✅ Auth check failed:", error);
+    }
+    return { authenticated: false };
+  };
+
+
   return (
     <Form {...form}>
       <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4 px-6 py-2">
@@ -294,42 +328,17 @@ function LoginForm({
           variant="outline" 
           className="w-full" 
           onClick={async () => {
-            try {
-              // First check if already authenticated
-              const response = await fetch('/api/auth/me', { credentials: 'include' });
-              console.log("👤 /api/auth/me status:", response.status);
+            // First check authentication status
+            const authResult = await checkAuthStatus();
 
-              // Handle 304 Not Modified as already authenticated
-              if (response.status === 304) {
-                console.log("✅ Already authenticated (304), redirecting to dashboard");
-                window.location.href = "/dashboard";
-                return;
-              }
-
-              // Check if response is JSON
-              const contentType = response.headers.get('content-type');
-              if (contentType && contentType.includes('application/json')) {
-                try {
-                  const data = await response.json();
-                  console.log("✅ /api/auth/me response:", data);
-
-                  if (data.authenticated === true || data.user) {
-                    window.location.href = "/dashboard";
-                    return;
-                  }
-                } catch (parseError) {
-                  console.log("❌ Failed to parse JSON response:", parseError);
-                  const rawText = await response.text();
-                  console.log("📄 Raw response text:", rawText);
-                }
-              } else {
-                console.log("✅ Auth endpoint returned non-JSON, proceeding with OAuth");
-              }
-            } catch (error) {
-              console.log("✅ Auth check failed, proceeding with OAuth:", error);
+            if (authResult.authenticated) {
+              console.log("✅ Already authenticated, redirecting to dashboard");
+              window.location.href = "/dashboard";
+              return;
             }
 
-            // Otherwise proceed with Google OAuth
+            // Not authenticated, proceed with Google OAuth
+            console.log("🔄 Not authenticated, starting Google OAuth");
             window.location.href = '/api/auth/google';
           }}
           disabled={isSubmitting}
@@ -446,6 +455,40 @@ function RegisterForm({
   const switchToLogin = () => {
     setActiveTab("login");
   };
+
+  // Helper function to check authentication status
+  const checkAuthStatus = async () => {
+    try {
+      const response = await fetch('/api/auth/me', { credentials: 'include' });
+      console.log("👤 /api/auth/me status:", response.status);
+
+      if (response.status === 304) {
+        console.log("✅ Already authenticated (304)");
+        return { authenticated: true };
+      }
+
+      const contentType = response.headers.get('content-type');
+      if (contentType && contentType.includes('application/json')) {
+        try {
+          const data = await response.json();
+          console.log("✅ /api/auth/me response:", data);
+          if (data.authenticated === true || data.user) {
+            return { authenticated: true, user: data.user };
+          }
+        } catch (parseError) {
+          console.log("❌ Failed to parse JSON response:", parseError);
+          const rawText = await response.text();
+          console.log("📄 Raw response text:", rawText);
+        }
+      } else {
+        console.log("✅ Auth endpoint returned non-JSON");
+      }
+    } catch (error) {
+      console.log("✅ Auth check failed:", error);
+    }
+    return { authenticated: false };
+  };
+
 
   return (
     <Form {...form}>
@@ -579,42 +622,17 @@ function RegisterForm({
           variant="outline" 
           className="w-full" 
           onClick={async () => {
-            try {
-              // First check if already authenticated
-              const response = await fetch('/api/auth/me', { credentials: 'include' });
-              console.log("👤 /api/auth/me status:", response.status);
+            // First check authentication status
+            const authResult = await checkAuthStatus();
 
-              // Handle 304 Not Modified as already authenticated
-              if (response.status === 304) {
-                console.log("✅ Already authenticated (304), redirecting to dashboard");
-                window.location.href = "/dashboard";
-                return;
-              }
-
-              // Check if response is JSON
-              const contentType = response.headers.get('content-type');
-              if (contentType && contentType.includes('application/json')) {
-                try {
-                  const data = await response.json();
-                  console.log("✅ /api/auth/me response:", data);
-
-                  if (data.authenticated === true || data.user) {
-                    window.location.href = "/dashboard";
-                    return;
-                  }
-                } catch (parseError) {
-                  console.log("❌ Failed to parse JSON response:", parseError);
-                  const rawText = await response.text();
-                  console.log("📄 Raw response text:", rawText);
-                }
-              } else {
-                console.log("✅ Auth endpoint returned non-JSON, proceeding with OAuth");
-              }
-            } catch (error) {
-              console.log("✅ Auth check failed, proceeding with OAuth:", error);
+            if (authResult.authenticated) {
+              console.log("✅ Already authenticated, redirecting to dashboard");
+              window.location.href = "/dashboard";
+              return;
             }
 
-            // Otherwise proceed with Google OAuth
+            // Not authenticated, proceed with Google OAuth
+            console.log("🔄 Not authenticated, starting Google OAuth");
             window.location.href = '/api/auth/google';
           }}
           disabled={isSubmitting}
