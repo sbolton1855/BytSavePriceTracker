@@ -124,7 +124,6 @@ export class DatabaseStorage implements IStorage {
       const [trackedProduct] = await db.insert(trackedProducts).values({
         ...insertTrackedProduct,
         email: insertTrackedProduct.email.toUpperCase(),
-        notified: false
       }).returning();
       console.log('Successfully created tracked product:', trackedProduct);
       return trackedProduct;
@@ -162,8 +161,18 @@ export class DatabaseStorage implements IStorage {
 
     for (const item of trackedItems) {
       const product = await this.getProduct(item.productId);
-      if (!product || item.notified) {
+      if (!product) {
         continue;
+      }
+
+      const now = new Date();
+      const cooldownMs = (item.cooldownHours ?? 48) * 60 * 60 * 1000;
+
+      if (
+        item.lastAlertSent &&
+        now.getTime() - new Date(item.lastAlertSent).getTime() < cooldownMs
+      ) {
+        continue; // still within cooldown period
       }
 
       // Check price condition based on alert type
@@ -218,7 +227,6 @@ export class DatabaseStorage implements IStorage {
           targetPrice: trackedProducts.targetPrice,
           percentageAlert: trackedProducts.percentageAlert,
           percentageThreshold: trackedProducts.percentageThreshold,
-          notified: trackedProducts.notified,
           lastAlertSent: trackedProducts.lastAlertSent,
           cooldownHours: trackedProducts.cooldownHours,
           lastNotifiedPrice: trackedProducts.lastNotifiedPrice,

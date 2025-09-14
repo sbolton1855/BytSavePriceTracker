@@ -595,11 +595,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const newTargetPrice = product.currentPrice + 10;
       const originalTargetPrice = tracked.targetPrice;
 
-      // Update the tracked product
+      // Update the tracked product and reset cooldown
       await db.update(trackedProducts)
         .set({
           targetPrice: newTargetPrice,
-          notified: false
+          lastAlertSent: null,
+          lastNotifiedPrice: null
         })
         .where(eq(trackedProducts.id, productId));
 
@@ -2721,9 +2722,14 @@ Respond with just the analysis text, no JSON needed.
           imageUrl: item.product.imageUrl || undefined
         });
 
-        // Mark as notified
+        // Update cooldown tracking
+        const currentTime = new Date();
         await db
           .update(trackedProducts)
+          .set({
+            lastAlertSent: currentTime,
+            lastNotifiedPrice: item.product.currentPrice
+          })
           .set({ notified: true })
           .where(eq(trackedProducts.id, productId));
 

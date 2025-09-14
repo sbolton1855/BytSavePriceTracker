@@ -135,11 +135,8 @@ export function shouldTriggerAlert(
     console.log(`🆕 QA: No previous alert sent - proceeding with alert check`);
   }
   
-  // Legacy notified flag check (keeping for backward compatibility)
-  if (trackedProduct.notified && !trackedProduct.lastAlertSent) {
-    console.log(`⏭️  QA: Skipping - legacy notified flag set (no timestamp)`);
-    return false;
-  }
+  // Skip if we have a timestamp-based cooldown active (modern approach)
+  // Legacy notified flag is no longer used
 
   // Get the target price based on alert type
   if (trackedProduct.percentageAlert && trackedProduct.percentageThreshold) {

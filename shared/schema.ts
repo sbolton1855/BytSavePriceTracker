@@ -67,7 +67,7 @@ export const trackedProducts = pgTable("tracked_products", {
   targetPrice: doublePrecision("target_price").notNull(),
   percentageAlert: boolean("percentage_alert").default(false),
   percentageThreshold: integer("percentage_threshold"),
-  notified: boolean("notified").default(false),
+  notified: boolean("notified").default(false), // Deprecated - use lastAlertSent instead
   lastAlertSent: timestamp("last_alert_sent"),
   cooldownHours: integer("cooldown_hours").default(48),
   lastNotifiedPrice: doublePrecision("last_notified_price"),
