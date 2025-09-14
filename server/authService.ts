@@ -20,11 +20,7 @@ import { dirname } from 'path';
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
 
-// Use the actual domain for OAuth callbacks
-const BASE_URL = process.env.REPLIT_APP_URL || 
-  (process.env.REPL_SLUG && process.env.REPL_OWNER 
-    ? `https://${process.env.REPL_OWNER}.${process.env.REPL_SLUG}.replit.dev`
-    : process.env.BASE_URL || "http://localhost:5000");
+const BASE_URL = process.env.BASE_URL;
 console.log("🌐 Using BASE_URL for OAuth:", BASE_URL);
 
 // Extend the Express.User type
@@ -103,32 +99,7 @@ const isEmailConfigured = () => {
   return !!(process.env.SENDGRID_API_KEY && process.env.EMAIL_FROM);
 };
 
-// Helper function to get the correct domain for OAuth callbacks
-function getBaseDomain(): string {
-  // First try REPLIT_APP_URL (most reliable for deployed apps)
-  if (process.env.REPLIT_APP_URL) {
-    const appUrl = process.env.REPLIT_APP_URL;
-    console.log(`🌐 Using REPLIT_APP_URL for OAuth: ${appUrl}`);
-    return appUrl;
-  }
-  
-  // Try custom domain override
-  if (process.env.CALLBACK_BASE_URL) {
-    console.log(`🌐 Using CALLBACK_BASE_URL for OAuth: ${process.env.CALLBACK_BASE_URL}`);
-    return process.env.CALLBACK_BASE_URL;
-  }
-  
-  // Legacy fallback for older Replit environments
-  if (process.env.REPL_SLUG && process.env.REPL_OWNER) {
-    const legacyUrl = `https://${process.env.REPL_OWNER}.${process.env.REPL_SLUG}.replit.dev`;
-    console.log(`🌐 Using legacy REPL_SLUG/REPL_OWNER for OAuth: ${legacyUrl}`);
-    return legacyUrl;
-  }
-  
-  // Development fallback
-  console.log(`🌐 Using development fallback for OAuth: http://localhost:5000`);
-  return 'http://localhost:5000';
-}
+
 
 // Function to initialize authentication
 export function configureAuth(app: Express) {
@@ -212,17 +183,10 @@ export function configureAuth(app: Express) {
 
   // Configure Google OAuth Strategy
   if (process.env.GOOGLE_CLIENT_ID && process.env.GOOGLE_CLIENT_SECRET) {
-    const domain = getBaseDomain();
     const callbackUrl = `${BASE_URL}/api/auth/google/callback`;
     
     console.log(`🔧 Setting up Google OAuth with Client ID: ${process.env.GOOGLE_CLIENT_ID?.substring(0, 8)}...`);
     console.log(`🔗 Using callback URL: ${callbackUrl}`);
-    console.log(`🌐 Base domain detected: ${domain}`);
-    console.log(`📋 Environment variables available:`);
-    console.log(`   REPLIT_APP_URL: ${process.env.REPLIT_APP_URL || 'NOT SET'}`);
-    console.log(`   CALLBACK_BASE_URL: ${process.env.CALLBACK_BASE_URL || 'NOT SET'}`);
-    console.log(`   REPL_SLUG: ${process.env.REPL_SLUG || 'NOT SET'}`);
-    console.log(`   REPL_OWNER: ${process.env.REPL_OWNER || 'NOT SET'}`);
     console.log(`⚠️  EXPECTED Google Cloud Console Redirect URI: ${callbackUrl}`);
     
     passport.use(new GoogleStrategy({
@@ -311,16 +275,8 @@ export function configureAuth(app: Express) {
   });
 
   app.get('/api/auth/google/callback', (req, res, next) => {
-    const actualCallbackUrl = `${req.protocol}://${req.get('host')}${req.originalUrl}`;
-    const expectedCallbackUrl = `${getBaseDomain()}/api/auth/google/callback`;
-    
     console.log(`📞 Google OAuth callback received`);
-    console.log(`🔗 Actual callback URL: ${actualCallbackUrl}`);
-    console.log(`🎯 Expected callback URL: ${expectedCallbackUrl}`);
-    console.log(`✅ URLs match: ${actualCallbackUrl.startsWith(expectedCallbackUrl)}`);
     console.log(`📋 Query params:`, req.query);
-    console.log(`🌐 Request host: ${req.get('host')}`);
-    console.log(`🔒 Request protocol: ${req.protocol}`);
     
     passport.authenticate('google', { 
       failureRedirect: '/auth?error=google_auth_failed',
