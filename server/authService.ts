@@ -132,11 +132,13 @@ export function configureAuth(app: Express) {
     secret: sessionSecret,
     resave: false,
     saveUninitialized: false,
+    name: 'bytesave.sid', // Custom session name
     cookie: { 
       secure: false, // Set to false for Replit deployment
       httpOnly: true,
       maxAge: 30 * 24 * 60 * 60 * 1000, // 30 days
-      sameSite: 'lax'
+      sameSite: 'lax',
+      domain: undefined // Let the browser handle this automatically
     }
   }));
 
@@ -289,7 +291,11 @@ export function configureAuth(app: Express) {
       failureMessage: true 
     })(req, res, next);
   }, (req, res) => {
-    console.log(`✅ Google OAuth successful, redirecting to dashboard`);
+    console.log(`✅ Google OAuth successful`);
+    console.log(`[AUTH DEBUG] Session after OAuth: ${req.sessionID}`);
+    console.log(`[AUTH DEBUG] User after OAuth:`, req.user);
+    console.log(`[AUTH DEBUG] isAuthenticated after OAuth: ${req.isAuthenticated()}`);
+    
     // Successful authentication, redirect to dashboard
     res.redirect('/dashboard');
   });
@@ -659,12 +665,45 @@ export function configureAuth(app: Express) {
     }
   });
 
-  // Current user route
+  // Current user route with debug logging
   app.get('/api/user', (req, res) => {
+    console.log(`[AUTH DEBUG] /api/user called from ${req.ip}`);
+    console.log(`[AUTH DEBUG] Session ID: ${req.sessionID}`);
+    console.log(`[AUTH DEBUG] Session exists: ${!!req.session}`);
+    console.log(`[AUTH DEBUG] Session data:`, req.session);
+    console.log(`[AUTH DEBUG] isAuthenticated(): ${req.isAuthenticated()}`);
+    console.log(`[AUTH DEBUG] User object:`, req.user);
+    
     if (req.isAuthenticated()) {
+      console.log(`[AUTH DEBUG] Returning authenticated user: ${req.user.email}`);
       res.json(req.user);
     } else {
+      console.log(`[AUTH DEBUG] User not authenticated, returning 401`);
       res.status(401).json({ message: 'Not authenticated' });
+    }
+  });
+
+  // Add /api/auth/me route that mirrors /api/user for compatibility
+  app.get('/api/auth/me', (req, res) => {
+    console.log(`[AUTH DEBUG] /api/auth/me called from ${req.ip}`);
+    console.log(`[AUTH DEBUG] Session ID: ${req.sessionID}`);
+    console.log(`[AUTH DEBUG] Session exists: ${!!req.session}`);
+    console.log(`[AUTH DEBUG] Session data:`, req.session);
+    console.log(`[AUTH DEBUG] isAuthenticated(): ${req.isAuthenticated()}`);
+    console.log(`[AUTH DEBUG] User object:`, req.user);
+    
+    if (req.isAuthenticated()) {
+      console.log(`[AUTH DEBUG] /api/auth/me returning authenticated user: ${req.user.email}`);
+      res.json({ 
+        authenticated: true,
+        user: req.user 
+      });
+    } else {
+      console.log(`[AUTH DEBUG] /api/auth/me user not authenticated`);
+      res.status(401).json({ 
+        authenticated: false,
+        message: 'Not authenticated' 
+      });
     }
   });
 }

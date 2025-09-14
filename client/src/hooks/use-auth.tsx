@@ -38,16 +38,40 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     queryKey: ["/api/user"],
     queryFn: async () => {
       try {
+        console.log("[CLIENT AUTH] Fetching user data...");
         const res = await fetch("/api/user", {
           credentials: 'include', // Ensure cookies are sent
+          headers: {
+            'Content-Type': 'application/json',
+          },
         });
+        
+        console.log("[CLIENT AUTH] Response status:", res.status);
+        console.log("[CLIENT AUTH] Response headers:", Object.fromEntries(res.headers.entries()));
+        
         if (!res.ok) {
           if (res.status === 401) {
+            console.log("[CLIENT AUTH] User not authenticated");
             return null;
           }
-          throw new Error("Failed to fetch user data");
+          
+          // Log the actual response for debugging
+          const text = await res.text();
+          console.error("[CLIENT AUTH] Non-JSON response:", text.substring(0, 200));
+          throw new Error(`Failed to fetch user data: ${res.status}`);
         }
-        return await res.json();
+        
+        const contentType = res.headers.get('content-type');
+        if (!contentType || !contentType.includes('application/json')) {
+          const text = await res.text();
+          console.error("[CLIENT AUTH] Expected JSON but got:", contentType);
+          console.error("[CLIENT AUTH] Response body:", text.substring(0, 200));
+          throw new Error("Server returned non-JSON response");
+        }
+        
+        const userData = await res.json();
+        console.log("[CLIENT AUTH] Successfully fetched user:", userData.email);
+        return userData;
       } catch (error) {
         console.error("Error fetching user:", error);
         return null;
