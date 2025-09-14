@@ -294,23 +294,18 @@ function LoginForm({
           variant="outline" 
           className="w-full" 
           onClick={async () => {
-            try {
-              // First check if already authenticated
-              const response = await fetch('/api/auth/me', { credentials: 'include' });
-              const data = await response.json();
-              console.log("✅ Authenticated user:", data.user);
+            // First check if already authenticated
+            const response = await fetch('/api/auth/me', { credentials: 'include' });
+            const data = await response.json();
+            console.log("✅ /api/auth/me response:", data);
 
-              if (data.authenticated === true) {
-                window.location.href = "/dashboard";
-                return;
-              }
-
-              // Otherwise proceed with Google OAuth
-              window.location.href = '/api/auth/google';
-            } catch (error) {
-              console.error("Auth check failed:", error);
-              window.location.href = '/api/auth/google';
+            if (data.authenticated === true || data.user) {
+              window.location.href = "/dashboard";
+              return;
             }
+
+            // Otherwise proceed with Google OAuth
+            window.location.href = '/api/auth/google';
           }}
           disabled={isSubmitting}
         >
@@ -559,23 +554,18 @@ function RegisterForm({
           variant="outline" 
           className="w-full" 
           onClick={async () => {
-            try {
-              // First check if already authenticated
-              const response = await fetch('/api/auth/me', { credentials: 'include' });
-              const data = await response.json();
-              console.log("✅ Authenticated user:", data.user);
+            // First check if already authenticated
+            const response = await fetch('/api/auth/me', { credentials: 'include' });
+            const data = await response.json();
+            console.log("✅ /api/auth/me response:", data);
 
-              if (data.authenticated === true) {
-                window.location.href = "/dashboard";
-                return;
-              }
-
-              // Otherwise proceed with Google OAuth
-              window.location.href = '/api/auth/google';
-            } catch (error) {
-              console.error("Auth check failed:", error);
-              window.location.href = '/api/auth/google';
+            if (data.authenticated === true || data.user) {
+              window.location.href = "/dashboard";
+              return;
             }
+
+            // Otherwise proceed with Google OAuth
+            window.location.href = '/api/auth/google';
           }}
           disabled={isSubmitting}
         >
