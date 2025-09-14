@@ -20,6 +20,9 @@ import { dirname } from 'path';
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
 
+const BASE_URL = process.env.BASE_URL || "http://localhost:5000";
+console.log("🌐 Using BASE_URL for OAuth:", BASE_URL);
+
 // Extend the Express.User type
 declare global {
   namespace Express {
@@ -206,7 +209,7 @@ export function configureAuth(app: Express) {
   // Configure Google OAuth Strategy
   if (process.env.GOOGLE_CLIENT_ID && process.env.GOOGLE_CLIENT_SECRET) {
     const domain = getBaseDomain();
-    const callbackUrl = `${domain}/api/auth/google/callback`;
+    const callbackUrl = `${BASE_URL}/api/auth/google/callback`;
     
     console.log(`🔧 Setting up Google OAuth with Client ID: ${process.env.GOOGLE_CLIENT_ID?.substring(0, 8)}...`);
     console.log(`🔗 Using callback URL: ${callbackUrl}`);
@@ -221,7 +224,7 @@ export function configureAuth(app: Express) {
     passport.use(new GoogleStrategy({
       clientID: process.env.GOOGLE_CLIENT_ID,
       clientSecret: process.env.GOOGLE_CLIENT_SECRET,
-      callbackURL: callbackUrl
+      callbackURL: `${BASE_URL}/api/auth/google/callback`
     },
     async (accessToken, refreshToken, profile, done) => {
       try {
@@ -299,6 +302,7 @@ export function configureAuth(app: Express) {
   app.get('/api/auth/google', (req, res, next) => {
     console.log(`🚀 Starting Google OAuth flow from: ${req.get('host')}`);
     console.log(`🔗 Referer: ${req.get('referer') || 'none'}`);
+    console.log("🎯 Redirect URI being sent to Google:", `${BASE_URL}/api/auth/google/callback`);
     passport.authenticate('google', { scope: ['profile', 'email'] })(req, res, next);
   });
 
