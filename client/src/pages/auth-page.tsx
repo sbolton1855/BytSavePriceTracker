@@ -200,22 +200,8 @@ function LoginForm({
     setActiveTab("register");
   };
 
-  const handleGoogleLogin = async () => {
-    try {
-      const res = await fetch("/api/auth/me", { credentials: "include" });
-      if (res.ok) {
-        const data = await res.json();
-        console.log("Auth check:", data);
-        if (data.authenticated) {
-          console.log("🔀 Already authenticated, redirecting to dashboard...");
-          window.location.href = "/dashboard";
-          return;
-        }
-      }
-    } catch (err) {
-      console.warn("Auth check failed, falling back to Google OAuth:", err);
-    }
-    console.log("🔀 Redirecting to Google OAuth...");
+  const handleGoogleLogin = () => {
+    console.log("🌐 Redirecting to Google OAuth...");
     window.location.href = "/api/auth/google";
   };
 
@@ -313,7 +299,6 @@ function LoginForm({
           variant="outline" 
           className="w-full" 
           onClick={handleGoogleLogin}
-          disabled={isSubmitting}
         >
           <svg className="mr-2 h-4 w-4" viewBox="0 0 24 24">
             <path fill="currentColor" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/>
@@ -428,22 +413,8 @@ function RegisterForm({
     setActiveTab("login");
   };
 
-  const handleGoogleLogin = async () => {
-    try {
-      const res = await fetch("/api/auth/me", { credentials: "include" });
-      if (res.ok) {
-        const data = await res.json();
-        console.log("Auth check:", data);
-        if (data.authenticated) {
-          console.log("🔀 Already authenticated, redirecting to dashboard...");
-          window.location.href = "/dashboard";
-          return;
-        }
-      }
-    } catch (err) {
-      console.warn("Auth check failed, falling back to Google OAuth:", err);
-    }
-    console.log("🔀 Redirecting to Google OAuth...");
+  const handleGoogleLogin = () => {
+    console.log("🌐 Redirecting to Google OAuth...");
     window.location.href = "/api/auth/google";
   };
 
@@ -579,7 +550,6 @@ function RegisterForm({
           variant="outline" 
           className="w-full" 
           onClick={handleGoogleLogin}
-          disabled={isSubmitting}
         >
           <svg className="mr-2 h-4 w-4" viewBox="0 0 24 24">
             <path fill="currentColor" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/>
