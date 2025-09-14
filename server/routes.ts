@@ -213,6 +213,34 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Setup authentication
   configureAuth(app);
 
+  // Auth status endpoint
+  app.get('/api/auth/me', (req: Request, res: Response) => {
+    try {
+      if (req.isAuthenticated && req.isAuthenticated()) {
+        const user = req.user as any;
+        res.json({
+          authenticated: true,
+          user: {
+            id: user?.id || user?.sub,
+            email: user?.email,
+            name: user?.name || `${user?.firstName || ''} ${user?.lastName || ''}`.trim()
+          }
+        });
+      } else {
+        res.json({
+          authenticated: false,
+          user: null
+        });
+      }
+    } catch (error) {
+      console.error('Auth status check error:', error);
+      res.json({
+        authenticated: false,
+        user: null
+      });
+    }
+  });
+
   // Note: Auth routes are already set up in authService.ts
 
   // Serve static HTML files for password reset

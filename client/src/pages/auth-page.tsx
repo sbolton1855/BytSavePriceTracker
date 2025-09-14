@@ -294,14 +294,25 @@ function LoginForm({
           variant="outline" 
           className="w-full" 
           onClick={async () => {
-            // First check if already authenticated
-            const response = await fetch('/api/auth/me', { credentials: 'include' });
-            const data = await response.json();
-            console.log("✅ /api/auth/me response:", data);
+            try {
+              // First check if already authenticated
+              const response = await fetch('/api/auth/me', { credentials: 'include' });
 
-            if (data.authenticated === true || data.user) {
-              window.location.href = "/dashboard";
-              return;
+              // Check if response is JSON
+              const contentType = response.headers.get('content-type');
+              if (contentType && contentType.includes('application/json')) {
+                const data = await response.json();
+                console.log("✅ /api/auth/me response:", data);
+
+                if (data.authenticated === true || data.user) {
+                  window.location.href = "/dashboard";
+                  return;
+                }
+              } else {
+                console.log("✅ Auth endpoint returned non-JSON, proceeding with OAuth");
+              }
+            } catch (error) {
+              console.log("✅ Auth check failed, proceeding with OAuth:", error);
             }
 
             // Otherwise proceed with Google OAuth
@@ -554,14 +565,25 @@ function RegisterForm({
           variant="outline" 
           className="w-full" 
           onClick={async () => {
-            // First check if already authenticated
-            const response = await fetch('/api/auth/me', { credentials: 'include' });
-            const data = await response.json();
-            console.log("✅ /api/auth/me response:", data);
+            try {
+              // First check if already authenticated
+              const response = await fetch('/api/auth/me', { credentials: 'include' });
 
-            if (data.authenticated === true || data.user) {
-              window.location.href = "/dashboard";
-              return;
+              // Check if response is JSON
+              const contentType = response.headers.get('content-type');
+              if (contentType && contentType.includes('application/json')) {
+                const data = await response.json();
+                console.log("✅ /api/auth/me response:", data);
+
+                if (data.authenticated === true || data.user) {
+                  window.location.href = "/dashboard";
+                  return;
+                }
+              } else {
+                console.log("✅ Auth endpoint returned non-JSON, proceeding with OAuth");
+              }
+            } catch (error) {
+              console.log("✅ Auth check failed, proceeding with OAuth:", error);
             }
 
             // Otherwise proceed with Google OAuth
