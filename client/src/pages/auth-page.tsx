@@ -70,8 +70,8 @@ export default function AuthPage() {
               {activeTab === "login" ? "Welcome Back" : "Create Your Account"}
             </CardTitle>
             <CardDescription className="text-center">
-              {activeTab === "login" 
-                ? "Log in to manage your price trackers" 
+              {activeTab === "login"
+                ? "Log in to manage your price trackers"
                 : "Sign up to start tracking Amazon prices"}
             </CardDescription>
           </CardHeader>
@@ -83,16 +83,16 @@ export default function AuthPage() {
             </TabsList>
 
             <TabsContent value="login">
-              <LoginForm 
-                setIsSubmitting={setIsSubmitting} 
+              <LoginForm
+                setIsSubmitting={setIsSubmitting}
                 isSubmitting={isSubmitting}
-                setActiveTab={setActiveTab} 
+                setActiveTab={setActiveTab}
               />
             </TabsContent>
 
             <TabsContent value="register">
-              <RegisterForm 
-                setIsSubmitting={setIsSubmitting} 
+              <RegisterForm
+                setIsSubmitting={setIsSubmitting}
                 isSubmitting={isSubmitting}
                 setActiveTab={setActiveTab}
               />
@@ -102,26 +102,26 @@ export default function AuthPage() {
           {/* Footer with helpful message and action buttons */}
           <CardFooter className="flex flex-col space-y-4 mt-4 border-t pt-4">
             <div className="text-sm text-center space-y-2">
-              {activeTab === "login" 
+              {activeTab === "login"
                 ? (
                   <>
                     <p className="text-muted-foreground">Don't have an account?</p>
-                    <Button 
-                      variant="outline" 
-                      size="sm" 
+                    <Button
+                      variant="outline"
+                      size="sm"
                       onClick={() => setActiveTab("register")}
                       className="mx-auto"
                     >
                       Create Account
                     </Button>
                   </>
-                ) 
+                )
                 : (
                   <>
                     <p className="text-muted-foreground">Already have an account?</p>
-                    <Button 
-                      variant="outline" 
-                      size="sm" 
+                    <Button
+                      variant="outline"
+                      size="sm"
                       onClick={() => setActiveTab("login")}
                       className="mx-auto"
                     >
@@ -139,11 +139,11 @@ export default function AuthPage() {
 }
 
 // Login Form
-function LoginForm({ 
-  isSubmitting, 
+function LoginForm({
+  isSubmitting,
   setIsSubmitting,
   setActiveTab
-}: { 
+}: {
   isSubmitting: boolean;
   setIsSubmitting: (value: boolean) => void;
   setActiveTab: (tab: string) => void;
@@ -236,21 +236,21 @@ function LoginForm({
               <FormLabel>Password</FormLabel>
               <div className="relative">
                 <FormControl>
-                  <Input 
-                    type={showPassword ? "text" : "password"} 
-                    placeholder="••••••••" 
-                    {...field} 
+                  <Input
+                    type={showPassword ? "text" : "password"}
+                    placeholder="••••••••"
+                    {...field}
                   />
                 </FormControl>
-                <Button 
+                <Button
                   type="button"
-                  variant="ghost" 
+                  variant="ghost"
                   size="icon"
                   className="absolute right-2 top-1/2 -translate-y-1/2 h-8 w-8"
                   onClick={togglePasswordVisibility}
                 >
-                  {showPassword ? 
-                    <EyeOff className="h-4 w-4 text-muted-foreground" /> : 
+                  {showPassword ?
+                    <EyeOff className="h-4 w-4 text-muted-foreground" /> :
                     <Eye className="h-4 w-4 text-muted-foreground" />}
                 </Button>
               </div>
@@ -262,10 +262,10 @@ function LoginForm({
         {userNotFound && (
           <div className="text-sm text-primary p-2 rounded flex flex-col items-center">
             <p className="mb-2">New to BytSave? Create an account to get started.</p>
-            <Button 
-              type="button" 
-              variant="outline" 
-              size="sm" 
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
               onClick={switchToRegister}
               className="mt-1"
             >
@@ -284,51 +284,42 @@ function LoginForm({
             "Login"
           )}
         </Button>
-
-        <div className="relative my-4">
-          <div className="absolute inset-0 flex items-center">
-            <span className="w-full border-t" />
-          </div>
-          <div className="relative flex justify-center text-xs uppercase">
-            <span className="bg-background px-2 text-muted-foreground">Or continue with</span>
-          </div>
-        </div>
-
-        <Button 
-          type="button" 
-          variant="outline" 
-          className="w-full" 
-          onClick={handleGoogleLogin}
-        >
-          <svg className="mr-2 h-4 w-4" viewBox="0 0 24 24">
-            <path fill="currentColor" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/>
-            <path fill="currentColor" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"/>
-            <path fill="currentColor" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z"/>
-            <path fill="currentColor" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"/>
-          </svg>
-          Sign in with Google
-        </Button>
-
-        <div className="text-center mt-4">
-          <Button 
-            type="button" 
-            variant="link" 
-            className="text-sm text-muted-foreground hover:text-primary"
-            onClick={() => window.location.href = '/forgot-password.html'}
-          >
-            Forgot your password?
-          </Button>
-        </div>
       </form>
+
+      <Button
+        type="button"
+        variant="outline"
+        className="w-full mt-4"
+        onClick={handleGoogleLogin}
+      >
+        <svg className="mr-2 h-4 w-4" viewBox="0 0 24 24">
+          <path fill="currentColor" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/>
+          <path fill="currentColor" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-.2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"/>
+          <path fill="currentColor" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z"/>
+          <path fill="currentColor" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"/>
+        </svg>
+        Sign in with Google
+      </Button>
+
+      <div className="text-center mt-4">
+        <Button
+          type="button"
+          variant="link"
+          className="text-sm text-muted-foreground hover:text-primary"
+          onClick={() => window.location.href = '/forgot-password.html'}
+        >
+          Forgot your password?
+        </Button>
+      </div>
     </Form>
   );
 }
 
-function RegisterForm({ 
-  isSubmitting, 
+function RegisterForm({
+  isSubmitting,
   setIsSubmitting,
   setActiveTab
-}: { 
+}: {
   isSubmitting: boolean;
   setIsSubmitting: (value: boolean) => void;
   setActiveTab: (tab: string) => void;
@@ -370,8 +361,8 @@ function RegisterForm({
       console.error("Registration error:", error);
 
       // Handle different types of registration errors
-      if (error.response?.data?.emailExists || 
-          error.message?.includes("email already exists") || 
+      if (error.response?.data?.emailExists ||
+          error.message?.includes("email already exists") ||
           error.response?.data?.message?.includes("already exists")) {
         setEmailExists(true);
         form.setError("email", {
@@ -449,21 +440,21 @@ function RegisterForm({
               <FormLabel>Password <span className="text-destructive">*</span></FormLabel>
               <div className="relative">
                 <FormControl>
-                  <Input 
-                    type={showPassword ? "text" : "password"} 
-                    placeholder="••••••••" 
-                    {...field} 
+                  <Input
+                    type={showPassword ? "text" : "password"}
+                    placeholder="••••••••"
+                    {...field}
                   />
                 </FormControl>
-                <Button 
+                <Button
                   type="button"
-                  variant="ghost" 
+                  variant="ghost"
                   size="icon"
                   className="absolute right-2 top-1/2 -translate-y-1/2 h-8 w-8"
                   onClick={togglePasswordVisibility}
                 >
-                  {showPassword ? 
-                    <EyeOff className="h-4 w-4 text-muted-foreground" /> : 
+                  {showPassword ?
+                    <EyeOff className="h-4 w-4 text-muted-foreground" /> :
                     <Eye className="h-4 w-4 text-muted-foreground" />}
                 </Button>
               </div>
@@ -483,21 +474,21 @@ function RegisterForm({
               <FormLabel>Confirm Password <span className="text-destructive">*</span></FormLabel>
               <div className="relative">
                 <FormControl>
-                  <Input 
-                    type={showConfirmPassword ? "text" : "password"} 
-                    placeholder="••••••••" 
-                    {...field} 
+                  <Input
+                    type={showConfirmPassword ? "text" : "password"}
+                    placeholder="••••••••"
+                    {...field}
                   />
                 </FormControl>
-                <Button 
+                <Button
                   type="button"
-                  variant="ghost" 
+                  variant="ghost"
                   size="icon"
                   className="absolute right-2 top-1/2 -translate-y-1/2 h-8 w-8"
                   onClick={toggleConfirmPasswordVisibility}
                 >
-                  {showConfirmPassword ? 
-                    <EyeOff className="h-4 w-4 text-muted-foreground" /> : 
+                  {showConfirmPassword ?
+                    <EyeOff className="h-4 w-4 text-muted-foreground" /> :
                     <Eye className="h-4 w-4 text-muted-foreground" />}
                 </Button>
               </div>
@@ -509,10 +500,10 @@ function RegisterForm({
         {emailExists && (
           <div className="text-sm text-primary p-2 rounded flex flex-col items-center">
             <p className="mb-2">This email is already registered. Switch to login instead.</p>
-            <Button 
-              type="button" 
-              variant="outline" 
-              size="sm" 
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
               onClick={switchToLogin}
               className="mt-1"
             >
@@ -535,31 +526,22 @@ function RegisterForm({
             "Create Account"
           )}
         </Button>
-
-        <div className="relative my-4">
-          <div className="absolute inset-0 flex items-center">
-            <span className="w-full border-t" />
-          </div>
-          <div className="relative flex justify-center text-xs uppercase">
-            <span className="bg-background px-2 text-muted-foreground">Or continue with</span>
-          </div>
-        </div>
-
-        <Button 
-          type="button" 
-          variant="outline" 
-          className="w-full" 
-          onClick={handleGoogleLogin}
-        >
-          <svg className="mr-2 h-4 w-4" viewBox="0 0 24 24">
-            <path fill="currentColor" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/>
-            <path fill="currentColor" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"/>
-            <path fill="currentColor" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z"/>
-            <path fill="currentColor" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"/>
-          </svg>
-          Sign up with Google
-        </Button>
       </form>
+
+      <Button
+        type="button"
+        variant="outline"
+        className="w-full mt-4"
+        onClick={handleGoogleLogin}
+      >
+        <svg className="mr-2 h-4 w-4" viewBox="0 0 24 24">
+          <path fill="currentColor" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/>
+          <path fill="currentColor" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-.2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"/>
+          <path fill="currentColor" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z"/>
+          <path fill="currentColor" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"/>
+        </svg>
+        Sign up with Google
+      </Button>
     </Form>
   );
 }
