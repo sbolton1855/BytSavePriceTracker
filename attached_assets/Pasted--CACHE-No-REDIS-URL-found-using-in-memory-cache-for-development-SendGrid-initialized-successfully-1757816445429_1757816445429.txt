@@ -1,0 +1,205 @@
+[CACHE] No REDIS_URL found, using in-memory cache for development
+SendGrid initialized successfully with API key from Replit Secrets
+🌐 Using BASE_URL for OAuth: http://localhost:5000
+[AWS] Credential Check on Load:
+[AWS] ACCESS_KEY present: true
+[AWS] ACCESS_KEY length: 20
+[AWS] ACCESS_KEY starts with: AKIAJ...
+[AWS] SECRET_KEY present: true
+[AWS] SECRET_KEY length: 40
+>>> [DEBUG] LOADED AMAZON ROUTER from server/routes/amazon.ts
+Redis Client Error Error: connect ECONNREFUSED 127.0.0.1:6379
+    at TCPConnectWrap.afterConnect [as oncomplete] (node:net:1611:16) {
+  errno: -111,
+  code: 'ECONNREFUSED',
+  syscall: 'connect',
+  address: '127.0.0.1',
+  port: 6379
+}
+Running from server/index.ts
+🌐 Using legacy REPL_SLUG/REPL_OWNER for OAuth: https://SeanBolton.workspace.replit.dev
+🔧 Setting up Google OAuth with Client ID: 22172928...
+🔗 Using callback URL: http://localhost:5000/api/auth/google/callback
+🌐 Base domain detected: https://SeanBolton.workspace.replit.dev
+📋 Environment variables available:
+   REPLIT_APP_URL: NOT SET
+   CALLBACK_BASE_URL: NOT SET
+   REPL_SLUG: workspace
+   REPL_OWNER: SeanBolton
+⚠️  EXPECTED Google Cloud Console Redirect URI: http://localhost:5000/api/auth/google/callback
+🌐 Using legacy REPL_SLUG/REPL_OWNER for OAuth: https://SeanBolton.workspace.replit.dev
+🔧 Setting up Google OAuth with Client ID: 22172928...
+🔗 Using callback URL: http://localhost:5000/api/auth/google/callback
+🌐 Base domain detected: https://SeanBolton.workspace.replit.dev
+📋 Environment variables available:
+   REPLIT_APP_URL: NOT SET
+   CALLBACK_BASE_URL: NOT SET
+   REPL_SLUG: workspace
+   REPL_OWNER: SeanBolton
+⚠️  EXPECTED Google Cloud Console Redirect URI: http://localhost:5000/api/auth/google/callback
+Starting price checker background service...
+🔧 Mounting admin email routes at /api/admin...
+✅ Admin email routes mounted successfully
+Server running on http://0.0.0.0:5000
+📅 Password reset token cleanup scheduled
+Redis Client Error Error: connect ECONNREFUSED 127.0.0.1:6379
+    at TCPConnectWrap.afterConnect [as oncomplete] (node:net:1611:16) {
+  errno: -111,
+  code: 'ECONNREFUSED',
+  syscall: 'connect',
+  address: '127.0.0.1',
+  port: 6379
+}
+Redis Client Error Error: connect ECONNREFUSED 127.0.0.1:6379
+    at TCPConnectWrap.afterConnect [as oncomplete] (node:net:1611:16) {
+  errno: -111,
+  code: 'ECONNREFUSED',
+  syscall: 'connect',
+  address: '127.0.0.1',
+  port: 6379
+}
+💾 [CACHE] Memory set: product:B0BZHRGFPX
+[DEBUG] Amazon API returned for B0BZHRGFPX - currentPrice: 5.43, originalPrice: 6.79
+[DEBUG] No override applied for B0BZHRGFPX, saving currentPrice: 5.43
+[DEBUG] Stored price BEFORE update: 5.43, API price: 5.43
+[DEBUG] Database updated for B0BZHRGFPX - Final stored currentPrice: 5.43, originalPrice: 6.79
+Redis Client Error Error: connect ECONNREFUSED 127.0.0.1:6379
+    at TCPConnectWrap.afterConnect [as oncomplete] (node:net:1611:16) {
+  errno: -111,
+  code: 'ECONNREFUSED',
+  syscall: 'connect',
+  address: '127.0.0.1',
+  port: 6379
+}
+Redis Client Error Error: connect ECONNREFUSED 127.0.0.1:6379
+    at TCPConnectWrap.afterConnect [as oncomplete] (node:net:1611:16) {
+  errno: -111,
+  code: 'ECONNREFUSED',
+  syscall: 'connect',
+  address: '127.0.0.1',
+  port: 6379
+}
+Redis Client Error Error: connect ECONNREFUSED 127.0.0.1:6379
+    at TCPConnectWrap.afterConnect [as oncomplete] (node:net:1611:16) {
+  errno: -111,
+  code: 'ECONNREFUSED',
+  syscall: 'connect',
+  address: '127.0.0.1',
+  port: 6379
+}
+💾 [CACHE] Memory set: product:B07MVN676J
+[DEBUG] Amazon API returned for B07MVN676J - currentPrice: 19.99, originalPrice: undefined
+[DEBUG] No override applied for B07MVN676J, saving currentPrice: 19.99
+[DEBUG] Stored price BEFORE update: 19.99, API price: 19.99
+[DEBUG] Database updated for B07MVN676J - Final stored currentPrice: 19.99, originalPrice: 28.738499999999995
+Redis Client Error Error: connect ECONNREFUSED 127.0.0.1:6379
+    at TCPConnectWrap.afterConnect [as oncomplete] (node:net:1611:16) {
+  errno: -111,
+  code: 'ECONNREFUSED',
+  syscall: 'connect',
+  address: '127.0.0.1',
+  port: 6379
+}
+DEBUG: Fetching YumEarth product info...
+Browserslist: browsers data (caniuse-lite) is 11 months old. Please run:
+  npx update-browserslist-db@latest
+  Why you should do it regularly: https://github.com/browserslist/update-db#readme
+DEBUG: YumEarth listing data: {
+  "Condition": {
+    "Value": "New"
+  },
+  "Id": "AQ1jd02S4mi3ODSvnNaBuHhJwqbsHGNjKdAKsIrZd4J1QwXDgI9LPKnmr%2BL2ioKt67WpUHnPS0o0HohX2quP%2FswPzkaPoe4FgwdN%2BQB4TU4bYPYLpUCxOWly87I6z70Jw91LUMO8PFF58jhrimjtCw%3D%3D",
+  "MerchantInfo": {
+    "FeedbackCount": 384,
+    "FeedbackRating": 4.67,
+    "Id": "ATVPDKIKX0DER",
+    "Name": "Amazon.com"
+  },
+  "Price": {
+    "Amount": 15.85,
+    "Currency": "USD",
+    "DisplayAmount": "$15.85 ($1.21 / Ounce)",
+    "PricePerUnit": 1.21
+  },
+  "Promotions": [
+    {
+      "Amount": 15.06,
+      "Currency": "USD",
+      "DiscountPercent": 5,
+      "DisplayAmount": "$15.06 (5%)",
+      "PricePerUnit": 1.15,
+      "Type": "SNS"
+    }
+  ],
+  "ViolatesMAP": false
+}
+DEBUG: YumEarth current price from Price.Amount: 15.85
+WARNING: API price ($15.85) differs from known price ($9.99) for YumEarth product
+API Error (PRICE_MISMATCH) for B08PX626SG: API price ($15.85) differs from known price ($9.99)
+Redis Client Error Error: connect ECONNREFUSED 127.0.0.1:6379
+    at TCPConnectWrap.afterConnect [as oncomplete] (node:net:1611:16) {
+  errno: -111,
+  code: 'ECONNREFUSED',
+  syscall: 'connect',
+  address: '127.0.0.1',
+  port: 6379
+}
+DEBUG: Using known prices for YumEarth product: { currentPrice: 9.99, originalPrice: 12.99 }
+DEBUG: YumEarth final price data: {
+  currentPrice: 9.99,
+  originalPrice: 12.99,
+  priceAmount: 15.85,
+  savingBasis: undefined,
+  displayAmount: '$15.85 ($1.21 / Ounce)',
+  couponDetected: true
+}
+💾 [CACHE] Memory set: product:B08PX626SG
+[DEBUG] Amazon API returned for B08PX626SG - currentPrice: 9.99, originalPrice: 12.99
+[DEBUG] No override applied for B08PX626SG, saving currentPrice: 9.99
+[DEBUG] Stored price BEFORE update: 9.99, API price: 9.99
+Redis Client Error Error: connect ECONNREFUSED 127.0.0.1:6379
+    at TCPConnectWrap.afterConnect [as oncomplete] (node:net:1611:16) {
+  errno: -111,
+  code: 'ECONNREFUSED',
+  syscall: 'connect',
+  address: '127.0.0.1',
+  port: 6379
+}
+[DEBUG] Database updated for B08PX626SG - Final stored currentPrice: 9.99, originalPrice: 12.99
+Redis Client Error Error: connect ECONNREFUSED 127.0.0.1:6379
+    at TCPConnectWrap.afterConnect [as oncomplete] (node:net:1611:16) {
+  errno: -111,
+  code: 'ECONNREFUSED',
+  syscall: 'connect',
+  address: '127.0.0.1',
+  port: 6379
+}
+💾 [CACHE] Memory set: product:B0CJTL53NK
+[DEBUG] Amazon API returned for B0CJTL53NK - currentPrice: 34.99, originalPrice: 40
+[DEBUG] No override applied for B0CJTL53NK, saving currentPrice: 34.99
+[DEBUG] Stored price BEFORE update: 34.99, API price: 34.99
+[DEBUG] Database updated for B0CJTL53NK - Final stored currentPrice: 34.99, originalPrice: 40
+Redis Client Error Error: connect ECONNREFUSED 127.0.0.1:6379
+    at TCPConnectWrap.afterConnect [as oncomplete] (node:net:1611:16) {
+  errno: -111,
+  code: 'ECONNREFUSED',
+  syscall: 'connect',
+  address: '127.0.0.1',
+  port: 6379
+}
+💾 [CACHE] Memory set: product:B0CNV5SG4S
+[DEBUG] Amazon API returned for B0CNV5SG4S - currentPrice: 4.99, originalPrice: undefined
+[DEBUG] No override applied for B0CNV5SG4S, saving currentPrice: 4.99
+[DEBUG] Stored price BEFORE update: 4.99, API price: 4.99
+[DEBUG] Database updated for B0CNV5SG4S - Final stored currentPrice: 4.99, originalPrice: 5.99
+Redis Client Error Error: connect ECONNREFUSED 127.0.0.1:6379
+    at TCPConnectWrap.afterConnect [as oncomplete] (node:net:1611:16) {
+  errno: -111,
+  code: 'ECONNREFUSED',
+  syscall: 'connect',
+  address: '127.0.0.1',
+  port: 6379
+}
+💾 [CACHE] Memory set: product:B01DDIRDZA
+[DEBUG] Amazon API returned for B01DDIRDZA - currentPrice: 46.1, originalPrice: undefined
+[DEBUG] No override applied for B01DDIRDZA, saving currentPrice: 46.1
