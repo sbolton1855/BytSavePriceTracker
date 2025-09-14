@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { Redirect, useLocation } from "wouter";
 import { z } from "zod";
 import { useForm } from "react-hook-form";
@@ -14,10 +14,13 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Loader2 } from "lucide-react";
 
 export default function AuthPage() {
+  console.log("🔥 Rendering AuthPage");
+  
   const { user, isLoading } = useAuth();
   const [activeTab, setActiveTab] = useState<string>("login");
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [, setLocation] = useLocation();
+  const hasRedirected = useRef(false);
 
   // Check authentication status on mount
   useEffect(() => {
@@ -45,8 +48,13 @@ export default function AuthPage() {
 
           // Check if authData.authenticated === true OR if authData is the user object itself
           if ((authData && authData.authenticated === true) || (authData && authData.id)) {
-            console.log("🚀 User is authenticated, redirecting to dashboard...");
-            setLocation("/dashboard");
+            if (!hasRedirected.current) {
+              console.log("🚀 User is authenticated, redirecting to dashboard...");
+              hasRedirected.current = true;
+              setLocation("/dashboard");
+            } else {
+              console.log("🛡️ Redirect already triggered, skipping...");
+            }
           } else {
             console.log("❌ User is not authenticated");
             console.log("❌ Debug: authData.authenticated =", authData?.authenticated);
@@ -65,7 +73,8 @@ export default function AuthPage() {
   }, []);
 
   // Redirect if user is already logged in (from useAuth hook)
-  if (user && !isLoading) {
+  if (user && !isLoading && !hasRedirected.current) {
+    hasRedirected.current = true;
     return <Redirect to="/dashboard" />;
   }
 
