@@ -144,49 +144,66 @@ const Dashboard: React.FC = () => {
           </Card>
         )}
 
-        {/* User Preferences */}
+        {/* My Account Section */}
         <Card className="mb-8">
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
               <Settings className="h-5 w-5" />
-              Alert Settings
+              My Account
             </CardTitle>
             <CardDescription>
-              Configure how often you receive price drop notifications
+              Manage your account settings and preferences
             </CardDescription>
           </CardHeader>
           <CardContent>
-            <div className="flex items-center gap-4">
-              <div className="flex items-center gap-2">
-                <Clock className="h-4 w-4 text-gray-500" />
-                <Label htmlFor="cooldown-select" className="text-sm font-medium">
-                  Cooldown Period:
-                </Label>
+            <div className="space-y-6">
+              {/* Configuration Subsection */}
+              <div>
+                <h3 className="text-lg font-semibold mb-4 border-b pb-2">Configuration</h3>
+                
+                {/* Alert Settings */}
+                <div className="space-y-4">
+                  <div>
+                    <h4 className="text-sm font-medium text-gray-900 mb-3">Alert Settings</h4>
+                    <p className="text-sm text-gray-600 mb-4">
+                      Configure how often you receive price drop notifications
+                    </p>
+                    
+                    <div className="flex items-center gap-4">
+                      <div className="flex items-center gap-2">
+                        <Clock className="h-4 w-4 text-gray-500" />
+                        <Label htmlFor="cooldown-select" className="text-sm font-medium">
+                          Cooldown Period:
+                        </Label>
+                      </div>
+                      <Select
+                        value={cooldownHours.toString()}
+                        onValueChange={(value) => handleCooldownUpdate(parseInt(value))}
+                        disabled={isUpdatingCooldown}
+                      >
+                        <SelectTrigger id="cooldown-select" className="w-48">
+                          <SelectValue placeholder="Select cooldown period" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="1">1 hour</SelectItem>
+                          <SelectItem value="6">6 hours</SelectItem>
+                          <SelectItem value="12">12 hours</SelectItem>
+                          <SelectItem value="24">24 hours</SelectItem>
+                          <SelectItem value="48">48 hours (recommended)</SelectItem>
+                          <SelectItem value="72">72 hours</SelectItem>
+                          <SelectItem value="168">1 week</SelectItem>
+                        </SelectContent>
+                      </Select>
+                      {isUpdatingCooldown && (
+                        <div className="text-sm text-gray-500">Updating...</div>
+                      )}
+                    </div>
+                    <div className="mt-3 text-sm text-gray-600">
+                      After receiving a price alert, you won't get another alert for the same product until {cooldownHours} hours have passed or the price rebounds significantly.
+                    </div>
+                  </div>
+                </div>
               </div>
-              <Select
-                value={cooldownHours.toString()}
-                onValueChange={(value) => handleCooldownUpdate(parseInt(value))}
-                disabled={isUpdatingCooldown}
-              >
-                <SelectTrigger id="cooldown-select" className="w-48">
-                  <SelectValue placeholder="Select cooldown period" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="1">1 hour</SelectItem>
-                  <SelectItem value="6">6 hours</SelectItem>
-                  <SelectItem value="12">12 hours</SelectItem>
-                  <SelectItem value="24">24 hours</SelectItem>
-                  <SelectItem value="48">48 hours (recommended)</SelectItem>
-                  <SelectItem value="72">72 hours</SelectItem>
-                  <SelectItem value="168">1 week</SelectItem>
-                </SelectContent>
-              </Select>
-              {isUpdatingCooldown && (
-                <div className="text-sm text-gray-500">Updating...</div>
-              )}
-            </div>
-            <div className="mt-3 text-sm text-gray-600">
-              After receiving a price alert, you won't get another alert for the same product until {cooldownHours} hours have passed or the price rebounds significantly.
             </div>
           </CardContent>
         </Card>
