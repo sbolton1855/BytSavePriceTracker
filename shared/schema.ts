@@ -29,8 +29,9 @@ export const users = pgTable("users", {
   provider: text("provider"),
   providerId: text("provider_id"),
   cooldownHours: integer("cooldown_hours").default(48),
-  createdAt: timestamp("created_at").defaultNow(),
-  updatedAt: timestamp("updated_at").defaultNow(),
+  priceDropAlertsEnabled: boolean("price_drop_alerts_enabled").default(true),
+  createdAt: timestamp("created_at", { withTimezone: true }).defaultNow(),
+  updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow(),
 });
 
 export const insertUserSchema = createInsertSchema(users).omit({

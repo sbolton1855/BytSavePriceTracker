@@ -2,6 +2,7 @@
 import { useState, useEffect } from "react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
 import { Settings, Clock, User } from "lucide-react";
 import { useAuth } from "@/hooks/use-auth";
@@ -12,6 +13,8 @@ const MyAccount: React.FC = () => {
   const { toast } = useToast();
   const [cooldownHours, setCooldownHours] = useState<number>(48);
   const [isUpdatingCooldown, setIsUpdatingCooldown] = useState(false);
+  const [priceDropAlertsEnabled, setPriceDropAlertsEnabled] = useState<boolean>(true);
+  const [isUpdatingAlerts, setIsUpdatingAlerts] = useState(false);
   
   // Get the user's email for settings
   const userEmail = user?.email || localStorage.getItem("bytsave_user_email") || "";
@@ -27,6 +30,7 @@ const MyAccount: React.FC = () => {
           const data = await response.json();
           if (data.success && data.preferences) {
             setCooldownHours(data.preferences.cooldownHours);
+            setPriceDropAlertsEnabled(data.preferences.priceDropAlertsEnabled);
           }
         }
       } catch (error) {
@@ -72,6 +76,44 @@ const MyAccount: React.FC = () => {
       });
     } finally {
       setIsUpdatingCooldown(false);
+    }
+  };
+
+  // Handle price drop alerts toggle
+  const handlePriceDropAlertsToggle = async (enabled: boolean) => {
+    if (!userEmail) return;
+    
+    setIsUpdatingAlerts(true);
+    try {
+      const response = await fetch('/api/user/price-drop-alerts', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          email: userEmail,
+          enabled: enabled
+        }),
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to update price drop alerts setting');
+      }
+
+      setPriceDropAlertsEnabled(enabled);
+      toast({
+        title: "Settings updated",
+        description: `Price drop alerts ${enabled ? 'enabled' : 'disabled'}`,
+      });
+    } catch (error) {
+      console.error('Error updating price drop alerts:', error);
+      toast({
+        title: "Update failed",
+        description: "Failed to update price drop alerts setting. Please try again.",
+        variant: "destructive",
+      });
+    } finally {
+      setIsUpdatingAlerts(false);
     }
   };
 
@@ -189,7 +231,16 @@ const MyAccount: React.FC = () => {
                     <Label className="text-sm font-medium">Price Drop Alerts</Label>
                     <p className="text-xs text-gray-500">Receive email notifications when prices drop</p>
                   </div>
-                  <div className="text-sm text-green-600 font-medium">Enabled</div>
+                  <div className="flex items-center gap-2">
+                    <Switch
+                      checked={priceDropAlertsEnabled}
+                      onCheckedChange={handlePriceDropAlertsToggle}
+                      disabled={isUpdatingAlerts}
+                    />
+                    {isUpdatingAlerts && (
+                      <div className="text-sm text-gray-500">Updating...</div>
+                    )}
+                  </div>
                 </div>
                 <div className="flex items-center justify-between">
                   <div>
