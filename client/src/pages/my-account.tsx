@@ -1,0 +1,232 @@
+
+import { useState, useEffect } from "react";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Label } from "@/components/ui/label";
+import { Settings, Clock, User } from "lucide-react";
+import { useAuth } from "@/hooks/use-auth";
+import { useToast } from "@/hooks/use-toast";
+
+const MyAccount: React.FC = () => {
+  const { user } = useAuth();
+  const { toast } = useToast();
+  const [cooldownHours, setCooldownHours] = useState<number>(48);
+  const [isUpdatingCooldown, setIsUpdatingCooldown] = useState(false);
+  
+  // Get the user's email for settings
+  const userEmail = user?.email || localStorage.getItem("bytsave_user_email") || "";
+  
+  // Load user preferences when email is available
+  useEffect(() => {
+    const loadUserPreferences = async () => {
+      if (!userEmail) return;
+      
+      try {
+        const response = await fetch(`/api/user/preferences?email=${encodeURIComponent(userEmail)}`);
+        if (response.ok) {
+          const data = await response.json();
+          if (data.success && data.preferences) {
+            setCooldownHours(data.preferences.cooldownHours);
+          }
+        }
+      } catch (error) {
+        console.error('Error loading user preferences:', error);
+      }
+    };
+
+    loadUserPreferences();
+  }, [userEmail]);
+
+  // Handle cooldown update
+  const handleCooldownUpdate = async (newCooldownHours: number) => {
+    if (!userEmail) return;
+    
+    setIsUpdatingCooldown(true);
+    try {
+      const response = await fetch('/api/user/cooldown', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          email: userEmail,
+          cooldownHours: newCooldownHours
+        }),
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to update cooldown settings');
+      }
+
+      setCooldownHours(newCooldownHours);
+      toast({
+        title: "Settings updated",
+        description: `Alert cooldown set to ${newCooldownHours} hours`,
+      });
+    } catch (error) {
+      console.error('Error updating cooldown:', error);
+      toast({
+        title: "Update failed",
+        description: "Failed to update cooldown settings. Please try again.",
+        variant: "destructive",
+      });
+    } finally {
+      setIsUpdatingCooldown(false);
+    }
+  };
+
+  return (
+    <div className="py-10 bg-gray-50 min-h-screen">
+      <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8">
+        {/* Page Header */}
+        <div className="mb-8">
+          <h1 className="text-3xl font-bold text-gray-900">My Account</h1>
+          <p className="mt-2 text-gray-600">
+            Manage your alert preferences and account settings
+          </p>
+        </div>
+
+        {/* Account Information */}
+        <Card className="mb-6">
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <User className="h-5 w-5" />
+              Account Information
+            </CardTitle>
+            <CardDescription>
+              Your account details and profile information
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <div className="space-y-4">
+              <div className="flex items-center justify-between">
+                <div>
+                  <Label className="text-sm font-medium">Email Address</Label>
+                  <p className="text-sm text-gray-600">{userEmail || "No email available"}</p>
+                </div>
+              </div>
+              <div className="flex items-center justify-between">
+                <div>
+                  <Label className="text-sm font-medium">Account Type</Label>
+                  <p className="text-sm text-gray-600">Free Account</p>
+                </div>
+              </div>
+              {user?.firstName && (
+                <div className="flex items-center justify-between">
+                  <div>
+                    <Label className="text-sm font-medium">Name</Label>
+                    <p className="text-sm text-gray-600">{user.firstName}</p>
+                  </div>
+                </div>
+              )}
+            </div>
+          </CardContent>
+        </Card>
+
+        {/* Settings Section */}
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+          {/* Notification Settings */}
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <Clock className="h-5 w-5" />
+                Notification Settings
+              </CardTitle>
+              <CardDescription>
+                Configure how often you receive price drop notifications
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              <div className="space-y-4">
+                <div className="flex items-center gap-4">
+                  <Label htmlFor="cooldown-select" className="text-sm font-medium min-w-0">
+                    Cooldown Period:
+                  </Label>
+                  <Select
+                    value={cooldownHours.toString()}
+                    onValueChange={(value) => handleCooldownUpdate(parseInt(value))}
+                    disabled={isUpdatingCooldown}
+                  >
+                    <SelectTrigger id="cooldown-select" className="w-48">
+                      <SelectValue placeholder="Select cooldown period" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="1">1 hour</SelectItem>
+                      <SelectItem value="6">6 hours</SelectItem>
+                      <SelectItem value="12">12 hours</SelectItem>
+                      <SelectItem value="24">24 hours</SelectItem>
+                      <SelectItem value="48">48 hours (recommended)</SelectItem>
+                      <SelectItem value="72">72 hours</SelectItem>
+                      <SelectItem value="168">1 week</SelectItem>
+                    </SelectContent>
+                  </Select>
+                  {isUpdatingCooldown && (
+                    <div className="text-sm text-gray-500">Updating...</div>
+                  )}
+                </div>
+                <div className="text-sm text-gray-600 p-3 bg-blue-50 rounded-lg">
+                  <strong>How it works:</strong> After receiving a price alert, you won't get another alert for the same product until {cooldownHours} hours have passed or the price rebounds significantly.
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+
+          {/* Email Preferences */}
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <Settings className="h-5 w-5" />
+                Email Preferences
+              </CardTitle>
+              <CardDescription>
+                Manage your email notification preferences
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              <div className="space-y-4">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <Label className="text-sm font-medium">Price Drop Alerts</Label>
+                    <p className="text-xs text-gray-500">Receive email notifications when prices drop</p>
+                  </div>
+                  <div className="text-sm text-green-600 font-medium">Enabled</div>
+                </div>
+                <div className="flex items-center justify-between">
+                  <div>
+                    <Label className="text-sm font-medium">Weekly Summary</Label>
+                    <p className="text-xs text-gray-500">Get a weekly recap of your tracked products</p>
+                  </div>
+                  <div className="text-sm text-gray-400 font-medium">Coming Soon</div>
+                </div>
+                <div className="flex items-center justify-between">
+                  <div>
+                    <Label className="text-sm font-medium">Deal Notifications</Label>
+                    <p className="text-xs text-gray-500">Get notified about featured deals and promotions</p>
+                  </div>
+                  <div className="text-sm text-gray-400 font-medium">Coming Soon</div>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+        </div>
+
+        {/* Additional Settings Placeholder */}
+        <Card className="mt-6">
+          <CardHeader>
+            <CardTitle>Additional Settings</CardTitle>
+            <CardDescription>
+              More account customization options
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <div className="text-sm text-gray-500 p-4 bg-gray-50 rounded-lg">
+              Additional account settings and preferences will be available here in future updates. This may include timezone settings, currency preferences, and more advanced notification options.
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+    </div>
+  );
+};
+
+export default MyAccount;

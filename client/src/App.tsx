@@ -76,6 +76,7 @@ function Router() {
       <Route path="/faq">
         <FAQ />
       </Route>
+      <Route path="/account" component={lazy(() => import("@/pages/my-account"))} />
       <Route>
         <NotFound />
       </Route>
