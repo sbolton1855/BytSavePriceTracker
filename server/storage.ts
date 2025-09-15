@@ -38,7 +38,7 @@ export interface IStorage {
   getTrackedProductsByUserId(userId: string): Promise<TrackedProduct[]>;
   getTrackedProductsByEmail(email: string): Promise<TrackedProduct[]>;
   getTrackedProductByUserAndProduct(userId: string | null, email: string, productId: number): Promise<TrackedProduct | undefined>;
-  getTrackedProductsNeedingAlerts(): Promise<(TrackedProduct & { product: Product })[]>;
+  getTrackedProductsNeedingAlerts(): Promise<(TrackedProduct & { product: Product; user: User })[]>;
   updateTrackedProduct(id: number, updates: Partial<TrackedProduct>): Promise<TrackedProduct | undefined>;
   deleteTrackedProduct(id: number): Promise<boolean>;
   getAllTrackedProductsWithDetails(): Promise<(TrackedProduct & { product: Product })[]>;
@@ -155,22 +155,25 @@ export class DatabaseStorage implements IStorage {
     return trackedProduct;
   }
 
-  async getTrackedProductsNeedingAlerts(): Promise<(TrackedProduct & { product: Product })[]> {
-    const result: (TrackedProduct & { product: Product })[] = [];
-    const trackedItems = await db.select().from(trackedProducts);
+  async getTrackedProductsNeedingAlerts(): Promise<(TrackedProduct & { product: Product; user: User })[]> {
+    const result: (TrackedProduct & { product: Product; user: User })[] = [];
+    const trackedItems = await db
+      .select()
+      .from(trackedProducts)
+      .innerJoin(users, eq(trackedProducts.userId, users.id));
 
     for (const item of trackedItems) {
-      const product = await this.getProduct(item.productId);
+      const product = await this.getProduct(item.trackedProducts.productId);
       if (!product) {
         continue;
       }
 
       const now = new Date();
-      const cooldownMs = (item.cooldownHours ?? 48) * 60 * 60 * 1000;
+      const cooldownMs = (item.users.cooldownHours ?? 48) * 60 * 60 * 1000;
 
       if (
-        item.lastAlertSent &&
-        now.getTime() - new Date(item.lastAlertSent).getTime() < cooldownMs
+        item.trackedProducts.lastAlertSent &&
+        now.getTime() - new Date(item.trackedProducts.lastAlertSent).getTime() < cooldownMs
       ) {
         continue; // still within cooldown period
       }
@@ -178,17 +181,21 @@ export class DatabaseStorage implements IStorage {
       // Check price condition based on alert type
       let shouldAlert = false;
 
-      if (item.percentageAlert && item.percentageThreshold && product.originalPrice) {
+      if (item.trackedProducts.percentageAlert && item.trackedProducts.percentageThreshold && product.originalPrice) {
         // Percentage-based alert: current price is at least X% lower than original
-        const targetDiscountPrice = product.originalPrice * (1 - item.percentageThreshold / 100);
+        const targetDiscountPrice = product.originalPrice * (1 - item.trackedProducts.percentageThreshold / 100);
         shouldAlert = product.currentPrice <= targetDiscountPrice;
       } else {
         // Fixed price alert: current price is at or below target price
-        shouldAlert = product.currentPrice <= item.targetPrice;
+        shouldAlert = product.currentPrice <= item.trackedProducts.targetPrice;
       }
 
       if (shouldAlert) {
-        result.push({ ...item, product });
+        result.push({
+          ...item.trackedProducts,
+          product,
+          user: item.users
+        });
       }
     }
 

@@ -1,19 +1,21 @@
-import { Product, TrackedProduct } from '@shared/schema';
+import { Product, TrackedProduct, User } from '@shared/schema';
 import { storage } from './storage';
 import { sendPriceDropAlert } from './emailService';
 import { canSendEmail, recordEmailSent } from './emailRateLimit';
 import nodemailer from 'nodemailer';
+import { eq, and, lt } from 'drizzle-orm';
 
 // This function checks if a product price meets the alert criteria
 export function shouldTriggerAlert(
   product: Product,
-  trackedProduct: TrackedProduct
+  trackedProduct: TrackedProduct,
+  user: User // Added user parameter
 ): boolean {
   console.log(`🔍 QA: Checking alert criteria for tracked product ID ${trackedProduct.id}`);
 
   // Check if cooldown is still active
   if (trackedProduct.lastAlertSent) {
-    const cooldownHours = trackedProduct.cooldownHours || 48;
+    const cooldownHours = user.cooldownHours || 48; // Use user's cooldown hours
     const lastAlertTime = new Date(trackedProduct.lastAlertSent);
     const currentTime = new Date();
     const hoursSinceLastAlert = (currentTime.getTime() - lastAlertTime.getTime()) / (1000 * 60 * 60);
@@ -95,7 +97,7 @@ export async function processPriceAlerts(): Promise<number> {
     console.log(`🔔 QA: Starting price alerts processing...`);
 
     // Get tracked products that need to be checked for alerts
-    const trackedProducts = await storage.getAllTrackedProductsWithDetails();
+    const trackedProducts = await storage.getAllTrackedProductsWithUserDetails(); // Modified to include user details
     let alertCount = 0;
 
     console.log(`🔍 QA: Found ${trackedProducts.length} tracked products to check for alerts`);
@@ -111,6 +113,8 @@ export async function processPriceAlerts(): Promise<number> {
         console.log(`   🎯 Target Price: $${trackedProduct.targetPrice}`);
         console.log(`   📧 Email: ${trackedProduct.email}`);
         console.log(`   🔔 Already Notified: ${trackedProduct.notified}`);
+        console.log(`   👤 User Cooldown Hours: ${trackedProduct.user?.cooldownHours || 'N/A'}`);
+
 
         // Check for price rebound reset first
         if (trackedProduct.lastAlertSent && trackedProduct.lastNotifiedPrice) {
@@ -134,7 +138,7 @@ export async function processPriceAlerts(): Promise<number> {
           }
         }
 
-        const shouldAlert = shouldTriggerAlert(trackedProduct.product, trackedProduct);
+        const shouldAlert = shouldTriggerAlert(trackedProduct.product, trackedProduct, trackedProduct.user); // Pass user to shouldTriggerAlert
 
         // Check if this tracked product requires an alert
         if (shouldAlert) {
@@ -173,7 +177,7 @@ export async function processPriceAlerts(): Promise<number> {
             console.log(`✅ QA: Cooldown tracking updated successfully`);
             console.log(`   - Alert Sent At: ${currentTime.toISOString()}`);
             console.log(`   - Price When Alerted: $${trackedProduct.product.currentPrice}`);
-            console.log(`   - Next Alert Available After: ${new Date(currentTime.getTime() + (trackedProduct.cooldownHours || 48) * 60 * 60 * 1000).toISOString()}`);
+            console.log(`   - Next Alert Available After: ${new Date(currentTime.getTime() + (trackedProduct.user.cooldownHours || 48) * 60 * 60 * 1000).toISOString()}`); // Use user cooldown
 
             alertCount++;
           } else {

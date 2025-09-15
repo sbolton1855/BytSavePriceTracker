@@ -28,6 +28,7 @@ export const users = pgTable("users", {
   profileImageUrl: text("profile_image_url"),
   provider: text("provider"),
   providerId: text("provider_id"),
+  cooldownHours: integer("cooldown_hours").default(48),
   createdAt: timestamp("created_at").defaultNow(),
   updatedAt: timestamp("updated_at").defaultNow(),
 });
@@ -69,7 +70,6 @@ export const trackedProducts = pgTable("tracked_products", {
   percentageThreshold: integer("percentage_threshold"),
   notified: boolean("notified").default(false), // Deprecated - use lastAlertSent instead
   lastAlertSent: timestamp("last_alert_sent"),
-  cooldownHours: integer("cooldown_hours").default(48),
   lastNotifiedPrice: doublePrecision("last_notified_price"),
   createdAt: timestamp("created_at").notNull(),
 });

@@ -1,7 +1,7 @@
 
 import express from 'express';
 import { db } from '../db';
-import { trackedProducts } from '@shared/schema';
+import { users } from '@shared/schema';
 import { eq } from 'drizzle-orm';
 import { z } from 'zod';
 
@@ -27,11 +27,11 @@ router.post('/cooldown', async (req, res) => {
 
     const { email, cooldownHours } = validation.data;
 
-    // Update cooldown_hours for all tracked products by this user
+    // Update cooldown_hours for the user
     const updateResult = await db
-      .update(trackedProducts)
+      .update(users)
       .set({ cooldownHours })
-      .where(eq(trackedProducts.email, email));
+      .where(eq(users.email, email));
 
     console.log(`✅ Updated cooldown to ${cooldownHours}h for user: ${email}`);
 
@@ -59,16 +59,16 @@ router.get('/preferences', async (req, res) => {
       return res.status(400).json({ error: 'Email parameter required' });
     }
 
-    // Get user's current cooldown setting from any tracked product
-    const userTracking = await db
+    // Get user's current cooldown setting from users table
+    const user = await db
       .select({
-        cooldownHours: trackedProducts.cooldownHours
+        cooldownHours: users.cooldownHours
       })
-      .from(trackedProducts)
-      .where(eq(trackedProducts.email, email))
+      .from(users)
+      .where(eq(users.email, email))
       .limit(1);
 
-    const cooldownHours = userTracking[0]?.cooldownHours || 48; // Default to 48 hours
+    const cooldownHours = user[0]?.cooldownHours || 48; // Default to 48 hours
 
     res.json({
       success: true,

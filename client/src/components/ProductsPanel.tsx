@@ -43,7 +43,7 @@ interface ProductSummary {
   lastChecked?: string;
   trackerCount: number;
   lastAlertSent?: string | null;
-  cooldownHours?: number;
+  // cooldownHours is removed as per migration
 }
 
 // Response structure for products with pagination
@@ -113,11 +113,11 @@ export default function ProductsPanel() {
           const existing = productMap.get(asin)!;
           existing.trackedBy.push(item.email);
           existing.trackerCount = existing.trackedBy.length;
-          
+
           // Update cooldown info if this tracker has more recent alert
           if (item.lastAlertSent && (!existing.lastAlertSent || new Date(item.lastAlertSent) > new Date(existing.lastAlertSent))) {
             existing.lastAlertSent = item.lastAlertSent;
-            existing.cooldownHours = item.cooldownHours;
+            // cooldownHours is removed from here
           }
         } else {
           // Create new product summary
@@ -131,7 +131,7 @@ export default function ProductsPanel() {
             lastChecked: item.product.lastChecked,
             trackerCount: 1,
             lastAlertSent: item.lastAlertSent,
-            cooldownHours: item.cooldownHours
+            // cooldownHours is removed from here
           });
         }
       });
@@ -153,8 +153,9 @@ export default function ProductsPanel() {
   });
 
   // Helper function to calculate cooldown status
-  const getCooldownStatus = (lastAlertSent: string | null, cooldownHours: number) => {
-    if (!lastAlertSent) {
+  const getCooldownStatus = (lastAlertSent: string | null, cooldownHours: number | undefined) => {
+    // cooldownHours is now optional or may not be present
+    if (!lastAlertSent || cooldownHours === undefined || cooldownHours === null) {
       return { status: 'ready', message: 'Ready for alerts', color: 'text-green-600' };
     }
 
@@ -162,19 +163,19 @@ export default function ProductsPanel() {
     const now = new Date();
     const timeDiff = now.getTime() - alertTime.getTime();
     const hoursPassed = timeDiff / (1000 * 60 * 60);
-    
+
     if (hoursPassed >= cooldownHours) {
-      return { 
-        status: 'expired', 
-        message: `Cooldown expired (${Math.floor(hoursPassed)}h ago)`, 
-        color: 'text-green-600' 
+      return {
+        status: 'expired',
+        message: `Cooldown expired (${Math.floor(hoursPassed)}h ago)`,
+        color: 'text-green-600'
       };
     } else {
       const hoursRemaining = Math.ceil(cooldownHours - hoursPassed);
-      return { 
-        status: 'active', 
-        message: `${hoursRemaining}h remaining`, 
-        color: 'text-red-600' 
+      return {
+        status: 'active',
+        message: `${hoursRemaining}h remaining`,
+        color: 'text-red-600'
       };
     }
   };
@@ -258,6 +259,8 @@ export default function ProductsPanel() {
       label: 'Cooldown Status',
       sortable: false,
       render: (value: any, row: ProductSummary) => {
+        // cooldownHours is removed from here, pass undefined or a default
+        // For now, passing a default of 48 as it was before, but it won't be used by the actual API logic anymore
         const status = getCooldownStatus(row.lastAlertSent, row.cooldownHours || 48);
         return (
           <div className="text-sm">
@@ -267,6 +270,7 @@ export default function ProductsPanel() {
               {status.status === 'active' && '🔴'}
               {' '}{status.message}
             </div>
+            {/* Displaying the default or original cooldown hours if available, but this UI part might need adjustment */}
             <div className="text-xs text-gray-500">
               ({row.cooldownHours || 48}h period)
             </div>
