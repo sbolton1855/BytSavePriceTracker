@@ -23,6 +23,10 @@ import adminEmailRoutes from './routes/adminEmail';
 import adminEmailLogsRoutes from './routes/adminEmailLogs';
 import adminToolsRoutes from './routes/adminTools';
 import emailTestRoutes from './routes/emailTest';
+import affiliateRouter from './routes/affiliate';
+import analyticsRouter from './routes/analytics';
+import systemHealthRouter from './routes/systemHealth';
+import userRouter from './routes/user';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
@@ -2783,6 +2787,11 @@ Respond with just the analysis text, no JSON needed.
 
   app.use('/api', amazonRouter);
   // console.log(">>> [DEBUG] Registered amazonRouter at /api");
+
+  app.use('/api/affiliate', affiliateRouter);
+  app.use('/api/analytics', analyticsRouter);
+  app.use('/api/health', systemHealthRouter);
+  app.use('/api/user', userRouter);
 
   return httpServer;
 }

@@ -17,6 +17,8 @@ interface TrackedProductAdmin {
   productId: number;
   targetPrice: number;
   createdAt: string;
+  lastAlertSent: string | null;
+  cooldownHours: number;
   product: {
     id: number;
     asin: string;
@@ -40,6 +42,8 @@ interface ProductSummary {
   createdAt: string;
   lastChecked?: string;
   trackerCount: number;
+  lastAlertSent?: string | null;
+  cooldownHours?: number;
 }
 
 // Response structure for products with pagination
@@ -109,6 +113,12 @@ export default function ProductsPanel() {
           const existing = productMap.get(asin)!;
           existing.trackedBy.push(item.email);
           existing.trackerCount = existing.trackedBy.length;
+          
+          // Update cooldown info if this tracker has more recent alert
+          if (item.lastAlertSent && (!existing.lastAlertSent || new Date(item.lastAlertSent) > new Date(existing.lastAlertSent))) {
+            existing.lastAlertSent = item.lastAlertSent;
+            existing.cooldownHours = item.cooldownHours;
+          }
         } else {
           // Create new product summary
           productMap.set(asin, {
@@ -119,7 +129,9 @@ export default function ProductsPanel() {
             trackedBy: [item.email],
             createdAt: item.product.createdAt,
             lastChecked: item.product.lastChecked,
-            trackerCount: 1
+            trackerCount: 1,
+            lastAlertSent: item.lastAlertSent,
+            cooldownHours: item.cooldownHours
           });
         }
       });
@@ -139,6 +151,33 @@ export default function ProductsPanel() {
       return { products, pagination };
     }
   });
+
+  // Helper function to calculate cooldown status
+  const getCooldownStatus = (lastAlertSent: string | null, cooldownHours: number) => {
+    if (!lastAlertSent) {
+      return { status: 'ready', message: 'Ready for alerts', color: 'text-green-600' };
+    }
+
+    const alertTime = new Date(lastAlertSent);
+    const now = new Date();
+    const timeDiff = now.getTime() - alertTime.getTime();
+    const hoursPassed = timeDiff / (1000 * 60 * 60);
+    
+    if (hoursPassed >= cooldownHours) {
+      return { 
+        status: 'expired', 
+        message: `Cooldown expired (${Math.floor(hoursPassed)}h ago)`, 
+        color: 'text-green-600' 
+      };
+    } else {
+      const hoursRemaining = Math.ceil(cooldownHours - hoursPassed);
+      return { 
+        status: 'active', 
+        message: `${hoursRemaining}h remaining`, 
+        color: 'text-red-600' 
+      };
+    }
+  };
 
   // Define table columns using the LogTable format
   const columns: LogColumn[] = [
@@ -193,6 +232,48 @@ export default function ProductsPanel() {
         </Badge>
       ),
       className: 'text-center'
+    },
+    {
+      key: 'lastAlertSent',
+      label: 'Last Alert',
+      sortable: true,
+      render: (value: string | null, row: ProductSummary) => (
+        <div className="text-sm">
+          {value ? (
+            <div>
+              <div>{new Date(value).toLocaleDateString()}</div>
+              <div className="text-xs text-gray-500">
+                {new Date(value).toLocaleTimeString()}
+              </div>
+            </div>
+          ) : (
+            <span className="text-gray-400">Never</span>
+          )}
+        </div>
+      ),
+      className: 'hidden lg:table-cell'
+    },
+    {
+      key: 'cooldownStatus',
+      label: 'Cooldown Status',
+      sortable: false,
+      render: (value: any, row: ProductSummary) => {
+        const status = getCooldownStatus(row.lastAlertSent, row.cooldownHours || 48);
+        return (
+          <div className="text-sm">
+            <div className={`font-medium ${status.color}`}>
+              {status.status === 'ready' && '🟢'}
+              {status.status === 'expired' && '🟢'}
+              {status.status === 'active' && '🔴'}
+              {' '}{status.message}
+            </div>
+            <div className="text-xs text-gray-500">
+              ({row.cooldownHours || 48}h period)
+            </div>
+          </div>
+        );
+      },
+      className: 'hidden md:table-cell'
     },
     {
       key: 'lastChecked',

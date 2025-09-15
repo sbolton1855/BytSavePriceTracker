@@ -1,6 +1,6 @@
 import { db } from "./db";
 import { storage } from "./storage";
-import { apiErrors, systemMetrics, products, trackedProducts, priceHistory } from "@shared/schema";
+import { apiErrors, systemMetrics, products as productsTable, trackedProducts, priceHistory } from "@shared/schema";
 import { desc, eq, count, and, sql, gte, gt, lt } from "drizzle-orm";
 
 // Helper function to log Amazon API errors
@@ -98,7 +98,7 @@ export async function getProductStats() {
     // Get total product count
     const totalProductsResult = await db
       .select({ count: count() })
-      .from(products);
+      .from(productsTable);
     const totalProducts = totalProductsResult[0]?.count || 0;
 
     // Get tracked product count
@@ -109,9 +109,9 @@ export async function getProductStats() {
 
     // Get products with price history
     const productsWithHistoryResult = await db
-      .select({ count: count(products.id) })
-      .from(products)
-      .leftJoin(priceHistory, eq(products.id, priceHistory.productId))
+      .select({ count: count(productsTable.id) })
+      .from(productsTable)
+      .leftJoin(priceHistory, eq(productsTable.id, priceHistory.productId))
       .where(gt(count(priceHistory.id), 0));
     const productsWithHistory = productsWithHistoryResult[0]?.count || 0;
 
@@ -128,13 +128,13 @@ export async function getProductStats() {
 
     const recentlyAddedProducts = await db
       .select({
-        date: sql<string>`to_char(${products.createdAt}, 'YYYY-MM-DD')`,
+        date: sql<string>`to_char(${productsTable.createdAt}, 'YYYY-MM-DD')`,
         count: count()
       })
-      .from(products)
-      .where(gte(products.createdAt, tenDaysAgo))
-      .groupBy(sql`to_char(${products.createdAt}, 'YYYY-MM-DD')`)
-      .orderBy(sql`to_char(${products.createdAt}, 'YYYY-MM-DD')`);
+      .from(productsTable)
+      .where(gte(productsTable.createdAt, tenDaysAgo))
+      .groupBy(sql`to_char(${productsTable.createdAt}, 'YYYY-MM-DD')`)
+      .orderBy(sql`to_char(${productsTable.createdAt}, 'YYYY-MM-DD')`);
 
     return {
       total: totalProducts,

@@ -1,8 +1,11 @@
 import { useState, useEffect } from "react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Label } from "@/components/ui/label";
 import ProductsDisplay from "@/components/products-display";
 import { AIRecommendations } from "@/components/AIRecommendations";
+import { Settings, Clock } from "lucide-react";
 
 import ProductSearch from "@/components/product-search";
 import { useAuth } from "@/hooks/use-auth";
@@ -14,6 +17,8 @@ const Dashboard: React.FC = () => {
   const { toast } = useToast();
   const [refreshTrigger, setRefreshTrigger] = useState(0);
   const [trackedProducts, setTrackedProducts] = useState<any[]>([]);
+  const [cooldownHours, setCooldownHours] = useState<number>(48);
+  const [isUpdatingCooldown, setIsUpdatingCooldown] = useState(false);
   
   // Get the user's email for product tracking
   const [userEmail, setUserEmail] = useState<string>(() => {
@@ -27,6 +32,27 @@ const Dashboard: React.FC = () => {
     console.log("Dashboard - using email:", userEmail);
   }, [user, userEmail]);
   
+  // Load user preferences when email is available
+  useEffect(() => {
+    const loadUserPreferences = async () => {
+      if (!userEmail) return;
+      
+      try {
+        const response = await fetch(`/api/user/preferences?email=${encodeURIComponent(userEmail)}`);
+        if (response.ok) {
+          const data = await response.json();
+          if (data.success && data.preferences) {
+            setCooldownHours(data.preferences.cooldownHours);
+          }
+        }
+      } catch (error) {
+        console.error('Error loading user preferences:', error);
+      }
+    };
+
+    loadUserPreferences();
+  }, [userEmail]);
+
   // Update email from user when auth status changes
   useEffect(() => {
     if (user?.email) {
@@ -35,6 +61,47 @@ const Dashboard: React.FC = () => {
     }
   }, [user]);
   
+  // Handle cooldown update
+  const handleCooldownUpdate = async (newCooldownHours: number) => {
+    if (!userEmail) return;
+    
+    setIsUpdatingCooldown(true);
+    try {
+      const response = await fetch('/api/user/cooldown', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          email: userEmail,
+          cooldownHours: newCooldownHours
+        }),
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to update cooldown settings');
+      }
+
+      setCooldownHours(newCooldownHours);
+      toast({
+        title: "Cooldown updated",
+        description: `Alert cooldown set to ${newCooldownHours} hours`,
+      });
+      
+      // Refresh the product list to show updated settings
+      setRefreshTrigger(prev => prev + 1);
+    } catch (error) {
+      console.error('Error updating cooldown:', error);
+      toast({
+        title: "Update failed",
+        description: "Failed to update cooldown settings. Please try again.",
+        variant: "destructive",
+      });
+    } finally {
+      setIsUpdatingCooldown(false);
+    }
+  };
+
   // Handle successful search and tracking
   const handleSearchSuccess = () => {
     // Get the email from the form if available
@@ -76,6 +143,53 @@ const Dashboard: React.FC = () => {
             </CardHeader>
           </Card>
         )}
+
+        {/* User Preferences */}
+        <Card className="mb-8">
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <Settings className="h-5 w-5" />
+              Alert Settings
+            </CardTitle>
+            <CardDescription>
+              Configure how often you receive price drop notifications
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <div className="flex items-center gap-4">
+              <div className="flex items-center gap-2">
+                <Clock className="h-4 w-4 text-gray-500" />
+                <Label htmlFor="cooldown-select" className="text-sm font-medium">
+                  Cooldown Period:
+                </Label>
+              </div>
+              <Select
+                value={cooldownHours.toString()}
+                onValueChange={(value) => handleCooldownUpdate(parseInt(value))}
+                disabled={isUpdatingCooldown}
+              >
+                <SelectTrigger id="cooldown-select" className="w-48">
+                  <SelectValue placeholder="Select cooldown period" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="1">1 hour</SelectItem>
+                  <SelectItem value="6">6 hours</SelectItem>
+                  <SelectItem value="12">12 hours</SelectItem>
+                  <SelectItem value="24">24 hours</SelectItem>
+                  <SelectItem value="48">48 hours (recommended)</SelectItem>
+                  <SelectItem value="72">72 hours</SelectItem>
+                  <SelectItem value="168">1 week</SelectItem>
+                </SelectContent>
+              </Select>
+              {isUpdatingCooldown && (
+                <div className="text-sm text-gray-500">Updating...</div>
+              )}
+            </div>
+            <div className="mt-3 text-sm text-gray-600">
+              After receiving a price alert, you won't get another alert for the same product until {cooldownHours} hours have passed or the price rebounds significantly.
+            </div>
+          </CardContent>
+        </Card>
 
         {/* For testing - use hardcoded email if no email is available */}
         <ProductsDisplay 
