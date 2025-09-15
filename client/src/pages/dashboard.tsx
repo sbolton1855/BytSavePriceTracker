@@ -144,69 +144,95 @@ const Dashboard: React.FC = () => {
           </Card>
         )}
 
-        {/* My Account Section */}
-        <Card className="mb-8">
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <Settings className="h-5 w-5" />
-              My Account
-            </CardTitle>
-            <CardDescription>
-              Manage your account settings and preferences
-            </CardDescription>
-          </CardHeader>
-          <CardContent>
-            <div className="space-y-6">
-              {/* Configuration Subsection */}
-              <div>
-                <h3 className="text-lg font-semibold mb-4 border-b pb-2">Configuration</h3>
-                
-                {/* Alert Settings */}
-                <div className="space-y-4">
-                  <div>
-                    <h4 className="text-sm font-medium text-gray-900 mb-3">Alert Settings</h4>
-                    <p className="text-sm text-gray-600 mb-4">
-                      Configure how often you receive price drop notifications
-                    </p>
-                    
-                    <div className="flex items-center gap-4">
-                      <div className="flex items-center gap-2">
-                        <Clock className="h-4 w-4 text-gray-500" />
-                        <Label htmlFor="cooldown-select" className="text-sm font-medium">
-                          Cooldown Period:
-                        </Label>
-                      </div>
-                      <Select
-                        value={cooldownHours.toString()}
-                        onValueChange={(value) => handleCooldownUpdate(parseInt(value))}
-                        disabled={isUpdatingCooldown}
-                      >
-                        <SelectTrigger id="cooldown-select" className="w-48">
-                          <SelectValue placeholder="Select cooldown period" />
-                        </SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="1">1 hour</SelectItem>
-                          <SelectItem value="6">6 hours</SelectItem>
-                          <SelectItem value="12">12 hours</SelectItem>
-                          <SelectItem value="24">24 hours</SelectItem>
-                          <SelectItem value="48">48 hours (recommended)</SelectItem>
-                          <SelectItem value="72">72 hours</SelectItem>
-                          <SelectItem value="168">1 week</SelectItem>
-                        </SelectContent>
-                      </Select>
-                      {isUpdatingCooldown && (
-                        <div className="text-sm text-gray-500">Updating...</div>
-                      )}
-                    </div>
-                    <div className="mt-3 text-sm text-gray-600">
-                      After receiving a price alert, you won't get another alert for the same product until {cooldownHours} hours have passed or the price rebounds significantly.
-                    </div>
-                  </div>
+        {/* Settings Section */}
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
+          {/* Notification Settings */}
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <Clock className="h-5 w-5" />
+                Notification Settings
+              </CardTitle>
+              <CardDescription>
+                Configure how often you receive price drop notifications
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              <div className="space-y-4">
+                <div className="flex items-center gap-4">
+                  <Label htmlFor="cooldown-select" className="text-sm font-medium min-w-0">
+                    Cooldown Period:
+                  </Label>
+                  <Select
+                    value={cooldownHours.toString()}
+                    onValueChange={(value) => handleCooldownUpdate(parseInt(value))}
+                    disabled={isUpdatingCooldown}
+                  >
+                    <SelectTrigger id="cooldown-select" className="w-48">
+                      <SelectValue placeholder="Select cooldown period" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="1">1 hour</SelectItem>
+                      <SelectItem value="6">6 hours</SelectItem>
+                      <SelectItem value="12">12 hours</SelectItem>
+                      <SelectItem value="24">24 hours</SelectItem>
+                      <SelectItem value="48">48 hours (recommended)</SelectItem>
+                      <SelectItem value="72">72 hours</SelectItem>
+                      <SelectItem value="168">1 week</SelectItem>
+                    </SelectContent>
+                  </Select>
+                  {isUpdatingCooldown && (
+                    <div className="text-sm text-gray-500">Updating...</div>
+                  )}
+                </div>
+                <div className="text-sm text-gray-600 p-3 bg-blue-50 rounded-lg">
+                  <strong>How it works:</strong> After receiving a price alert, you won't get another alert for the same product until {cooldownHours} hours have passed or the price rebounds significantly.
                 </div>
               </div>
-            </div>
-          </CardContent>
-        </Card>
+            </CardContent>
+          </Card>
+
+          {/* Account Preferences */}
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <Settings className="h-5 w-5" />
+                Account Preferences
+              </CardTitle>
+              <CardDescription>
+                Manage your account settings and preferences
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              <div className="space-y-4">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <Label className="text-sm font-medium">Email Notifications</Label>
+                    <p className="text-xs text-gray-500">Receive price drop alerts via email</p>
+                  </div>
+                  <div className="text-sm text-green-600 font-medium">Enabled</div>
+                </div>
+                <div className="flex items-center justify-between">
+                  <div>
+                    <Label className="text-sm font-medium">Account Email</Label>
+                    <p className="text-xs text-gray-500">{user?.email || userEmail}</p>
+                  </div>
+                </div>
+                <div className="text-xs text-gray-500 p-2 bg-gray-50 rounded">
+                  Additional preferences and settings will be available here in future updates.
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+        </div>
+
+        {/* Divider for Visual Separation */}
+        <div className="mb-8">
+          <hr className="border-gray-200" />
+          <div className="text-center -mt-3">
+            <span className="bg-gray-50 px-4 py-1 text-sm font-medium text-gray-500">Your Tracked Products</span>
+          </div>
+        </div>
 
         {/* For testing - use hardcoded email if no email is available */}
         <ProductsDisplay 
