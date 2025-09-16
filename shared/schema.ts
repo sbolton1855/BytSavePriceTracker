@@ -28,7 +28,7 @@ export const users = pgTable("users", {
   profileImageUrl: text("profile_image_url"),
   provider: text("provider"),
   providerId: text("provider_id"),
-  cooldownHours: integer("cooldown_hours").default(48),
+  cooldownHours: integer("cooldown_hours").default(72),
   priceDropAlertsEnabled: boolean("price_drop_alerts_enabled").default(true),
   createdAt: timestamp("created_at", { withTimezone: true }).defaultNow(),
   updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow(),

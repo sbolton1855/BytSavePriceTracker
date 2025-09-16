@@ -15,7 +15,8 @@ export function shouldTriggerAlert(
 
   // Check if cooldown is still active
   if (trackedProduct.lastAlertSent) {
-    const cooldownHours = user.cooldownHours || 48; // Use user's cooldown hours
+    // Check if we're within the cooldown period (fixed at 72 hours)
+    const cooldownHours = user.cooldownHours ?? 72;
     const lastAlertTime = new Date(trackedProduct.lastAlertSent);
     const currentTime = new Date();
     const hoursSinceLastAlert = (currentTime.getTime() - lastAlertTime.getTime()) / (1000 * 60 * 60);

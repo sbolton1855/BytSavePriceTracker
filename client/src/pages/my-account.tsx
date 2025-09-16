@@ -11,8 +11,7 @@ import { useToast } from "@/hooks/use-toast";
 const MyAccount: React.FC = () => {
   const { user } = useAuth();
   const { toast } = useToast();
-  const [cooldownHours, setCooldownHours] = useState<number>(48);
-  const [isUpdatingCooldown, setIsUpdatingCooldown] = useState(false);
+  // Cooldown is now fixed at 72 hours globally
   const [priceDropAlertsEnabled, setPriceDropAlertsEnabled] = useState<boolean>(true);
   const [isUpdatingAlerts, setIsUpdatingAlerts] = useState(false);
   
@@ -29,7 +28,6 @@ const MyAccount: React.FC = () => {
         if (response.ok) {
           const data = await response.json();
           if (data.success && data.preferences) {
-            setCooldownHours(data.preferences.cooldownHours);
             setPriceDropAlertsEnabled(data.preferences.priceDropAlertsEnabled);
           }
         }
@@ -41,43 +39,7 @@ const MyAccount: React.FC = () => {
     loadUserPreferences();
   }, [userEmail]);
 
-  // Handle cooldown update
-  const handleCooldownUpdate = async (newCooldownHours: number) => {
-    if (!userEmail) return;
-    
-    setIsUpdatingCooldown(true);
-    try {
-      const response = await fetch('/api/user/cooldown', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          email: userEmail,
-          cooldownHours: newCooldownHours
-        }),
-      });
-
-      if (!response.ok) {
-        throw new Error('Failed to update cooldown settings');
-      }
-
-      setCooldownHours(newCooldownHours);
-      toast({
-        title: "Settings updated",
-        description: `Alert cooldown set to ${newCooldownHours} hours`,
-      });
-    } catch (error) {
-      console.error('Error updating cooldown:', error);
-      toast({
-        title: "Update failed",
-        description: "Failed to update cooldown settings. Please try again.",
-        variant: "destructive",
-      });
-    } finally {
-      setIsUpdatingCooldown(false);
-    }
-  };
+  
 
   // Handle price drop alerts toggle
   const handlePriceDropAlertsToggle = async (enabled: boolean) => {
@@ -180,34 +142,8 @@ const MyAccount: React.FC = () => {
             </CardHeader>
             <CardContent>
               <div className="space-y-4">
-                <div className="flex items-center gap-4">
-                  <Label htmlFor="cooldown-select" className="text-sm font-medium min-w-0">
-                    Cooldown Period:
-                  </Label>
-                  <Select
-                    value={cooldownHours.toString()}
-                    onValueChange={(value) => handleCooldownUpdate(parseInt(value))}
-                    disabled={isUpdatingCooldown}
-                  >
-                    <SelectTrigger id="cooldown-select" className="w-48">
-                      <SelectValue placeholder="Select cooldown period" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="1">1 hour</SelectItem>
-                      <SelectItem value="6">6 hours</SelectItem>
-                      <SelectItem value="12">12 hours</SelectItem>
-                      <SelectItem value="24">24 hours</SelectItem>
-                      <SelectItem value="48">48 hours (recommended)</SelectItem>
-                      <SelectItem value="72">72 hours</SelectItem>
-                      <SelectItem value="168">1 week</SelectItem>
-                    </SelectContent>
-                  </Select>
-                  {isUpdatingCooldown && (
-                    <div className="text-sm text-gray-500">Updating...</div>
-                  )}
-                </div>
                 <div className="text-sm text-gray-600 p-3 bg-blue-50 rounded-lg">
-                  <strong>How it works:</strong> After receiving a price alert, you won't get another alert for the same product until {cooldownHours} hours have passed or the price rebounds significantly.
+                  <strong>Alert Cooldown:</strong> After receiving a price alert, you won't be notified again for 3 days (72 hours), unless the price drops significantly lower. This prevents spam while ensuring you don't miss major price changes.
                 </div>
               </div>
             </CardContent>
