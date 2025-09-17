@@ -1,4 +1,4 @@
-import { pgTable, text, serial, integer, boolean, timestamp, doublePrecision, varchar, jsonb, index } from "drizzle-orm/pg-core";
+import { pgTable, text, serial, integer, boolean, timestamp, doublePrecision, varchar, jsonb, index, decimal } from "drizzle-orm/pg-core";
 import { relations } from "drizzle-orm";
 import { createInsertSchema, InferSelectModel, InferInsertModel } from "drizzle-zod";
 import { z } from "zod";
@@ -61,14 +61,16 @@ export const insertProductSchema = createInsertSchema(products).omit({
 
 export const trackedProducts = pgTable("tracked_products", {
   id: serial("id").primaryKey(),
-  userId: varchar("user_id"),
+  userId: text("user_id").references(() => users.id, { onDelete: "cascade" }),
   email: text("email").notNull(),
-  productId: integer("product_id").notNull(),
-  targetPrice: doublePrecision("target_price").notNull(),
+  productId: serial("product_id").references(() => products.id, { onDelete: "cascade" }),
+  targetPrice: decimal("target_price", { precision: 10, scale: 2 }).notNull(),
   percentageAlert: boolean("percentage_alert").default(false),
-  percentageThreshold: integer("percentage_threshold"),
+  percentageThreshold: decimal("percentage_threshold", { precision: 5, scale: 2 }),
   notified: boolean("notified").default(false),
-  createdAt: timestamp("created_at").notNull(),
+  lastNotifiedPrice: decimal("last_notified_price", { precision: 10, scale: 2 }),
+  lastAlertSent: timestamp("last_alert_sent", { withTimezone: true }),
+  createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
 });
 
 export const insertTrackedProductSchema = createInsertSchema(trackedProducts).omit({

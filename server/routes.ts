@@ -23,6 +23,7 @@ import adminEmailRoutes from './routes/adminEmail';
 import adminEmailLogsRoutes from './routes/adminEmailLogs';
 import adminToolsRoutes from './routes/adminTools';
 import emailTestRoutes from './routes/emailTest';
+import adminConfigRouter from "./routes/adminConfig";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
@@ -2019,9 +2020,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const domain = process.env.REPL_SLUG && process.env.REPL_OWNER 
         ? `https://${process.env.REPL_OWNER}.${process.env.REPL_SLUG}.replit.dev`
         : process.env.CALLBACK_BASE_URL || 'http://localhost:5000';
-      
+
       const expectedCallbackUrl = `${domain}/api/auth/google/callback`;
-      
+
       const diagnostics = {
         success: true,
         configuration: {
@@ -2752,6 +2753,9 @@ Respond with just the analysis text, no JSON needed.
   console.log('✅ Admin email routes mounted successfully');
 
   app.use('/api/admin', adminToolsRoutes);
+
+  // Admin config routes
+  app.use("/api/admin/config", requireAdmin, adminConfigRouter);
 
   // Admin affiliate routes
   const adminAffiliateRoutes = await import('./routes/adminAffiliate');

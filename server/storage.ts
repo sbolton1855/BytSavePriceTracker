@@ -13,7 +13,9 @@ import {
   type InsertPriceHistory,
   apiErrors,
   type ApiError,
-  type InsertApiError
+  type InsertApiError,
+  config, // Assuming 'config' is imported from "@shared/schema"
+  type Config // Assuming 'Config' is imported from "@shared/schema"
 } from "@shared/schema";
 import { db } from "./db";
 import { eq, and, or } from "drizzle-orm";
@@ -58,6 +60,10 @@ export interface IStorage {
   updateApiError(id: number, update: Partial<ApiError>): Promise<void>;
   getAllApiErrors(): Promise<ApiError[]>;
   getUnresolvedApiErrors(): Promise<ApiError[]>;
+
+  // Global config operations
+  getAllConfigEntries(): Promise<Config[]>;
+  getGlobalConfig(key: string): Promise<string | null>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -165,10 +171,10 @@ export class DatabaseStorage implements IStorage {
       if (!product || item.notified) {
         continue;
       }
-      
+
       // Check price condition based on alert type
       let shouldAlert = false;
-      
+
       if (item.percentageAlert && item.percentageThreshold && product.originalPrice) {
         // Percentage-based alert: current price is at least X% lower than original
         const targetDiscountPrice = product.originalPrice * (1 - item.percentageThreshold / 100);
@@ -177,7 +183,7 @@ export class DatabaseStorage implements IStorage {
         // Fixed price alert: current price is at or below target price
         shouldAlert = product.currentPrice <= item.targetPrice;
       }
-      
+
       if (shouldAlert) {
         result.push({ ...item, product });
       }
@@ -278,6 +284,16 @@ export class DatabaseStorage implements IStorage {
 
   async getUnresolvedApiErrors(): Promise<ApiError[]> {
     return await db.select().from(apiErrors).where(eq(apiErrors.resolved, false));
+  }
+
+  // Global config operations
+  async getAllConfigEntries(): Promise<Config[]> {
+    return await db.select().from(config);
+  }
+
+  async getGlobalConfig(key: string): Promise<string | null> {
+    const result = await db.select().from(config).where(eq(config.key, key)).limit(1);
+    return result.length > 0 ? result[0].value : null;
   }
 }
 
