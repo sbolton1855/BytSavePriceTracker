@@ -298,3 +298,8 @@ export class DatabaseStorage implements IStorage {
 }
 
 export const storage = new DatabaseStorage();
+
+// Export standalone function for easier imports
+export async function getGlobalConfig(key: string): Promise<string | null> {
+  return storage.getGlobalConfig(key);
+}
