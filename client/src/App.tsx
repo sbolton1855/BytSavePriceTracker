@@ -13,6 +13,7 @@ import Home from "@/pages/home";
 import Dashboard from "@/pages/dashboard";
 import HowItWorks from "@/pages/how-it-works";
 import AuthPage from "@/pages/auth-page";
+import SettingsPage from "@/pages/settings";
 import ProductDetails from "@/pages/product-details";
 import FAQ from "@/pages/faq";
 import NotFound from "@/pages/not-found";
@@ -33,6 +34,9 @@ function Router() {
       </Route>
       <ProtectedRoute path="/dashboard">
         <Dashboard />
+      </ProtectedRoute>
+      <ProtectedRoute path="/settings">
+        <SettingsPage />
       </ProtectedRoute>
       <Route path="/admin/api-monitor">
         <ApiMonitor />
