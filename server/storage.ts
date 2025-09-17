@@ -13,13 +13,10 @@ import {
   type InsertPriceHistory,
   apiErrors,
   type ApiError,
-  type InsertApiError,
-  config,
-  type Config,
-  type NewConfig
+  type InsertApiError
 } from "@shared/schema";
 import { db } from "./db";
-import { eq, desc, and, gte, lt } from "drizzle-orm";
+import { eq, and, or } from "drizzle-orm";
 
 // Interface for storage operations
 export interface IStorage {
@@ -41,7 +38,7 @@ export interface IStorage {
   getTrackedProductsByUserId(userId: string): Promise<TrackedProduct[]>;
   getTrackedProductsByEmail(email: string): Promise<TrackedProduct[]>;
   getTrackedProductByUserAndProduct(userId: string | null, email: string, productId: number): Promise<TrackedProduct | undefined>;
-  getTrackedProductsNeedingAlerts(): Promise<(TrackedProduct & { product: Product; user: User })[]>;
+  getTrackedProductsNeedingAlerts(): Promise<(TrackedProduct & { product: Product })[]>;
   updateTrackedProduct(id: number, updates: Partial<TrackedProduct>): Promise<TrackedProduct | undefined>;
   deleteTrackedProduct(id: number): Promise<boolean>;
   getAllTrackedProductsWithDetails(): Promise<(TrackedProduct & { product: Product })[]>;
@@ -61,11 +58,6 @@ export interface IStorage {
   updateApiError(id: number, update: Partial<ApiError>): Promise<void>;
   getAllApiErrors(): Promise<ApiError[]>;
   getUnresolvedApiErrors(): Promise<ApiError[]>;
-
-  // Global config operations
-  getGlobalConfig(key: string): Promise<string | null>;
-  setGlobalConfig(key: string, value: string): Promise<void>;
-  getAllGlobalConfig(): Promise<Config[]>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -132,6 +124,7 @@ export class DatabaseStorage implements IStorage {
       const [trackedProduct] = await db.insert(trackedProducts).values({
         ...insertTrackedProduct,
         email: insertTrackedProduct.email.toUpperCase(),
+        notified: false
       }).returning();
       console.log('Successfully created tracked product:', trackedProduct);
       return trackedProduct;
@@ -163,47 +156,30 @@ export class DatabaseStorage implements IStorage {
     return trackedProduct;
   }
 
-  async getTrackedProductsNeedingAlerts(): Promise<(TrackedProduct & { product: Product; user: User })[]> {
-    const result: (TrackedProduct & { product: Product; user: User })[] = [];
-    const trackedItems = await db
-      .select()
-      .from(trackedProducts)
-      .innerJoin(users, eq(trackedProducts.userId, users.id));
+  async getTrackedProductsNeedingAlerts(): Promise<(TrackedProduct & { product: Product })[]> {
+    const result: (TrackedProduct & { product: Product })[] = [];
+    const trackedItems = await db.select().from(trackedProducts);
 
     for (const item of trackedItems) {
-      const product = await this.getProduct(item.trackedProducts.productId);
-      if (!product) {
+      const product = await this.getProduct(item.productId);
+      if (!product || item.notified) {
         continue;
       }
-
-      const now = new Date();
-      const cooldownMs = (item.users.cooldownHours ?? 48) * 60 * 60 * 1000;
-
-      if (
-        item.trackedProducts.lastAlertSent &&
-        now.getTime() - new Date(item.trackedProducts.lastAlertSent).getTime() < cooldownMs
-      ) {
-        continue; // still within cooldown period
-      }
-
+      
       // Check price condition based on alert type
       let shouldAlert = false;
-
-      if (item.trackedProducts.percentageAlert && item.trackedProducts.percentageThreshold && product.originalPrice) {
+      
+      if (item.percentageAlert && item.percentageThreshold && product.originalPrice) {
         // Percentage-based alert: current price is at least X% lower than original
-        const targetDiscountPrice = product.originalPrice * (1 - item.trackedProducts.percentageThreshold / 100);
+        const targetDiscountPrice = product.originalPrice * (1 - item.percentageThreshold / 100);
         shouldAlert = product.currentPrice <= targetDiscountPrice;
       } else {
         // Fixed price alert: current price is at or below target price
-        shouldAlert = product.currentPrice <= item.trackedProducts.targetPrice;
+        shouldAlert = product.currentPrice <= item.targetPrice;
       }
-
+      
       if (shouldAlert) {
-        result.push({
-          ...item.trackedProducts,
-          product,
-          user: item.users
-        });
+        result.push({ ...item, product });
       }
     }
 
@@ -232,50 +208,17 @@ export class DatabaseStorage implements IStorage {
   }
 
   async getAllTrackedProductsWithDetails(): Promise<(TrackedProduct & { product: Product })[]> {
-    try {
-      const results = await db
-        .select({
-          id: trackedProducts.id,
-          userId: trackedProducts.userId,
-          email: trackedProducts.email,
-          productId: trackedProducts.productId,
-          targetPrice: trackedProducts.targetPrice,
-          percentageAlert: trackedProducts.percentageAlert,
-          percentageThreshold: trackedProducts.percentageThreshold,
-          lastAlertSent: trackedProducts.lastAlertSent,
-          cooldownHours: trackedProducts.cooldownHours,
-          lastNotifiedPrice: trackedProducts.lastNotifiedPrice,
-          createdAt: trackedProducts.createdAt,
-          product: {
-            id: products.id,
-            asin: products.asin,
-            title: products.title,
-            url: products.url,
-            imageUrl: products.imageUrl,
-            currentPrice: products.currentPrice,
-            originalPrice: products.originalPrice,
-            lastChecked: products.lastChecked,
-            lowestPrice: products.lowestPrice,
-            highestPrice: products.highestPrice,
-          },
-        })
-        .from(trackedProducts)
-        .innerJoin(products, eq(trackedProducts.productId, products.id));
+    const result: (TrackedProduct & { product: Product })[] = [];
+    const trackedItems = await db.select().from(trackedProducts);
 
-      return results.map((row) => ({
-        ...row,
-        userId: row.userId ?? 0,
-        createdAt: new Date(row.createdAt),
-        lastAlertSent: row.lastAlertSent ? new Date(row.lastAlertSent) : null,
-        product: {
-          ...row.product,
-          lastChecked: new Date(row.product.lastChecked),
-        },
-      }));
-    } catch (error) {
-      console.error('Error getting tracked products with details:', error);
-      throw error;
+    for (const item of trackedItems) {
+      const product = await this.getProduct(item.productId);
+      if (product) {
+        result.push({ ...item, product });
+      }
     }
+
+    return result;
   }
 
   async getTrackedProductsWithDetailsByEmail(email: string): Promise<(TrackedProduct & { product: Product })[]> {
@@ -335,25 +278,6 @@ export class DatabaseStorage implements IStorage {
 
   async getUnresolvedApiErrors(): Promise<ApiError[]> {
     return await db.select().from(apiErrors).where(eq(apiErrors.resolved, false));
-  }
-
-  // Global config functions
-  async getGlobalConfig(key: string): Promise<string | null> {
-    const result = await db.select().from(config).where(eq(config.key, key)).limit(1);
-    return result[0]?.value || null;
-  },
-
-  async setGlobalConfig(key: string, value: string): Promise<void> {
-    await db.insert(config)
-      .values({ key, value })
-      .onConflictDoUpdate({
-        target: config.key,
-        set: { value, updatedAt: new Date() }
-      });
-  },
-
-  async getAllGlobalConfig(): Promise<Config[]> {
-    return await db.select().from(config);
   }
 }
 

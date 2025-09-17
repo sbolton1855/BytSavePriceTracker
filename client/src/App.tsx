@@ -1,11 +1,7 @@
 import { Switch, Route } from "wouter";
-import { lazy, Suspense } from "react";
 import { queryClient } from "./lib/queryClient";
 import { QueryClientProvider } from "@tanstack/react-query";
 import { Toaster } from "@/components/ui/toaster";
-
-// Lazy load the MyAccount component
-const MyAccount = lazy(() => import("@/pages/my-account"));
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { ThemeProvider } from "@/components/theme-provider";
 import { AuthProvider } from "@/hooks/use-auth";
@@ -79,15 +75,6 @@ function Router() {
       </Route>
       <Route path="/faq">
         <FAQ />
-      </Route>
-      <Route path="/account">
-        <Suspense fallback={
-          <div className="flex items-center justify-center min-h-screen">
-            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
-          </div>
-        }>
-          <MyAccount />
-        </Suspense>
       </Route>
       <Route>
         <NotFound />

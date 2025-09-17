@@ -1,5 +1,6 @@
 import { useState, useEffect } from "react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
 import ProductsDisplay from "@/components/products-display";
 import { AIRecommendations } from "@/components/AIRecommendations";
 
@@ -33,7 +34,7 @@ const Dashboard: React.FC = () => {
       localStorage.setItem("bytsave_user_email", user.email);
     }
   }, [user]);
-
+  
   // Handle successful search and tracking
   const handleSearchSuccess = () => {
     // Get the email from the form if available
@@ -70,7 +71,7 @@ const Dashboard: React.FC = () => {
             <CardHeader>
               <CardTitle>No Email Available</CardTitle>
               <CardDescription>
-                Please update your profile to include an email address or visit <a href="/account" className="text-primary hover:underline">My Account</a> to configure your settings
+                Please update your profile to include an email address
               </CardDescription>
             </CardHeader>
           </Card>
@@ -92,16 +93,6 @@ const Dashboard: React.FC = () => {
             />
           </div>
         )}
-
-        <div className="mt-8">
-          <Card className="mb-4">
-            <CardContent className="pt-6">
-              <div className="text-sm text-gray-600">
-                <strong>Price Alert Policy:</strong> After receiving a price alert, you won't be notified again for 3 days, unless the price drops significantly lower.
-              </div>
-            </CardContent>
-          </Card>
-        </div>
 
         <div className="mt-8" id="search-section">
           <Card>

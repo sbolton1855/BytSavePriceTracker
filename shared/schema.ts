@@ -28,10 +28,8 @@ export const users = pgTable("users", {
   profileImageUrl: text("profile_image_url"),
   provider: text("provider"),
   providerId: text("provider_id"),
-  cooldownHours: integer("cooldown_hours").default(72),
-  priceDropAlertsEnabled: boolean("price_drop_alerts_enabled").default(true),
-  createdAt: timestamp("created_at", { withTimezone: true }).defaultNow(),
-  updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow(),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
 });
 
 export const insertUserSchema = createInsertSchema(users).omit({
@@ -69,9 +67,7 @@ export const trackedProducts = pgTable("tracked_products", {
   targetPrice: doublePrecision("target_price").notNull(),
   percentageAlert: boolean("percentage_alert").default(false),
   percentageThreshold: integer("percentage_threshold"),
-  notified: boolean("notified").default(false), // Deprecated - use lastAlertSent instead
-  lastAlertSent: timestamp("last_alert_sent"),
-  lastNotifiedPrice: doublePrecision("last_notified_price"),
+  notified: boolean("notified").default(false),
   createdAt: timestamp("created_at").notNull(),
 });
 
@@ -207,13 +203,6 @@ export const apiErrorsRelations = relations(apiErrors, ({ one }) => ({
   })
 }));
 
-// Global configuration table
-export const config = pgTable("config", {
-  key: text("key").primaryKey(),
-  value: text("value").notNull(),
-  updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow(),
-});
-
 // Email logs table
 export const affiliateClicks = pgTable('affiliate_clicks', {
   id: serial('id').primaryKey(),
@@ -254,8 +243,6 @@ export type EmailLog = InferSelectModel<typeof emailLogs>;
 export type NewEmailLog = InferInsertModel<typeof emailLogs>;
 export type UserEmailPreferences = InferSelectModel<typeof userEmailPreferences>;
 export type NewUserEmailPreferences = InferInsertModel<typeof userEmailPreferences>;
-export type Config = InferSelectModel<typeof config>;
-export type NewConfig = InferInsertModel<typeof config>;
 
 // Password reset tokens table
 export const passwordResetTokens = pgTable('password_reset_tokens', {
