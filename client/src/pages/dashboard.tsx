@@ -93,6 +93,16 @@ const Dashboard: React.FC = () => {
           </div>
         )}
 
+        <div className="mt-8">
+          <Card className="mb-4">
+            <CardContent className="pt-6">
+              <div className="text-sm text-gray-600">
+                <strong>Price Alert Policy:</strong> After receiving a price alert, you won't be notified again for 3 days, unless the price drops significantly lower.
+              </div>
+            </CardContent>
+          </Card>
+        </div>
+
         <div className="mt-8" id="search-section">
           <Card>
             <CardHeader>

@@ -154,7 +154,7 @@ export async function processPriceAlerts(): Promise<number> {
           }
 
           // Send the notification
-          console.log(`📤 QA: Calling sendPriceDropAlert...`);
+          console.log(`\n📤 QA: Calling sendPriceDropAlert...`);
           const success = await sendPriceDropAlert(
             trackedProduct.email,
             trackedProduct.product,
@@ -169,7 +169,7 @@ export async function processPriceAlerts(): Promise<number> {
             // Record email sent for rate limiting and update cooldown tracking
             recordEmailSent(trackedProduct.email);
             const currentTime = new Date();
-            console.log(`🔄 QA: Updating cooldown tracking...`);
+            console.log(`\n🔄 QA: Updating cooldown tracking...`);
             await storage.updateTrackedProduct(trackedProduct.id, {
               notified: true,
               lastAlertSent: currentTime,
