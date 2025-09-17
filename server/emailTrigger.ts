@@ -15,8 +15,9 @@ export function shouldTriggerAlert(
 
   // Check if cooldown is still active
   if (trackedProduct.lastAlertSent) {
-    // Check if we're within the cooldown period (fixed at 72 hours)
-    const cooldownHours = user.cooldownHours ?? 72;
+    // Get global cooldown setting (defaults to 72 hours if not found)
+    const globalCooldown = await storage.getGlobalConfig('cooldown_hours');
+    const cooldownHours = globalCooldown ? parseInt(globalCooldown) : 72;
     const lastAlertTime = new Date(trackedProduct.lastAlertSent);
     const currentTime = new Date();
     const hoursSinceLastAlert = (currentTime.getTime() - lastAlertTime.getTime()) / (1000 * 60 * 60);
@@ -114,8 +115,10 @@ export async function processPriceAlerts(): Promise<number> {
         console.log(`   🎯 Target Price: $${trackedProduct.targetPrice}`);
         console.log(`   📧 Email: ${trackedProduct.email}`);
         console.log(`   🔔 Already Notified: ${trackedProduct.notified}`);
-        console.log(`   👤 User Cooldown Hours: ${trackedProduct.user?.cooldownHours || 'N/A'}`);
-
+        // Get global cooldown for logging
+        const globalCooldown = await storage.getGlobalConfig('cooldown_hours');
+        const cooldownHours = globalCooldown ? parseInt(globalCooldown) : 72;
+        console.log(`   ⚙️  Global Cooldown Hours: ${cooldownHours}`);
 
         // Check for price rebound reset first
         if (trackedProduct.lastAlertSent && trackedProduct.lastNotifiedPrice) {
@@ -178,7 +181,10 @@ export async function processPriceAlerts(): Promise<number> {
             console.log(`✅ QA: Cooldown tracking updated successfully`);
             console.log(`   - Alert Sent At: ${currentTime.toISOString()}`);
             console.log(`   - Price When Alerted: $${trackedProduct.product.currentPrice}`);
-            console.log(`   - Next Alert Available After: ${new Date(currentTime.getTime() + (trackedProduct.user.cooldownHours || 48) * 60 * 60 * 1000).toISOString()}`); // Use user cooldown
+            // Get global cooldown for logging
+            const globalCooldown = await storage.getGlobalConfig('cooldown_hours');
+            const cooldownHours = globalCooldown ? parseInt(globalCooldown) : 72;
+            console.log(`   - Next Alert Available After: ${new Date(currentTime.getTime() + cooldownHours * 60 * 60 * 1000).toISOString()}`); // Use global cooldown
 
             alertCount++;
           } else {

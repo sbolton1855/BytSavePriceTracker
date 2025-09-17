@@ -207,6 +207,13 @@ export const apiErrorsRelations = relations(apiErrors, ({ one }) => ({
   })
 }));
 
+// Global configuration table
+export const config = pgTable("config", {
+  key: text("key").primaryKey(),
+  value: text("value").notNull(),
+  updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow(),
+});
+
 // Email logs table
 export const affiliateClicks = pgTable('affiliate_clicks', {
   id: serial('id').primaryKey(),
@@ -247,6 +254,8 @@ export type EmailLog = InferSelectModel<typeof emailLogs>;
 export type NewEmailLog = InferInsertModel<typeof emailLogs>;
 export type UserEmailPreferences = InferSelectModel<typeof userEmailPreferences>;
 export type NewUserEmailPreferences = InferInsertModel<typeof userEmailPreferences>;
+export type Config = InferSelectModel<typeof config>;
+export type NewConfig = InferInsertModel<typeof config>;
 
 // Password reset tokens table
 export const passwordResetTokens = pgTable('password_reset_tokens', {

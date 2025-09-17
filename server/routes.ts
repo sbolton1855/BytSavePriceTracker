@@ -27,6 +27,7 @@ import affiliateRouter from './routes/affiliate';
 import analyticsRouter from './routes/analytics';
 import systemHealthRouter from './routes/systemHealth';
 import userRouter from './routes/user';
+import adminConfig from './routes/adminConfig';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
@@ -2792,6 +2793,7 @@ Respond with just the analysis text, no JSON needed.
   app.use('/api/analytics', analyticsRouter);
   app.use('/api/health', systemHealthRouter);
   app.use('/api/user', userRouter);
+  app.use('/api/admin', adminConfig);
 
   return httpServer;
 }

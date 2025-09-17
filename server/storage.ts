@@ -13,10 +13,13 @@ import {
   type InsertPriceHistory,
   apiErrors,
   type ApiError,
-  type InsertApiError
+  type InsertApiError,
+  config,
+  type Config,
+  type NewConfig
 } from "@shared/schema";
 import { db } from "./db";
-import { eq, and, or } from "drizzle-orm";
+import { eq, desc, and, gte, lt } from "drizzle-orm";
 
 // Interface for storage operations
 export interface IStorage {
@@ -58,6 +61,11 @@ export interface IStorage {
   updateApiError(id: number, update: Partial<ApiError>): Promise<void>;
   getAllApiErrors(): Promise<ApiError[]>;
   getUnresolvedApiErrors(): Promise<ApiError[]>;
+
+  // Global config operations
+  getGlobalConfig(key: string): Promise<string | null>;
+  setGlobalConfig(key: string, value: string): Promise<void>;
+  getAllGlobalConfig(): Promise<Config[]>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -327,6 +335,25 @@ export class DatabaseStorage implements IStorage {
 
   async getUnresolvedApiErrors(): Promise<ApiError[]> {
     return await db.select().from(apiErrors).where(eq(apiErrors.resolved, false));
+  }
+
+  // Global config functions
+  async getGlobalConfig(key: string): Promise<string | null> {
+    const result = await db.select().from(config).where(eq(config.key, key)).limit(1);
+    return result[0]?.value || null;
+  },
+
+  async setGlobalConfig(key: string, value: string): Promise<void> {
+    await db.insert(config)
+      .values({ key, value })
+      .onConflictDoUpdate({
+        target: config.key,
+        set: { value, updatedAt: new Date() }
+      });
+  },
+
+  async getAllGlobalConfig(): Promise<Config[]> {
+    return await db.select().from(config);
   }
 }
 
