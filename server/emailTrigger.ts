@@ -94,9 +94,11 @@ export async function processPriceAlerts(): Promise<number> {
             console.log(`   📧 To: ${trackedProduct.email}`);
             console.log(`   📦 Product: ${trackedProduct.product.title}`);
 
-            // Mark as notified to prevent duplicate emails
-            console.log(`🔄 QA: Updating notified flag to true...`);
-            await storage.updateTrackedProduct(trackedProduct.id, { notified: true });
+            // Update lastAlertSent timestamp and reset notified flag for future alerts
+            await storage.updateTrackedProduct(trackedProduct.id, {
+              lastAlertSent: new Date(),
+              notified: false, // Reset for future price drops
+            });
             console.log(`✅ QA: Notified flag updated successfully`);
 
             alertCount++;

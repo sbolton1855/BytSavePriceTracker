@@ -166,10 +166,26 @@ export class DatabaseStorage implements IStorage {
     const result: (TrackedProduct & { product: Product })[] = [];
     const trackedItems = await db.select().from(trackedProducts);
 
+    // Get global cooldown setting
+    const cooldownHours = parseInt(await this.getGlobalConfig("cooldown_hours") || "72");
+    const now = new Date();
+
     for (const item of trackedItems) {
       const product = await this.getProduct(item.productId);
-      if (!product || item.notified) {
+      if (!product) {
         continue;
+      }
+
+      // Check cooldown period - skip if still in cooldown
+      if (item.lastAlertSent) {
+        const lastAlertTime = new Date(item.lastAlertSent);
+        const cooldownEndTime = new Date(lastAlertTime.getTime() + (cooldownHours * 60 * 60 * 1000));
+        
+        if (now < cooldownEndTime) {
+          const remainingHours = Math.round((cooldownEndTime.getTime() - now.getTime()) / (1000 * 60 * 60));
+          console.log(`⏰ Skipping alert for product ${product.asin} - cooldown active for ${remainingHours} more hours`);
+          continue;
+        }
       }
 
       // Check price condition based on alert type
@@ -185,6 +201,7 @@ export class DatabaseStorage implements IStorage {
       }
 
       if (shouldAlert) {
+        console.log(`🔔 Alert needed for product ${product.asin} - price ${product.currentPrice} meets target ${item.targetPrice}`);
         result.push({ ...item, product });
       }
     }
