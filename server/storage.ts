@@ -14,8 +14,8 @@ import {
   apiErrors,
   type ApiError,
   type InsertApiError,
-  config, // Assuming 'config' is imported from "@shared/schema"
-  type Config // Assuming 'Config' is imported from "@shared/schema"
+  config,
+  type Config
 } from "@shared/schema";
 import { db } from "./db";
 import { eq, and, or } from "drizzle-orm";

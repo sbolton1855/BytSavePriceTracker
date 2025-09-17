@@ -205,6 +205,18 @@ export const apiErrorsRelations = relations(apiErrors, ({ one }) => ({
   })
 }));
 
+// Config table for global settings
+export const config = pgTable('config', {
+  id: serial('id').primaryKey(),
+  key: varchar('key', { length: 255 }).notNull().unique(),
+  value: text('value').notNull(),
+  createdAt: timestamp('created_at', { withTimezone: true }).defaultNow(),
+  updatedAt: timestamp('updated_at', { withTimezone: true }).defaultNow()
+});
+
+export type Config = InferSelectModel<typeof config>;
+export type NewConfig = InferInsertModel<typeof config>;
+
 // Email logs table
 export const affiliateClicks = pgTable('affiliate_clicks', {
   id: serial('id').primaryKey(),
