@@ -1,12 +1,38 @@
 
+import { useState } from "react";
 import { useAuth } from "@/hooks/use-auth";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
 import { Bell, Heart, User } from "lucide-react";
+import { useToast } from "@/hooks/use-toast";
 
 export default function SettingsPage() {
   const { user } = useAuth();
+  const { toast } = useToast();
+  const [notificationsEnabled, setNotificationsEnabled] = useState(true);
+  const [isSaving, setIsSaving] = useState(false);
+
+  const handleNotificationToggle = async (enabled: boolean) => {
+    setIsSaving(true);
+    try {
+      // TODO: Add API call to save notification preference
+      setNotificationsEnabled(enabled);
+      toast({
+        title: "Settings updated",
+        description: `Email notifications ${enabled ? 'enabled' : 'disabled'} successfully.`,
+      });
+    } catch (error) {
+      toast({
+        title: "Error",
+        description: "Failed to update notification settings. Please try again.",
+        variant: "destructive",
+      });
+    } finally {
+      setIsSaving(false);
+    }
+  };
 
   return (
     <div className="py-10 bg-gray-50 min-h-screen">
@@ -44,18 +70,68 @@ export default function SettingsPage() {
                 </CardDescription>
               </CardHeader>
               <CardContent className="space-y-6">
-                <div className="p-6 bg-blue-50 rounded-lg border border-blue-200">
-                  <h3 className="font-semibold text-blue-900 mb-2">
-                    Price Drop Alerts
-                  </h3>
-                  <p className="text-blue-700 text-sm mb-4">
-                    You'll receive email notifications when tracked products drop to your target price.
-                  </p>
-                  <div className="text-sm text-blue-600">
-                    <p>✓ Instant notifications when price targets are met</p>
-                    <p>✓ 72-hour cooldown between duplicate alerts</p>
-                    <p>✓ No spam - only real price drops</p>
+                <div className="space-y-6">
+                  <div className="flex items-center justify-between p-4 border rounded-lg">
+                    <div className="flex-1">
+                      <h3 className="font-semibold text-gray-900 mb-1">
+                        Email Notifications
+                      </h3>
+                      <p className="text-sm text-gray-600">
+                        Receive email alerts when tracked products drop to your target price
+                      </p>
+                    </div>
+                    <div className="flex items-center space-x-3">
+                      <span className={`text-sm ${!notificationsEnabled ? 'text-gray-900 font-medium' : 'text-gray-500'}`}>
+                        Disabled
+                      </span>
+                      <label className="relative inline-flex items-center cursor-pointer">
+                        <input
+                          type="checkbox"
+                          checked={notificationsEnabled}
+                          onChange={(e) => handleNotificationToggle(e.target.checked)}
+                          disabled={isSaving}
+                          className="sr-only peer"
+                        />
+                        <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-primary/20 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-primary peer-disabled:opacity-50"></div>
+                      </label>
+                      <span className={`text-sm ${notificationsEnabled ? 'text-gray-900 font-medium' : 'text-gray-500'}`}>
+                        Enabled
+                      </span>
+                    </div>
                   </div>
+
+                  {notificationsEnabled ? (
+                    <div className="p-6 bg-green-50 rounded-lg border border-green-200">
+                      <h4 className="font-semibold text-green-900 mb-2">
+                        ✅ Email Notifications Active
+                      </h4>
+                      <div className="text-sm text-green-600 space-y-1">
+                        <p>• Instant notifications when price targets are met</p>
+                        <p>• 72-hour cooldown between duplicate alerts</p>
+                        <p>• No spam - only real price drops</p>
+                        <p>• You can disable this anytime</p>
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="p-6 bg-orange-50 rounded-lg border border-orange-200">
+                      <h4 className="font-semibold text-orange-900 mb-2">
+                        📵 Email Notifications Disabled
+                      </h4>
+                      <div className="text-sm text-orange-600 space-y-2">
+                        <p>You won't receive any price drop alerts via email.</p>
+                        <p>Your tracked products will continue monitoring prices, but you'll need to check the dashboard manually for updates.</p>
+                        <Button 
+                          variant="outline" 
+                          size="sm" 
+                          onClick={() => handleNotificationToggle(true)}
+                          disabled={isSaving}
+                          className="mt-2 border-orange-300 text-orange-700 hover:bg-orange-100"
+                        >
+                          Enable Notifications
+                        </Button>
+                      </div>
+                    </div>
+                  )}
                 </div>
 
                 <div className="p-4 bg-gray-50 rounded-lg">
