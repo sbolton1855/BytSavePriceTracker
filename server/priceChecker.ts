@@ -127,7 +127,7 @@ async function updateProductPrice(
       });
     }
     
-    console.log(`Updating price for ${product.asin}: $${product.currentPrice} → $${latestInfo.price}`);ce}`);
+    console.log(`Updating price for ${product.asin}: $${product.currentPrice} → $${latestInfo.price}`);
 
     // Reset failure counter on successful price fetch
     consecutiveApiFailures = 0;
