@@ -127,8 +127,7 @@ async function updateProductPrice(
       });
     }
     
-    console.log(`[DEBUG] No override applied for ${product.asin}, saving currentPrice: ${latestInfo.price}`);
-    console.log(`[DEBUG] Stored price BEFORE update: ${product.currentPrice}, API price: ${latestInfo.price}`);
+    console.log(`Updating price for ${product.asin}: $${product.currentPrice} → $${latestInfo.price}`);ce}`);
 
     // Reset failure counter on successful price fetch
     consecutiveApiFailures = 0;

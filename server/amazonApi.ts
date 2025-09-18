@@ -246,12 +246,6 @@ async function getProductInfo(asinOrUrl: string): Promise<AmazonProduct> {
     asin = extractedAsin;
   }
 
-  // Special debug logging for YumEarth product
-  const isYumEarth = asin === 'B08PX626SG';
-  if (isYumEarth) {
-    console.log('DEBUG: Fetching YumEarth product info...');
-  }
-
   // Validate ASIN format
   if (!isValidAsin(asin)) {
     throw new Error('Invalid ASIN format. ASIN should be a 10-character alphanumeric code');
@@ -260,7 +254,7 @@ async function getProductInfo(asinOrUrl: string): Promise<AmazonProduct> {
   try {
     // Check cache first
     const cachedProduct = await cache.get(`product:${asin}`);
-    if (cachedProduct && !isYumEarth) {
+    if (cachedProduct) {
       console.log(`📦 Cache hit for ASIN ${asin}`);
       return cachedProduct;
     }
@@ -279,71 +273,27 @@ async function getProductInfo(asinOrUrl: string): Promise<AmazonProduct> {
     let originalPrice: number | undefined = undefined;
     let couponDetected = false;
 
-    // Special handling for TRUEplus insulin syringes
-    const isTRUEplus = asin === 'B01DJGLYZQ';
-
     if (item.Offers?.Listings?.length > 0) {
       const listing = item.Offers.Listings[0];
-
-      if (isYumEarth || isTRUEplus) {
-        console.log(`DEBUG: ${isYumEarth ? 'YumEarth' : 'TRUEplus'} listing data:`, JSON.stringify(listing, null, 2));
-      }
 
       // Get current price
       if (listing.Price?.Amount) {
         currentPrice = parseFloat(listing.Price.Amount);
-        if (isYumEarth || isTRUEplus) {
-          console.log(`DEBUG: ${isYumEarth ? 'YumEarth' : 'TRUEplus'} current price from Price.Amount:`, currentPrice);
-
-          // Log warning if price seems incorrect for known products
-          if (asin === 'B08PX626SG' && Math.abs(currentPrice - 9.99) > 0.01) {
-            console.warn(`WARNING: API price ($${currentPrice}) differs from known price ($9.99) for YumEarth product`);
-            await logApiError(asin, 'PRICE_MISMATCH' as ApiErrorType, `API price ($${currentPrice}) differs from known price ($9.99)`);
-          }
-          if (asin === 'B01DJGLYZQ' && (currentPrice <= 0 || currentPrice > 50)) {
-            console.warn(`WARNING: API price ($${currentPrice}) seems incorrect for TRUEplus insulin syringes`);
-            await logApiError(asin, 'PRICE_MISMATCH' as ApiErrorType, `API price ($${currentPrice}) seems incorrect for TRUEplus product`);
-          }
-        }
       }
 
       // Get original/list price
       if (listing.SavingBasis?.Amount) {
         originalPrice = parseFloat(listing.SavingBasis.Amount);
-        if (isYumEarth || isTRUEplus) {
-          console.log(`DEBUG: ${isYumEarth ? 'YumEarth' : 'TRUEplus'} original price from SavingBasis:`, originalPrice);
-        }
       }
 
       // Check for coupons/promotions
       couponDetected = listing.Promotions?.length > 0;
+    }
 
-      // Known price corrections for specific products
-      if (asin === 'B08PX626SG') {
-        currentPrice = 9.99;
-        originalPrice = 12.99;
-        if (isYumEarth) {
-          console.log('DEBUG: Using known prices for YumEarth product:', { currentPrice, originalPrice });
-        }
-      }
-
-      // Log actual API prices for debugging - no more hard-coded overrides
-      if (asin === 'B01DJGLYZQ') {
-        console.log('[DEBUG] TRUEplus API Response - currentPrice:', currentPrice, 'originalPrice:', originalPrice);
-        console.log('[DEBUG] No override applied, using actual API prices');
-      }
-
-      // Log all price data found
-      if (isYumEarth) {
-        console.log('DEBUG: YumEarth final price data:', {
-          currentPrice,
-          originalPrice,
-          priceAmount: listing.Price?.Amount,
-          savingBasis: listing.SavingBasis?.Amount,
-          displayAmount: listing.Price?.DisplayAmount,
-          couponDetected
-        });
-      }
+    // Validate price data before returning
+    if (currentPrice <= 0 || isNaN(currentPrice)) {
+      console.warn(`Invalid price received for ASIN ${asin}: ${currentPrice}`);
+      throw new Error(`Invalid price data received from Amazon API`);
     }
 
     const product = {
@@ -359,11 +309,9 @@ async function getProductInfo(asinOrUrl: string): Promise<AmazonProduct> {
     // Cache the result
     await cache.set(`product:${asin}`, product, 3600);
 
-    // Price drop detection disabled for now (would need separate price history system)
-
     return product;
   } catch (error) {
-    console.error('Error fetching product from custom SigV4:', error);
+    console.error('Error fetching product from Amazon API:', error);
     throw new Error('Failed to fetch product information from Amazon: ' + (error instanceof Error ? error.message : 'Unknown error'));
   }
 }
