@@ -980,6 +980,98 @@ export default function AdminHub() {
           </CardContent>
         </Card>
 
+        {/* Product Discovery Settings - Future Enhancements */}
+        <Card className="border-blue-200 bg-blue-50">
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <Search className="h-5 w-5 text-blue-600" />
+              🔍 Product Discovery Settings
+            </CardTitle>
+            <CardDescription>Current automation and future enhancement plans</CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <div className="bg-white rounded-lg p-4 border border-blue-200">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
+                <div>
+                  <h4 className="font-medium text-blue-800 mb-2">Current Frequency</h4>
+                  <p className="text-sm text-gray-700">
+                    <strong>Production:</strong> Every 6 days<br />
+                    <strong>Development:</strong> Every 5 days
+                  </p>
+                </div>
+                <div>
+                  <h4 className="font-medium text-blue-800 mb-2">Implementation</h4>
+                  <p className="text-sm text-gray-700">
+                    <strong>Triggered via:</strong> Price Check Scheduler<br />
+                    <strong>Logic Location:</strong> <code className="text-xs bg-gray-100 px-1 rounded">server/priceChecker.ts → shouldRunProductDiscovery()</code>
+                  </p>
+                </div>
+              </div>
+              
+              <div className="bg-blue-50 rounded-md p-3 border border-blue-200">
+                <h4 className="font-medium text-blue-800 mb-2">How It Works</h4>
+                <p className="text-sm text-gray-700 mb-2">
+                  This system automatically runs background Amazon product discovery to populate the Live Deals and Homepage Feed with fresh content. 
+                  Products are discovered via the <code className="text-xs bg-white px-1 rounded">discoverNewProducts()</code> function using:
+                </p>
+                <ul className="text-sm text-gray-600 list-disc list-inside space-y-1">
+                  <li>8 search terms per run (4 in development)</li>
+                  <li>Up to 10 results per search term</li>
+                  <li>Seasonal and trending search terms</li>
+                  <li>Automatic insertion of new products into database</li>
+                </ul>
+              </div>
+            </div>
+
+            {/* Future Enhancements Section */}
+            <div className="bg-yellow-50 rounded-lg p-4 border border-yellow-200">
+              <h3 className="flex items-center gap-2 font-medium text-yellow-800 mb-3">
+                <Settings className="h-4 w-4" />
+                🛠️ Future Enhancements
+              </h3>
+              <p className="text-sm text-yellow-700 mb-3 italic">
+                This setting is currently hardcoded in the codebase. Future versions will allow changing this interval dynamically from the admin dashboard.
+              </p>
+              
+              <div className="space-y-2">
+                <h4 className="font-medium text-yellow-800">Planned Features:</h4>
+                <ul className="text-sm text-yellow-700 list-disc list-inside space-y-1">
+                  <li>Configure discovery frequency (daily, weekly, custom intervals)</li>
+                  <li>Adjust number of search terms per run</li>
+                  <li>Customize search categories and keywords</li>
+                  <li>Manual trigger for immediate product discovery</li>
+                  <li>Discovery performance metrics and success rates</li>
+                </ul>
+              </div>
+
+              <div className="mt-3 pt-3 border-t border-yellow-300">
+                <Button 
+                  variant="outline" 
+                  size="sm" 
+                  disabled 
+                  className="opacity-50 cursor-not-allowed"
+                >
+                  🔁 Run Product Discovery Now — (Coming Soon)
+                </Button>
+                <p className="text-xs text-yellow-600 mt-1">Manual triggering will be available in a future update</p>
+              </div>
+            </div>
+
+            {/* Current Status Display */}
+            <div className="bg-gray-50 rounded-md p-3 border">
+              <div className="flex items-center justify-between">
+                <span className="text-sm font-medium text-gray-700">Discovery Status:</span>
+                <Badge variant="secondary" className="text-green-700 bg-green-100">
+                  Active (Automated)
+                </Badge>
+              </div>
+              <p className="text-xs text-gray-600 mt-1">
+                Last discovery run timing is managed automatically by the price checker scheduler
+              </p>
+            </div>
+          </CardContent>
+        </Card>
+
         {/* Tabbed Navigation */}
         <AdminTabNav activeTab={activeTab} onTabChange={handleTabChange} />
 
