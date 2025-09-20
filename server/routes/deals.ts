@@ -9,13 +9,19 @@ router.get('/products/deals', async (req, res) => {
     const { storage } = await import('../storage');
     const { addAffiliateTag } = await import('../utils/affiliateLinks');
     
-    const limit = parseInt(req.query.limit as string, 10) || 20;
+    const limit = parseInt(req.query.limit as string, 10) || 4;
     const AFFILIATE_TAG = process.env.AMAZON_PARTNER_TAG || 'bytsave-20';
 
-    console.log(`[/api/products/deals] Fetching deals with limit: ${limit}`);
+    // Time-based rotation logic (rotates every 6 hours)
+    const hour = new Date().getHours();
+    const batchSize = 4;
+    const batchIndex = Math.floor(hour / 6); // 0 to 3 (4 rotations per day)
+    const offset = batchIndex * batchSize;
 
-    // Get products with deals from database
-    const deals = await storage.getProductsWithDeals(limit);
+    console.log(`[/api/products/deals] Fetching deals with limit: ${limit}, offset: ${offset}, batchIndex: ${batchIndex}, hour: ${hour}`);
+
+    // Get products with deals from database using offset for rotation
+    const deals = await storage.getProductsWithDeals(limit, offset);
 
     if (!deals || deals.length === 0) {
       console.log(`[/api/products/deals] No deals found, returning empty array`);
@@ -104,6 +110,30 @@ router.get('/debug/products', async (req, res) => {
   } catch (error) {
     console.error('Debug route error:', error);
     res.status(500).json({ error: error.message });
+  }
+});
+
+// Manual discovery trigger endpoint
+router.post('/manual-discovery', async (req, res) => {
+  try {
+    console.log('[/api/manual-discovery] Manual discovery triggered');
+    
+    // Import and run discovery
+    const { runProductDiscovery } = await import('../manual-discovery');
+    await runProductDiscovery();
+    
+    res.json({ 
+      success: true, 
+      message: 'Manual discovery completed successfully',
+      timestamp: new Date().toISOString()
+    });
+  } catch (error) {
+    console.error('[/api/manual-discovery] Discovery failed:', error);
+    res.status(500).json({ 
+      success: false, 
+      error: 'Manual discovery failed', 
+      details: error.message 
+    });
   }
 });
 

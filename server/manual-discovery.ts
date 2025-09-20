@@ -159,15 +159,21 @@ async function runProductDiscovery(): Promise<void> {
   }
 
   console.log(`\n🎉 Discovery complete! Added ${totalNewProducts} new products total`);
+  console.log(`[Discovery] Found ${totalNewProducts} new deals at ${new Date().toISOString()}`);
   
   // Show current database stats
   const allProducts = await storage.getAllProducts();
   const discoveredProducts = allProducts.filter(p => p.isDiscovered);
   const userTrackedProducts = allProducts.filter(p => !p.isDiscovered);
+  const discoveredWithDeals = discoveredProducts.filter(p => 
+    (p.discountPercentage && p.discountPercentage > 0) ||
+    (p.originalPrice && p.originalPrice > p.currentPrice)
+  );
   
   console.log('\n📈 Database Statistics:');
   console.log(`   Total products: ${allProducts.length}`);
   console.log(`   Discovered products: ${discoveredProducts.length}`);
+  console.log(`   Discovered products with deals: ${discoveredWithDeals.length}`);
   console.log(`   User-tracked products: ${userTrackedProducts.length}`);
 }
 

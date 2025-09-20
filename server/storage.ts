@@ -66,7 +66,7 @@ export interface IStorage {
   getGlobalConfig(key: string): Promise<string | null>;
 
   // Deal operations
-  getProductsWithDeals(limit?: number): Promise<Product[]>;
+  getProductsWithDeals(limit?: number, offset?: number): Promise<Product[]>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -317,7 +317,7 @@ export class DatabaseStorage implements IStorage {
   }
 
   // Deal operations
-  async getProductsWithDeals(limit: number = 20): Promise<Product[]> {
+  async getProductsWithDeals(limit: number = 20, offset: number = 0): Promise<Product[]> {
     return await db
       .select()
       .from(products)
@@ -334,8 +334,9 @@ export class DatabaseStorage implements IStorage {
           )
         )
       )
-      .orderBy(sql`RANDOM()`)
-      .limit(limit);
+      .orderBy(products.id) // Use consistent ordering for offset to work properly
+      .limit(limit)
+      .offset(offset);
   }
 }
 
