@@ -24,7 +24,8 @@ import {
   Loader2,
   ChevronUp,
   ChevronDown,
-  Filter
+  Filter,
+  Play
 } from "lucide-react";
 import ApiErrorsPanel from "@/components/ApiErrorsPanel";
 import EmailLogsPanel from "@/components/EmailLogsPanel";
@@ -72,6 +73,9 @@ export default function AdminHub() {
   const tab = new URLSearchParams(window.location.search).get("tab") || "email";
   const [activeTab, setActiveTab] = useState(tab);
 
+  const [isRunningDiscovery, setIsRunningDiscovery] = useState(false);
+  const [discoveryResult, setDiscoveryResult] = useState('');
+
   // Product tracking data state
   const [products, setProducts] = useState<ProductSummary[]>([]);
   const [productsLoading, setProductsLoading] = useState(false);
@@ -97,6 +101,35 @@ export default function AdminHub() {
     const newUrl = `/admin?tab=${tab}`;
     window.history.pushState({}, '', newUrl);
     setLocation(newUrl); // This ensures wouter updates the route
+  };
+
+  const handleRunDiscovery = async () => {
+    setIsRunningDiscovery(true);
+    setDiscoveryResult('');
+
+    try {
+      const response = await fetch('/api/products/manual-discovery', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+      });
+
+      const result = await response.json();
+
+      if (result.success) {
+        setDiscoveryResult('Discovery completed successfully! New products added to database.');
+      } else {
+        setDiscoveryResult('Discovery failed: ' + (result.error || 'Unknown error'));
+      }
+    } catch (error) {
+      console.error('Discovery error:', error);
+      setDiscoveryResult('Discovery failed: Network error');
+    } finally {
+      setIsRunningDiscovery(false);
+      // Clear the result after 5 seconds
+      setTimeout(() => setDiscoveryResult(''), 5000);
+    }
   };
 
   // Sorting function
@@ -980,7 +1013,7 @@ export default function AdminHub() {
           </CardContent>
         </Card>
 
-        {/* Product Discovery Settings - Future Enhancements */}
+        {/* Product Discovery Settings */}
         <Card className="border-blue-200 bg-blue-50">
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
@@ -1007,7 +1040,7 @@ export default function AdminHub() {
                   </p>
                 </div>
               </div>
-              
+
               <div className="bg-blue-50 rounded-md p-3 border border-blue-200">
                 <h4 className="font-medium text-blue-800 mb-2">How It Works</h4>
                 <p className="text-sm text-gray-700 mb-2">
@@ -1032,7 +1065,7 @@ export default function AdminHub() {
               <p className="text-sm text-yellow-700 mb-3 italic">
                 This setting is currently hardcoded in the codebase. Future versions will allow changing this interval dynamically from the admin dashboard.
               </p>
-              
+
               <div className="space-y-2">
                 <h4 className="font-medium text-yellow-800">Planned Features:</h4>
                 <ul className="text-sm text-yellow-700 list-disc list-inside space-y-1">
@@ -1048,12 +1081,25 @@ export default function AdminHub() {
                 <Button 
                   variant="outline" 
                   size="sm" 
-                  disabled 
-                  className="opacity-50 cursor-not-allowed"
+                  onClick={handleRunDiscovery}
+                  disabled={isRunningDiscovery}
                 >
-                  🔁 Run Product Discovery Now — (Coming Soon)
+                  {isRunningDiscovery ? (
+                    <>
+                      <Loader2 className="h-4 w-4 mr-2 animate-spin" /> Running Discovery...
+                    </>
+                  ) : (
+                    <>
+                      <Play className="h-4 w-4 mr-2" /> Run Product Discovery Now
+                    </>
+                  )}
                 </Button>
-                <p className="text-xs text-yellow-600 mt-1">Manual triggering will be available in a future update</p>
+                {discoveryResult && (
+                  <p className={`text-sm mt-2 ${discoveryResult.includes('success') ? 'text-green-700' : 'text-red-700'}`}>
+                    {discoveryResult}
+                  </p>
+                )}
+                <p className="text-xs text-yellow-600 mt-1">Manual triggering is now available.</p>
               </div>
             </div>
 
