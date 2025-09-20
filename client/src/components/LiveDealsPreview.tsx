@@ -13,9 +13,9 @@ type Deal = {
 
 export default function LiveDealsPreview() {
   const { data, isLoading } = useQuery<{ deals: Deal[] }>({
-    queryKey: ["amazonDealsPreview"],
+    queryKey: ["productsDealsPreview"],
     queryFn: async () => {
-      const res = await fetch("/api/amazon/deals");
+      const res = await fetch("/api/products/deals");
       if (!res.ok) throw new Error("Failed to fetch deals");
       return res.json();
     },

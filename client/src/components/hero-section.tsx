@@ -31,73 +31,74 @@ const PriceTrackerDashboard: React.FC = () => {
 
   // Get real price drop deals from the backend
   const { data: deals, isLoading, refetch } = useQuery<ProductDeal[]>({
-    queryKey: ["/api/amazon/deals", refreshKey, lastRefreshTime],
+    queryKey: ["/api/products/deals", refreshKey, lastRefreshTime],
     queryFn: async () => {
       const timestamp = Date.now();
-      const response = await fetch(`/api/amazon/deals?t=${timestamp}`);
+      const response = await fetch(`/api/products/deals?t=${timestamp}`);
       if (!response.ok) {
         throw new Error('Failed to fetch deals');
       }
       const result = await response.json();
-      console.log('[PriceTracker] Raw Amazon API response:', result);
+      console.log('[PriceTracker] Raw Database API response:', result);
 
-      // Extract real Amazon savings data from the API response structure
-      const mappedDeals = result.deals.map((d: any, idx: number) => {
-        // Amazon savings data is nested in the full API response structure
+      // Extract savings data from database format
+      const mappedDeals = result.deals ? result.deals.map((d: any, idx: number) => {
+        // Database format has discountPercentage and originalPrice/currentPrice
         let hasSavings = false;
         let savingsAmount = 0;
         let savingsPercentage = 0;
+        let originalPrice = null;
 
-        // Check if we have full Amazon API response with Offers structure
-        if (d.Offers && d.Offers.Listings && d.Offers.Listings[0] && d.Offers.Listings[0].Price && d.Offers.Listings[0].Price.Savings) {
-          const savings = d.Offers.Listings[0].Price.Savings;
-          hasSavings = savings.Amount > 0;
-          savingsAmount = savings.Amount;
-          savingsPercentage = savings.Percentage;
+        // Check for database format with discount percentage
+        if (d.discountPercentage && d.discountPercentage > 0) {
+          hasSavings = true;
+          savingsPercentage = d.discountPercentage;
+          originalPrice = d.originalPrice || d.currentPrice / (1 - d.discountPercentage / 100);
+          savingsAmount = originalPrice - d.currentPrice;
         }
-        // Check if savings data is directly on the deal object (from backend)
+        // Fallback to price comparison
+        else if (d.originalPrice && d.originalPrice > d.currentPrice) {
+          hasSavings = true;
+          originalPrice = d.originalPrice;
+          savingsAmount = d.originalPrice - d.currentPrice;
+          savingsPercentage = Math.round((savingsAmount / d.originalPrice) * 100);
+        }
+        // Handle legacy format if still present
         else if (d.savings && d.savings.Amount > 0) {
           hasSavings = true;
           savingsAmount = d.savings.Amount;
           savingsPercentage = d.savings.Percentage;
-        }
-
-        // Calculate original price from savings if available
-        let originalPrice = null;
-        if (hasSavings && savingsAmount > 0) {
           originalPrice = d.price + savingsAmount;
-        } else if (d.msrp && d.msrp > d.price) {
-          originalPrice = d.msrp;
         }
 
         console.log('[PriceTracker] Deal:', {
           asin: d.asin,
           title: d.title.substring(0, 40) + '...',
-          price: d.price,
+          currentPrice: d.currentPrice || d.price,
           originalPrice,
           hasSavings,
           savingsAmount,
           savingsPercentage,
-          hasOffers: !!d.Offers
+          isDatabase: true
         });
 
         return {
           asin: d.asin,
           title: d.title,
-          url: d.url,
+          url: d.url || d.affiliateUrl,
           imageUrl: d.imageUrl,
-          currentPrice: d.price,
+          currentPrice: d.currentPrice || d.price,
           originalPrice,
           savingsAmount,
           savingsPercentage,
-          lowestPrice: d.price,
-          highestPrice: originalPrice || d.price,
-          lastChecked: '',
-          affiliateUrl: d.url,
-          id: d.asin || idx,
+          lowestPrice: d.lowestPrice || d.currentPrice || d.price,
+          highestPrice: d.highestPrice || originalPrice || d.currentPrice || d.price,
+          lastChecked: d.lastChecked || '',
+          affiliateUrl: d.affiliateUrl || d.url,
+          id: d.id || d.asin || idx,
           reviewCount: d.reviewCount
         };
-      });
+      }) : [];
       return mappedDeals;
     },
     staleTime: 0, // Don't cache the data
