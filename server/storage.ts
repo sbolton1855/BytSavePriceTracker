@@ -33,6 +33,7 @@ export interface IStorage {
   getProductByAsin(asin: string): Promise<Product | undefined>;
   updateProduct(id: number, updates: Partial<Product>): Promise<Product | undefined>;
   getAllProducts(): Promise<Product[]>;
+  getProductsWithDeals(limit?: number): Promise<Product[]>;
 
   // Tracked product operations
   createTrackedProduct(trackedProduct: InsertTrackedProduct): Promise<TrackedProduct>;
@@ -166,26 +167,10 @@ export class DatabaseStorage implements IStorage {
     const result: (TrackedProduct & { product: Product })[] = [];
     const trackedItems = await db.select().from(trackedProducts);
 
-    // Get global cooldown setting
-    const cooldownHours = parseInt(await this.getGlobalConfig("cooldown_hours") || "72");
-    const now = new Date();
-
     for (const item of trackedItems) {
       const product = await this.getProduct(item.productId);
-      if (!product) {
+      if (!product || item.notified) {
         continue;
-      }
-
-      // Check cooldown period - skip if still in cooldown
-      if (item.lastAlertSent) {
-        const lastAlertTime = new Date(item.lastAlertSent);
-        const cooldownEndTime = new Date(lastAlertTime.getTime() + (cooldownHours * 60 * 60 * 1000));
-        
-        if (now < cooldownEndTime) {
-          const remainingHours = Math.round((cooldownEndTime.getTime() - now.getTime()) / (1000 * 60 * 60));
-          console.log(`⏰ Skipping alert for product ${product.asin} - cooldown active for ${remainingHours} more hours`);
-          continue;
-        }
       }
 
       // Check price condition based on alert type
@@ -201,7 +186,6 @@ export class DatabaseStorage implements IStorage {
       }
 
       if (shouldAlert) {
-        console.log(`🔔 Alert needed for product ${product.asin} - price ${product.currentPrice} meets target ${item.targetPrice}`);
         result.push({ ...item, product });
       }
     }
@@ -303,6 +287,30 @@ export class DatabaseStorage implements IStorage {
     return await db.select().from(apiErrors).where(eq(apiErrors.resolved, false));
   }
 
+  // Deal operations
+  async getProductsWithDeals(limit: number = 10): Promise<Product[]> {
+    const allProducts = await db.select().from(products);
+    
+    // Filter products that have deals (discount percentage > 0 or original price > current price)
+    const productsWithDeals = allProducts.filter(product => 
+      (product.discountPercentage && product.discountPercentage > 0) ||
+      (product.originalPrice && product.currentPrice && product.originalPrice > product.currentPrice)
+    );
+
+    // Sort by discount percentage or price difference, then take the limit
+    const sortedDeals = productsWithDeals.sort((a, b) => {
+      const aDiscount = a.discountPercentage || 
+        (a.originalPrice && a.currentPrice ? 
+          Math.round(((a.originalPrice - a.currentPrice) / a.originalPrice) * 100) : 0);
+      const bDiscount = b.discountPercentage || 
+        (b.originalPrice && b.currentPrice ? 
+          Math.round(((b.originalPrice - b.currentPrice) / b.currentPrice) * 100) : 0);
+      return bDiscount - aDiscount;
+    });
+
+    return sortedDeals.slice(0, limit);
+  }
+
   // Global config operations
   async getAllConfigEntries(): Promise<Config[]> {
     return await db.select().from(config);
@@ -316,7 +324,7 @@ export class DatabaseStorage implements IStorage {
 
 export const storage = new DatabaseStorage();
 
-// Export standalone function for easier imports
+// Helper function for getting global config (used by emailTrigger)
 export async function getGlobalConfig(key: string): Promise<string | null> {
-  return storage.getGlobalConfig(key);
+  return await storage.getGlobalConfig(key);
 }

@@ -33,6 +33,7 @@ router.get('/products/deals', async (req, res) => {
       reviewCount: product.reviewCount || 0
     }));
 
+    console.log(`[/api/products/deals] Sending ${deals.length} deals to frontend`);
     res.json({ deals });
   } catch (error) {
     console.error('Failed to fetch deals from database:', error);
