@@ -8,7 +8,7 @@ CREATE INDEX idx_products_category ON products(category);
 -- Update existing discovered products with default categories based on keywords
 UPDATE products 
 SET category = 'health' 
-WHERE isDiscovered = true 
+WHERE is_discovered = true 
   AND (
     title ILIKE '%vitamin%' OR 
     title ILIKE '%supplement%' OR 
@@ -21,7 +21,7 @@ WHERE isDiscovered = true
 
 UPDATE products 
 SET category = 'tech' 
-WHERE isDiscovered = true 
+WHERE is_discovered = true 
   AND category IS NULL
   AND (
     title ILIKE '%bluetooth%' OR 
@@ -35,7 +35,7 @@ WHERE isDiscovered = true
 
 UPDATE products 
 SET category = 'seasonal' 
-WHERE isDiscovered = true 
+WHERE is_discovered = true 
   AND category IS NULL
   AND (
     title ILIKE '%winter%' OR 
@@ -49,5 +49,5 @@ WHERE isDiscovered = true
 -- Set remaining NULL categories to 'seasonal' as default
 UPDATE products 
 SET category = 'seasonal' 
-WHERE isDiscovered = true 
+WHERE is_discovered = true 
   AND category IS NULL;
