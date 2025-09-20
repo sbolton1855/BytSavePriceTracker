@@ -29,76 +29,63 @@ const PriceTrackerDashboard: React.FC = () => {
   const [refreshKey, setRefreshKey] = useState(0);
   const [lastRefreshTime, setLastRefreshTime] = useState(Date.now());
 
-  // Get real price drop deals from the backend
-  const { data: deals, isLoading, refetch } = useQuery<ProductDeal[]>({
+  // Get real price drop deals from the database
+  const { data: deals, isLoading, refetch } = useQuery<{deals: ProductDeal[]}>({
     queryKey: ["/api/products/deals", refreshKey, lastRefreshTime],
     queryFn: async () => {
       const timestamp = Date.now();
-      const response = await fetch(`/api/products/deals?t=${timestamp}`);
+      const response = await fetch(`/api/products/deals?limit=20&t=${timestamp}`);
       if (!response.ok) {
         throw new Error('Failed to fetch deals');
       }
       const result = await response.json();
-      console.log('[PriceTracker] Raw Database API response:', result);
+      console.log('[PriceTracker] Raw database API response:', result);
 
-      // Extract savings data from database format
-      const mappedDeals = result.deals ? result.deals.map((d: any, idx: number) => {
-        // Database format has discountPercentage and originalPrice/currentPrice
+      // Process database deals data
+      const mappedDeals = result.deals.map((d: any, idx: number) => {
+        // Amazon savings data is nested in the full API response structure
         let hasSavings = false;
         let savingsAmount = 0;
         let savingsPercentage = 0;
-        let originalPrice = null;
 
-        // Check for database format with discount percentage
-        if (d.discountPercentage && d.discountPercentage > 0) {
+        // Use database savings data
+        if (d.savings && d.savings > 0) {
           hasSavings = true;
-          savingsPercentage = d.discountPercentage;
-          originalPrice = d.originalPrice || d.currentPrice / (1 - d.discountPercentage / 100);
-          savingsAmount = originalPrice - d.currentPrice;
+          savingsAmount = d.savings;
+          savingsPercentage = d.discountPercentage || 0;
         }
-        // Fallback to price comparison
-        else if (d.originalPrice && d.originalPrice > d.currentPrice) {
-          hasSavings = true;
-          originalPrice = d.originalPrice;
-          savingsAmount = d.originalPrice - d.currentPrice;
-          savingsPercentage = Math.round((savingsAmount / d.originalPrice) * 100);
-        }
-        // Handle legacy format if still present
-        else if (d.savings && d.savings.Amount > 0) {
-          hasSavings = true;
-          savingsAmount = d.savings.Amount;
-          savingsPercentage = d.savings.Percentage;
-          originalPrice = d.price + savingsAmount;
-        }
+
+        // Use original price from database
+        let originalPrice = d.originalPrice;
 
         console.log('[PriceTracker] Deal:', {
           asin: d.asin,
           title: d.title.substring(0, 40) + '...',
-          currentPrice: d.currentPrice || d.price,
+          price: d.price,
           originalPrice,
           hasSavings,
           savingsAmount,
           savingsPercentage,
-          isDatabase: true
+          hasOffers: !!d.Offers
         });
 
         return {
           asin: d.asin,
           title: d.title,
-          url: d.url || d.affiliateUrl,
+          url: d.url,
           imageUrl: d.imageUrl,
-          currentPrice: d.currentPrice || d.price,
+          currentPrice: d.price,
           originalPrice,
           savingsAmount,
           savingsPercentage,
-          lowestPrice: d.lowestPrice || d.currentPrice || d.price,
-          highestPrice: d.highestPrice || originalPrice || d.currentPrice || d.price,
-          lastChecked: d.lastChecked || '',
-          affiliateUrl: d.affiliateUrl || d.url,
-          id: d.id || d.asin || idx,
+          lowestPrice: d.price,
+          highestPrice: originalPrice || d.price,
+          lastChecked: '',
+          affiliateUrl: d.url,
+          id: d.asin || idx,
           reviewCount: d.reviewCount
         };
-      }) : [];
+      });
       return mappedDeals;
     },
     staleTime: 0, // Don't cache the data
@@ -329,7 +316,7 @@ const PriceTrackerDashboard: React.FC = () => {
           </li>
         ))}
       </ul>
-      <p className="text-[10px] text-muted-foreground mt-4">Powered by Amazon Product API</p>
+      <p className="text-[10px] text-muted-foreground mt-4">Updated daily from Amazon</p>
     </div>
   );
 };

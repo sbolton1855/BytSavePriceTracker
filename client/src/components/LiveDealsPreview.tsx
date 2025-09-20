@@ -13,13 +13,13 @@ type Deal = {
 
 export default function LiveDealsPreview() {
   const { data, isLoading } = useQuery<{ deals: Deal[] }>({
-    queryKey: ["productsDealsPreview"],
+    queryKey: ["databaseDealsPreview"],
     queryFn: async () => {
-      const res = await fetch("/api/products/deals");
+      const res = await fetch("/api/products/deals?limit=4");
       if (!res.ok) throw new Error("Failed to fetch deals");
       return res.json();
     },
-    staleTime: 60000,
+    staleTime: 5 * 60 * 1000, // 5 minutes cache
     refetchOnWindowFocus: false,
   });
 
@@ -167,7 +167,7 @@ export default function LiveDealsPreview() {
           );
         })}
       </ul>
-      <p className="text-[10px] text-muted-foreground mt-4">Powered by Amazon Product API</p>
+      <p className="text-[10px] text-muted-foreground mt-4">Updated daily from Amazon</p>
     </div>
   );
 }
