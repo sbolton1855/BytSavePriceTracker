@@ -10,6 +10,7 @@ router.get('/products/deals', async (req, res) => {
     const { addAffiliateTag } = await import('../utils/affiliateLinks');
     
     const limit = parseInt(req.query.limit as string, 10) || 4;
+    const category = req.query.category as string;
     const AFFILIATE_TAG = process.env.AMAZON_PARTNER_TAG || 'bytsave-20';
 
     // Time-based rotation logic (rotates every 6 hours)
@@ -18,13 +19,13 @@ router.get('/products/deals', async (req, res) => {
     const batchIndex = Math.floor(hour / 6); // 0 to 3 (4 rotations per day)
     const offset = batchIndex * batchSize;
 
-    console.log(`[/api/products/deals] Fetching deals with limit: ${limit}, offset: ${offset}, batchIndex: ${batchIndex}, hour: ${hour}`);
+    console.log(`[/api/products/deals] Fetching deals with limit: ${limit}, category: ${category}, offset: ${offset}, batchIndex: ${batchIndex}, hour: ${hour}`);
 
-    // Get products with deals from database using offset for rotation
-    const deals = await storage.getProductsWithDeals(limit, offset);
+    // Get products with deals from database using offset for rotation and category filter
+    const deals = await storage.getProductsWithDeals(limit, offset, category);
 
     if (!deals || deals.length === 0) {
-      console.log(`[/api/products/deals] No deals found, returning empty array`);
+      console.log(`[/api/products/deals] No deals found for category: ${category}, returning empty array`);
       return res.json({ deals: [] });
     }
 

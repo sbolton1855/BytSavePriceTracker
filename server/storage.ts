@@ -18,7 +18,7 @@ import {
   type Config
 } from "@shared/schema";
 import { db } from "./db";
-import { eq, and, or, gt, sql, isNotNull } from "drizzle-orm";
+import { eq, and, or, gt, sql, isNotNull, ilike } from "drizzle-orm";
 
 // Interface for storage operations
 export interface IStorage {
@@ -66,7 +66,7 @@ export interface IStorage {
   getGlobalConfig(key: string): Promise<string | null>;
 
   // Deal operations
-  getProductsWithDeals(limit?: number, offset?: number): Promise<Product[]>;
+  getProductsWithDeals(limit?: number, offset?: number, category?: string): Promise<Product[]>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -307,7 +307,7 @@ export class DatabaseStorage implements IStorage {
   }
 
   // Global config operations
-  async getAllConfigEntries(): Promise<Config[]> {
+  async getAllConfigEntries(): Promise<Config[][]> {
     return await db.select().from(config);
   }
 
@@ -317,26 +317,66 @@ export class DatabaseStorage implements IStorage {
   }
 
   // Deal operations
-  async getProductsWithDeals(limit: number = 20, offset: number = 0): Promise<Product[]> {
+  async getProductsWithDeals(limit: number = 20, offset: number = 0, category?: string): Promise<Product[]> {
+    let whereConditions = and(
+      eq(products.isDiscovered, true),
+      or(
+        and(
+          isNotNull(products.discountPercentage),
+          gt(products.discountPercentage, 0)
+        ),
+        and(
+          isNotNull(products.originalPrice),
+          isNotNull(products.currentPrice),
+          gt(products.originalPrice, products.currentPrice)
+        )
+      )
+    );
+
+    // Add category filtering based on keywords in title
+    if (category) {
+      const categoryKeywords = this.getCategoryKeywords(category);
+      const titleConditions = categoryKeywords.map(keyword =>
+        ilike(products.title, `%${keyword}%`)
+      );
+
+      whereConditions = and(
+        whereConditions,
+        or(...titleConditions)
+      );
+    }
+
     return await db
       .select()
       .from(products)
-      .where(
-        and(
-          eq(products.isDiscovered, true), // Only return discovered products
-          gt(products.currentPrice, 0),
-          or(
-            and(
-              isNotNull(products.originalPrice),
-              gt(products.originalPrice, products.currentPrice)
-            ),
-            gt(sql`COALESCE(${products.highestPrice}, 0)`, products.currentPrice)
-          )
-        )
-      )
-      .orderBy(products.id) // Use consistent ordering for offset to work properly
+      .where(whereConditions)
+      .orderBy(sql`RANDOM()`)
       .limit(limit)
       .offset(offset);
+  }
+
+  // Helper method to get keywords for category filtering
+  private getCategoryKeywords(category: string): string[] {
+    const keywordMap: Record<string, string[]> = {
+      'seasonal': [
+        'winter', 'summer', 'spring', 'fall', 'autumn', 'holiday', 'christmas', 'halloween',
+        'thanksgiving', 'easter', 'valentine', 'seasonal', 'beach', 'pool', 'garden',
+        'outdoor', 'camping', 'bbq', 'grilling'
+      ],
+      'health': [
+        'vitamin', 'supplement', 'protein', 'health', 'wellness', 'beauty', 'skincare',
+        'makeup', 'cosmetic', 'hair', 'nail', 'biotin', 'collagen', 'omega', 'probiotics',
+        'multivitamin', 'mineral', 'organic', 'natural', 'essential oil', 'facial', 'serum'
+      ],
+      'tech': [
+        'bluetooth', 'wireless', 'headphones', 'earbuds', 'speaker', 'charger', 'cable',
+        'phone', 'tablet', 'computer', 'laptop', 'keyboard', 'mouse', 'monitor', 'smart',
+        'gadget', 'electronic', 'tech', 'digital', 'usb', 'portable', 'device', 'accessory',
+        'kitchen gadget', 'home automation', 'smart home', 'appliance'
+      ]
+    };
+
+    return keywordMap[category] || [];
   }
 }
 
