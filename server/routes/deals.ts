@@ -8,7 +8,7 @@ router.get('/products/deals', async (req, res) => {
   try {
     const { storage } = await import('../storage');
     const { addAffiliateTag } = await import('../utils/affiliateLinks');
-    
+
     const limit = parseInt(req.query.limit as string, 10) || 4;
     const category = req.query.category as string;
     const AFFILIATE_TAG = process.env.AMAZON_PARTNER_TAG || 'bytsave-20';
@@ -33,7 +33,7 @@ router.get('/products/deals', async (req, res) => {
     const formattedDeals = deals.map(product => {
       const savings = product.originalPrice && product.originalPrice > product.currentPrice ? 
         Math.round((product.originalPrice - product.currentPrice) * 100) / 100 : 0;
-      
+
       return {
         asin: product.asin,
         title: product.title,
@@ -58,7 +58,7 @@ router.get('/products/deals', async (req, res) => {
       price: formattedDeals[0].price,
       discountPercentage: formattedDeals[0].discountPercentage
     } : 'none');
-    
+
     // Always return consistent format with deals wrapper
     res.json({ deals: formattedDeals });
   } catch (error) {
@@ -71,7 +71,7 @@ router.get('/products/deals', async (req, res) => {
 router.get('/debug/products', async (req, res) => {
   try {
     const { storage } = await import('../storage');
-    
+
     const allProducts = await storage.getAllProducts();
     const recentProducts = allProducts.filter(product => {
       if (!product.lastChecked) return false;
@@ -79,15 +79,15 @@ router.get('/debug/products', async (req, res) => {
       const sevenDaysAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000);
       return lastChecked > sevenDaysAgo;
     });
-    
+
     const withDiscounts = recentProducts.filter(product => 
       (product.discountPercentage && product.discountPercentage > 0) ||
       (product.originalPrice && product.originalPrice > product.currentPrice)
     );
-    
+
     const discoveredProducts = allProducts.filter(p => p.isDiscovered);
     const trackedProducts = allProducts.filter(p => !p.isDiscovered);
-    
+
     res.json({
       total: allProducts.length,
       recent: recentProducts.length,
@@ -118,11 +118,11 @@ router.get('/debug/products', async (req, res) => {
 router.post('/manual-discovery', async (req, res) => {
   try {
     console.log('[/api/manual-discovery] Manual discovery triggered');
-    
+
     // Import and run discovery
     const { runProductDiscovery } = await import('../manual-discovery');
     await runProductDiscovery();
-    
+
     res.json({ 
       success: true, 
       message: 'Manual discovery completed successfully',
@@ -142,10 +142,10 @@ router.post('/manual-discovery', async (req, res) => {
 router.get('/debug/categories', async (req, res) => {
   try {
     const { storage } = await import('../storage');
-    
+
     const allProducts = await storage.getAllProducts();
     const discoveredProducts = allProducts.filter(p => p.isDiscovered);
-    
+
     const categoryCounts = {
       seasonal: discoveredProducts.filter(p => p.category === 'seasonal').length,
       health: discoveredProducts.filter(p => p.category === 'health').length,
@@ -153,7 +153,7 @@ router.get('/debug/categories', async (req, res) => {
       uncategorized: discoveredProducts.filter(p => !p.category).length,
       total: discoveredProducts.length
     };
-    
+
     const categoryDeals = {
       seasonal: discoveredProducts.filter(p => 
         p.category === 'seasonal' && 
@@ -171,7 +171,7 @@ router.get('/debug/categories', async (req, res) => {
          (p.originalPrice && p.originalPrice > p.currentPrice))
       ).length
     };
-    
+
     res.json({
       totalProducts: allProducts.length,
       discoveredProducts: discoveredProducts.length,
@@ -201,4 +201,4 @@ router.get('/debug/categories', async (req, res) => {
   }
 });
 
-export default router; 
+export default router;

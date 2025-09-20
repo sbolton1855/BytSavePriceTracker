@@ -117,7 +117,7 @@ async function runProductDiscovery(): Promise<void> {
           // Determine category based on search term
           const category = getCategoryFromSearchTerm(searchTerm);
 
-          const product = await storage.createProduct({
+          const newProduct = await storage.createProduct({
             asin: result.asin,
             title: result.title,
             url: result.url,
@@ -131,11 +131,11 @@ async function runProductDiscovery(): Promise<void> {
             ),
             lastChecked: new Date(),
             isDiscovered: true, // Mark as discovered product
-            category: category
+            category: detectProductCategory(searchTerm, result.title),
           });
 
           // Add initial price history entry
-          await intelligentlyAddPriceHistory(product.id, result.price);
+          await intelligentlyAddPriceHistory(newProduct.id, result.price);
 
           addedFromThisSearch++;
           totalNewProducts++;
@@ -212,6 +212,30 @@ function getCategoryFromSearchTerm(searchTerm: string): string {
   if (termIndex < getCurrentSearchTerms().length / 3) return 'health';
   if (termIndex < (getCurrentSearchTerms().length * 2) / 3) return 'tech';
   return 'seasonal';
+}
+
+
+// Function to detect product category based on title and search term
+function detectProductCategory(searchTerm: string, title: string): string {
+  const lowerTerm = searchTerm.toLowerCase();
+  const lowerTitle = title.toLowerCase();
+
+  // Prioritize category based on specific keywords in title or search term
+  if (lowerTerm.includes('vitamin') || lowerTerm.includes('supplement') || lowerTerm.includes('protein') || lowerTitle.includes('vitamin') || lowerTitle.includes('supplement') || lowerTitle.includes('protein')) {
+    return 'health';
+  }
+  if (lowerTerm.includes('bluetooth') || lowerTerm.includes('headphones') || lowerTerm.includes('charger') || lowerTerm.includes('electronic') || lowerTitle.includes('bluetooth') || lowerTitle.includes('headphones') || lowerTitle.includes('charger') || lowerTitle.includes('electronic')) {
+    return 'tech';
+  }
+  if (lowerTerm.includes('kitchen') || lowerTerm.includes('cooking') || lowerTerm.includes('utensils') || lowerTerm.includes('gadgets') || lowerTitle.includes('kitchen') || lowerTitle.includes('cooking') || lowerTitle.includes('utensils') || lowerTitle.includes('gadgets')) {
+    return 'kitchen';
+  }
+  if (lowerTerm.includes('deal') || lowerTerm.includes('sale') || lowerTerm.includes('discount') || lowerTitle.includes('deal') || lowerTitle.includes('sale') || lowerTitle.includes('discount')) {
+    return 'deals';
+  }
+
+  // Fallback to existing getCategoryFromSearchTerm logic if no specific match
+  return getCategoryFromSearchTerm(searchTerm);
 }
 
 
