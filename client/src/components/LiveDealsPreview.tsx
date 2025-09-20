@@ -12,37 +12,58 @@ type Deal = {
 };
 
 export default function LiveDealsPreview() {
-  const { data, isLoading } = useQuery<{ deals: Deal[] }>({
+  const { data, isLoading, error } = useQuery<{ deals: Deal[] }>({
     queryKey: ["databaseDealsPreview"],
     queryFn: async () => {
+      console.log("[LiveDealsPreview] Fetching deals from /api/products/deals?limit=4");
       const res = await fetch("/api/products/deals?limit=4");
-      if (!res.ok) throw new Error("Failed to fetch deals");
-      return res.json();
+      if (!res.ok) {
+        const errorText = await res.text();
+        console.error("[LiveDealsPreview] Fetch failed:", res.status, errorText);
+        throw new Error(`Failed to fetch deals: ${res.status}`);
+      }
+      const result = await res.json();
+      console.log("[LiveDealsPreview] Fetch successful, received:", result);
+      return result;
     },
     staleTime: 5 * 60 * 1000, // 5 minutes cache
     refetchOnWindowFocus: false,
   });
 
   console.log("[LiveDealsPreview] Raw API response:", data);
+  console.log("[LiveDealsPreview] Error:", error);
+  console.log("[LiveDealsPreview] Loading:", isLoading);
 
-  // Map backend fields to UI fields
-  const deals =
-    data?.deals?.map((deal) => ({
-      ...deal,
-      currentPrice: deal.price,
-      originalPrice: deal.msrp,
-      affiliateUrl: deal.url,
-    })) || [];
+  // Handle different response formats more robustly
+  let deals: Deal[] = [];
+  
+  if (data) {
+    if (Array.isArray(data)) {
+      // If data is directly an array (shouldn't happen but handle it)
+      deals = data.map((deal) => ({
+        ...deal,
+        currentPrice: deal.price || deal.currentPrice,
+        originalPrice: deal.msrp || deal.originalPrice,
+        affiliateUrl: deal.url || deal.affiliateUrl,
+      }));
+    } else if (data.deals && Array.isArray(data.deals)) {
+      // Expected format: { deals: [...] }
+      deals = data.deals.map((deal) => ({
+        ...deal,
+        currentPrice: deal.price || deal.currentPrice,
+        originalPrice: deal.msrp || deal.originalPrice,
+        affiliateUrl: deal.url || deal.affiliateUrl,
+      }));
+    } else {
+      console.warn("[LiveDealsPreview] Unexpected data format:", data);
+    }
+  }
 
-  deals.forEach((deal, idx) => {
-    console.log(`[LiveDealsPreview] Deal ${idx}:`, deal);
-  });
+  console.log("[LiveDealsPreview] Processed deals:", deals);
+  console.log("[LiveDealsPreview] Final render - deals.length:", deals.length, "isLoading:", isLoading);
 
-  console.log("[LiveDealsPreview] Mapped deals:", deals);
-  console.log("[LiveDealsPreview] Rendering, deals.length:", deals.length, "isLoading:", isLoading);
-
-  if (!isLoading && deals.length === 0) {
-    console.log("[LiveDealsPreview] No deals available to render.");
+  if (error) {
+    console.error("[LiveDealsPreview] Query error:", error);
   }
 
   return (
