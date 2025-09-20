@@ -20,7 +20,8 @@ export default function DashboardToggle() {
           <ShoppingBag className="h-4 w-4" />
           Live Deals
         </Button>
-        <Button
+        {/* Price Tracker button hidden for now */}
+        {/* <Button
           variant={activeView === "tracker" ? "default" : "outline"}
           size="sm"
           onClick={() => setActiveView("tracker")}
@@ -28,7 +29,7 @@ export default function DashboardToggle() {
         >
           <TrendingDown className="h-4 w-4" />
           Price Tracker
-        </Button>
+        </Button> */}
       </div>
 
       {/* Content Area */}
