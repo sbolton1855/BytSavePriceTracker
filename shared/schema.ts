@@ -1,4 +1,4 @@
-import { pgTable, text, serial, integer, boolean, timestamp, doublePrecision, varchar, jsonb, index, decimal } from "drizzle-orm/pg-core";
+import { pgTable, text, serial, integer, boolean, timestamp, doublePrecision, varchar, jsonb, index, decimal, real } from "drizzle-orm/pg-core";
 import { relations } from "drizzle-orm";
 import { createInsertSchema, InferSelectModel, InferInsertModel } from "drizzle-zod";
 import { z } from "zod";
@@ -50,8 +50,11 @@ export const products = pgTable("products", {
   lastChecked: timestamp("last_checked").notNull(),
   lowestPrice: doublePrecision("lowest_price"),
   highestPrice: doublePrecision("highest_price"),
+  discountPercentage: real("discount_percentage"),
+  savings: real("savings"),
   priceDropped: boolean("price_dropped").default(false),
   isDiscovered: boolean("is_discovered").default(false),
+  category: text("category"),
   createdAt: timestamp("created_at").defaultNow().notNull(),
   updatedAt: timestamp("updated_at").defaultNow().notNull()
 });

@@ -333,16 +333,11 @@ export class DatabaseStorage implements IStorage {
       )
     );
 
-    // Add category filtering based on keywords in title
+    // Add category filtering using the category column
     if (category) {
-      const categoryKeywords = this.getCategoryKeywords(category);
-      const titleConditions = categoryKeywords.map(keyword =>
-        ilike(products.title, `%${keyword}%`)
-      );
-
       whereConditions = and(
         whereConditions,
-        or(...titleConditions)
+        eq(products.category, category)
       );
     }
 

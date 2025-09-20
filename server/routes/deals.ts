@@ -138,4 +138,67 @@ router.post('/manual-discovery', async (req, res) => {
   }
 });
 
+// Debug route to check category distribution
+router.get('/debug/categories', async (req, res) => {
+  try {
+    const { storage } = await import('../storage');
+    
+    const allProducts = await storage.getAllProducts();
+    const discoveredProducts = allProducts.filter(p => p.isDiscovered);
+    
+    const categoryCounts = {
+      seasonal: discoveredProducts.filter(p => p.category === 'seasonal').length,
+      health: discoveredProducts.filter(p => p.category === 'health').length,
+      tech: discoveredProducts.filter(p => p.category === 'tech').length,
+      uncategorized: discoveredProducts.filter(p => !p.category).length,
+      total: discoveredProducts.length
+    };
+    
+    const categoryDeals = {
+      seasonal: discoveredProducts.filter(p => 
+        p.category === 'seasonal' && 
+        ((p.discountPercentage && p.discountPercentage > 0) || 
+         (p.originalPrice && p.originalPrice > p.currentPrice))
+      ).length,
+      health: discoveredProducts.filter(p => 
+        p.category === 'health' && 
+        ((p.discountPercentage && p.discountPercentage > 0) || 
+         (p.originalPrice && p.originalPrice > p.currentPrice))
+      ).length,
+      tech: discoveredProducts.filter(p => 
+        p.category === 'tech' && 
+        ((p.discountPercentage && p.discountPercentage > 0) || 
+         (p.originalPrice && p.originalPrice > p.currentPrice))
+      ).length
+    };
+    
+    res.json({
+      totalProducts: allProducts.length,
+      discoveredProducts: discoveredProducts.length,
+      categoryCounts,
+      categoryDeals,
+      sampleProducts: {
+        seasonal: discoveredProducts.filter(p => p.category === 'seasonal').slice(0, 3).map(p => ({ 
+          asin: p.asin, 
+          title: p.title?.substring(0, 50) + '...',
+          category: p.category 
+        })),
+        health: discoveredProducts.filter(p => p.category === 'health').slice(0, 3).map(p => ({ 
+          asin: p.asin, 
+          title: p.title?.substring(0, 50) + '...',
+          category: p.category 
+        })),
+        tech: discoveredProducts.filter(p => p.category === 'tech').slice(0, 3).map(p => ({ 
+          asin: p.asin, 
+          title: p.title?.substring(0, 50) + '...',
+          category: p.category 
+        }))
+      }
+    });
+  } catch (error) {
+    console.error('Debug categories route error:', error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
 export default router; 

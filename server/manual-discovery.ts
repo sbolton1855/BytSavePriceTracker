@@ -1,4 +1,3 @@
-
 import { storage } from './storage';
 import { searchAmazonProducts } from './amazonApi';
 
@@ -51,7 +50,7 @@ async function intelligentlyAddPriceHistory(productId: number, currentPrice: num
 // Function to manually run product discovery
 async function runProductDiscovery(): Promise<void> {
   console.log('🔍 Starting manual product discovery...');
-  
+
   // Extended search terms for better product variety
   const searchTerms = [
     // Health & Beauty
@@ -59,19 +58,19 @@ async function runProductDiscovery(): Promise<void> {
     'skincare products trending',
     'protein powder deals',
     'beauty essentials',
-    
+
     // Electronics & Tech
     'bluetooth headphones',
     'phone accessories',
     'smart home devices',
     'computer accessories',
-    
+
     // Kitchen & Home
     'kitchen gadgets',
     'home organization',
     'cooking utensils',
     'storage solutions',
-    
+
     // Seasonal/Current
     'amazon lightning deals',
     'today deals amazon',
@@ -80,15 +79,15 @@ async function runProductDiscovery(): Promise<void> {
   ];
 
   let totalNewProducts = 0;
-  
-  for (const term of searchTerms) {
+
+  for (const searchTerm of searchTerms) {
     try {
-      console.log(`\n🔎 Searching for: "${term}"`);
-      
+      console.log(`\n🔎 Searching for: "${searchTerm}"`);
+
       // Search for products with a reasonable limit
-      const results = await searchAmazonProducts(term);
+      const results = await searchAmazonProducts(searchTerm);
       console.log(`   Found ${results?.length || 0} products`);
-      
+
       if (!results || results.length === 0) {
         console.log('   No products found for this search term');
         continue;
@@ -115,8 +114,10 @@ async function runProductDiscovery(): Promise<void> {
             continue; // Skip if already exists
           }
 
-          // Create new product with discovery flag
-          const newProduct = await storage.createProduct({
+          // Determine category based on search term
+          const category = getCategoryFromSearchTerm(searchTerm);
+
+          const product = await storage.createProduct({
             asin: result.asin,
             title: result.title,
             url: result.url,
@@ -130,16 +131,17 @@ async function runProductDiscovery(): Promise<void> {
             ),
             lastChecked: new Date(),
             isDiscovered: true, // Mark as discovered product
+            category: category
           });
 
           // Add initial price history entry
-          await intelligentlyAddPriceHistory(newProduct.id, result.price);
+          await intelligentlyAddPriceHistory(product.id, result.price);
 
           addedFromThisSearch++;
           totalNewProducts++;
-          
+
           console.log(`   ✅ Added: ${result.title.substring(0, 50)}...`);
-          
+
         } catch (productError) {
           console.error(`   ❌ Error adding product ${result.asin}:`, productError);
         }
@@ -147,35 +149,71 @@ async function runProductDiscovery(): Promise<void> {
         // Small delay between products
         await new Promise(resolve => setTimeout(resolve, 100));
       }
-      
+
       console.log(`   📊 Added ${addedFromThisSearch} new products from this search`);
-      
+
       // Delay between search terms to avoid throttling
       await new Promise(resolve => setTimeout(resolve, 1000));
-      
+
     } catch (error) {
-      console.error(`❌ Error processing search term "${term}":`, error);
+      console.error(`❌ Error processing search term "${searchTerm}":`, error);
     }
   }
 
   console.log(`\n🎉 Discovery complete! Added ${totalNewProducts} new products total`);
   console.log(`[Discovery] Found ${totalNewProducts} new deals at ${new Date().toISOString()}`);
-  
+
   // Show current database stats
   const allProducts = await storage.getAllProducts();
   const discoveredProducts = allProducts.filter(p => p.isDiscovered);
   const userTrackedProducts = allProducts.filter(p => !p.isDiscovered);
-  const discoveredWithDeals = discoveredProducts.filter(p => 
+  const discoveredWithDeals = discoveredProducts.filter(p =>
     (p.discountPercentage && p.discountPercentage > 0) ||
     (p.originalPrice && p.originalPrice > p.currentPrice)
   );
-  
+
   console.log('\n📈 Database Statistics:');
   console.log(`   Total products: ${allProducts.length}`);
   console.log(`   Discovered products: ${discoveredProducts.length}`);
   console.log(`   Discovered products with deals: ${discoveredWithDeals.length}`);
   console.log(`   User-tracked products: ${userTrackedProducts.length}`);
 }
+
+// Helper function to determine category from search term
+function getCategoryFromSearchTerm(searchTerm: string): string {
+  const healthKeywords = ['vitamin', 'supplement', 'protein', 'beauty', 'skincare', 'makeup', 'hair', 'nail', 'biotin', 'collagen'];
+  const techKeywords = ['bluetooth', 'wireless', 'headphones', 'charger', 'gadget', 'electronic', 'smart', 'device', 'tech'];
+  const seasonalKeywords = ['winter', 'summer', 'holiday', 'christmas', 'outdoor', 'garden', 'camping', 'beach'];
+
+  const lowerTerm = searchTerm.toLowerCase();
+
+  if (healthKeywords.some(keyword => lowerTerm.includes(keyword))) {
+    return 'health';
+  }
+  if (techKeywords.some(keyword => lowerTerm.includes(keyword))) {
+    return 'tech';
+  }
+  if (seasonalKeywords.some(keyword => lowerTerm.includes(keyword))) {
+    return 'seasonal';
+  }
+
+  // Helper function to get current search terms for fallback logic
+  function getCurrentSearchTerms(): string[] {
+    return [
+      'vitamin supplements bestseller', 'skincare products trending', 'protein powder deals', 'beauty essentials',
+      'bluetooth headphones', 'phone accessories', 'smart home devices', 'computer accessories',
+      'kitchen gadgets', 'home organization', 'cooking utensils', 'storage solutions',
+      'amazon lightning deals', 'today deals amazon', 'amazon daily deals', 'clearance sale'
+    ];
+  }
+
+  // Default fallback based on term position in arrays
+  const termIndex = getCurrentSearchTerms().indexOf(searchTerm);
+  if (termIndex < getCurrentSearchTerms().length / 3) return 'health';
+  if (termIndex < (getCurrentSearchTerms().length * 2) / 3) return 'tech';
+  return 'seasonal';
+}
+
 
 // Run the discovery if this file is executed directly
 if (import.meta.url === `file://${process.argv[1]}`) {
