@@ -34,29 +34,26 @@ export default function LiveDealsPreview() {
   console.log("[LiveDealsPreview] Error:", error);
   console.log("[LiveDealsPreview] Loading:", isLoading);
 
-  // Handle different response formats more robustly
+  // Handle response format - API now returns array directly
   let deals: Deal[] = [];
   
-  if (data) {
-    if (Array.isArray(data)) {
-      // If data is directly an array (shouldn't happen but handle it)
-      deals = data.map((deal) => ({
-        ...deal,
-        currentPrice: deal.price || deal.currentPrice,
-        originalPrice: deal.msrp || deal.originalPrice,
-        affiliateUrl: deal.url || deal.affiliateUrl,
-      }));
-    } else if (data.deals && Array.isArray(data.deals)) {
-      // Expected format: { deals: [...] }
-      deals = data.deals.map((deal) => ({
-        ...deal,
-        currentPrice: deal.price || deal.currentPrice,
-        originalPrice: deal.msrp || deal.originalPrice,
-        affiliateUrl: deal.url || deal.affiliateUrl,
-      }));
-    } else {
-      console.warn("[LiveDealsPreview] Unexpected data format:", data);
-    }
+  if (data && Array.isArray(data)) {
+    deals = data.map((deal) => ({
+      ...deal,
+      currentPrice: deal.price || deal.currentPrice,
+      originalPrice: deal.msrp || deal.originalPrice,
+      affiliateUrl: deal.url || deal.affiliateUrl,
+    }));
+  } else if (data && data.deals && Array.isArray(data.deals)) {
+    // Fallback for old format
+    deals = data.deals.map((deal) => ({
+      ...deal,
+      currentPrice: deal.price || deal.currentPrice,
+      originalPrice: deal.msrp || deal.originalPrice,
+      affiliateUrl: deal.url || deal.affiliateUrl,
+    }));
+  } else {
+    console.warn("[LiveDealsPreview] Unexpected data format:", data);
   }
 
   console.log("[LiveDealsPreview] Processed deals:", deals);

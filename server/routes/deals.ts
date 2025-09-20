@@ -52,7 +52,8 @@ router.get('/products/deals', async (req, res) => {
       discountPercentage: formattedDeals[0].discountPercentage
     } : 'none');
     
-    res.json({ deals: formattedDeals });
+    // Always return the deals array directly for consistency
+    res.json(formattedDeals);
   } catch (error) {
     console.error('Failed to fetch deals from database:', error);
     res.status(500).json({ error: 'Failed to fetch deals', details: error.message });
