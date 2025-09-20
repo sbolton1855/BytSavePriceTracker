@@ -117,21 +117,22 @@ async function runProductDiscovery(): Promise<void> {
           // Determine category based on search term
           const category = getCategoryFromSearchTerm(searchTerm);
 
+          const originalPrice = Math.round(result.price * 1.15 * 100) / 100; // 15% markup estimate
+          const discountPercentage = ((originalPrice - result.price) / originalPrice) * 100;
+
           const newProduct = await storage.createProduct({
             asin: result.asin,
             title: result.title,
             url: result.url,
             imageUrl: result.imageUrl,
             currentPrice: result.price,
-            originalPrice: Math.round(result.price * 1.15 * 100) / 100, // 15% markup estimate
+            originalPrice: originalPrice,
             lowestPrice: result.price,
-            highestPrice: Math.max(
-              result.price,
-              Math.round(result.price * 1.15 * 100) / 100,
-            ),
+            highestPrice: Math.max(result.price, originalPrice),
             lastChecked: new Date(),
             isDiscovered: true, // Mark as discovered product
             category: detectProductCategory(searchTerm, result.title),
+            discountPercentage: Math.round(discountPercentage * 100) / 100, // Round to 2 decimal places
           });
 
           // Add initial price history entry
