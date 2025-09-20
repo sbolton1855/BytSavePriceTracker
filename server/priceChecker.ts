@@ -502,6 +502,7 @@ async function discoverNewProducts(): Promise<void> {
                 Math.round(result.price * 1.15 * 100) / 100,
               ),
               lastChecked: new Date(),
+              isDiscovered: true,
             });
 
             // Add initial price history entry

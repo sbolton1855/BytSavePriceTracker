@@ -81,6 +81,8 @@ router.get('/debug/products', async (req, res) => {
       total: allProducts.length,
       recent: recentProducts.length,
       withDiscounts: withDiscounts.length,
+      discovered: allProducts.filter(p => p.isDiscovered).length,
+      userTracked: allProducts.filter(p => !p.isDiscovered).length,
       sampleProducts: recentProducts.slice(0, 5).map(p => ({
         id: p.id,
         asin: p.asin,
@@ -88,7 +90,8 @@ router.get('/debug/products', async (req, res) => {
         currentPrice: p.currentPrice,
         originalPrice: p.originalPrice,
         discountPercentage: p.discountPercentage,
-        lastChecked: p.lastChecked
+        lastChecked: p.lastChecked,
+        isDiscovered: p.isDiscovered
       }))
     });
   } catch (error) {

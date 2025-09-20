@@ -51,6 +51,7 @@ export const products = pgTable("products", {
   lowestPrice: doublePrecision("lowest_price"),
   highestPrice: doublePrecision("highest_price"),
   priceDropped: boolean("price_dropped").default(false),
+  isDiscovered: boolean("is_discovered").default(false),
   createdAt: timestamp("created_at").defaultNow().notNull(),
   updatedAt: timestamp("updated_at").defaultNow().notNull()
 });

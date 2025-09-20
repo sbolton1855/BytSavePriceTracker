@@ -324,6 +324,11 @@ export class DatabaseStorage implements IStorage {
 
     // Filter products that have deals with more relaxed criteria
     const productsWithDeals = allProducts.filter(product => {
+      // Only include discovered products (not user-tracked)
+      if (!product.isDiscovered) {
+        return false;
+      }
+
       // Basic validation
       if (!product.title || !product.asin || product.currentPrice <= 0) {
         return false;
