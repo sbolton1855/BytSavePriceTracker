@@ -318,7 +318,7 @@ export class DatabaseStorage implements IStorage {
 
   // Deal operations
   async getProductsWithDeals(limit: number = 20): Promise<Product[]> {
-    return this.db
+    return await db
       .select()
       .from(products)
       .where(
@@ -336,7 +336,7 @@ export class DatabaseStorage implements IStorage {
       )
       .orderBy(sql`RANDOM()`)
       .limit(limit);
-  },
+  }
 }
 
 export const storage = new DatabaseStorage();
