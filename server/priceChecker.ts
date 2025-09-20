@@ -50,7 +50,7 @@ async function updateProductPrice(
 
     // Fetch latest product info from Amazon API
     const latestInfo = await getProductInfoSafe(product.asin);
-    
+
     // Debug logging for TRUEplus product
     if (product.asin === 'B01DJGLYZQ') {
       console.log(`DEBUG: TRUEplus price update - Product ASIN: ${product.asin}`);
@@ -63,11 +63,11 @@ async function updateProductPrice(
       consecutiveApiFailures++;
       await incrementProductFailureCount(product.asin);
       const failureCount = await getProductFailureCount(product.asin);
-      
+
       console.warn(
         `Error: No product data returned for ASIN ${product.asin}. (API failure ${consecutiveApiFailures}/${MAX_CONSECUTIVE_FAILURES}, product failure ${failureCount}/5)`,
       );
-      
+
       // If we've had many failures for this specific product, add a longer delay
       let nextCheckDelay = 0;
       if (failureCount >= 3) {
@@ -76,7 +76,7 @@ async function updateProductPrice(
         nextCheckDelay = backoffHours * 60 * 60 * 1000;
         console.log(`⏰ Adding ${backoffHours}h delay for repeatedly failing ASIN ${product.asin}`);
       }
-      
+
       return await storage.updateProduct(product.id, {
         lastChecked: new Date(Date.now() + nextCheckDelay),
       });
@@ -84,16 +84,16 @@ async function updateProductPrice(
 
     // Log the API response before validation
     console.log(`[DEBUG] Amazon API returned for ${product.asin} - currentPrice: ${latestInfo.price}, originalPrice: ${latestInfo.originalPrice}`);
-    
+
     // Validate the received price - but be more permissive with valid price ranges
     if (!isValidPrice(latestInfo.price)) {
       await incrementProductFailureCount(product.asin);
       const failureCount = await getProductFailureCount(product.asin);
-      
+
       // Determine the specific issue for better logging
       let issueType = 'UNKNOWN_PRICE_ISSUE';
       let issueDescription = `Invalid price data (price=${latestInfo.price})`;
-      
+
       if (latestInfo.price === 0) {
         issueType = 'PRICE_ZERO';
         issueDescription = 'Amazon returned price=0';
@@ -104,29 +104,29 @@ async function updateProductPrice(
         issueType = 'PRICE_NAN';
         issueDescription = `Amazon returned non-numeric price: ${latestInfo.price}`;
       }
-      
+
       console.warn(
         `Warning: ASIN ${product.asin} - ${issueDescription}. Skipping update (failure ${failureCount}/5).`,
       );
-      
+
       // Check if this product has failed too many times
       if (failureCount >= 5) {
         console.warn(
           `⚠️ ASIN ${product.asin} has failed ${failureCount} consecutive times. Marking for review.`,
         );
-        
+
         // Mark product as problematic but don't delete it yet
         return await storage.updateProduct(product.id, {
           lastChecked: new Date(),
         });
       }
-      
+
       // Update lastChecked timestamp to prevent immediate retry
       return await storage.updateProduct(product.id, {
         lastChecked: new Date(),
       });
     }
-    
+
     console.log(`Updating price for ${product.asin}: $${product.currentPrice} → $${latestInfo.price}`);
 
     // Reset failure counter on successful price fetch
@@ -235,7 +235,7 @@ async function updateProductPrice(
         highestPrice: newHighestPrice,
         priceDropped: priceDropped, // Add flag to indicate if price dropped
       });
-      
+
       console.log(`[DEBUG] Database updated for ${product.asin} - Final stored currentPrice: ${latestInfo.price}, originalPrice: ${realOriginalPrice}`);
 
       // console.log(`Successfully updated price for ${product.asin}:`, {
@@ -261,11 +261,11 @@ async function updateProductPrice(
     // Increment failure count for tracking
     await incrementProductFailureCount(product.asin);
     const failureCount = await getProductFailureCount(product.asin);
-    
+
     // Categorize the error type for better logging
     let errorType = 'UNKNOWN_ERROR';
     let errorDescription = 'Unknown error occurred';
-    
+
     if (error instanceof Error) {
       if (error.message.includes('No product data found')) {
         errorType = 'ASIN_NOT_FOUND';
@@ -280,7 +280,7 @@ async function updateProductPrice(
         errorDescription = error.message;
       }
     }
-    
+
     console.error(`❌ Failed to update price for ASIN ${product.asin} (${errorType}): ${errorDescription} (failure ${failureCount}/5)`);
 
     // Log detailed error info in development
@@ -313,7 +313,7 @@ async function checkPricesAndNotify(): Promise<void> {
 
     // Clean up stale products first
     await removeStaleProducts();
-    
+
     // Clean up products that have consistently failed
     await cleanupFailedProducts();
 
@@ -488,7 +488,7 @@ async function discoverNewProducts(): Promise<void> {
 
           const existing = await storage.getProductByAsin(result.asin);
           if (!existing) {
-            // Create new product with price history
+            // Create new product with discovery flag and price history
             const newProduct = await storage.createProduct({
               asin: result.asin,
               title: result.title,
@@ -502,7 +502,7 @@ async function discoverNewProducts(): Promise<void> {
                 Math.round(result.price * 1.15 * 100) / 100,
               ),
               lastChecked: new Date(),
-              isDiscovered: true,
+              isDiscovered: true, // Mark as discovered product
             });
 
             // Add initial price history entry
@@ -582,30 +582,30 @@ async function cleanupFailedProducts(): Promise<void> {
   try {
     const failedAsins: string[] = [];
     const currentTime = new Date();
-    
+
     // Check for products that have failed more than 10 times
     for (const [asin, failureCount] of productFailureCounts.entries()) {
       if (failureCount >= 10) {
         console.warn(`🔴 ASIN ${asin} has ${failureCount} consecutive failures - scheduling for review`);
         failedAsins.push(asin);
-        
+
         try {
           // Get the product from database
           const product = await storage.getProductByAsin(asin);
           if (product) {
             // Add a comment or flag rather than deleting
             console.log(`📋 Flagging ASIN ${asin} for manual review due to persistent failures`);
-            
+
             // You could implement a 'status' field in your schema to mark products as problematic
             // For now, we'll just reset the failure count and add a longer delay
             productFailureCounts.set(asin, 0);
-            
+
             // Update lastChecked to add a longer delay before next attempt (24 hours)
             const nextCheckTime = new Date(currentTime.getTime() + 24 * 60 * 60 * 1000);
             await storage.updateProduct(product.id, {
               lastChecked: nextCheckTime,
             });
-            
+
             console.log(`⏰ ASIN ${asin} next check scheduled for: ${nextCheckTime.toISOString()}`);
           }
         } catch (dbError) {
@@ -613,7 +613,7 @@ async function cleanupFailedProducts(): Promise<void> {
         }
       }
     }
-    
+
     if (failedAsins.length > 0) {
       console.log(`🔧 Processed ${failedAsins.length} consistently failing products`);
     }

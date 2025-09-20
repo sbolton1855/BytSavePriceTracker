@@ -22,9 +22,10 @@ export default function LiveDealsPreview() {
         console.error("[LiveDealsPreview] Fetch failed:", res.status, errorText);
         throw new Error(`Failed to fetch deals: ${res.status}`);
       }
-      const result = await res.json();
-      console.log("[LiveDealsPreview] Fetch successful, received:", result);
-      return result;
+      const json = await res.json();
+      console.log("[LiveDealsPreview] Fetch successful, received:", json);
+      console.log("[Live Deals] Loaded deals:", json.deals);
+      return json;
     },
     staleTime: 5 * 60 * 1000, // 5 minutes cache
     refetchOnWindowFocus: false,
@@ -34,19 +35,20 @@ export default function LiveDealsPreview() {
   console.log("[LiveDealsPreview] Error:", error);
   console.log("[LiveDealsPreview] Loading:", isLoading);
 
-  // Handle response format - API now returns array directly
+  // Handle response format - API consistently returns { deals: [...] }
   let deals: Deal[] = [];
   
-  if (data && Array.isArray(data)) {
-    deals = data.map((deal) => ({
+  if (data && data.deals && Array.isArray(data.deals)) {
+    deals = data.deals.map((deal) => ({
       ...deal,
       currentPrice: deal.price || deal.currentPrice,
       originalPrice: deal.msrp || deal.originalPrice,
       affiliateUrl: deal.url || deal.affiliateUrl,
     }));
-  } else if (data && data.deals && Array.isArray(data.deals)) {
-    // Fallback for old format
-    deals = data.deals.map((deal) => ({
+  } else if (data && Array.isArray(data)) {
+    // Fallback for direct array (shouldn't happen with new format)
+    console.warn("[LiveDealsPreview] Received direct array, expected { deals: [...] }");
+    deals = data.map((deal) => ({
       ...deal,
       currentPrice: deal.price || deal.currentPrice,
       originalPrice: deal.msrp || deal.originalPrice,

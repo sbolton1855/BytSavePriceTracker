@@ -172,7 +172,7 @@ async function runProductDiscovery(): Promise<void> {
 }
 
 // Run the discovery if this file is executed directly
-if (require.main === module) {
+if (import.meta.url === `file://${process.argv[1]}`) {
   runProductDiscovery()
     .then(() => {
       console.log('✅ Manual discovery completed successfully');

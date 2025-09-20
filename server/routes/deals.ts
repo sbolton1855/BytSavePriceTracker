@@ -52,8 +52,8 @@ router.get('/products/deals', async (req, res) => {
       discountPercentage: formattedDeals[0].discountPercentage
     } : 'none');
     
-    // Always return the deals array directly for consistency
-    res.json(formattedDeals);
+    // Always return consistent format with deals wrapper
+    res.json({ deals: formattedDeals });
   } catch (error) {
     console.error('Failed to fetch deals from database:', error);
     res.status(500).json({ error: 'Failed to fetch deals', details: error.message });
@@ -78,12 +78,18 @@ router.get('/debug/products', async (req, res) => {
       (product.originalPrice && product.originalPrice > product.currentPrice)
     );
     
+    const discoveredProducts = allProducts.filter(p => p.isDiscovered);
+    const trackedProducts = allProducts.filter(p => !p.isDiscovered);
+    
     res.json({
       total: allProducts.length,
       recent: recentProducts.length,
       withDiscounts: withDiscounts.length,
-      discovered: allProducts.filter(p => p.isDiscovered).length,
-      userTracked: allProducts.filter(p => !p.isDiscovered).length,
+      discovered: discoveredProducts.length,
+      tracked: trackedProducts.length,
+      userTracked: trackedProducts.length, // Legacy field name
+      discoveredDeals: withDiscounts.filter(p => p.isDiscovered).length,
+      trackedDeals: withDiscounts.filter(p => !p.isDiscovered).length,
       sampleProducts: recentProducts.slice(0, 5).map(p => ({
         id: p.id,
         asin: p.asin,
