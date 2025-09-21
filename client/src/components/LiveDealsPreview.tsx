@@ -12,7 +12,7 @@ type Deal = {
 };
 
 export default function LiveDealsPreview() {
-  const { data, isLoading, error } = useQuery<{ deals: Deal[] }>({
+  const { data, isLoading, error } = useQuery<any>({
     queryKey: ["amazonDealsPreview"],
     queryFn: async () => {
       console.log("[LiveDealsPreview] Fetching deals from API...");
@@ -22,9 +22,19 @@ export default function LiveDealsPreview() {
         console.error("[LiveDealsPreview] API Error:", res.status, errorText);
         throw new Error(`Failed to fetch deals: ${res.status}`);
       }
-      const data = await res.json();
-      console.log("[LiveDealsPreview] API Success - received data structure:", Object.keys(data));
-      return data;
+      const jsonData = await res.json();
+      console.log("[LiveDealsPreview] API Success - received data structure:", Object.keys(jsonData));
+      console.log("[LiveDealsPreview] Full API response:", jsonData);
+      
+      // Handle both possible response formats from server
+      if (jsonData.data?.deals) {
+        return jsonData.data.deals;
+      } else if (jsonData.deals) {
+        return jsonData.deals;
+      } else {
+        console.warn("[LiveDealsPreview] Unexpected data structure:", jsonData);
+        return [];
+      }
     },
     staleTime: 60000,
     refetchOnWindowFocus: false,
@@ -35,8 +45,8 @@ export default function LiveDealsPreview() {
   console.log("[LiveDealsPreview] Raw API response:", data);
 
   // Map backend fields to UI fields with better error handling
-  const deals = Array.isArray(data?.deals) 
-    ? data.deals.map((deal) => ({
+  const deals = Array.isArray(data) 
+    ? data.map((deal) => ({
         ...deal,
         currentPrice: deal.price || 0,
         originalPrice: deal.msrp || null,
