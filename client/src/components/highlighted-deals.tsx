@@ -148,12 +148,11 @@ export default function HighlightedDeals() {
               size="sm"
               onClick={handlePrevPage}
               disabled={!hasPrevPage}
-              className="flex items-center gap-2 px-3 py-1.5"
+              className="h-7 w-7 p-0"
             >
               <ChevronLeft className="h-4 w-4" />
-              Previous
             </Button>
-            <span className="text-sm text-muted-foreground px-2">
+            <span className="text-xs text-muted-foreground">
               {currentPage + 1} / {totalPages}
             </span>
             <Button
@@ -161,9 +160,8 @@ export default function HighlightedDeals() {
               size="sm"
               onClick={handleNextPage}
               disabled={!hasNextPage}
-              className="flex items-center gap-2 px-3 py-1.5"
+              className="h-7 w-7 p-0"
             >
-              Next
               <ChevronRight className="h-4 w-4" />
             </Button>
           </div>
