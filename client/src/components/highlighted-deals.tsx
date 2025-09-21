@@ -139,7 +139,7 @@ export default function HighlightedDeals() {
 
   return (
     <div className="space-y-4">
-      <div className="flex justify-between items-center">
+      <div className="flex items-center justify-between mb-2">
         <h2 className="text-2xl font-bold">Trending Now</h2>
         {allDeals.length > dealsPerPage && (
           <div className="flex items-center gap-2">
@@ -167,6 +167,11 @@ export default function HighlightedDeals() {
           </div>
         )}
       </div>
+      {!isLoading && currentDeals.length > 0 && (
+        <div className="text-xs text-muted-foreground mb-3">
+          Showing {currentDeals.length} of {allDeals.length} cached deals
+        </div>
+      )}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
         {currentDeals.map((deal) => (
           <Card key={deal.id} className="overflow-hidden flex flex-col h-full hover:shadow-lg transition-shadow">
@@ -257,11 +262,6 @@ export default function HighlightedDeals() {
           </Card>
         ))}
       </div>
-      {allDeals.length > dealsPerPage && (
-        <div className="text-center text-sm text-muted-foreground mt-4">
-          Showing {currentDeals.length} of {allDeals.length} cached deals
-        </div>
-      )}
     </div>
   );
 }
