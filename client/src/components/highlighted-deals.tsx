@@ -21,16 +21,16 @@ export default function HighlightedDeals() {
 
   // Fetch the top deals from the API
   const { data, isLoading, isError } = useQuery({
-    queryKey: ["/api/products/deals"],
+    queryKey: ["/api/amazon/deals", "trendingNow"],
     queryFn: async () => {
-      const res = await fetch(`/api/products/deals`);
+      const res = await fetch(`/api/amazon/deals?category=trendingNow`);
 
       if (!res.ok) {
         throw new Error("Failed to fetch deals");
       }
 
       const data = await res.json();
-      console.log(`Received ${data.length} products for trending now`);
+      console.log(`Received trending now deals:`, data);
       return data;
     },
     staleTime: 300000, // 5 minutes
@@ -43,6 +43,13 @@ export default function HighlightedDeals() {
   console.log("Deals data from React Query:", data);
   console.log("[HighlightedDeals] API Query State:", { data, isLoading, isError });
   console.log("[HighlightedDeals] Extracted deals:", extractedDeals);
+  console.log("[📦 Deals] Length of extractedDeals:", extractedDeals.length);
+  console.log("[📦 Deals] Pagination check:", {
+    totalPages,
+    shouldShowPagination,
+    currentPage,
+    allDealsLength: allDeals.length
+  });
 
   // Process deals to calculate discount percentages
   useEffect(() => {
