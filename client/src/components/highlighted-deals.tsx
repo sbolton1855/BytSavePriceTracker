@@ -1,13 +1,12 @@
-
-import { useEffect, useState } from "react";
-import { ChevronLeft, ChevronRight } from "lucide-react";
+import { useState, useEffect } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { Button } from "./ui/button";
-import { Product } from "../../../shared/schema";
-import { Card, CardContent, CardFooter, CardHeader, CardTitle } from "./ui/card";
+import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "./ui/card";
 import { Badge } from "./ui/badge";
-import { ArrowRight, ArrowDownRight } from "lucide-react";
+import { Button } from "./ui/button";
 import { Skeleton } from "./ui/skeleton";
+import { ArrowRight, ArrowDownRight, Loader2, RefreshCw } from "lucide-react";
+import { Product } from "../../../shared/schema";
+
 
 type HighlightedDeal = Product & {
   discountPercentage: number;
@@ -17,61 +16,95 @@ type HighlightedDeal = Product & {
 };
 
 export default function HighlightedDeals() {
-  const [allDeals, setAllDeals] = useState<HighlightedDeal[]>([]);
-  const [currentPage, setCurrentPage] = useState(0);
-  const dealsPerPage = 4;
+  const [deals, setDeals] = useState<HighlightedDeal[]>([]);
+  const [refreshKey, setRefreshKey] = useState<number>(0);
 
-  const { data, isLoading, isError } = useQuery({
-    queryKey: ["/api/amazon/deals", "trendingNow"],
+  // Fetch the top deals from the API
+  const { data, isLoading, isError, refetch } = useQuery({
+    queryKey: ["/api/products/deals", refreshKey],
     queryFn: async () => {
-      const res = await fetch("/api/amazon/deals?category=trendingNow");
-      if (!res.ok) throw new Error("Failed to fetch");
-      return res.json();
+      // Add rotation parameter and timestamp to ensure different products
+      const timestamp = Date.now();
+      const rotation = refreshKey % 10; // Create 10 different product sets
+      const res = await fetch(`/api/products/deals?t=${timestamp}&rotate=${rotation}`);
+
+      if (!res.ok) {
+        throw new Error("Failed to fetch deals");
+      }
+
+      const data = await res.json();
+      console.log(`Received ${data.length} products, rotation: ${rotation}`, 
+                 data.map((p: any) => p.id));
+      return data;
     },
-    staleTime: 1000 * 60 * 60, // 1 hour cache
+    // Disable caching for fresh data
+    staleTime: 0,
+    gcTime: 0,
     refetchOnWindowFocus: false,
   });
 
-  const extractedDeals =
-    data?.data?.deals ?? data?.deals ?? (Array.isArray(data) ? data : []);
+  console.log("Deals data from React Query:", data);
 
+  // Function to manually refresh deals
+  const refreshDeals = () => {
+    setRefreshKey(prev => prev + 1);
+  };
+
+  // Process deals to calculate discount percentages and rotate them for variety
   useEffect(() => {
-    if (extractedDeals.length) {
-      const processed = extractedDeals.slice(0, 10).map((product) => {
-        const savings =
-          product.savings ||
-          (product.originalPrice
-            ? product.originalPrice - product.currentPrice
-            : 0);
-        const discountPercentage =
-          product.discountPercentage ||
-          (product.originalPrice
-            ? Math.round(
-                ((product.originalPrice - product.currentPrice) /
-                  product.originalPrice) *
-                  100
-              )
-            : 0);
+    if (data && Array.isArray(data)) {
+      const processedDeals = data.map(product => {
+        const savings = product.savings || 
+          (product.originalPrice ? (product.originalPrice - product.currentPrice) : 0);
 
         return {
           ...product,
-          savings: Math.round(savings * 100) / 100,
-          discountPercentage,
+          discountPercentage: product.discountPercentage || 
+            (product.originalPrice ? Math.round(((product.originalPrice - product.currentPrice) / product.originalPrice) * 100) : 0),
+          savings: Math.round(savings * 100) / 100
         };
       });
 
-      setAllDeals(processed);
-      setCurrentPage(0); // Reset to page 0
-    }
-  }, [extractedDeals]);
+      console.log("[Deals] processedDeals.length:", processedDeals.length, processedDeals.map(d => d.id || d.asin));
+      // Add extra randomization using refreshKey in the sort
+      // This helps produce different results each time
+      const shuffleAmount = refreshKey % 4 + 1; // 1-4 based on refreshKey
 
-  const totalPages = Math.ceil(allDeals.length / dealsPerPage);
-  const currentDeals = allDeals.slice(
-    currentPage * dealsPerPage,
-    (currentPage + 1) * dealsPerPage
-  );
-  const hasNextPage = currentPage < totalPages - 1;
-  const hasPrevPage = currentPage > 0;
+      // Get all deals with any discount
+      const dealsWithDiscount = processedDeals.filter(deal => deal.discountPercentage > 0);
+      console.log("[Deals] dealsWithDiscount.length:", dealsWithDiscount.length, dealsWithDiscount.map(d => d.id || d.asin));
+
+      // Apply multiple shuffling passes for better randomization
+      let shuffledDeals = [...dealsWithDiscount];
+      for (let i = 0; i < shuffleAmount; i++) {
+        shuffledDeals = shuffledDeals.sort(() => Math.random() - 0.5);
+      }
+
+      // Take a variable number of top deals based on refreshKey
+      const dealsCount = Math.min(6, Math.max(3, shuffledDeals.length));
+      let selectedDeals = shuffledDeals.slice(0, dealsCount);
+
+      // If we need more deals, add regular products
+      if (selectedDeals.length < 6) {
+        // Get non-discounted deals and shuffle them with multiple passes
+        let regularDeals = processedDeals
+          .filter(deal => deal.discountPercentage === 0 || deal.discountPercentage === null);
+        console.log("[Deals] regularDeals.length:", regularDeals.length, regularDeals.map(d => d.id || d.asin));
+        // Multiple shuffle passes
+        for (let i = 0; i < shuffleAmount; i++) {
+          regularDeals = regularDeals.sort(() => Math.random() - 0.5);
+        }
+        // Take what we need to fill the grid
+        regularDeals = regularDeals.slice(0, 6 - selectedDeals.length);
+        selectedDeals = [...selectedDeals, ...regularDeals];
+      }
+
+      // One final shuffle to mix discounted and regular products
+      selectedDeals = selectedDeals.sort(() => Math.random() - 0.5);
+
+      setDeals(selectedDeals);
+    }
+  }, [data, refreshKey]);
 
   if (isLoading) {
     return (
@@ -117,11 +150,14 @@ export default function HighlightedDeals() {
     );
   }
 
-  if (isError || !allDeals.length) {
+  if (isError || !deals.length) {
     return (
       <Card className="border-dashed">
         <CardHeader>
           <CardTitle className="text-center">No Deals Available</CardTitle>
+          <CardDescription className="text-center">
+            We couldn't find any top deals right now. Please check back later.
+          </CardDescription>
         </CardHeader>
       </Card>
     );
@@ -129,52 +165,30 @@ export default function HighlightedDeals() {
 
   return (
     <div className="space-y-4">
-      <div className="flex items-center justify-between mb-2">
+      <div className="flex justify-between items-center">
         <h2 className="text-2xl font-bold">Trending Now</h2>
-        {totalPages > 1 && (
-          <div className="flex items-center gap-2">
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => setCurrentPage((p) => p - 1)}
-              disabled={!hasPrevPage}
-              className="h-7 w-7 p-0"
-            >
-              <ChevronLeft className="h-4 w-4" />
-            </Button>
-            <span className="text-xs text-muted-foreground">
-              {currentPage + 1} / {totalPages}
-            </span>
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => setCurrentPage((p) => p + 1)}
-              disabled={!hasNextPage}
-              className="h-7 w-7 p-0"
-            >
-              <ChevronRight className="h-4 w-4" />
-            </Button>
-          </div>
-        )}
+        <Button 
+          onClick={refreshDeals} 
+          variant="outline"
+          className="flex items-center gap-2 px-3 py-1.5 rounded-md bg-amber-100 border border-amber-300 text-amber-800 hover:bg-amber-200 transition-colors"
+        >
+          <RefreshCw className="h-4 w-4" />
+          Refresh Deals
+        </Button>
       </div>
-
-      <div className="text-xs text-muted-foreground mb-3">
-        Showing {currentDeals.length} of {allDeals.length} cached deals
-      </div>
-
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-        {currentDeals.map((deal) => (
+        {deals.map((deal) => (
           <Card key={deal.id} className="overflow-hidden flex flex-col h-full hover:shadow-lg transition-shadow">
             <div className="aspect-video bg-slate-50 flex items-center justify-center relative overflow-hidden">
               {deal.imageUrl ? (
-                <img
-                  src={deal.imageUrl}
-                  alt={deal.title}
+                <img 
+                  src={deal.imageUrl} 
+                  alt={deal.title} 
                   className="object-contain w-full h-full p-2"
                 />
               ) : (
                 <div className="h-full w-full flex items-center justify-center text-slate-400">
-                  No image
+                  No image available
                 </div>
               )}
               <div className="absolute top-2 right-2 flex flex-col gap-1 items-end">
@@ -183,14 +197,11 @@ export default function HighlightedDeals() {
                     {deal.discountPercentage}% OFF
                   </Badge>
                 )}
-                {deal.originalPrice &&
-                  deal.currentPrice < deal.originalPrice && (
-                    <Badge className="bg-green-600 text-white text-xs shadow-lg">
-                      Save ${(
-                        deal.originalPrice - deal.currentPrice
-                      ).toFixed(2)}
-                    </Badge>
-                  )}
+                {deal.originalPrice && deal.currentPrice < deal.originalPrice && (
+                  <Badge className="bg-green-600 text-white text-xs shadow-lg">
+                    Save ${(deal.originalPrice - deal.currentPrice).toFixed(2)}
+                  </Badge>
+                )}
                 {deal.currentPrice < 15 && (
                   <Badge className="bg-blue-600 text-white text-xs">
                     Under $15
@@ -198,33 +209,31 @@ export default function HighlightedDeals() {
                 )}
               </div>
             </div>
-
             <CardHeader className="p-4 pb-0">
               <CardTitle className="text-sm font-medium line-clamp-2">
                 {deal.title}
               </CardTitle>
             </CardHeader>
-
             <CardContent className="p-4 pt-2 flex-grow">
               <div className="flex items-baseline gap-2">
                 <span className="text-lg font-bold text-primary">
                   ${deal.currentPrice.toFixed(2)}
                 </span>
-                {deal.originalPrice &&
-                  deal.originalPrice > deal.currentPrice && (
-                    <span className="text-sm line-through text-muted-foreground">
-                      ${deal.originalPrice.toFixed(2)}
-                    </span>
-                  )}
+                {deal.originalPrice && deal.originalPrice > deal.currentPrice && (
+                  <span className="text-sm line-through text-muted-foreground">
+                    ${deal.originalPrice.toFixed(2)}
+                  </span>
+                )}
               </div>
 
+              {/* Price drop info */}
               {deal.discountPercentage > 0 && (
                 <div className="flex flex-col gap-1 mt-1">
                   <div className="flex items-center text-red-600 text-sm">
                     <ArrowDownRight className="h-4 w-4 mr-1" />
                     Price dropped {deal.discountPercentage}%
                   </div>
-                  {deal.savings && (
+                  {deal.savings && deal.savings > 0 && (
                     <div className="text-green-600 text-sm font-medium">
                       Save ${deal.savings.toFixed(2)}
                     </div>
@@ -232,39 +241,23 @@ export default function HighlightedDeals() {
                 </div>
               )}
 
+              {/* Historical price context */}
               <div className="mt-2 text-xs text-muted-foreground">
                 <div className="flex justify-between">
-                  <span>
-                    Lowest: $
-                    {(deal.lowestPrice ?? deal.currentPrice).toFixed(2)}
-                  </span>
-                  <span>
-                    Highest: $
-                    {(deal.highestPrice ?? deal.currentPrice).toFixed(2)}
-                  </span>
+                  <span>Lowest: ${(deal.lowestPrice ?? deal.currentPrice).toFixed(2)}</span>
+                  <span>Highest: ${(deal.highestPrice ?? deal.currentPrice).toFixed(2)}</span>
                 </div>
               </div>
             </CardContent>
-
             <CardFooter className="p-4 pt-0">
               <div className="space-y-2 w-full">
                 <Button asChild className="w-full">
-                  <a
-                    href={deal.affiliateUrl || deal.url}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                  >
+                  <a href={deal.affiliateUrl || deal.url} target="_blank" rel="noopener noreferrer">
                     View Deal <ArrowRight className="ml-2 h-4 w-4" />
                   </a>
                 </Button>
-                <Badge
-                  variant="outline"
-                  className="w-full justify-center py-1 border-dashed text-xs text-muted-foreground hover:bg-primary/5 cursor-pointer hover:border-primary transition-colors"
-                >
-                  <a
-                    href={`/dashboard?track=${deal.asin}`}
-                    className="flex items-center w-full justify-center"
-                  >
+                <Badge variant="outline" className="w-full justify-center py-1 border-dashed text-xs text-muted-foreground hover:bg-primary/5 cursor-pointer hover:border-primary transition-colors">
+                  <a href={`/dashboard?track=${deal.asin}`} className="flex items-center w-full justify-center">
                     Track Price
                   </a>
                 </Badge>
