@@ -29,34 +29,46 @@ const PriceTrackerDashboard: React.FC = () => {
   const [refreshKey, setRefreshKey] = useState(0);
   const [lastRefreshTime, setLastRefreshTime] = useState(Date.now());
 
-  // Get real price drop deals from the database
-  const { data: deals, isLoading, refetch } = useQuery<{deals: ProductDeal[]}>({
-    queryKey: ["/api/products/deals", refreshKey, lastRefreshTime],
+  // Get real price drop deals from the backend
+  const { data: deals, isLoading, refetch } = useQuery<ProductDeal[]>({
+    queryKey: ["/api/amazon/deals", refreshKey, lastRefreshTime],
     queryFn: async () => {
       const timestamp = Date.now();
-      const response = await fetch(`/api/products/deals?limit=20&t=${timestamp}`);
+      const response = await fetch(`/api/amazon/deals?t=${timestamp}`);
       if (!response.ok) {
         throw new Error('Failed to fetch deals');
       }
       const result = await response.json();
-      console.log('[PriceTracker] Raw database API response:', result);
+      console.log('[PriceTracker] Raw Amazon API response:', result);
 
-      // Process database deals data
+      // Extract real Amazon savings data from the API response structure
       const mappedDeals = result.deals.map((d: any, idx: number) => {
         // Amazon savings data is nested in the full API response structure
         let hasSavings = false;
         let savingsAmount = 0;
         let savingsPercentage = 0;
 
-        // Use database savings data
-        if (d.savings && d.savings > 0) {
+        // Check if we have full Amazon API response with Offers structure
+        if (d.Offers && d.Offers.Listings && d.Offers.Listings[0] && d.Offers.Listings[0].Price && d.Offers.Listings[0].Price.Savings) {
+          const savings = d.Offers.Listings[0].Price.Savings;
+          hasSavings = savings.Amount > 0;
+          savingsAmount = savings.Amount;
+          savingsPercentage = savings.Percentage;
+        }
+        // Check if savings data is directly on the deal object (from backend)
+        else if (d.savings && d.savings.Amount > 0) {
           hasSavings = true;
-          savingsAmount = d.savings;
-          savingsPercentage = d.discountPercentage || 0;
+          savingsAmount = d.savings.Amount;
+          savingsPercentage = d.savings.Percentage;
         }
 
-        // Use original price from database
-        let originalPrice = d.originalPrice;
+        // Calculate original price from savings if available
+        let originalPrice = null;
+        if (hasSavings && savingsAmount > 0) {
+          originalPrice = d.price + savingsAmount;
+        } else if (d.msrp && d.msrp > d.price) {
+          originalPrice = d.msrp;
+        }
 
         console.log('[PriceTracker] Deal:', {
           asin: d.asin,
@@ -231,14 +243,6 @@ const PriceTrackerDashboard: React.FC = () => {
     <div className="bg-white border rounded-xl shadow-sm p-4">
       <div className="flex justify-between items-center mb-2">
         <h3 className="text-sm font-semibold">Price Drop Dashboard</h3>
-        <button 
-          className={`text-sm text-blue-600 hover:underline ${isRefreshing ? 'opacity-50' : ''}`}
-          onClick={handleRefresh}
-          disabled={isRefreshing}
-        >
-          <RefreshCw className={`h-3 w-3 inline mr-1 ${isRefreshing ? 'animate-spin' : ''}`} />
-          Refresh
-        </button>
       </div>
       {!isLoading && selectedDeals.length === 0 && (
         <div className="text-sm text-muted-foreground">
@@ -316,7 +320,7 @@ const PriceTrackerDashboard: React.FC = () => {
           </li>
         ))}
       </ul>
-      <p className="text-[10px] text-muted-foreground mt-4">Updated daily from Amazon</p>
+      <p className="text-[10px] text-muted-foreground mt-4">Powered by Amazon Product API</p>
     </div>
   );
 };
