@@ -27,7 +27,14 @@ export default function LiveDealsPreview() {
 
   useEffect(() => {
     if (Array.isArray(extracted)) {
-      setAllDeals(extracted);
+      // Map the deals to ensure consistent property names
+      const mappedDeals = extracted.map(deal => ({
+        ...deal,
+        currentPrice: deal.currentPrice ?? deal.price ?? 0,
+        originalPrice: deal.originalPrice ?? null,
+        affiliateUrl: deal.affiliateUrl ?? deal.url
+      }));
+      setAllDeals(mappedDeals);
       setCurrentPage(0);
     }
   }, [extracted]);
@@ -86,7 +93,9 @@ export default function LiveDealsPreview() {
               <CardTitle className="text-sm line-clamp-2">{deal.title}</CardTitle>
             </CardHeader>
             <CardContent>
-              <div className="text-primary font-bold text-lg">${deal.currentPrice.toFixed(2)}</div>
+              <div className="text-primary font-bold text-lg">
+                ${(deal.currentPrice || 0).toFixed(2)}
+              </div>
             </CardContent>
           </Card>
         ))}
