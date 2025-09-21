@@ -110,7 +110,7 @@ export default function HighlightedDeals() {
     return (
       <div>
         <div className="flex justify-between items-center mb-4">
-          <h2 className="text-2xl font-bold">Price Drop Dashboard</h2>
+          <h2 className="text-2xl font-bold">Trending Now</h2>
           <div className="h-9 w-32 bg-slate-100 rounded-md animate-pulse"></div>
         </div>
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
@@ -166,7 +166,7 @@ export default function HighlightedDeals() {
   return (
     <div className="space-y-4">
       <div className="flex justify-between items-center">
-        <h2 className="text-2xl font-bold">Price Drop Dashboard</h2>
+        <h2 className="text-2xl font-bold">Trending Now</h2>
         <Button 
           onClick={refreshDeals} 
           variant="outline"

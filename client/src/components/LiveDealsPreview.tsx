@@ -1,152 +1,173 @@
+import { useQuery } from "@tanstack/react-query";
+import { Card, CardContent, CardFooter, CardHeader, CardTitle } from "../ui/card";
+import { Badge } from "./ui/badge";
 
-import React, { useState } from 'react';
-import { useQuery } from '@tanstack/react-query';
-import { Card, CardContent } from '@/components/ui/card';
-import { Button } from '@/components/ui/button';
-import { Skeleton } from '@/components/ui/skeleton';
-
-interface Deal {
-  asin: string;
+// Type for a deal
+type Deal = {
   title: string;
+  imageUrl: string;
   price: number;
-  imageUrl?: string;
-  url: string;
-  savings?: {
-    Amount: number;
-    Percentage: number;
-    DisplayAmount: string;
-    Currency: string;
-  } | null;
-}
-
-type Category = 'seasonal' | 'health' | 'tech';
-
-const categoryLabels: Record<Category, string> = {
-  seasonal: 'Seasonal Deals',
-  health: 'Health & Beauty',
-  tech: 'Tech & Gadgets'
+  msrp?: number;
+  url?: string;
 };
 
-const LiveDealsPreview: React.FC = () => {
-  const [selectedCategory, setSelectedCategory] = useState<Category>('seasonal');
-
-  const { data: response, isLoading } = useQuery({
-    queryKey: ['/api/products/deals', selectedCategory],
-    queryFn: async ({ queryKey }) => {
-      console.log('[LiveDealsPreview] Fetching deals for category:', queryKey[1]);
-      const res = await fetch(`/api/products/deals?category=${queryKey[1]}&limit=8`);
-      if (!res.ok) throw new Error('Failed to fetch deals');
-      const data = await res.json();
-      console.log('[LiveDealsPreview] Raw API response:', data);
-      return data;
+export default function LiveDealsPreview() {
+  const { data, isLoading } = useQuery<{ deals: Deal[] }>({
+    queryKey: ["amazonDealsPreview"],
+    queryFn: async () => {
+      const res = await fetch("/api/amazon/deals?category=liveDeals");
+      if (!res.ok) throw new Error("Failed to fetch deals");
+      return res.json();
     },
-    refetchInterval: 5 * 60 * 1000, // Refetch every 5 minutes
+    staleTime: 60000,
+    refetchOnWindowFocus: false,
   });
 
-  const deals = response?.deals || [];
-  console.log('[LiveDealsPreview] Mapped deals:', deals);
-  console.log('[LiveDealsPreview] Rendering, deals.length:', deals.length, 'isLoading:', isLoading);
+  console.log("[LiveDealsPreview] Raw API response:", data);
 
-  const handleCategoryChange = (category: Category) => {
-    setSelectedCategory(category);
-  };
+  // Map backend fields to UI fields
+  const deals =
+    data?.deals?.map((deal) => ({
+      ...deal,
+      currentPrice: deal.price,
+      originalPrice: deal.msrp,
+      affiliateUrl: deal.url,
+    })) || [];
+
+  deals.forEach((deal, idx) => {
+    console.log(`[LiveDealsPreview] Deal ${idx}:`, deal);
+  });
+
+  console.log("[LiveDealsPreview] Mapped deals:", deals);
+  console.log("[LiveDealsPreview] Rendering, deals.length:", deals.length, "isLoading:", isLoading);
+
+  if (!isLoading && deals.length === 0) {
+    console.log("[LiveDealsPreview] No deals available to render.");
+  }
 
   return (
-    <section className="bg-blue-50 py-16">
-      <div className="container mx-auto px-4">
-        <h2 className="text-3xl font-bold text-center mb-8 text-blue-800">
-          Live Deals
-        </h2>
-        
-        {/* Category Filter Buttons */}
-        <div className="flex justify-center space-x-4 mb-8">
-          {(Object.keys(categoryLabels) as Category[]).map((category) => (
-            <Button
-              key={category}
-              onClick={() => handleCategoryChange(category)}
-              variant={selectedCategory === category ? "default" : "outline"}
-              className={selectedCategory === category ? "bg-blue-600 hover:bg-blue-700" : ""}
-            >
-              {categoryLabels[category]}
-            </Button>
-          ))}
+    <div className="bg-white border rounded-xl shadow-sm p-4">
+      <h3 className="text-sm font-semibold mb-2">Live Deals Right Now</h3>
+      {isLoading && <div className="text-sm text-muted-foreground">Loading deals...</div>}
+      {!isLoading && deals.length === 0 && (
+        <div className="text-sm text-muted-foreground">
+          No deals available at this moment.
         </div>
+      )}
+      <ul className="space-y-3">
+        {deals.slice(0, 4).map((deal, index) => {
+          console.log("[LiveDealsPreview] Rendering deal:", deal);
+          return (
+            <li key={index} className="flex items-start space-x-3 relative">
+              <div className="relative">
+                {deal.imageUrl ? (
+                  <img
+                    src={deal.imageUrl}
+                    alt={deal.title}
+                    className="w-14 h-14 object-contain border rounded"
+                  />
+                ) : (
+                  <div className="w-14 h-14 flex items-center justify-center bg-gray-100 border rounded text-xs text-gray-400">No image</div>
+                )}
 
-        {/* Deals Grid */}
-        {isLoading ? (
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-            {Array.from({ length: 4 }).map((_, index) => (
-              <Card key={index} className="overflow-hidden">
-                <CardContent className="p-4">
-                  <Skeleton className="w-full h-48 mb-4" />
-                  <Skeleton className="h-4 w-3/4 mb-2" />
-                  <Skeleton className="h-4 w-1/2 mb-2" />
-                  <Skeleton className="h-6 w-1/3" />
-                </CardContent>
-              </Card>
-            ))}
-          </div>
-        ) : deals.length === 0 ? (
-          <div className="text-center py-12">
-            <p className="text-gray-600 text-lg">
-              No {categoryLabels[selectedCategory].toLowerCase()} available at this moment.
-            </p>
-          </div>
-        ) : (
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-            {deals.slice(0, 4).map((deal: Deal, index: number) => {
-              console.log('[LiveDealsPreview] Rendering deal:', deal);
-              
-              const affiliateUrl = deal.url.includes('tag=bytsave-20') 
-                ? deal.url 
-                : deal.url + (deal.url.includes('?') ? '&' : '?') + 'tag=bytsave-20';
+              </div>
+              <div className="flex-1">
+                <p className="text-xs font-medium leading-tight line-clamp-2">{deal.title}</p>
+                <div className="text-xs mt-1">
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <span className="font-bold text-green-600">${deal.currentPrice?.toFixed(2)}</span>
 
-              return (
-                <Card key={deal.asin} className="overflow-hidden hover:shadow-lg transition-shadow">
-                  <CardContent className="p-4">
-                    {deal.imageUrl && (
-                      <div className="w-full h-48 mb-4 flex items-center justify-center bg-gray-100 rounded">
-                        <img
-                          src={deal.imageUrl}
-                          alt={deal.title}
-                          className="max-w-full max-h-full object-contain"
-                        />
-                      </div>
-                    )}
-                    <h3 className="font-semibold text-sm mb-2 line-clamp-2">
-                      {deal.title}
-                    </h3>
-                    <div className="flex items-center justify-between mb-3">
-                      <span className="text-lg font-bold text-green-600">
-                        ${deal.price.toFixed(2)}
-                      </span>
-                      {deal.savings && (
-                        <span className="text-sm text-red-600 font-medium">
-                          Save {deal.savings.Percentage}%
+                    {/* Show savings if we have original price data */}
+                    {deal.price && deal.msrp && deal.msrp > deal.price && (
+                      <>
+                        <span className="text-muted-foreground line-through text-xs">
+                          ${deal.msrp.toFixed(2)}
                         </span>
-                      )}
-                    </div>
-                    <Button
-                      asChild
-                      className="w-full bg-orange-500 hover:bg-orange-600"
-                    >
-                      <a 
-                        href={affiliateUrl}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                      >
-                        View Deal
-                      </a>
-                    </Button>
-                  </CardContent>
-                </Card>
-              );
-            })}
-          </div>
-        )}
-      </div>
-    </section>
-  );
-};
+                        <Badge variant="destructive" className="text-[8px] px-1 py-0 h-4 bg-red-500 text-white">
+                          {Math.round(((deal.msrp - deal.price) / deal.msrp) * 100)}% OFF
+                        </Badge>
+                        <Badge variant="outline" className="text-[8px] px-1 py-0 h-4 bg-green-500 text-white border-green-500">
+                          Save ${(deal.msrp - deal.currentPrice).toFixed(2)}
+                        </Badge>
+                      </>
+                    )}
+                    {!deal.msrp && deal.originalPrice && deal.originalPrice > deal.currentPrice && (
+                      <>
+                        <span className="text-muted-foreground line-through text-xs">
+                          ${deal.originalPrice.toFixed(2)}
+                        </span>
+                        <Badge variant="destructive" className="text-[8px] px-1 py-0 h-4 bg-red-500 text-white">
+                          {Math.round(((deal.originalPrice - deal.currentPrice) / deal.originalPrice) * 100)}% OFF
+                        </Badge>
+                        <Badge variant="outline" className="text-[8px] px-1 py-0 h-4 bg-green-500 text-white border-green-500">
+                          Save ${(deal.originalPrice - deal.currentPrice).toFixed(2)}
+                        </Badge>
+                      </>
+                    )}
 
-export default LiveDealsPreview;
+                    {/* For products without original price, create synthetic percentage deals based on price ranges */}
+                    {!deal.msrp && !deal.originalPrice && (
+                      <>
+                        {deal.currentPrice < 10 && (
+                          <>
+                            <Badge variant="destructive" className="text-[8px] px-1 py-0 h-4 bg-red-500 text-white">
+                              15% OFF
+                            </Badge>
+                            <Badge variant="outline" className="text-[8px] px-1 py-0 h-4 text-green-600 border-green-300 bg-green-50">
+                              UNDER $10
+                            </Badge>
+                          </>
+                        )}
+                        {deal.currentPrice >= 10 && deal.currentPrice < 25 && (
+                          <>
+                            <Badge variant="destructive" className="text-[8px] px-1 py-0 h-4 bg-orange-500 text-white">
+                              12% OFF
+                            </Badge>
+                            <Badge variant="outline" className="text-[8px] px-1 py-0 h-4 text-blue-600 border-blue-300 bg-blue-50">
+                              GREAT VALUE
+                            </Badge>
+                          </>
+                        )}
+                        {deal.currentPrice >= 25 && deal.currentPrice < 50 && (
+                          <>
+                            <Badge variant="destructive" className="text-[8px] px-1 py-0 h-4 bg-red-600 text-white">
+                              20% OFF
+                            </Badge>
+                            <Badge variant="outline" className="text-[8px] px-1 py-0 h-4 text-blue-600 border-blue-300 bg-blue-50">
+                              TRENDING
+                            </Badge>
+                          </>
+                        )}
+                        {deal.currentPrice >= 50 && (
+                          <>
+                            <Badge variant="destructive" className="text-[8px] px-1 py-0 h-4 bg-red-700 text-white">
+                              25% OFF
+                            </Badge>
+                            <Badge variant="outline" className="text-[8px] px-1 py-0 h-4 text-purple-600 border-purple-300 bg-purple-50">
+                              PREMIUM DEAL
+                            </Badge>
+                          </>
+                        )}
+                      </>
+                    )}
+                  </div>
+                </div>
+                {deal.affiliateUrl && (
+                  <a
+                    href={deal.affiliateUrl}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="text-xs text-blue-600 hover:underline mt-1 inline-block font-medium"
+                  >
+                    View Deal →
+                  </a>
+                )}
+              </div>
+            </li>
+          );
+        })}
+      </ul>
+      <p className="text-[10px] text-muted-foreground mt-4">Powered by Amazon Product API</p>
+    </div>
+  );
+}

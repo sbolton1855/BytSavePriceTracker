@@ -24,6 +24,8 @@ import adminEmailLogsRoutes from './routes/adminEmailLogs';
 import adminToolsRoutes from './routes/adminTools';
 import emailTestRoutes from './routes/emailTest';
 import adminConfigRouter from "./routes/adminConfig";
+import errorRoutes from './routes/errors';
+import adminKeywordsRoutes from './routes/adminKeywords';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
@@ -2778,6 +2780,11 @@ Respond with just the analysis text, no JSON needed.
 
   app.use('/api', amazonRouter);
   // console.log(">>> [DEBUG] Registered amazonRouter at /api");
+
+  // Register admin keywords routes
+  app.use('/api', adminKeywordsRoutes);
+
+  app.use('/api', errorRoutes);
 
   return httpServer;
 }
