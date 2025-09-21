@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "./ui/card";
@@ -38,26 +37,17 @@ export default function HighlightedDeals() {
     refetchOnWindowFocus: false,
   });
 
+// Extract deals from the API response (handle nested structure like LiveDealsPreview)
+  const extractedDeals = data?.data?.deals ?? data?.deals ?? (Array.isArray(data) ? data : []);
+
   console.log("Deals data from React Query:", data);
-  console.log("[HighlightedDeals] Pagination state:", {
-    totalDeals: allDeals.length,
-    currentPage,
-    totalPages,
-    dealsPerPage,
-    hasNextPage,
-    hasPrevPage,
-    showPagination: totalPages > 1
-  });
-  console.log("[HighlightedDeals] Pagination condition check:", {
-    totalPages,
-    condition: totalPages > 1,
-    shouldShowPagination: totalPages > 1
-  });
+  console.log("[HighlightedDeals] API Query State:", { data, isLoading, isError });
+  console.log("[HighlightedDeals] Extracted deals:", extractedDeals);
 
   // Process deals to calculate discount percentages
   useEffect(() => {
-    if (data && Array.isArray(data)) {
-      const processedDeals = data.map(product => {
+    if (extractedDeals && Array.isArray(extractedDeals)) {
+      const processedDeals = extractedDeals.map(product => {
         const savings = product.savings || 
           (product.originalPrice ? (product.originalPrice - product.currentPrice) : 0);
 
@@ -73,7 +63,7 @@ export default function HighlightedDeals() {
       setAllDeals(processedDeals);
       setCurrentPage(0); // Reset to first page when new data arrives
     }
-  }, [data]);
+  }, [extractedDeals]); // Depend on extractedDeals
 
   // Calculate pagination
   const totalPages = Math.ceil(allDeals.length / dealsPerPage);
@@ -81,6 +71,7 @@ export default function HighlightedDeals() {
   const currentDeals = allDeals.slice(startIndex, startIndex + dealsPerPage);
   const hasNextPage = currentPage < totalPages - 1;
   const hasPrevPage = currentPage > 0;
+  const shouldShowPagination = totalPages > 1;
 
   const handleNextPage = () => {
     if (hasNextPage) {
@@ -155,8 +146,7 @@ export default function HighlightedDeals() {
     <div className="space-y-4">
       <div className="flex items-center justify-between mb-2">
         <h2 className="text-2xl font-bold">Trending Now</h2>
-        {/* Debug: Force show pagination for testing */}
-        {(totalPages > 1 || true) && (
+        {shouldShowPagination && (
           <div className="flex items-center gap-2">
             <Button
               variant="outline"
