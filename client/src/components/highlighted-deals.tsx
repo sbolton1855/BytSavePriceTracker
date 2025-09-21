@@ -1,12 +1,12 @@
+
 import { useState, useEffect } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "./ui/card";
 import { Badge } from "./ui/badge";
 import { Button } from "./ui/button";
 import { Skeleton } from "./ui/skeleton";
-import { ArrowRight, ArrowDownRight, Loader2, RefreshCw } from "lucide-react";
+import { ArrowRight, ArrowDownRight, ChevronLeft, ChevronRight } from "lucide-react";
 import { Product } from "../../../shared/schema";
-
 
 type HighlightedDeal = Product & {
   discountPercentage: number;
@@ -16,41 +16,31 @@ type HighlightedDeal = Product & {
 };
 
 export default function HighlightedDeals() {
-  const [deals, setDeals] = useState<HighlightedDeal[]>([]);
-  const [refreshKey, setRefreshKey] = useState<number>(0);
+  const [allDeals, setAllDeals] = useState<HighlightedDeal[]>([]);
+  const [currentPage, setCurrentPage] = useState(0);
+  const dealsPerPage = 6;
 
   // Fetch the top deals from the API
-  const { data, isLoading, isError, refetch } = useQuery({
-    queryKey: ["/api/products/deals", refreshKey],
+  const { data, isLoading, isError } = useQuery({
+    queryKey: ["/api/products/deals"],
     queryFn: async () => {
-      // Add rotation parameter and timestamp to ensure different products
-      const timestamp = Date.now();
-      const rotation = refreshKey % 10; // Create 10 different product sets
-      const res = await fetch(`/api/products/deals?t=${timestamp}&rotate=${rotation}`);
+      const res = await fetch(`/api/products/deals`);
 
       if (!res.ok) {
         throw new Error("Failed to fetch deals");
       }
 
       const data = await res.json();
-      console.log(`Received ${data.length} products, rotation: ${rotation}`, 
-                 data.map((p: any) => p.id));
+      console.log(`Received ${data.length} products for trending now`);
       return data;
     },
-    // Disable caching for fresh data
-    staleTime: 0,
-    gcTime: 0,
+    staleTime: 300000, // 5 minutes
     refetchOnWindowFocus: false,
   });
 
   console.log("Deals data from React Query:", data);
 
-  // Function to manually refresh deals
-  const refreshDeals = () => {
-    setRefreshKey(prev => prev + 1);
-  };
-
-  // Process deals to calculate discount percentages and rotate them for variety
+  // Process deals to calculate discount percentages
   useEffect(() => {
     if (data && Array.isArray(data)) {
       const processedDeals = data.map(product => {
@@ -65,46 +55,30 @@ export default function HighlightedDeals() {
         };
       });
 
-      console.log("[Deals] processedDeals.length:", processedDeals.length, processedDeals.map(d => d.id || d.asin));
-      // Add extra randomization using refreshKey in the sort
-      // This helps produce different results each time
-      const shuffleAmount = refreshKey % 4 + 1; // 1-4 based on refreshKey
-
-      // Get all deals with any discount
-      const dealsWithDiscount = processedDeals.filter(deal => deal.discountPercentage > 0);
-      console.log("[Deals] dealsWithDiscount.length:", dealsWithDiscount.length, dealsWithDiscount.map(d => d.id || d.asin));
-
-      // Apply multiple shuffling passes for better randomization
-      let shuffledDeals = [...dealsWithDiscount];
-      for (let i = 0; i < shuffleAmount; i++) {
-        shuffledDeals = shuffledDeals.sort(() => Math.random() - 0.5);
-      }
-
-      // Take a variable number of top deals based on refreshKey
-      const dealsCount = Math.min(6, Math.max(3, shuffledDeals.length));
-      let selectedDeals = shuffledDeals.slice(0, dealsCount);
-
-      // If we need more deals, add regular products
-      if (selectedDeals.length < 6) {
-        // Get non-discounted deals and shuffle them with multiple passes
-        let regularDeals = processedDeals
-          .filter(deal => deal.discountPercentage === 0 || deal.discountPercentage === null);
-        console.log("[Deals] regularDeals.length:", regularDeals.length, regularDeals.map(d => d.id || d.asin));
-        // Multiple shuffle passes
-        for (let i = 0; i < shuffleAmount; i++) {
-          regularDeals = regularDeals.sort(() => Math.random() - 0.5);
-        }
-        // Take what we need to fill the grid
-        regularDeals = regularDeals.slice(0, 6 - selectedDeals.length);
-        selectedDeals = [...selectedDeals, ...regularDeals];
-      }
-
-      // One final shuffle to mix discounted and regular products
-      selectedDeals = selectedDeals.sort(() => Math.random() - 0.5);
-
-      setDeals(selectedDeals);
+      console.log("[Deals] processedDeals.length:", processedDeals.length);
+      setAllDeals(processedDeals);
+      setCurrentPage(0); // Reset to first page when new data arrives
     }
-  }, [data, refreshKey]);
+  }, [data]);
+
+  // Calculate pagination
+  const totalPages = Math.ceil(allDeals.length / dealsPerPage);
+  const startIndex = currentPage * dealsPerPage;
+  const currentDeals = allDeals.slice(startIndex, startIndex + dealsPerPage);
+  const hasNextPage = currentPage < totalPages - 1;
+  const hasPrevPage = currentPage > 0;
+
+  const handleNextPage = () => {
+    if (hasNextPage) {
+      setCurrentPage(prev => prev + 1);
+    }
+  };
+
+  const handlePrevPage = () => {
+    if (hasPrevPage) {
+      setCurrentPage(prev => prev - 1);
+    }
+  };
 
   if (isLoading) {
     return (
@@ -150,7 +124,7 @@ export default function HighlightedDeals() {
     );
   }
 
-  if (isError || !deals.length) {
+  if (isError || !allDeals.length) {
     return (
       <Card className="border-dashed">
         <CardHeader>
@@ -167,17 +141,36 @@ export default function HighlightedDeals() {
     <div className="space-y-4">
       <div className="flex justify-between items-center">
         <h2 className="text-2xl font-bold">Trending Now</h2>
-        <Button 
-          onClick={refreshDeals} 
-          variant="outline"
-          className="flex items-center gap-2 px-3 py-1.5 rounded-md bg-amber-100 border border-amber-300 text-amber-800 hover:bg-amber-200 transition-colors"
-        >
-          <RefreshCw className="h-4 w-4" />
-          Refresh Deals
-        </Button>
+        {allDeals.length > dealsPerPage && (
+          <div className="flex items-center gap-2">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={handlePrevPage}
+              disabled={!hasPrevPage}
+              className="flex items-center gap-2 px-3 py-1.5"
+            >
+              <ChevronLeft className="h-4 w-4" />
+              Previous
+            </Button>
+            <span className="text-sm text-muted-foreground px-2">
+              {currentPage + 1} / {totalPages}
+            </span>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={handleNextPage}
+              disabled={!hasNextPage}
+              className="flex items-center gap-2 px-3 py-1.5"
+            >
+              Next
+              <ChevronRight className="h-4 w-4" />
+            </Button>
+          </div>
+        )}
       </div>
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-        {deals.map((deal) => (
+        {currentDeals.map((deal) => (
           <Card key={deal.id} className="overflow-hidden flex flex-col h-full hover:shadow-lg transition-shadow">
             <div className="aspect-video bg-slate-50 flex items-center justify-center relative overflow-hidden">
               {deal.imageUrl ? (
@@ -266,6 +259,11 @@ export default function HighlightedDeals() {
           </Card>
         ))}
       </div>
+      {allDeals.length > dealsPerPage && (
+        <div className="text-center text-sm text-muted-foreground mt-4">
+          Showing {currentDeals.length} of {allDeals.length} cached deals
+        </div>
+      )}
     </div>
   );
 }

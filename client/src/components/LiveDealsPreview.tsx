@@ -1,6 +1,10 @@
+
 import { useQuery } from "@tanstack/react-query";
 import { Card, CardContent, CardFooter, CardHeader, CardTitle } from "../ui/card";
 import { Badge } from "./ui/badge";
+import { Button } from "./ui/button";
+import { ChevronLeft, ChevronRight } from "lucide-react";
+import { useState } from "react";
 
 // Type for a deal
 type Deal = {
@@ -9,9 +13,19 @@ type Deal = {
   price: number;
   msrp?: number;
   url?: string;
+  asin: string;
+  savings?: {
+    Amount: number;
+    Percentage: number;
+    DisplayAmount: string;
+    Currency: string;
+  };
 };
 
 export default function LiveDealsPreview() {
+  const [currentPage, setCurrentPage] = useState(0);
+  const dealsPerPage = 4;
+
   const { data, isLoading, error } = useQuery<any>({
     queryKey: ["amazonDealsPreview"],
     queryFn: async () => {
@@ -36,7 +50,7 @@ export default function LiveDealsPreview() {
         return [];
       }
     },
-    staleTime: 60000,
+    staleTime: 300000, // 5 minutes
     refetchOnWindowFocus: false,
     retry: 2,
     retryDelay: 1000,
@@ -45,7 +59,7 @@ export default function LiveDealsPreview() {
   console.log("[LiveDealsPreview] Raw API response:", data);
 
   // Map backend fields to UI fields with better error handling
-  const deals = Array.isArray(data) 
+  const allDeals = Array.isArray(data) 
     ? data.map((deal) => ({
         ...deal,
         currentPrice: deal.price || 0,
@@ -58,17 +72,63 @@ export default function LiveDealsPreview() {
       }))
     : [];
 
-  console.log("[LiveDealsPreview] Processed deals count:", deals.length);
-  console.log("[LiveDealsPreview] First deal sample:", deals[0]);
-  console.log("[LiveDealsPreview] Rendering, deals.length:", deals.length, "isLoading:", isLoading);
+  // Calculate pagination
+  const totalPages = Math.ceil(allDeals.length / dealsPerPage);
+  const startIndex = currentPage * dealsPerPage;
+  const currentDeals = allDeals.slice(startIndex, startIndex + dealsPerPage);
+  const hasNextPage = currentPage < totalPages - 1;
+  const hasPrevPage = currentPage > 0;
 
-  if (!isLoading && deals.length === 0) {
-    console.log("[LiveDealsPreview] No deals available to render.");
-  }
+  console.log("[LiveDealsPreview] Pagination info:", {
+    totalDeals: allDeals.length,
+    currentPage,
+    totalPages,
+    currentDealsCount: currentDeals.length
+  });
+
+  const handleNextPage = () => {
+    if (hasNextPage) {
+      setCurrentPage(prev => prev + 1);
+    }
+  };
+
+  const handlePrevPage = () => {
+    if (hasPrevPage) {
+      setCurrentPage(prev => prev - 1);
+    }
+  };
 
   return (
     <div className="bg-white border rounded-xl shadow-sm p-4">
-      <h3 className="text-sm font-semibold mb-2">Live Deals Right Now</h3>
+      <div className="flex items-center justify-between mb-2">
+        <h3 className="text-sm font-semibold">Live Deals Right Now</h3>
+        {allDeals.length > dealsPerPage && (
+          <div className="flex items-center gap-2">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={handlePrevPage}
+              disabled={!hasPrevPage}
+              className="h-7 w-7 p-0"
+            >
+              <ChevronLeft className="h-4 w-4" />
+            </Button>
+            <span className="text-xs text-muted-foreground">
+              {currentPage + 1} / {totalPages}
+            </span>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={handleNextPage}
+              disabled={!hasNextPage}
+              className="h-7 w-7 p-0"
+            >
+              <ChevronRight className="h-4 w-4" />
+            </Button>
+          </div>
+        )}
+      </div>
+
       {isLoading && (
         <div className="text-sm text-muted-foreground flex items-center gap-2">
           <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-primary"></div>
@@ -80,20 +140,20 @@ export default function LiveDealsPreview() {
           Unable to load deals right now. Please try refreshing the page.
         </div>
       )}
-      {!error && !isLoading && deals.length === 0 && (
+      {!error && !isLoading && allDeals.length === 0 && (
         <div className="text-sm text-muted-foreground">
           No deals available at this moment. Please try again later.
         </div>
       )}
-      {!isLoading && deals.length > 0 && (
+      {!isLoading && currentDeals.length > 0 && (
         <div className="text-xs text-muted-foreground mb-3">
-          Showing {Math.min(4, deals.length)} of {deals.length} live deals
+          Showing {currentDeals.length} of {allDeals.length} cached deals
         </div>
       )}
       <ul className="space-y-3">
-        {deals.slice(0, 4).map((deal, index) => {
+        {currentDeals.map((deal, index) => {
           console.log("[LiveDealsPreview] Rendering deal:", deal);
-          const dealKey = deal.asin || `deal-${index}-${deal.title?.substring(0, 20)}`;
+          const dealKey = deal.asin || `deal-${startIndex + index}-${deal.title?.substring(0, 20)}`;
           return (
             <li key={dealKey} className="flex items-start space-x-3 relative">
               <div className="relative">
@@ -106,7 +166,6 @@ export default function LiveDealsPreview() {
                 ) : (
                   <div className="w-14 h-14 flex items-center justify-center bg-gray-100 border rounded text-xs text-gray-400">No image</div>
                 )}
-
               </div>
               <div className="flex-1">
                 <p className="text-xs font-medium leading-tight line-clamp-2">{deal.title}</p>
@@ -114,7 +173,7 @@ export default function LiveDealsPreview() {
                   <div className="flex items-center gap-2 flex-wrap">
                     <span className="font-bold text-green-600">${deal.currentPrice?.toFixed(2)}</span>
 
-                    {/* Show savings if we have original price data or Amazon savings data */}
+                    {/* Show savings if we have Amazon savings data */}
                     {deal.savings && deal.savings.Amount && deal.savings.Percentage && (
                       <>
                         <Badge variant="destructive" className="text-[8px] px-1 py-0 h-4 bg-red-500 text-white">
