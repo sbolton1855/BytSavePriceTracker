@@ -48,6 +48,11 @@ export default function HighlightedDeals() {
     hasPrevPage,
     showPagination: totalPages > 1
   });
+  console.log("[HighlightedDeals] Pagination condition check:", {
+    totalPages,
+    condition: totalPages > 1,
+    shouldShowPagination: totalPages > 1
+  });
 
   // Process deals to calculate discount percentages
   useEffect(() => {
@@ -150,7 +155,8 @@ export default function HighlightedDeals() {
     <div className="space-y-4">
       <div className="flex items-center justify-between mb-2">
         <h2 className="text-2xl font-bold">Trending Now</h2>
-        {totalPages > 1 && (
+        {/* Debug: Force show pagination for testing */}
+        {(totalPages > 1 || true) && (
           <div className="flex items-center gap-2">
             <Button
               variant="outline"
