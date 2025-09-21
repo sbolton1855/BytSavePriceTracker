@@ -148,11 +148,11 @@ export default function HighlightedDeals() {
               size="sm"
               onClick={handlePrevPage}
               disabled={!hasPrevPage}
-              className="h-7 w-7 p-0 flex items-center justify-center"
+              className="h-7 w-7 p-0"
             >
               <ChevronLeft className="h-4 w-4" />
             </Button>
-            <span className="text-xs text-muted-foreground min-w-[40px] text-center">
+            <span className="text-xs text-muted-foreground">
               {currentPage + 1} / {totalPages}
             </span>
             <Button
@@ -160,7 +160,7 @@ export default function HighlightedDeals() {
               size="sm"
               onClick={handleNextPage}
               disabled={!hasNextPage}
-              className="h-7 w-7 p-0 flex items-center justify-center"
+              className="h-7 w-7 p-0"
             >
               <ChevronRight className="h-4 w-4" />
             </Button>
@@ -258,31 +258,8 @@ export default function HighlightedDeals() {
         ))}
       </div>
       {allDeals.length > dealsPerPage && (
-        <div className="flex justify-between items-center mt-4 text-sm text-muted-foreground">
-          <span>Showing {currentDeals.length} of {allDeals.length} cached deals</span>
-          <div className="flex items-center gap-2">
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={handlePrevPage}
-              disabled={!hasPrevPage}
-              className="h-7 w-7 p-0 flex items-center justify-center"
-            >
-              <ChevronLeft className="h-4 w-4" />
-            </Button>
-            <span className="text-xs text-muted-foreground min-w-[40px] text-center">
-              {currentPage + 1} / {totalPages}
-            </span>
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={handleNextPage}
-              disabled={!hasNextPage}
-              className="h-7 w-7 p-0 flex items-center justify-center"
-            >
-              <ChevronRight className="h-4 w-4" />
-            </Button>
-          </div>
+        <div className="text-center text-sm text-muted-foreground mt-4">
+          Showing {currentDeals.length} of {allDeals.length} cached deals
         </div>
       )}
     </div>
