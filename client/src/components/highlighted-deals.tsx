@@ -39,6 +39,15 @@ export default function HighlightedDeals() {
   });
 
   console.log("Deals data from React Query:", data);
+  console.log("[HighlightedDeals] Pagination state:", {
+    totalDeals: allDeals.length,
+    currentPage,
+    totalPages,
+    dealsPerPage,
+    hasNextPage,
+    hasPrevPage,
+    showPagination: totalPages > 1
+  });
 
   // Process deals to calculate discount percentages
   useEffect(() => {
@@ -141,7 +150,7 @@ export default function HighlightedDeals() {
     <div className="space-y-4">
       <div className="flex items-center justify-between mb-2">
         <h2 className="text-2xl font-bold">Trending Now</h2>
-        {allDeals.length > dealsPerPage && (
+        {totalPages > 1 && (
           <div className="flex items-center gap-2">
             <Button
               variant="outline"
