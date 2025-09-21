@@ -1,8 +1,12 @@
 console.log('>>> [DEBUG] LOADED AMAZON ROUTER from server/routes/amazon.ts');
 import express from 'express';
-import { readFileSync } from 'fs';
-import { join } from 'path';
+import { readFile } from 'fs/promises';
+import path from 'path';
+import { fileURLToPath } from 'url';
 import { searchAmazonProducts } from '../amazonApi';
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
 
 const router = express.Router();
 
@@ -11,25 +15,26 @@ const cache: { [key: string]: { timestamp: number; data: any } } = {};
 const CACHE_TTL = 5 * 60 * 1000; // 5 minutes
 
 // Load keyword config with fallback
-function loadKeywordConfig() {
+const fallbackKeywords = {
+  liveDeals: ['kitchen', 'fitness', 'gadgets'],
+  trendingNow: ['fall', 'tech', 'cozy']
+};
+
+async function loadKeywordConfig() {
   try {
-    const configPath = join(__dirname, '..', 'config', 'deal_keywords.json');
-    const configFile = readFileSync(configPath, 'utf-8');
+    const configPath = path.join(__dirname, '..', 'config', 'deal_keywords.json');
+    const configFile = await readFile(configPath, 'utf-8');
     const config = JSON.parse(configFile);
     console.log('[DEBUG] Loaded keyword config:', config);
     return config;
   } catch (error) {
     console.warn('[WARN] Failed to load keyword config, using fallback:', error);
-    return {
-      liveDeals: ['kitchen', 'fitness'],
-      trendingNow: ['kitchen', 'fitness']
-    };
+    return fallbackKeywords;
   }
 }
 
-function getRandomKeywordFromCategory(category?: string) {
-  const config = loadKeywordConfig();
-  const fallbackKeywords = ['kitchen', 'fitness'];
+async function getRandomKeywordFromCategory(category?: string) {
+  const config = await loadKeywordConfig();
   
   if (category && config[category]) {
     const keywords = config[category];
@@ -38,19 +43,20 @@ function getRandomKeywordFromCategory(category?: string) {
   
   // If no category specified, use fallback
   if (!category) {
-    const allKeywords = [...(config.liveDeals || fallbackKeywords), ...(config.trendingNow || fallbackKeywords)];
+    const allKeywords = [...(config.liveDeals || fallbackKeywords.liveDeals), ...(config.trendingNow || fallbackKeywords.trendingNow)];
     return allKeywords[Math.floor(Math.random() * allKeywords.length)];
   }
   
   // If category doesn't exist, use fallback
-  return fallbackKeywords[Math.floor(Math.random() * fallbackKeywords.length)];
+  const fallback = fallbackKeywords[category as keyof typeof fallbackKeywords] || fallbackKeywords.liveDeals;
+  return fallback[Math.floor(Math.random() * fallback.length)];
 }
 
 router.get('/amazon/deals', async (req, res) => {
   const category = req.query.category?.toString() || 'liveDeals';
   const customQuery = req.query.q?.toString();
   
-  const keyword = customQuery || getRandomKeywordFromCategory(category);
+  const keyword = customQuery || await getRandomKeywordFromCategory(category);
   console.log(`[DEBUG] /api/amazon/deals endpoint hit with keyword: ${keyword}, category: ${category}`);
 
   // Check cache first
