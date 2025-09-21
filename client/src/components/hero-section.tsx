@@ -1,7 +1,7 @@
 import { Button } from "./ui/button";
 import { useQuery } from "@tanstack/react-query";
 import { Skeleton } from "./ui/skeleton";
-import { useEffect, useState } from "react";
+import { useEffect, useState, useCallback } from "react";
 import { Check, TrendingDown, RefreshCw } from "lucide-react";
 import LiveDealsPreview from "@/components/LiveDealsPreview";
 
@@ -34,15 +34,21 @@ const PriceTrackerDashboard: React.FC = () => {
     queryKey: ["/api/amazon/deals", refreshKey, lastRefreshTime],
     queryFn: async () => {
       const timestamp = Date.now();
-      const response = await fetch(`/api/amazon/deals?t=${timestamp}`);
+      // Fetch deals for the "trendingNow" category
+      const response = await fetch(`/api/amazon/deals?category=trendingNow&t=${timestamp}`);
       if (!response.ok) {
         throw new Error('Failed to fetch deals');
       }
       const result = await response.json();
       console.log('[PriceTracker] Raw Amazon API response:', result);
 
+      // Extract deals from the response (handle cached data structure)
+      const rawDeals = result.deals || result.data?.deals || [];
+      console.log('[PriceTracker] Extracted deals:', rawDeals.length);
+
+
       // Extract real Amazon savings data from the API response structure
-      const mappedDeals = result.deals.map((d: any, idx: number) => {
+      const mappedDeals = rawDeals.map((d: any, idx: number) => {
         // Amazon savings data is nested in the full API response structure
         let hasSavings = false;
         let savingsAmount = 0;

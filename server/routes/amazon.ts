@@ -6,6 +6,10 @@ import { searchAmazonProducts } from '../amazonApi';
 
 const router = express.Router();
 
+// Simple in-memory cache with 5-minute TTL
+const cache: { [key: string]: { timestamp: number; data: any } } = {};
+const CACHE_TTL = 5 * 60 * 1000; // 5 minutes
+
 // Load keyword config with fallback
 function loadKeywordConfig() {
   try {
@@ -17,35 +21,44 @@ function loadKeywordConfig() {
   } catch (error) {
     console.warn('[WARN] Failed to load keyword config, using fallback:', error);
     return {
-      liveDeals: ['deals', 'lightning deals', 'prime day'],
-      trendingNow: ['fall fashion', 'tech gadgets', 'trending products']
+      liveDeals: ['kitchen', 'fitness'],
+      trendingNow: ['kitchen', 'fitness']
     };
   }
 }
 
 function getRandomKeywordFromCategory(category?: string) {
   const config = loadKeywordConfig();
+  const fallbackKeywords = ['kitchen', 'fitness'];
   
   if (category && config[category]) {
     const keywords = config[category];
     return keywords[Math.floor(Math.random() * keywords.length)];
   }
   
-  // If no category specified, pick random from either group
-  const allKeywords = [...(config.liveDeals || []), ...(config.trendingNow || [])];
-  if (allKeywords.length === 0) {
-    return 'deals'; // Ultimate fallback
+  // If no category specified, use fallback
+  if (!category) {
+    const allKeywords = [...(config.liveDeals || fallbackKeywords), ...(config.trendingNow || fallbackKeywords)];
+    return allKeywords[Math.floor(Math.random() * allKeywords.length)];
   }
   
-  return allKeywords[Math.floor(Math.random() * allKeywords.length)];
+  // If category doesn't exist, use fallback
+  return fallbackKeywords[Math.floor(Math.random() * fallbackKeywords.length)];
 }
 
 router.get('/amazon/deals', async (req, res) => {
-  const category = req.query.category?.toString();
+  const category = req.query.category?.toString() || 'liveDeals';
   const customQuery = req.query.q?.toString();
   
   const keyword = customQuery || getRandomKeywordFromCategory(category);
   console.log(`[DEBUG] /api/amazon/deals endpoint hit with keyword: ${keyword}, category: ${category}`);
+
+  // Check cache first
+  const now = Date.now();
+  if (cache[keyword] && now - cache[keyword].timestamp < CACHE_TTL) {
+    console.log(`[DEBUG] Cache hit for keyword: ${keyword}`);
+    return res.json({ source: 'cache', data: cache[keyword].data });
+  }
 
   try {
     const items = await searchAmazonProducts(keyword);
@@ -79,7 +92,11 @@ router.get('/amazon/deals', async (req, res) => {
       };
     });
 
-    res.json({ deals });
+    // Cache the result
+    cache[keyword] = { timestamp: now, data: { deals } };
+    console.log(`[DEBUG] Cached result for keyword: ${keyword}`);
+
+    res.json({ source: 'amazon', data: { deals } });
   } catch (err: any) {
     console.error('[ERROR] Failed to fetch deals from Amazon:', err.message);
     res.status(500).json({ error: 'Failed to fetch deals' });
