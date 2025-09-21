@@ -12,33 +12,54 @@ type Deal = {
 };
 
 export default function LiveDealsPreview() {
-  const { data, isLoading } = useQuery<{ deals: Deal[] }>({
+  const { data, isLoading, error } = useQuery<any>({
     queryKey: ["amazonDealsPreview"],
     queryFn: async () => {
+      console.log("[LiveDealsPreview] Fetching deals from API...");
       const res = await fetch("/api/amazon/deals?category=liveDeals");
-      if (!res.ok) throw new Error("Failed to fetch deals");
-      return res.json();
+      if (!res.ok) {
+        const errorText = await res.text();
+        console.error("[LiveDealsPreview] API Error:", res.status, errorText);
+        throw new Error(`Failed to fetch deals: ${res.status}`);
+      }
+      const jsonData = await res.json();
+      console.log("[LiveDealsPreview] API Success - received data structure:", Object.keys(jsonData));
+      console.log("[LiveDealsPreview] Full API response:", jsonData);
+      
+      // Handle both possible response formats from server
+      if (jsonData.data?.deals) {
+        return jsonData.data.deals;
+      } else if (jsonData.deals) {
+        return jsonData.deals;
+      } else {
+        console.warn("[LiveDealsPreview] Unexpected data structure:", jsonData);
+        return [];
+      }
     },
     staleTime: 60000,
     refetchOnWindowFocus: false,
+    retry: 2,
+    retryDelay: 1000,
   });
 
   console.log("[LiveDealsPreview] Raw API response:", data);
 
-  // Map backend fields to UI fields
-  const deals =
-    data?.deals?.map((deal) => ({
-      ...deal,
-      currentPrice: deal.price,
-      originalPrice: deal.msrp,
-      affiliateUrl: deal.url,
-    })) || [];
+  // Map backend fields to UI fields with better error handling
+  const deals = Array.isArray(data) 
+    ? data.map((deal) => ({
+        ...deal,
+        currentPrice: deal.price || 0,
+        originalPrice: deal.msrp || null,
+        affiliateUrl: deal.url || deal.affiliateUrl,
+        // Ensure we have required fields
+        title: deal.title || 'Product Title Unavailable',
+        imageUrl: deal.imageUrl || null,
+        asin: deal.asin || `temp-${Date.now()}`
+      }))
+    : [];
 
-  deals.forEach((deal, idx) => {
-    console.log(`[LiveDealsPreview] Deal ${idx}:`, deal);
-  });
-
-  console.log("[LiveDealsPreview] Mapped deals:", deals);
+  console.log("[LiveDealsPreview] Processed deals count:", deals.length);
+  console.log("[LiveDealsPreview] First deal sample:", deals[0]);
   console.log("[LiveDealsPreview] Rendering, deals.length:", deals.length, "isLoading:", isLoading);
 
   if (!isLoading && deals.length === 0) {
@@ -48,17 +69,33 @@ export default function LiveDealsPreview() {
   return (
     <div className="bg-white border rounded-xl shadow-sm p-4">
       <h3 className="text-sm font-semibold mb-2">Live Deals Right Now</h3>
-      {isLoading && <div className="text-sm text-muted-foreground">Loading deals...</div>}
-      {!isLoading && deals.length === 0 && (
+      {isLoading && (
+        <div className="text-sm text-muted-foreground flex items-center gap-2">
+          <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-primary"></div>
+          Loading deals...
+        </div>
+      )}
+      {error && !isLoading && (
+        <div className="text-sm text-red-600 bg-red-50 p-2 rounded">
+          Unable to load deals right now. Please try refreshing the page.
+        </div>
+      )}
+      {!error && !isLoading && deals.length === 0 && (
         <div className="text-sm text-muted-foreground">
-          No deals available at this moment.
+          No deals available at this moment. Please try again later.
+        </div>
+      )}
+      {!isLoading && deals.length > 0 && (
+        <div className="text-xs text-muted-foreground mb-3">
+          Showing {Math.min(4, deals.length)} of {deals.length} live deals
         </div>
       )}
       <ul className="space-y-3">
         {deals.slice(0, 4).map((deal, index) => {
           console.log("[LiveDealsPreview] Rendering deal:", deal);
+          const dealKey = deal.asin || `deal-${index}-${deal.title?.substring(0, 20)}`;
           return (
-            <li key={index} className="flex items-start space-x-3 relative">
+            <li key={dealKey} className="flex items-start space-x-3 relative">
               <div className="relative">
                 {deal.imageUrl ? (
                   <img
@@ -77,8 +114,18 @@ export default function LiveDealsPreview() {
                   <div className="flex items-center gap-2 flex-wrap">
                     <span className="font-bold text-green-600">${deal.currentPrice?.toFixed(2)}</span>
 
-                    {/* Show savings if we have original price data */}
-                    {deal.price && deal.msrp && deal.msrp > deal.price && (
+                    {/* Show savings if we have original price data or Amazon savings data */}
+                    {deal.savings && deal.savings.Amount && deal.savings.Percentage && (
+                      <>
+                        <Badge variant="destructive" className="text-[8px] px-1 py-0 h-4 bg-red-500 text-white">
+                          {deal.savings.Percentage}% OFF
+                        </Badge>
+                        <Badge variant="outline" className="text-[8px] px-1 py-0 h-4 bg-green-500 text-white border-green-500">
+                          Save ${Number(deal.savings.Amount).toFixed(2)}
+                        </Badge>
+                      </>
+                    )}
+                    {!deal.savings && deal.msrp && deal.msrp > deal.price && (
                       <>
                         <span className="text-muted-foreground line-through text-xs">
                           ${deal.msrp.toFixed(2)}
@@ -91,7 +138,7 @@ export default function LiveDealsPreview() {
                         </Badge>
                       </>
                     )}
-                    {!deal.msrp && deal.originalPrice && deal.originalPrice > deal.currentPrice && (
+                    {!deal.savings && !deal.msrp && deal.originalPrice && deal.originalPrice > deal.currentPrice && (
                       <>
                         <span className="text-muted-foreground line-through text-xs">
                           ${deal.originalPrice.toFixed(2)}
@@ -105,14 +152,11 @@ export default function LiveDealsPreview() {
                       </>
                     )}
 
-                    {/* For products without original price, create synthetic percentage deals based on price ranges */}
-                    {!deal.msrp && !deal.originalPrice && (
+                    {/* For products without explicit savings, show price-based badges */}
+                    {!deal.savings && !deal.msrp && !deal.originalPrice && (
                       <>
                         {deal.currentPrice < 10 && (
                           <>
-                            <Badge variant="destructive" className="text-[8px] px-1 py-0 h-4 bg-red-500 text-white">
-                              15% OFF
-                            </Badge>
                             <Badge variant="outline" className="text-[8px] px-1 py-0 h-4 text-green-600 border-green-300 bg-green-50">
                               UNDER $10
                             </Badge>
@@ -120,9 +164,6 @@ export default function LiveDealsPreview() {
                         )}
                         {deal.currentPrice >= 10 && deal.currentPrice < 25 && (
                           <>
-                            <Badge variant="destructive" className="text-[8px] px-1 py-0 h-4 bg-orange-500 text-white">
-                              12% OFF
-                            </Badge>
                             <Badge variant="outline" className="text-[8px] px-1 py-0 h-4 text-blue-600 border-blue-300 bg-blue-50">
                               GREAT VALUE
                             </Badge>
@@ -130,9 +171,6 @@ export default function LiveDealsPreview() {
                         )}
                         {deal.currentPrice >= 25 && deal.currentPrice < 50 && (
                           <>
-                            <Badge variant="destructive" className="text-[8px] px-1 py-0 h-4 bg-red-600 text-white">
-                              20% OFF
-                            </Badge>
                             <Badge variant="outline" className="text-[8px] px-1 py-0 h-4 text-blue-600 border-blue-300 bg-blue-50">
                               TRENDING
                             </Badge>
@@ -140,14 +178,15 @@ export default function LiveDealsPreview() {
                         )}
                         {deal.currentPrice >= 50 && (
                           <>
-                            <Badge variant="destructive" className="text-[8px] px-1 py-0 h-4 bg-red-700 text-white">
-                              25% OFF
-                            </Badge>
                             <Badge variant="outline" className="text-[8px] px-1 py-0 h-4 text-purple-600 border-purple-300 bg-purple-50">
                               PREMIUM DEAL
                             </Badge>
                           </>
                         )}
+                        {/* Show HOT DEAL badge for all products as fallback */}
+                        <Badge variant="destructive" className="text-[8px] px-1 py-0 h-4 bg-red-500 text-white">
+                          HOT DEAL
+                        </Badge>
                       </>
                     )}
                   </div>
