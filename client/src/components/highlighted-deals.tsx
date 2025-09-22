@@ -4,7 +4,7 @@ import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle }
 import { Badge } from "./ui/badge";
 import { Button } from "./ui/button";
 import { Skeleton } from "./ui/skeleton";
-import { ArrowRight, ArrowDownRight, Loader2, RefreshCw } from "lucide-react";
+import { ArrowRight, ArrowDownRight, Loader2, RefreshCw, ChevronLeft, ChevronRight } from "lucide-react";
 import { Product } from "../../../shared/schema";
 
 
@@ -17,7 +17,10 @@ type HighlightedDeal = Product & {
 
 export default function HighlightedDeals() {
   const [deals, setDeals] = useState<HighlightedDeal[]>([]);
+  const [allDeals, setAllDeals] = useState<HighlightedDeal[]>([]);
+  const [currentPage, setCurrentPage] = useState(0);
   const [refreshKey, setRefreshKey] = useState<number>(0);
+  const dealsPerPage = 6;
 
   // Fetch the top deals from the API
   const { data, isLoading, isError, refetch } = useQuery({
@@ -48,6 +51,18 @@ export default function HighlightedDeals() {
   // Function to manually refresh deals
   const refreshDeals = () => {
     setRefreshKey(prev => prev + 1);
+  };
+
+  // Pagination functions
+  const totalPages = Math.ceil(allDeals.length / dealsPerPage);
+  const shouldShowPagination = totalPages > 1;
+
+  const goToNextPage = () => {
+    setCurrentPage(prev => Math.min(prev + 1, totalPages - 1));
+  };
+
+  const goToPrevPage = () => {
+    setCurrentPage(prev => Math.max(prev - 1, 0));
   };
 
   // Process deals to calculate discount percentages and rotate them for variety
@@ -102,9 +117,22 @@ export default function HighlightedDeals() {
       // One final shuffle to mix discounted and regular products
       selectedDeals = selectedDeals.sort(() => Math.random() - 0.5);
 
-      setDeals(selectedDeals);
+      // Store all deals for pagination
+      setAllDeals(selectedDeals);
+      
+      // Only reset page if the number of deals changed significantly
+      if (selectedDeals.length !== allDeals.length) {
+        setCurrentPage(0);
+      }
     }
   }, [data, refreshKey]);
+
+  // Update displayed deals based on pagination
+  useEffect(() => {
+    const startIndex = currentPage * dealsPerPage;
+    const endIndex = startIndex + dealsPerPage;
+    setDeals(allDeals.slice(startIndex, endIndex));
+  }, [allDeals, currentPage]);
 
   if (isLoading) {
     return (
@@ -166,15 +194,49 @@ export default function HighlightedDeals() {
   return (
     <div className="space-y-4">
       <div className="flex justify-between items-center">
-        <h2 className="text-2xl font-bold">Trending Now</h2>
-        <Button 
-          onClick={refreshDeals} 
-          variant="outline"
-          className="flex items-center gap-2 px-3 py-1.5 rounded-md bg-amber-100 border border-amber-300 text-amber-800 hover:bg-amber-200 transition-colors"
-        >
-          <RefreshCw className="h-4 w-4" />
-          Refresh Deals
-        </Button>
+        <div className="flex items-center gap-4">
+          <h2 className="text-2xl font-bold">Trending Now</h2>
+          {shouldShowPagination && (
+            <div className="flex items-center gap-2">
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={goToPrevPage}
+                disabled={currentPage === 0}
+                className="h-8 w-8 p-0"
+              >
+                <ChevronLeft className="h-4 w-4" />
+              </Button>
+              <span className="text-sm text-muted-foreground min-w-[60px] text-center">
+                {currentPage + 1} / {totalPages}
+              </span>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={goToNextPage}
+                disabled={currentPage >= totalPages - 1}
+                className="h-8 w-8 p-0"
+              >
+                <ChevronRight className="h-4 w-4" />
+              </Button>
+            </div>
+          )}
+        </div>
+        <div className="flex items-center gap-2">
+          {shouldShowPagination && (
+            <span className="text-xs text-muted-foreground">
+              Showing {deals.length} of {allDeals.length} cached deals
+            </span>
+          )}
+          <Button 
+            onClick={refreshDeals} 
+            variant="outline"
+            className="flex items-center gap-2 px-3 py-1.5 rounded-md bg-amber-100 border border-amber-300 text-amber-800 hover:bg-amber-200 transition-colors"
+          >
+            <RefreshCw className="h-4 w-4" />
+            Refresh Deals
+          </Button>
+        </div>
       </div>
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
         {deals.map((deal) => (
