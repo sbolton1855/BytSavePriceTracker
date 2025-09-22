@@ -154,12 +154,25 @@ const Home: React.FC = () => {
         setSavedEmail(savedEmail);
 
         if (savedEmail) {
-            fetch(`/api/products?email=${savedEmail}`)
-                .then(response => response.json())
+            fetch(`/api/tracked-products?email=${savedEmail}`)
+                .then(response => {
+                    // Check if response is valid JSON before parsing
+                    const contentType = response.headers.get('content-type');
+                    if (!response.ok || !contentType || !contentType.includes('application/json')) {
+                        return response.text().then(text => {
+                            console.error('Invalid JSON response:', text);
+                            throw new Error('There was a problem fetching your tracked products. Please try again.');
+                        });
+                    }
+                    return response.json();
+                })
                 .then(data => {
                     setTrackedProducts(data);
                 })
-                .catch(error => console.error("Error fetching tracked products:", error));
+                .catch(error => {
+                    console.error("Error fetching tracked products:", error);
+                    setTrackedProducts([]);
+                });
         }
     }, []);
 

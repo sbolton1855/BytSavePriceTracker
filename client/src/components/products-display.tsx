@@ -43,14 +43,12 @@ const ProductsDisplay: React.FC<ProductsDisplayProps> = ({ email, onProductsChan
             credentials: 'include' // Important for authenticated requests
           });
 
-          if (!res.ok) throw new Error('Failed to fetch tracked products');
-
-          // Check if response is valid JSON
+          // Check if response is valid JSON before parsing
           const contentType = res.headers.get('content-type');
-          if (!contentType || !contentType.includes('application/json')) {
+          if (!res.ok || !contentType || !contentType.includes('application/json')) {
             const text = await res.text();
-            console.error('Non-JSON response received:', text);
-            throw new Error('Invalid response format');
+            console.error('Invalid JSON response received:', text);
+            throw new Error('There was a problem fetching your tracked products. Please try again.');
           }
 
           const data = await res.json();
@@ -75,7 +73,15 @@ const ProductsDisplay: React.FC<ProductsDisplayProps> = ({ email, onProductsChan
           // Add timestamp to prevent caching
           const timestamp = new Date().getTime();
           const res = await fetch(`/api/tracked-products?email=${encodeURIComponent(upperEmail)}&_t=${timestamp}`);
-          if (!res.ok) throw new Error('Failed to fetch tracked products');
+          
+          // Check if response is valid JSON before parsing
+          const contentType = res.headers.get('content-type');
+          if (!res.ok || !contentType || !contentType.includes('application/json')) {
+            const text = await res.text();
+            console.error('Invalid JSON response received:', text);
+            throw new Error('There was a problem fetching your tracked products. Please try again.');
+          }
+
           const data = await res.json();
           console.log("ProductsDisplay - data changed:", data);
           return data;
@@ -295,6 +301,33 @@ const ProductsDisplay: React.FC<ProductsDisplayProps> = ({ email, onProductsChan
                 </div>
               </div>
             ))}
+          </div>
+        ) : isError ? (
+          <div className="text-center py-12 bg-white rounded-lg shadow-sm border border-red-200">
+            <svg
+              xmlns="http://www.w3.org/2000/svg"
+              className="h-12 w-12 mx-auto text-red-400"
+              fill="none"
+              viewBox="0 0 24 24"
+              stroke="currentColor"
+            >
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth={1}
+                d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
+              />
+            </svg>
+            <h3 className="mt-4 text-lg font-medium text-gray-900">Unable to load products</h3>
+            <p className="mt-1 text-gray-500 max-w-md mx-auto">
+              There was a problem fetching your tracked products. Please try again.
+            </p>
+            <Button 
+              className="mt-6"
+              onClick={() => refetch()}
+            >
+              Try Again
+            </Button>
           </div>
         ) : (
           <>

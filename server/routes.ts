@@ -965,6 +965,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Get all tracked products, either for the authenticated user or by email
   app.get('/api/tracked-products', async (req: Request, res: Response) => {
     try {
+      // Ensure we always return JSON with proper content type
+      res.setHeader('Content-Type', 'application/json');
+      
       const { email } = req.query;
 
       // console.log('GET /api/tracked-products - Request query:', req.query);
@@ -1006,6 +1009,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Get tracked products for the current authenticated user
   app.get('/api/my/tracked-products', requireAuth, async (req: Request, res: Response) => {
     try {
+      // Ensure we always return JSON with proper content type
+      res.setHeader('Content-Type', 'application/json');
+      
       const userId = (req.user as any).id.toString();
       const userEmail = (req.user as any).email.toUpperCase();
       // console.log(`Fetching tracked products for user ${userId} with email ${userEmail}`);
