@@ -37,6 +37,9 @@ export default function SharedProductCard({
 
   return (
     <Card className="overflow-hidden flex flex-col h-full hover:shadow-lg transition-shadow">
+      <div className="bg-red-600 text-white p-2 text-center font-bold text-sm">
+        🚨 SharedProductCard.tsx MODIFIED 🚨
+      </div>
       <div className="aspect-video bg-slate-50 flex items-center justify-center relative overflow-hidden">
         {imageUrl ? (
           <img 
