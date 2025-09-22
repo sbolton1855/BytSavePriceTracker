@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { Badge } from "./ui/badge";
@@ -43,7 +42,7 @@ export default function LiveDealsPreview() {
       const jsonData = await res.json();
       console.log("[LiveDealsPreview] API Success - received data structure:", Object.keys(jsonData));
       console.log("[LiveDealsPreview] Full API response:", jsonData);
-      
+
       // Handle both possible response formats from server
       if (jsonData.data?.deals) {
         return jsonData.data.deals;
@@ -105,7 +104,7 @@ export default function LiveDealsPreview() {
 
       // Store all deals for pagination
       setAllDeals(shuffledDeals);
-      
+
       // Only reset page if the number of deals changed significantly
       if (shuffledDeals.length !== allDeals.length) {
         setCurrentPage(0);
@@ -135,7 +134,7 @@ export default function LiveDealsPreview() {
           <h3 className="text-sm font-semibold">Live Deals Right Now</h3>
           <div className="h-8 w-24 bg-slate-100 rounded-md animate-pulse"></div>
         </div>
-        <div className="space-y-3">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
           {Array.from({ length: 4 }).map((_, i) => (
             <div key={i} className="flex items-start space-x-3">
               <Skeleton className="h-16 w-16 rounded-md" />
@@ -218,7 +217,7 @@ export default function LiveDealsPreview() {
       )}
 
       {!isLoading && deals.length > 0 && (
-        <ul className="space-y-3">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
           {deals.map((deal, index) => {
             console.log("[LiveDealsPreview] Rendering deal:", deal);
             const dealKey = deal.asin || `deal-${index}-${deal.title?.substring(0, 20)}`;
@@ -242,8 +241,8 @@ export default function LiveDealsPreview() {
                     {deal.title}
                   </p>
                   <div className="flex items-center gap-2 mb-2">
-                    <span className="text-sm font-bold text-green-600">
-                      ${deal.currentPrice.toFixed(2)}
+                    <span className="text-lg font-bold text-primary">
+                      ${(deal.currentPrice || deal.price || 0).toFixed(2)}
                     </span>
                     {deal.originalPrice && deal.originalPrice > deal.currentPrice && (
                       <span className="text-xs text-gray-500 line-through">
@@ -287,7 +286,7 @@ export default function LiveDealsPreview() {
               </li>
             );
           })}
-        </ul>
+        </div>
       )}
       <p className="text-[10px] text-muted-foreground mt-4">Powered by Amazon Product API</p>
     </div>
