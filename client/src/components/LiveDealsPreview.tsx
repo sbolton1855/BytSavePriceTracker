@@ -2,6 +2,7 @@
 import { useState, useEffect } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { Button } from "./ui/button";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "./ui/card";
 import { Skeleton } from "./ui/skeleton";
 import { RefreshCw, ChevronLeft, ChevronRight } from "lucide-react";
 import SharedProductCard from "./SharedProductCard";
@@ -40,25 +41,33 @@ export default function LiveDealsPreview() {
   const dealsPerPage = 4;
 
   // Fetch deals with refresh functionality
-  const { data, isLoading, error } = useQuery<any>({
+  const { data, isLoading, error, refetch } = useQuery<any>({
     queryKey: ["/api/amazon/deals", "liveDeals", refreshKey],
     queryFn: async () => {
       console.log("[LiveDealsPreview] Fetching deals from API...");
       const timestamp = Date.now();
       const rotation = refreshKey % 10;
       const res = await fetch(`/api/amazon/deals?category=liveDeals&t=${timestamp}&rotate=${rotation}`);
-      if (!res.ok) {
-        const errorText = await res.text();
-        console.error("[LiveDealsPreview] API Error:", res.status, errorText);
-        throw new Error(`Failed to fetch deals: ${res.status}`);
+      
+      if (!res.ok || !res.headers.get('content-type')?.includes('application/json')) {
+        const text = await res.text();
+        console.error("[LiveDealsPreview] Invalid JSON response:", text);
+        throw new Error('Invalid response from server');
       }
+
       const jsonData = await res.json();
       console.log("[LiveDealsPreview] API Success - received data structure:", Object.keys(jsonData));
       console.log("[LiveDealsPreview] Full API response:", jsonData);
 
       // Standardize deals extraction
       const deals = jsonData.data?.deals || jsonData.deals || jsonData;
-      return Array.isArray(deals) ? deals : [];
+
+      if (!Array.isArray(deals)) {
+        console.error("[LiveDealsPreview] Expected deals array, got:", typeof deals);
+        return [];
+      }
+
+      return deals;
     },
     staleTime: 5 * 60 * 1000,
     gcTime: 5 * 60 * 1000,
@@ -67,7 +76,9 @@ export default function LiveDealsPreview() {
 
   // Function to manually refresh deals
   const refreshDeals = () => {
+    console.log("[LiveDealsPreview] Manual refresh triggered");
     setRefreshKey(prev => prev + 1);
+    refetch();
   };
 
   // Normalize deals to shared format
@@ -181,13 +192,17 @@ export default function LiveDealsPreview() {
     );
   }
 
-  if (error && !isLoading) {
+  if (error || (!isLoading && !currentDeals.length)) {
     return (
       <div className="bg-white border rounded-xl shadow-sm p-4 space-y-4">
-        <h3 className="text-sm font-semibold mb-2">Live Deals Right Now</h3>
-        <div className="text-sm text-red-600 bg-red-50 p-2 rounded">
-          Unable to load deals right now. Please try refreshing the page.
-        </div>
+        <Card className="border-dashed">
+          <CardHeader>
+            <CardTitle className="text-center">No Live Deals Available</CardTitle>
+            <CardDescription className="text-center">
+              We couldn't find any live deals right now. Please check back later.
+            </CardDescription>
+          </CardHeader>
+        </Card>
       </div>
     );
   }
@@ -196,7 +211,7 @@ export default function LiveDealsPreview() {
     <div className="bg-white border rounded-xl shadow-sm p-4 space-y-4">
       <div className="flex justify-between items-center">
         <div className="flex items-center gap-4">
-          <h3 className="text-sm font-semibold">Live Deals Right Now</h3>
+          <h2 className="text-2xl font-bold">Live Deals Right Now</h2>
           {shouldShowPagination && (
             <div className="flex items-center gap-2">
               <Button
