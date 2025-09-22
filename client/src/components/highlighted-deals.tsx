@@ -225,16 +225,17 @@ export default function HighlightedDeals() {
         <div className="flex items-center gap-2">
           {shouldShowPagination && (
             <span className="text-xs text-muted-foreground">
-              Showing {deals.length} of {allDeals.length} cached deals
+              {deals.length} of {allDeals.length} cached deals
             </span>
           )}
           <Button 
             onClick={refreshDeals} 
             variant="outline"
-            className="flex items-center gap-2 px-3 py-1.5 rounded-md bg-amber-100 border border-amber-300 text-amber-800 hover:bg-amber-200 transition-colors"
+            size="sm"
+            className="flex items-center gap-1 px-2 py-1 rounded-md bg-amber-100 border border-amber-300 text-amber-800 hover:bg-amber-200 transition-colors text-xs"
           >
-            <RefreshCw className="h-4 w-4" />
-            Refresh Deals
+            <RefreshCw className="h-3 w-3" />
+            Refresh
           </Button>
         </div>
       </div>
