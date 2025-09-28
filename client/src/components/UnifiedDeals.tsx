@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { Button } from "./ui/button";
@@ -94,7 +93,7 @@ export default function UnifiedDeals({ type, title }: UnifiedDealsProps) {
 
   if (isLoading) {
     return (
-      <div className="bg-white border rounded-xl shadow-sm p-4 space-y-4">
+      <div className="bg-white border rounded-xl shadow-sm p-4 space-y-4 w-[30%] min-w-[300px]">
         <div className="flex justify-between items-center">
           <h2 className="text-lg font-semibold text-gray-900">{title}</h2>
           <div className="h-9 w-32 bg-slate-100 rounded-md animate-pulse"></div>
@@ -122,7 +121,7 @@ export default function UnifiedDeals({ type, title }: UnifiedDealsProps) {
 
   if (error || (!isLoading && !currentDeals.length)) {
     return (
-      <div className="bg-white border rounded-xl shadow-sm p-4 space-y-4">
+      <div className="bg-white border rounded-xl shadow-sm p-4 space-y-4 w-[30%] min-w-[300px]">
         <Card className="border-dashed">
           <CardHeader>
             <CardTitle className="text-center">No Deals Available</CardTitle>
@@ -136,7 +135,7 @@ export default function UnifiedDeals({ type, title }: UnifiedDealsProps) {
   }
 
   return (
-    <div className="bg-white border rounded-xl shadow-sm p-4 space-y-4">
+    <div className="bg-white border rounded-xl shadow-sm p-4 space-y-4 w-[30%] min-w-[300px]">
       <div className="flex justify-between items-center">
         <div className="flex items-center gap-4">
           <h2 className="text-lg font-semibold text-gray-900">{title}</h2>
@@ -183,7 +182,7 @@ export default function UnifiedDeals({ type, title }: UnifiedDealsProps) {
         <div className="space-y-3 max-h-[300px] overflow-y-auto">
           {currentDeals.map((deal, index) => {
             const dealKey = deal.asin || `deal-${index}-${deal.title?.substring(0, 20)}`;
-            
+
             // Log image details for debugging (first two deals only)
             if (index < 2) {
               console.log(`[UnifiedDeals] Deal ${index + 1} image:`, {
@@ -192,11 +191,11 @@ export default function UnifiedDeals({ type, title }: UnifiedDealsProps) {
                 title: deal.title?.substring(0, 30) + '...'
               });
             }
-            
+
             const savings = deal.originalPrice && deal.originalPrice > deal.currentPrice 
               ? deal.originalPrice - deal.currentPrice 
               : 0;
-            
+
             return (
               <a 
                 key={dealKey}
