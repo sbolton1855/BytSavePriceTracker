@@ -243,10 +243,10 @@ export default function LiveDealsPreview() {
                   <span className="text-xs font-bold text-green-600">${deal.currentPrice?.toFixed(2)}</span>
 
                   {/* Show savings data if available */}
-                  {deal.savingsAmount && deal.savingsAmount > 0 && deal.savingsPercentage && (
+                  {deal.savingsAmount && deal.savingsAmount > 0 && deal.savingsPercentage && deal.originalPrice && (
                     <>
                       <span className="text-muted-foreground line-through text-xs">
-                        ${deal.originalPrice!.toFixed(2)}
+                        ${deal.originalPrice.toFixed(2)}
                       </span>
                       <span className="text-[8px] px-1 py-0 h-4 bg-red-500 text-white rounded-full">
                         {deal.savingsPercentage}% OFF
