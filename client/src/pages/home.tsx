@@ -5,6 +5,7 @@ import ProductsDisplay from "@/components/products-display";
 import ProductSearch from "@/components/product-search";
 import ProductTeasers from "@/components/product-teasers";
 import UnifiedDeals from "@/components/UnifiedDeals";
+import DealsTabContainer from "@/components/DealsTabContainer";
 import NotificationDemo from "@/components/notification-demo";
 import { AIRecommendations } from "@/components/AIRecommendations";
 import AIProductSearch from "@/components/AIProductSearch";
@@ -347,7 +348,22 @@ const Home: React.FC = () => {
 
       <NotificationDemo />
 
-      
+      {/* Deals Section with Tabbed Interface */}
+      <section className="py-16 bg-white">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+          <div className="text-center mb-12">
+            <h2 className="text-3xl font-bold text-gray-900 mb-4">
+              🔥 Live Deals & Trending Products
+            </h2>
+            <p className="text-xl text-gray-600 max-w-3xl mx-auto">
+              Fresh deals updated in real-time from Amazon
+            </p>
+          </div>
+          <div className="flex justify-center">
+            <DealsTabContainer />
+          </div>
+        </div>
+      </section>
 
       {/* AI Recommendations Section */}
       <section className="py-16 bg-gradient-to-br from-purple-50 to-indigo-50">
