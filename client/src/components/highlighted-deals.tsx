@@ -146,7 +146,7 @@ export default function HighlightedDeals() {
     return (
       <div className="bg-white border rounded-xl shadow-sm p-4 space-y-4">
         <div className="flex justify-between items-center">
-          <h2 className="text-lg font-semibold text-gray-900">Trending Now</h2>
+          <h2 className="text-lg font-semibold text-gray-900">Price Drop Dashboard</h2>
           <div className="h-9 w-32 bg-slate-100 rounded-md animate-pulse"></div>
         </div>
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
@@ -205,19 +205,19 @@ export default function HighlightedDeals() {
     <div className="bg-white border rounded-xl shadow-sm p-4 space-y-4">
       <div className="flex justify-between items-center">
         <div className="flex items-center gap-4">
-          <h2 className="text-lg font-semibold text-gray-900">Trending Now</h2>
+          <h2 className="text-lg font-semibold text-gray-900">Price Drop Dashboard</h2>
           {shouldShowPagination && (
-            <div className="flex items-center gap-2 bg-yellow-100 border border-yellow-300 px-2 py-1 rounded">
+            <div className="flex items-center gap-2">
               <Button
                 variant="outline"
                 size="sm"
                 onClick={goToPrevPage}
                 disabled={currentPage === 0}
-                className="h-8 w-8 p-0 bg-white"
+                className="h-8 w-8 p-0"
               >
                 <ChevronLeft className="h-4 w-4" />
               </Button>
-              <span className="text-sm text-gray-900 min-w-[60px] text-center font-bold">
+              <span className="text-sm text-muted-foreground min-w-[60px] text-center">
                 {currentPage + 1} / {totalPages}
               </span>
               <Button
@@ -225,7 +225,7 @@ export default function HighlightedDeals() {
                 size="sm"
                 onClick={goToNextPage}
                 disabled={currentPage >= totalPages - 1}
-                className="h-8 w-8 p-0 bg-white"
+                className="h-8 w-8 p-0"
               >
                 <ChevronRight className="h-4 w-4" />
               </Button>
@@ -233,79 +233,39 @@ export default function HighlightedDeals() {
           )}
         </div>
         <div className="flex items-center gap-2">
-          <span className="text-xs text-gray-900 bg-blue-100 px-2 py-1 rounded">
-            DEBUG: {currentDeals.length} of {allDeals.length} deals | Page {currentPage + 1}/{totalPages} | Show: {shouldShowPagination ? 'YES' : 'NO'}
-          </span>
           <Button
             onClick={refreshDeals}
             variant="outline"
             size="sm"
-            className="flex items-center gap-1 px-2 py-1 rounded-md bg-amber-100 border border-amber-300 text-amber-800 hover:bg-amber-200 transition-colors text-xs"
+            className="flex items-center gap-1"
           >
-            <RefreshCw className="h-3 w-3" />
+            <RefreshCw className="h-4 w-4" />
             Refresh
           </Button>
         </div>
       </div>
-      <ul className="space-y-3">
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
         {currentDeals.map((deal, index) => {
           console.log("[TrendingNow] Rendering deal:", deal);
           const dealKey = deal.asin || `deal-${index}-${deal.title?.substring(0, 20)}`;
           return (
-            <li key={dealKey} className="flex items-start space-x-3 relative">
-              <div className="relative">
-                {deal.imageUrl ? (
-                  <img
-                    src={deal.imageUrl}
-                    alt={deal.title}
-                    className="w-14 h-14 object-contain border rounded"
-                  />
-                ) : (
-                  <div className="w-14 h-14 flex items-center justify-center bg-gray-100 border rounded text-xs text-gray-400">No image</div>
-                )}
-              </div>
-              <div className="flex-1">
-                <p className="text-xs font-medium leading-tight line-clamp-2">{deal.title}</p>
-                <div className="text-xs mt-1">
-                  <div className="flex items-center flex-wrap gap-1">
-                    <span className="text-xs font-bold text-green-600">${deal.currentPrice?.toFixed(2)}</span>
-
-                    {/* Show savings data if available */}
-                    {deal.originalPrice && deal.originalPrice > deal.currentPrice && (
-                      <>
-                        <span className="text-muted-foreground line-through text-xs">
-                          ${deal.originalPrice.toFixed(2)}
-                        </span>
-                        <span className="text-[8px] px-1 py-0 h-4 bg-red-500 text-white rounded-full">
-                          {deal.discount || Math.round(((deal.originalPrice - deal.currentPrice) / deal.originalPrice) * 100)}% OFF
-                        </span>
-                        <span className="text-[8px] px-1 py-0 h-4 bg-green-500 text-white rounded-full">
-                          Save ${(deal.originalPrice - deal.currentPrice).toFixed(2)}
-                        </span>
-                      </>
-                    )}
-
-                    {/* Show if no savings */}
-                    {(!deal.originalPrice || deal.originalPrice <= deal.currentPrice) && (
-                      <span className="text-[8px] text-gray-400">Regular Price</span>
-                    )}
-                  </div>
-                </div>
-                {deal.url && (
-                  <a
-                    href={deal.url}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="text-xs text-blue-600 hover:underline mt-1 inline-block font-medium"
-                  >
-                    View Deal →
-                  </a>
-                )}
-              </div>
-            </li>
+            <SharedProductCard
+              key={dealKey}
+              title={deal.title}
+              imageUrl={deal.imageUrl}
+              currentPrice={deal.currentPrice}
+              originalPrice={deal.originalPrice}
+              discount={deal.discount}
+              url={deal.url}
+              asin={deal.asin}
+              isHot={deal.isHot}
+              premium={deal.premium}
+              lowestPrice={deal.lowestPrice}
+              highestPrice={deal.highestPrice}
+            />
           );
         })}
-      </ul>
+      </div>
     </div>
   );
 }
