@@ -22,11 +22,28 @@ router.get('/products/deals', async (req, res) => {
     console.log(`[/api/products/deals] Fetching deals with limit: ${limit}, category: ${category}, offset: ${offset}, batchIndex: ${batchIndex}, hour: ${hour}`);
 
     // Get products with deals from database using offset for rotation and category filter
-    const deals = await storage.getProductsWithDeals(limit, offset, category);
+    let deals = await storage.getProductsWithDeals(limit, offset, category);
 
-    if (!deals || deals.length === 0) {
-      console.log(`[/api/products/deals] No deals found for category: ${category}, returning empty array`);
-      return res.json({ deals: [] });
+    // Ensure minimum of 4 deals for consistent UI display
+    const MIN_DEALS = 4;
+    if (deals.length < MIN_DEALS) {
+      console.log(`[/api/products/deals] Only ${deals.length} deals found for category: ${category}, padding to ${MIN_DEALS}`);
+      
+      // Get additional products to backfill (without category filter for fallback)
+      const additionalNeeded = MIN_DEALS - deals.length;
+      const fallbackDeals = await storage.getProductsWithDeals(additionalNeeded, 0, undefined); // No category filter
+      
+      // Filter out duplicates and add fallback products
+      const existingAsins = new Set(deals.map(deal => deal.asin));
+      const uniqueFallbackDeals = fallbackDeals.filter(deal => !existingAsins.has(deal.asin));
+      
+      deals = [...deals, ...uniqueFallbackDeals.slice(0, additionalNeeded)];
+      
+      // If still not enough deals, we'll work with what we have
+      if (deals.length === 0) {
+        console.log(`[/api/products/deals] No deals available at all, returning empty array`);
+        return res.json({ deals: [] });
+      }
     }
 
     // Map to expected format for frontend
