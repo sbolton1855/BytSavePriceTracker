@@ -134,9 +134,9 @@ const PriceTrackerDashboard: React.FC = () => {
       const allDeals = deals;
 
       // Filter to only include deals with actual savings and valid pricing
-      const dealsWithSavings = allDeals.filter(deal => 
-        deal.originalPrice && 
-        deal.currentPrice && 
+      const dealsWithSavings = allDeals.filter(deal =>
+        deal.originalPrice &&
+        deal.currentPrice &&
         deal.originalPrice > deal.currentPrice &&
         deal.currentPrice > 0 &&
         calculateDiscount(deal.originalPrice, deal.currentPrice) > 0

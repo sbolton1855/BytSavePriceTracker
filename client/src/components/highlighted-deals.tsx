@@ -202,7 +202,7 @@ export default function HighlightedDeals() {
   return (
     <div className="bg-white border rounded-xl shadow-sm p-4 space-y-4">
       <div className="bg-red-600 text-white p-4 mb-4 text-center font-bold text-xl">
-        🚨 TEST BANNER - highlighted-deals.tsx - REPLIT AI MODIFIED THIS FILE 🚨
+        🚨 TEST BANNER - highlighted-deals.tsx Main Component - REPLIT AI MODIFIED THIS FILE 🚨
       </div>
       <div className="flex justify-between items-center">
         <div className="flex items-center gap-4">
