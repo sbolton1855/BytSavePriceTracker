@@ -114,7 +114,6 @@ export default function HighlightedDeals() {
 
   // Pagination logic
   const totalPages = Math.ceil(allDeals.length / dealsPerPage);
-  const shouldShowPagination = totalPages > 1;
   const startIndex = currentPage * dealsPerPage;
   const endIndex = startIndex + dealsPerPage;
   const currentDeals = allDeals.slice(startIndex, endIndex);
@@ -144,7 +143,7 @@ export default function HighlightedDeals() {
     return (
       <div className="bg-white border rounded-xl shadow-sm p-4 space-y-4">
         <div className="flex justify-between items-center">
-          <h2 className="text-2xl font-bold">Trending Now</h2>
+          <h2 className="text-lg font-semibold">Trending Now</h2>
           <div className="h-9 w-32 bg-slate-100 rounded-md animate-pulse"></div>
         </div>
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
@@ -203,8 +202,8 @@ export default function HighlightedDeals() {
     <div className="bg-white border rounded-xl shadow-sm p-4 space-y-4">
       <div className="flex justify-between items-center">
         <div className="flex items-center gap-4">
-          <h2 className="text-2xl font-bold">Trending Now</h2>
-          {shouldShowPagination && (
+          <h2 className="text-lg font-semibold">Trending Now</h2>
+          {totalPages > 1 && (
             <div className="flex items-center gap-2">
               <Button
                 variant="outline"
@@ -231,7 +230,7 @@ export default function HighlightedDeals() {
           )}
         </div>
         <div className="flex items-center gap-2">
-          {shouldShowPagination && (
+          {totalPages > 1 && (
             <span className="text-xs text-muted-foreground">
               {currentDeals.length} of {allDeals.length} cached deals
             </span>
