@@ -99,27 +99,21 @@ export default function UnifiedDeals({ type, title }: UnifiedDealsProps) {
           <h2 className="text-lg font-semibold text-gray-900">{title}</h2>
           <div className="h-9 w-32 bg-slate-100 rounded-md animate-pulse"></div>
         </div>
-        <div className="w-[30%] space-y-2">
+        <div className="space-y-3 max-h-[300px] overflow-y-auto">
           {Array.from({ length: 4 }).map((_, i) => (
-            <Card key={i} className="overflow-hidden flex h-[120px] w-full border-l-4 border-l-slate-200">
-              <div className="w-24 bg-slate-100 flex items-center justify-center relative">
-                <Skeleton className="h-16 w-16" />
-                <div className="absolute top-0.5 right-0.5">
-                  <Skeleton className="h-4 w-8 rounded" />
-                </div>
+            <div key={i} className="flex items-center p-2 bg-gray-50 rounded-md border border-gray-200">
+              <div className="w-12 h-12 min-w-[48px] bg-gray-100 rounded-md overflow-hidden mr-3 flex items-center justify-center">
+                <Skeleton className="w-full h-full" />
               </div>
-              <div className="flex-1 flex flex-col justify-between p-2">
-                <div className="flex-1">
-                  <Skeleton className="h-3 w-full mb-1" />
-                  <Skeleton className="h-3 w-3/4 mb-1" />
+              <div className="flex-1 min-w-0">
+                <Skeleton className="h-3 w-full mb-1" />
+                <div className="flex items-center gap-1">
                   <Skeleton className="h-4 w-16" />
-                </div>
-                <div className="flex gap-1">
-                  <Skeleton className="h-6 flex-1" />
-                  <Skeleton className="h-6 w-12" />
+                  <Skeleton className="h-3 w-12" />
+                  <Skeleton className="h-4 w-12" />
                 </div>
               </div>
-            </Card>
+            </div>
           ))}
         </div>
       </div>
@@ -186,7 +180,7 @@ export default function UnifiedDeals({ type, title }: UnifiedDealsProps) {
       </div>
 
       {currentDeals.length > 0 && (
-        <div className="w-[30%] space-y-2">
+        <div className="space-y-3 max-h-[300px] overflow-y-auto">
           {currentDeals.map((deal, index) => {
             const dealKey = deal.asin || `deal-${index}-${deal.title?.substring(0, 20)}`;
             
@@ -199,21 +193,51 @@ export default function UnifiedDeals({ type, title }: UnifiedDealsProps) {
               });
             }
             
+            const savings = deal.originalPrice && deal.originalPrice > deal.currentPrice 
+              ? deal.originalPrice - deal.currentPrice 
+              : 0;
+            
             return (
-              <SharedProductCard
+              <a 
                 key={dealKey}
-                  title={deal.title}
-                  imageUrl={deal.imageUrl}
-                  currentPrice={deal.currentPrice}
-                  originalPrice={deal.originalPrice}
-                  discount={deal.discountPercentage}
-                  url={deal.affiliateUrl}
-                  asin={deal.asin}
-                  isHot={!deal.originalPrice}
-                  premium={deal.discountPercentage >= 30}
-                  lowestPrice={deal.currentPrice}
-                  highestPrice={deal.originalPrice || deal.currentPrice}
-                />
+                href={deal.affiliateUrl} 
+                target="_blank"
+                rel="noopener noreferrer"
+                className="flex items-center p-2 bg-gray-50 rounded-md border border-gray-200 hover:bg-gray-100 transition-colors cursor-pointer"
+              >
+                <div className="w-12 h-12 min-w-[48px] bg-gray-100 rounded-md overflow-hidden mr-3 flex items-center justify-center">
+                  {deal.imageUrl ? (
+                    <img 
+                      src={deal.imageUrl} 
+                      alt={deal.title} 
+                      className="w-full h-full object-contain"
+                    />
+                  ) : (
+                    <div className="w-full h-full bg-gray-200 flex items-center justify-center">
+                      <span className="text-xs text-gray-500">No img</span>
+                    </div>
+                  )}
+                </div>
+                <div className="flex-1 min-w-0">
+                  <p className="text-xs font-medium text-gray-800 truncate">{deal.title}</p>
+                  <div className="flex items-center flex-wrap gap-1">
+                    <span className="text-sm font-bold text-primary">${deal.currentPrice.toFixed(2)}</span>
+                    {deal.originalPrice && deal.originalPrice > deal.currentPrice && (
+                      <span className="text-xs line-through text-gray-500">${deal.originalPrice.toFixed(2)}</span>
+                    )}
+                    {deal.discountPercentage > 0 && (
+                      <span className="bg-red-100 text-red-800 text-xs px-1 py-0.5 rounded font-medium">
+                        {deal.discountPercentage}% off
+                      </span>
+                    )}
+                    {savings > 0 && (
+                      <span className="text-xs text-green-600 font-medium">
+                        Save ${savings.toFixed(0)}
+                      </span>
+                    )}
+                  </div>
+                </div>
+              </a>
             );
           })}
         </div>
