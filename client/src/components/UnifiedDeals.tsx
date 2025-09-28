@@ -93,7 +93,7 @@ export default function UnifiedDeals({ type, title }: UnifiedDealsProps) {
 
   if (isLoading) {
     return (
-      <div className="bg-white border rounded-xl shadow-sm p-4 space-y-4 w-[30%] min-w-[300px]">
+      <div className="bg-white border rounded-xl shadow-sm p-4 space-y-4">
         <div className="flex justify-between items-center">
           <h2 className="text-lg font-semibold text-gray-900">{title}</h2>
           <div className="h-9 w-32 bg-slate-100 rounded-md animate-pulse"></div>
@@ -121,7 +121,7 @@ export default function UnifiedDeals({ type, title }: UnifiedDealsProps) {
 
   if (error || (!isLoading && !currentDeals.length)) {
     return (
-      <div className="bg-white border rounded-xl shadow-sm p-4 space-y-4 w-[30%] min-w-[300px]">
+      <div className="bg-white border rounded-xl shadow-sm p-4 space-y-4">
         <Card className="border-dashed">
           <CardHeader>
             <CardTitle className="text-center">No Deals Available</CardTitle>
@@ -135,7 +135,7 @@ export default function UnifiedDeals({ type, title }: UnifiedDealsProps) {
   }
 
   return (
-    <div className="bg-white border rounded-xl shadow-sm p-4 space-y-4 w-[30%] min-w-[300px]">
+    <div className="bg-white border rounded-xl shadow-sm p-4 space-y-4">
       <div className="flex justify-between items-center">
         <div className="flex items-center gap-4">
           <h2 className="text-lg font-semibold text-gray-900">{title}</h2>
