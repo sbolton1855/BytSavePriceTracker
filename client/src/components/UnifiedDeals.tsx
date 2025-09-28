@@ -99,35 +99,34 @@ export default function UnifiedDeals({ type, title }: UnifiedDealsProps) {
           <h2 className="text-lg font-semibold text-gray-900">{title}</h2>
           <div className="h-9 w-32 bg-slate-100 rounded-md animate-pulse"></div>
         </div>
-        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
+        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-4">
           {Array.from({ length: 4 }).map((_, i) => (
-            <div key={i} className="w-full max-w-sm mx-auto">
-              <Card className="overflow-hidden h-[480px]">
-                <div className="aspect-square bg-slate-100 flex items-center justify-center relative">
-                  <Skeleton className="h-32 w-32" />
-                  <div className="absolute top-2 right-2">
-                    <Skeleton className="h-4 w-12 rounded-full" />
+            <div key={i} className="w-full">
+              <Card className="overflow-hidden h-[360px] max-w-[240px] mx-auto">
+                <div className="h-40 bg-slate-100 flex items-center justify-center relative">
+                  <Skeleton className="h-24 w-24" />
+                  <div className="absolute top-1 right-1">
+                    <Skeleton className="h-3 w-10 rounded-full" />
                   </div>
                 </div>
-                <div className="p-3">
-                  <Skeleton className="h-3 w-full mb-2" />
-                  <Skeleton className="h-3 w-3/4 mb-3" />
+                <div className="p-2">
+                  <Skeleton className="h-3 w-full mb-1" />
+                  <Skeleton className="h-3 w-3/4 mb-2" />
                 </div>
-                <div className="p-3 pt-0 flex-grow">
-                  <Skeleton className="h-5 w-20 mb-2" />
+                <div className="p-2 pt-0 flex-grow">
+                  <Skeleton className="h-4 w-16 mb-1" />
                   <div className="space-y-1">
-                    <Skeleton className="h-3 w-24" />
-                    <Skeleton className="h-3 w-28" />
+                    <Skeleton className="h-3 w-20" />
                   </div>
-                  <div className="mt-2 flex justify-between">
-                    <Skeleton className="h-3 w-16" />
-                    <Skeleton className="h-3 w-16" />
+                  <div className="mt-1 flex justify-between">
+                    <Skeleton className="h-2 w-12" />
+                    <Skeleton className="h-2 w-12" />
                   </div>
                 </div>
-                <div className="p-3 pt-0">
-                  <div className="space-y-1.5 w-full">
-                    <Skeleton className="h-8 w-full" />
-                    <Skeleton className="h-6 w-full" />
+                <div className="p-2 pt-0">
+                  <div className="space-y-1 w-full">
+                    <Skeleton className="h-7 w-full" />
+                    <Skeleton className="h-5 w-full" />
                   </div>
                 </div>
               </Card>
@@ -198,11 +197,21 @@ export default function UnifiedDeals({ type, title }: UnifiedDealsProps) {
       </div>
 
       {currentDeals.length > 0 && (
-        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
+        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-4">
           {currentDeals.map((deal, index) => {
             const dealKey = deal.asin || `deal-${index}-${deal.title?.substring(0, 20)}`;
+            
+            // Log image details for debugging (first two deals only)
+            if (index < 2) {
+              console.log(`[UnifiedDeals] Deal ${index + 1} image:`, {
+                asin: deal.asin,
+                imageUrl: deal.imageUrl,
+                title: deal.title?.substring(0, 30) + '...'
+              });
+            }
+            
             return (
-              <div key={dealKey} className="w-full max-w-sm mx-auto">
+              <div key={dealKey} className="w-full">
                 <SharedProductCard
                   title={deal.title}
                   imageUrl={deal.imageUrl}

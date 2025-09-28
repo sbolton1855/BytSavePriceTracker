@@ -35,56 +35,51 @@ export default function SharedProductCard({
     ? originalPrice - currentPrice 
     : 0;
 
+  // Optimize image URL for smaller size
+  const optimizedImageUrl = imageUrl 
+    ? imageUrl.replace(/_SL\d+_/, '_SL160_').replace(/\._AC_.*?\./, '._AC_SX160_SY160_.')
+    : imageUrl;
+
   return (
-    <Card className="overflow-hidden flex flex-col h-[480px] hover:shadow-lg transition-shadow">
-      <div className="aspect-square bg-slate-50 flex items-center justify-center relative overflow-hidden">
-        {imageUrl ? (
+    <Card className="overflow-hidden flex flex-col h-[360px] max-w-[240px] mx-auto hover:shadow-lg transition-shadow">
+      <div className="aspect-square bg-slate-50 flex items-center justify-center relative overflow-hidden h-40">
+        {optimizedImageUrl ? (
           <img 
-            src={imageUrl} 
+            src={optimizedImageUrl} 
             alt={title} 
-            className="object-contain w-full h-full p-3"
+            className="object-contain w-full h-full p-2"
           />
         ) : (
-          <div className="h-full w-full flex items-center justify-center text-slate-400 text-sm">
-            No image available
+          <div className="h-full w-full flex items-center justify-center text-slate-400 text-xs">
+            No image
           </div>
         )}
-        <div className="absolute top-2 right-2 flex flex-col gap-1 items-end">
+        <div className="absolute top-1 right-1 flex flex-col gap-0.5 items-end">
           {discount && discount > 0 && (
-            <Badge className="bg-red-600 text-white font-bold shadow-lg">
+            <Badge className="bg-red-600 text-white font-bold text-xs px-1 py-0.5">
               {discount}% OFF
             </Badge>
           )}
-          {originalPrice && currentPrice < originalPrice && (
-            <Badge className="bg-green-600 text-white text-xs shadow-lg">
-              Save ${savings.toFixed(2)}
+          {originalPrice && currentPrice < originalPrice && savings > 0 && (
+            <Badge className="bg-green-600 text-white text-xs px-1 py-0.5">
+              Save ${savings.toFixed(0)}
             </Badge>
           )}
           {currentPrice < 15 && (
-            <Badge className="bg-blue-600 text-white text-xs">
+            <Badge className="bg-blue-600 text-white text-xs px-1 py-0.5">
               Under $15
-            </Badge>
-          )}
-          {premium && (
-            <Badge className="bg-purple-600 text-white text-xs">
-              PREMIUM DEAL
-            </Badge>
-          )}
-          {isHot && !discount && (
-            <Badge className="bg-red-500 text-white text-xs">
-              HOT DEAL
             </Badge>
           )}
         </div>
       </div>
-      <CardHeader className="p-3 pb-2">
-        <CardTitle className="text-xs font-medium line-clamp-2 leading-tight">
+      <CardHeader className="p-2 pb-1">
+        <CardTitle className="text-xs font-medium line-clamp-2 leading-tight h-8">
           {title}
         </CardTitle>
       </CardHeader>
-      <CardContent className="p-3 pt-1 flex-grow">
-        <div className="flex items-baseline gap-2 mb-2">
-          <span className="text-base font-bold text-primary">
+      <CardContent className="p-2 pt-0 flex-grow">
+        <div className="flex items-baseline gap-1 mb-1">
+          <span className="text-sm font-bold text-primary">
             ${currentPrice.toFixed(2)}
           </span>
           {originalPrice && originalPrice > currentPrice && (
@@ -95,35 +90,28 @@ export default function SharedProductCard({
         </div>
 
         {discount && discount > 0 && (
-          <div className="flex flex-col gap-1 mb-2">
-            <div className="flex items-center text-red-600 text-xs">
-              <ArrowDownRight className="h-3 w-3 mr-1" />
-              {discount}% off
-            </div>
-            {savings > 0 && (
-              <div className="text-green-600 text-xs font-medium">
-                Save ${savings.toFixed(2)}
-              </div>
-            )}
+          <div className="flex items-center text-red-600 text-xs mb-1">
+            <ArrowDownRight className="h-3 w-3 mr-1" />
+            {discount}% off
           </div>
         )}
 
         <div className="text-xs text-muted-foreground">
           <div className="flex justify-between">
-            <span>Low: ${(lowestPrice ?? currentPrice).toFixed(2)}</span>
-            <span>High: ${(highestPrice ?? originalPrice ?? currentPrice).toFixed(2)}</span>
+            <span>L: ${(lowestPrice ?? currentPrice).toFixed(2)}</span>
+            <span>H: ${(highestPrice ?? originalPrice ?? currentPrice).toFixed(2)}</span>
           </div>
         </div>
       </CardContent>
-      <CardFooter className="p-3 pt-0">
-        <div className="space-y-1.5 w-full">
-          <Button asChild className="w-full h-8 text-xs">
+      <CardFooter className="p-2 pt-0">
+        <div className="space-y-1 w-full">
+          <Button asChild className="w-full h-7 text-xs">
             <a href={url} target="_blank" rel="noopener noreferrer">
               View Deal <ArrowRight className="ml-1 h-3 w-3" />
             </a>
           </Button>
           {asin && (
-            <Badge variant="outline" className="w-full justify-center py-1 border-dashed text-xs text-muted-foreground hover:bg-primary/5 cursor-pointer hover:border-primary transition-colors">
+            <Badge variant="outline" className="w-full justify-center py-0.5 border-dashed text-xs text-muted-foreground hover:bg-primary/5 cursor-pointer hover:border-primary transition-colors">
               <a href={`/dashboard?track=${asin}`} className="flex items-center w-full justify-center">
                 Track Price
               </a>
