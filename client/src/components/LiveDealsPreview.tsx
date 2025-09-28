@@ -208,9 +208,6 @@ export default function LiveDealsPreview() {
 
   return (
     <div className="bg-white border rounded-xl shadow-sm p-4 space-y-4">
-      <div className="bg-red-600 text-white p-4 mb-4 text-center font-bold text-xl">
-        🚨 TEST BANNER - LiveDealsPreview.tsx - REPLIT AI MODIFIED THIS FILE 🚨
-      </div>
       <div className="flex justify-between items-center">
         <div className="flex items-center gap-4">
           <h2 className="text-2xl font-bold">Live Deals Right Now</h2>
