@@ -48,7 +48,6 @@ export default function HighlightedDeals() {
 
       const jsonData = await response.json();
       console.log("[TrendingNow] API Success - received data structure:", Object.keys(jsonData));
-      console.log("[TrendingNow] Full API response:", jsonData);
 
       // Standardize deals extraction
       const deals = jsonData.data?.deals || jsonData.deals || jsonData;
@@ -58,7 +57,6 @@ export default function HighlightedDeals() {
         return [];
       }
 
-      console.log("[TrendingNow] Raw API response:", deals);
       return deals;
     },
     staleTime: 5 * 60 * 1000,
@@ -138,8 +136,7 @@ export default function HighlightedDeals() {
     currentPage,
     totalPages,
     currentDealsCount: currentDeals.length,
-    shouldShowPagination: shouldShowPagination,
-    dealsLength: allDeals.length
+    shouldShowPagination
   });
 
   if (isLoading) {
@@ -207,17 +204,17 @@ export default function HighlightedDeals() {
         <div className="flex items-center gap-4">
           <h2 className="text-lg font-semibold text-gray-900">Trending Now</h2>
           {shouldShowPagination && (
-            <div className="flex items-center gap-2 bg-yellow-100 border border-yellow-300 px-2 py-1 rounded">
+            <div className="flex items-center gap-2">
               <Button
                 variant="outline"
                 size="sm"
                 onClick={goToPrevPage}
                 disabled={currentPage === 0}
-                className="h-8 w-8 p-0 bg-white"
+                className="h-8 w-8 p-0"
               >
                 <ChevronLeft className="h-4 w-4" />
               </Button>
-              <span className="text-sm text-gray-900 min-w-[60px] text-center font-bold">
+              <span className="text-sm text-gray-900 min-w-[60px] text-center">
                 {currentPage + 1} / {totalPages}
               </span>
               <Button
@@ -225,7 +222,7 @@ export default function HighlightedDeals() {
                 size="sm"
                 onClick={goToNextPage}
                 disabled={currentPage >= totalPages - 1}
-                className="h-8 w-8 p-0 bg-white"
+                className="h-8 w-8 p-0"
               >
                 <ChevronRight className="h-4 w-4" />
               </Button>
@@ -233,9 +230,6 @@ export default function HighlightedDeals() {
           )}
         </div>
         <div className="flex items-center gap-2">
-          <span className="text-xs text-gray-900 bg-blue-100 px-2 py-1 rounded">
-            DEBUG: {currentDeals.length} of {allDeals.length} deals | Page {currentPage + 1}/{totalPages} | Show: {shouldShowPagination ? 'YES' : 'NO'}
-          </span>
           <Button
             onClick={refreshDeals}
             variant="outline"
@@ -247,65 +241,30 @@ export default function HighlightedDeals() {
           </Button>
         </div>
       </div>
-      <ul className="space-y-3">
-        {currentDeals.map((deal, index) => {
-          console.log("[TrendingNow] Rendering deal:", deal);
-          const dealKey = deal.asin || `deal-${index}-${deal.title?.substring(0, 20)}`;
-          return (
-            <li key={dealKey} className="flex items-start space-x-3 relative">
-              <div className="relative">
-                {deal.imageUrl ? (
-                  <img
-                    src={deal.imageUrl}
-                    alt={deal.title}
-                    className="w-14 h-14 object-contain border rounded"
-                  />
-                ) : (
-                  <div className="w-14 h-14 flex items-center justify-center bg-gray-100 border rounded text-xs text-gray-400">No image</div>
-                )}
-              </div>
-              <div className="flex-1">
-                <p className="text-xs font-medium leading-tight line-clamp-2">{deal.title}</p>
-                <div className="text-xs mt-1">
-                  <div className="flex items-center flex-wrap gap-1">
-                    <span className="text-xs font-bold text-green-600">${deal.currentPrice?.toFixed(2)}</span>
 
-                    {/* Show savings data if available */}
-                    {deal.originalPrice && deal.originalPrice > deal.currentPrice && (
-                      <>
-                        <span className="text-muted-foreground line-through text-xs">
-                          ${deal.originalPrice.toFixed(2)}
-                        </span>
-                        <span className="text-[8px] px-1 py-0 h-4 bg-red-500 text-white rounded-full">
-                          {deal.discount || Math.round(((deal.originalPrice - deal.currentPrice) / deal.originalPrice) * 100)}% OFF
-                        </span>
-                        <span className="text-[8px] px-1 py-0 h-4 bg-green-500 text-white rounded-full">
-                          Save ${(deal.originalPrice - deal.currentPrice).toFixed(2)}
-                        </span>
-                      </>
-                    )}
-
-                    {/* Show if no savings */}
-                    {(!deal.originalPrice || deal.originalPrice <= deal.currentPrice) && (
-                      <span className="text-[8px] text-gray-400">Regular Price</span>
-                    )}
-                  </div>
-                </div>
-                {deal.url && (
-                  <a
-                    href={deal.url}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="text-xs text-blue-600 hover:underline mt-1 inline-block font-medium"
-                  >
-                    View Deal →
-                  </a>
-                )}
-              </div>
-            </li>
-          );
-        })}
-      </ul>
+      {currentDeals.length > 0 && (
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+          {currentDeals.map((deal, index) => {
+            const dealKey = deal.asin || `deal-${index}-${deal.title?.substring(0, 20)}`;
+            return (
+              <SharedProductCard
+                key={dealKey}
+                title={deal.title}
+                imageUrl={deal.imageUrl}
+                currentPrice={deal.currentPrice}
+                originalPrice={deal.originalPrice}
+                discount={deal.discount}
+                url={deal.url}
+                asin={deal.asin}
+                isHot={deal.isHot}
+                premium={deal.premium}
+                lowestPrice={deal.lowestPrice}
+                highestPrice={deal.highestPrice}
+              />
+            );
+          })}
+        </div>
+      )}
     </div>
   );
 }

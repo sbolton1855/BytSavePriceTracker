@@ -1,10 +1,10 @@
-
 import { useState, useEffect } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { Button } from "./ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "./ui/card";
 import { Skeleton } from "./ui/skeleton";
 import { RefreshCw, ChevronLeft, ChevronRight } from "lucide-react";
+import SharedProductCard from "./SharedProductCard";
 
 type Deal = {
   asin: string;
@@ -36,18 +36,15 @@ interface NormalizedDeal {
 export default function LiveDealsPreview() {
   const [allDeals, setAllDeals] = useState<NormalizedDeal[]>([]);
   const [currentPage, setCurrentPage] = useState(0);
-  const [refreshKey, setRefreshKey] = useState<number>(0);
   const dealsPerPage = 4;
 
-  // Fetch deals with refresh functionality
+  // Fetch deals with consistent caching
   const { data, isLoading, error, refetch } = useQuery<any>({
-    queryKey: ["/api/amazon/deals", "liveDeals", refreshKey],
+    queryKey: ["/api/amazon/deals", "liveDeals"],
     queryFn: async () => {
       console.log("[LiveDealsPreview] Fetching deals from API...");
-      const timestamp = Date.now();
-      const rotation = refreshKey % 10;
-      const res = await fetch(`/api/amazon/deals?category=liveDeals&t=${timestamp}&rotate=${rotation}`);
-      
+      const res = await fetch(`/api/amazon/deals?category=liveDeals`);
+
       if (!res.ok || !res.headers.get('content-type')?.includes('application/json')) {
         const text = await res.text();
         console.error("[LiveDealsPreview] Invalid JSON response:", text);
@@ -56,7 +53,6 @@ export default function LiveDealsPreview() {
 
       const jsonData = await res.json();
       console.log("[LiveDealsPreview] API Success - received data structure:", Object.keys(jsonData));
-      console.log("[LiveDealsPreview] Full API response:", jsonData);
 
       // Standardize deals extraction
       const deals = jsonData.data?.deals || jsonData.deals || jsonData;
@@ -72,13 +68,6 @@ export default function LiveDealsPreview() {
     gcTime: 5 * 60 * 1000,
     refetchOnWindowFocus: false,
   });
-
-  // Function to manually refresh deals
-  const refreshDeals = () => {
-    console.log("[LiveDealsPreview] Manual refresh triggered");
-    setRefreshKey(prev => prev + 1);
-    refetch();
-  };
 
   // Normalize deals to shared format
   const normalizeDeal = (deal: Deal): NormalizedDeal => {
@@ -110,20 +99,13 @@ export default function LiveDealsPreview() {
       const processedDeals = data.map(normalizeDeal);
       console.log("[LiveDealsPreview] Processed deals count:", processedDeals.length);
 
-      // Apply randomization
-      const shuffleAmount = refreshKey % 4 + 1;
-      let shuffledDeals = [...processedDeals];
-      for (let i = 0; i < shuffleAmount; i++) {
-        shuffledDeals = shuffledDeals.sort(() => Math.random() - 0.5);
-      }
+      setAllDeals(processedDeals);
 
-      setAllDeals(shuffledDeals);
-      
-      if (shuffledDeals.length !== allDeals.length) {
+      if (processedDeals.length !== allDeals.length) {
         setCurrentPage(0);
       }
     }
-  }, [data, refreshKey]);
+  }, [data]);
 
   // Pagination logic
   const totalPages = Math.ceil(allDeals.length / dealsPerPage);
@@ -140,6 +122,12 @@ export default function LiveDealsPreview() {
     setCurrentPage(prev => Math.max(prev - 1, 0));
   };
 
+  // Manual refresh function
+  const refreshDeals = () => {
+    console.log("[LiveDealsPreview] Manual refresh triggered");
+    refetch();
+  };
+
   console.log("[LiveDealsPreview] Pagination info:", {
     totalDeals: allDeals.length,
     currentPage,
@@ -152,8 +140,8 @@ export default function LiveDealsPreview() {
     return (
       <div className="bg-white border rounded-xl shadow-sm p-4 space-y-4">
         <div className="flex justify-between items-center">
-          <h3 className="text-sm font-semibold">Live Deals Right Now</h3>
-          <div className="h-8 w-24 bg-slate-100 rounded-md animate-pulse"></div>
+          <h2 className="text-lg font-semibold text-gray-900">Live Deals Right Now</h2>
+          <div className="h-9 w-32 bg-slate-100 rounded-md animate-pulse"></div>
         </div>
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
           {Array.from({ length: 4 }).map((_, i) => (
@@ -223,7 +211,7 @@ export default function LiveDealsPreview() {
               >
                 <ChevronLeft className="h-4 w-4" />
               </Button>
-              <span className="text-sm text-muted-foreground min-w-[60px] text-center">
+              <span className="text-sm text-gray-900 min-w-[60px] text-center">
                 {currentPage + 1} / {totalPages}
               </span>
               <Button
@@ -239,11 +227,6 @@ export default function LiveDealsPreview() {
           )}
         </div>
         <div className="flex items-center gap-2">
-          {shouldShowPagination && (
-            <span className="text-xs text-muted-foreground">
-              {currentDeals.length} of {allDeals.length} cached deals
-            </span>
-          )}
           <Button 
             onClick={refreshDeals} 
             variant="outline"
@@ -256,74 +239,29 @@ export default function LiveDealsPreview() {
         </div>
       </div>
 
-      {!isLoading && currentDeals.length === 0 && (
-        <div className="text-sm text-muted-foreground">
-          No deals available at this moment. Please try again later.
-        </div>
-      )}
-
-      {!isLoading && currentDeals.length > 0 && (
-        <ul className="space-y-3">
+      {currentDeals.length > 0 && (
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
           {currentDeals.map((deal, index) => {
-            console.log("[LiveDealsPreview] Rendering deal:", deal);
             const dealKey = deal.asin || `deal-${index}-${deal.title?.substring(0, 20)}`;
             return (
-              <li key={dealKey} className="flex items-start space-x-3 relative">
-                <div className="relative">
-                  {deal.imageUrl ? (
-                    <img
-                      src={deal.imageUrl}
-                      alt={deal.title}
-                      className="w-14 h-14 object-contain border rounded"
-                    />
-                  ) : (
-                    <div className="w-14 h-14 flex items-center justify-center bg-gray-100 border rounded text-xs text-gray-400">No image</div>
-                  )}
-                </div>
-                <div className="flex-1">
-                  <p className="text-xs font-medium leading-tight line-clamp-2">{deal.title}</p>
-                  <div className="text-xs mt-1">
-                    <div className="flex items-center flex-wrap gap-1">
-                      <span className="text-xs font-bold text-green-600">${deal.currentPrice?.toFixed(2)}</span>
-
-                      {/* Show savings data if available */}
-                      {deal.originalPrice && deal.originalPrice > deal.currentPrice && (
-                        <>
-                          <span className="text-muted-foreground line-through text-xs">
-                            ${deal.originalPrice.toFixed(2)}
-                          </span>
-                          <span className="text-[8px] px-1 py-0 h-4 bg-red-500 text-white rounded-full">
-                            {deal.discount || Math.round(((deal.originalPrice - deal.currentPrice) / deal.originalPrice) * 100)}% OFF
-                          </span>
-                          <span className="text-[8px] px-1 py-0 h-4 bg-green-500 text-white rounded-full">
-                            Save ${(deal.originalPrice - deal.currentPrice).toFixed(2)}
-                          </span>
-                        </>
-                      )}
-
-                      {/* Show if no savings */}
-                      {(!deal.originalPrice || deal.originalPrice <= deal.currentPrice) && (
-                        <span className="text-[8px] text-gray-400">Regular Price</span>
-                      )}
-                    </div>
-                  </div>
-                  {deal.url && (
-                    <a
-                      href={deal.url}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="text-xs text-blue-600 hover:underline mt-1 inline-block font-medium"
-                    >
-                      View Deal →
-                    </a>
-                  )}
-                </div>
-              </li>
+              <SharedProductCard
+                key={dealKey}
+                title={deal.title}
+                imageUrl={deal.imageUrl}
+                currentPrice={deal.currentPrice}
+                originalPrice={deal.originalPrice}
+                discount={deal.discount}
+                url={deal.url}
+                asin={deal.asin}
+                isHot={deal.isHot}
+                premium={deal.premium}
+                lowestPrice={deal.lowestPrice}
+                highestPrice={deal.highestPrice}
+              />
             );
           })}
-        </ul>
+        </div>
       )}
-      <p className="text-[10px] text-muted-foreground mt-4">Powered by Amazon Product API</p>
     </div>
   );
 }
