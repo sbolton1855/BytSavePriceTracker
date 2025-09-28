@@ -1,10 +1,8 @@
-import { Button } from "./ui/button";
+
 import { useQuery } from "@tanstack/react-query";
 import { Skeleton } from "./ui/skeleton";
-import { useEffect, useState, useCallback } from "react";
-import { Check, TrendingDown, RefreshCw } from "lucide-react";
-import LiveDealsPreview from "@/components/LiveDealsPreview";
-import LiveDealsTracker from "@/components/LiveDealsTracker";
+import { useEffect, useState } from "react";
+import { RefreshCw } from "lucide-react";
 
 // Type definition for product deals
 interface ProductDeal {
@@ -24,29 +22,28 @@ interface ProductDeal {
   reviewCount?: number;
 }
 
-// Real-time dashboard with actual price drop alerts
-const PriceTrackerDashboard: React.FC = () => {
+// Live deals dashboard with same UI as PriceTrackerDashboard
+const LiveDealsTracker: React.FC = () => {
   // Add refresh key state and timestamp for rotation
   const [refreshKey, setRefreshKey] = useState(0);
   const [lastRefreshTime, setLastRefreshTime] = useState(Date.now());
 
-  // Get real price drop deals from the backend
+  // Get real live deals from the backend (using "live" instead of "trendingNow")
   const { data: deals, isLoading, refetch } = useQuery<ProductDeal[]>({
-    queryKey: ["/api/amazon/deals", refreshKey, lastRefreshTime],
+    queryKey: ["/api/amazon/deals", "live", refreshKey, lastRefreshTime],
     queryFn: async () => {
       const timestamp = Date.now();
-      // Fetch deals for the "trendingNow" category
-      const response = await fetch(`/api/amazon/deals?category=trendingNow&t=${timestamp}`);
+      // Fetch deals for the "live" category
+      const response = await fetch(`/api/amazon/deals?category=live&t=${timestamp}`);
       if (!response.ok) {
-        throw new Error('Failed to fetch deals');
+        throw new Error('Failed to fetch live deals');
       }
       const result = await response.json();
-      console.log('[PriceTracker] Raw Amazon API response:', result);
+      console.log('[LiveDealsTracker] Raw Amazon API response:', result);
 
       // Extract deals from the response (handle cached data structure)
       const rawDeals = result.deals || result.data?.deals || [];
-      console.log('[PriceTracker] Extracted deals:', rawDeals.length);
-
+      console.log('[LiveDealsTracker] Extracted deals:', rawDeals.length);
 
       // Extract real Amazon savings data from the API response structure
       const mappedDeals = rawDeals.map((d: any, idx: number) => {
@@ -77,7 +74,7 @@ const PriceTrackerDashboard: React.FC = () => {
           originalPrice = d.msrp;
         }
 
-        console.log('[PriceTracker] Deal:', {
+        console.log('[LiveDealsTracker] Deal:', {
           asin: d.asin,
           title: d.title.substring(0, 40) + '...',
           price: d.price,
@@ -112,17 +109,6 @@ const PriceTrackerDashboard: React.FC = () => {
     refetchOnWindowFocus: false,
   });
 
-  // Format price with two decimal places
-  const formatPrice = (price: number) => {
-    return `$${price.toFixed(2)}`;
-  };
-
-  // Calculate discount percentage
-  const calculateDiscount = (original: number, current: number) => {
-    if (!original || original <= current) return 0;
-    return Math.round(((original - current) / original) * 100);
-  };
-
   // Get deals to display
   const [selectedDeals, setSelectedDeals] = useState<ProductDeal[]>([]);
   const [isRefreshing, setIsRefreshing] = useState(false);
@@ -130,7 +116,7 @@ const PriceTrackerDashboard: React.FC = () => {
   // Update selected deals when deals change
   useEffect(() => {
     if (deals && deals.length > 0) {
-      console.log('Processing deals for display:', deals.length, 'deals available');
+      console.log('Processing live deals for display:', deals.length, 'deals available');
 
       const allDeals = deals;
 
@@ -139,13 +125,12 @@ const PriceTrackerDashboard: React.FC = () => {
         deal.originalPrice &&
         deal.currentPrice &&
         deal.originalPrice > deal.currentPrice &&
-        deal.currentPrice > 0 &&
-        calculateDiscount(deal.originalPrice, deal.currentPrice) > 0
+        deal.currentPrice > 0
       );
 
-      console.log(`[PriceTracker] Filtered to ${dealsWithSavings.length} deals with actual savings`);
+      console.log(`[LiveDealsTracker] Filtered to ${dealsWithSavings.length} deals with actual savings`);
 
-      // Create a scoring system for better deal selection
+      // Create a scoring system for better deal selection (same as PriceTracker)
       const scoredDeals = dealsWithSavings.map((deal: ProductDeal) => {
         let score = 0;
 
@@ -154,23 +139,13 @@ const PriceTrackerDashboard: React.FC = () => {
         else if (deal.currentPrice < 20) score += 10;
         else if (deal.currentPrice < 30) score += 5;
 
-        // Discount scoring (prioritize this since all deals now have savings)
+        // Discount scoring
         if (deal.savingsAmount && deal.savingsAmount > 0) {
-          score += deal.savingsPercentage * 2; // Use Amazon's percentage
+          score += deal.savingsPercentage * 2;
         } else if (deal.originalPrice && deal.originalPrice > deal.currentPrice) {
-          const discountPercent = calculateDiscount(deal.originalPrice, deal.currentPrice);
-          score += discountPercent * 2; // High weight for discounts
+          const discountPercent = Math.round(((deal.originalPrice - deal.currentPrice) / deal.originalPrice) * 100);
+          score += discountPercent * 2;
         }
-
-        // Category bonus scoring
-        const title = deal.title.toLowerCase();
-        if (title.includes('vitamin') || title.includes('supplement')) score += 8;
-        if (title.includes('organic') || title.includes('natural')) score += 6;
-        if (title.includes('gummy') || title.includes('chewable')) score += 4;
-        if (title.includes('women') || title.includes('men')) score += 3;
-        if (title.includes('nature made') || title.includes('olly')) score += 5; // Brand recognition
-        if (title.includes('pure encapsulations')) score += 8; // Premium brand
-        if (title.includes('thorne')) score += 8; // Premium brand
 
         // Review count bonus scoring
         if (deal.reviewCount && deal.reviewCount > 5000) score += 7;
@@ -182,15 +157,14 @@ const PriceTrackerDashboard: React.FC = () => {
       const randomSeed = refreshKey + Math.floor(lastRefreshTime / 1000);
       const sortedDeals = scoredDeals.sort((a, b) => {
         const scoreDiff = b.score - a.score;
-        // Add small random factor to prevent same order
         const randomFactor = (Math.sin(a.asin.charCodeAt(0) + randomSeed) * 2);
         return scoreDiff + randomFactor;
       });
 
-      // Select top 4 deals to match LiveDealsPreview
+      // Select top 4 deals
       const selectedTopDeals = sortedDeals.slice(0, 4);
 
-      console.log('Selected deals with scores:', selectedTopDeals.map(d => ({
+      console.log('Selected live deals with scores:', selectedTopDeals.map(d => ({
         asin: d.asin,
         title: d.title.substring(0, 40) + '...',
         price: d.currentPrice,
@@ -201,14 +175,11 @@ const PriceTrackerDashboard: React.FC = () => {
     }
   }, [deals, refreshKey, lastRefreshTime]);
 
-  // Update the handleRefresh function
+  // Handle refresh
   const handleRefresh = async () => {
     setIsRefreshing(true);
-
-    // Update both refresh key and timestamp to ensure new rotation
     setRefreshKey(prev => prev + 1);
     setLastRefreshTime(Date.now());
-
     const result = await refetch();
     setIsRefreshing(false);
   };
@@ -229,7 +200,7 @@ const PriceTrackerDashboard: React.FC = () => {
           <Skeleton className="h-5 w-32" />
           <Skeleton className="h-4 w-16" />
         </div>
-        <div className="text-sm text-muted-foreground mb-4">Loading deals...</div>
+        <div className="text-sm text-muted-foreground mb-4">Loading live deals...</div>
         <div className="space-y-3">
           {Array.from({ length: 4 }).map((_, i) => (
             <div key={i} className="flex items-start space-x-3">
@@ -248,15 +219,19 @@ const PriceTrackerDashboard: React.FC = () => {
 
   return (
     <div className="bg-white border rounded-xl shadow-sm p-4">
-      <div className="bg-red-600 text-white p-4 mb-4 text-center font-bold text-xl">
-        🚨 TEST BANNER - hero-section.tsx PriceTrackerDashboard - REPLIT AI MODIFIED THIS FILE 🚨
-      </div>
       <div className="flex justify-between items-center mb-2">
-        <h3 className="text-sm font-semibold">Price Drop Dashboard</h3>
+        <h3 className="text-sm font-semibold">🔥 Live Deals Right Now</h3>
+        <button 
+          className={`text-primary-600 hover:text-primary-800 transition-all flex items-center text-sm ${isRefreshing ? 'opacity-50' : ''}`}
+          onClick={handleRefresh}
+          disabled={isRefreshing}
+        >
+          <RefreshCw className={`h-3.5 w-3.5 mr-1 ${isRefreshing ? 'animate-spin' : ''}`} />
+        </button>
       </div>
       {!isLoading && selectedDeals.length === 0 && (
         <div className="text-sm text-muted-foreground">
-          No active deals with savings found. Check back soon for new price drops!
+          No active live deals with savings found. Check back soon for new price drops!
         </div>
       )}
       <ul className="space-y-3">
@@ -277,7 +252,7 @@ const PriceTrackerDashboard: React.FC = () => {
               <p className="text-xs font-medium leading-tight line-clamp-2">{deal.title}</p>
               <div className="text-xs mt-1">
                 <div className="flex items-center flex-wrap gap-1">
-                      <span className="text-xs font-bold text-green-600">${deal.currentPrice?.toFixed(2)}</span>
+                  <span className="text-xs font-bold text-green-600">${deal.currentPrice?.toFixed(2)}</span>
 
                   {/* Show real Amazon savings data */}
                   {deal.savingsAmount && deal.savingsAmount > 0 && deal.savingsPercentage && (
@@ -308,12 +283,6 @@ const PriceTrackerDashboard: React.FC = () => {
                       </span>
                     </>
                   )}
-
-                  {/* Only show if there are no savings at all - this shouldn't happen now due to filtering */}
-                  {!deal.savingsAmount && (!deal.originalPrice || deal.originalPrice <= deal.currentPrice) && (
-                    <span className="text-[8px] text-gray-400">Regular Price</span>
-                  )}
-
                 </div>
               </div>
               {deal.affiliateUrl && (
@@ -335,29 +304,4 @@ const PriceTrackerDashboard: React.FC = () => {
   );
 };
 
-// Export PriceTrackerDashboard for use in other components
-export { PriceTrackerDashboard };
-
-const HeroSection: React.FC = () => {
-  return (
-    <div className="relative">
-      <PriceTrackerDashboard />
-      <div className="mt-6">
-        <LiveDealsPreview />
-      </div>
-      <div className="absolute -bottom-6 -left-6 bg-white rounded-lg shadow-lg p-4 max-w-xs hidden md:block">
-        <div className="flex items-center">
-          <div className="bg-green-500 text-white p-2 rounded-full mr-3">
-            <Check className="h-4 w-4" />
-          </div>
-          <div>
-            <p className="text-sm font-semibold text-gray-800">Real-time Price Alerts</p>
-            <p className="text-xs text-gray-500">Get notified when prices drop</p>
-          </div>
-        </div>
-      </div>
-    </div>
-  );
-};
-
-export default HeroSection;
+export default LiveDealsTracker;
