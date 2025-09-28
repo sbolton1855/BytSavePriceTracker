@@ -198,7 +198,7 @@ export default function LiveDealsPreview() {
   return (
     <div className="bg-white border rounded-xl shadow-sm p-4">
       <div className="flex justify-between items-center mb-2">
-        <h3 className="text-sm font-semibold">🔥 Live Deals Right Now</h3>
+        <h3 className="text-sm font-semibold">Live Deals Right Now</h3>
         <button 
           className={`text-primary-600 hover:text-primary-800 transition-all flex items-center text-sm ${isLoading ? 'opacity-50' : ''}`}
           onClick={refreshDeals}

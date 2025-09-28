@@ -230,21 +230,19 @@ export default function HighlightedDeals() {
           )}
         </div>
         <div className="flex items-center gap-2">
-          <Button
+          <button 
+            className={`text-primary-600 hover:text-primary-800 transition-all flex items-center text-sm ${isLoading ? 'opacity-50' : ''}`}
             onClick={refreshDeals}
-            variant="outline"
-            size="sm"
-            className="flex items-center gap-1 px-2 py-1 rounded-md bg-amber-100 border border-amber-300 text-amber-800 hover:bg-amber-200 transition-colors text-xs"
+            disabled={isLoading}
           >
-            <RefreshCw className="h-3 w-3" />
-            Refresh
-          </Button>
+            <RefreshCw className={`h-3.5 w-3.5 mr-1 ${isLoading ? 'animate-spin' : ''}`} />
+          </button>
         </div>
       </div>
 
       {currentDeals.length > 0 && (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-          {currentDeals.map((deal, index) => {
+          {currentDeals.slice(0, 4).map((deal, index) => {
             const dealKey = deal.asin || `deal-${index}-${deal.title?.substring(0, 20)}`;
             return (
               <SharedProductCard
