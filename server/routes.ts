@@ -1017,7 +1017,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       
       if (!userId || !userEmail) {
         console.error('Missing user ID or email in authenticated request');
-        return res.status(200).json([]);
+        return res.json([]);
       }
 
       console.log(`Fetching tracked products for user ${userId} with email ${userEmail}`);
@@ -1044,7 +1044,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       console.log(`Combined total: ${allTrackedProducts.length} tracked products`);
 
       if (allTrackedProducts.length === 0) {
-        return res.status(200).json([]);
+        return res.json([]);
       }
 
       // For each tracked product, fetch the product details
@@ -1092,11 +1092,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const validDetails = fullDetails.filter(item => item !== null);
       console.log(`Returning ${validDetails.length} tracked products with details`);
 
-      return res.status(200).json(validDetails);
+      return res.json(validDetails);
     } catch (error) {
       console.error('Error fetching user tracked products:', error);
       // Always return a successful response with empty array to prevent frontend crashes
-      return res.status(200).json([]);
+      return res.json([]);
     }
   });
 
