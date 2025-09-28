@@ -207,17 +207,17 @@ export default function HighlightedDeals() {
         <div className="flex items-center gap-4">
           <h2 className="text-lg font-semibold text-gray-900">Trending Now</h2>
           {shouldShowPagination && (
-            <div className="flex items-center gap-2">
+            <div className="flex items-center gap-2 bg-yellow-100 border border-yellow-300 px-2 py-1 rounded">
               <Button
                 variant="outline"
                 size="sm"
                 onClick={goToPrevPage}
                 disabled={currentPage === 0}
-                className="h-8 w-8 p-0"
+                className="h-8 w-8 p-0 bg-white"
               >
                 <ChevronLeft className="h-4 w-4" />
               </Button>
-              <span className="text-sm text-muted-foreground min-w-[60px] text-center">
+              <span className="text-sm text-gray-900 min-w-[60px] text-center font-bold">
                 {currentPage + 1} / {totalPages}
               </span>
               <Button
@@ -225,7 +225,7 @@ export default function HighlightedDeals() {
                 size="sm"
                 onClick={goToNextPage}
                 disabled={currentPage >= totalPages - 1}
-                className="h-8 w-8 p-0"
+                className="h-8 w-8 p-0 bg-white"
               >
                 <ChevronRight className="h-4 w-4" />
               </Button>
@@ -233,11 +233,9 @@ export default function HighlightedDeals() {
           )}
         </div>
         <div className="flex items-center gap-2">
-          {shouldShowPagination && (
-            <span className="text-xs text-muted-foreground">
-              {currentDeals.length} of {allDeals.length} cached deals
-            </span>
-          )}
+          <span className="text-xs text-gray-900 bg-blue-100 px-2 py-1 rounded">
+            DEBUG: {currentDeals.length} of {allDeals.length} deals | Page {currentPage + 1}/{totalPages} | Show: {shouldShowPagination ? 'YES' : 'NO'}
+          </span>
           <Button
             onClick={refreshDeals}
             variant="outline"
