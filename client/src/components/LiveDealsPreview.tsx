@@ -1,17 +1,22 @@
+
 import { useState, useEffect } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "./ui/card";
 import { Button } from "./ui/button";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "./ui/card";
 import { Skeleton } from "./ui/skeleton";
 import { RefreshCw, ChevronLeft, ChevronRight } from "lucide-react";
-import { Product } from "../../../shared/schema";
-import SharedProductCard from "./SharedProductCard";
 
-type LiveDeal = Product & {
-  discountPercentage: number;
-  savings?: number;
+type Deal = {
+  asin: string;
+  title: string;
+  imageUrl: string;
+  price: number;
+  currentPrice: number;
+  originalPrice?: number | null;
+  msrp?: number;
+  url?: string;
   affiliateUrl?: string;
-  isNewAddition?: boolean;
+  savings?: any;
 };
 
 interface NormalizedDeal {
@@ -31,22 +36,25 @@ interface NormalizedDeal {
 export default function LiveDealsPreview() {
   const [allDeals, setAllDeals] = useState<NormalizedDeal[]>([]);
   const [currentPage, setCurrentPage] = useState(0);
+  const [refreshKey, setRefreshKey] = useState<number>(0);
   const dealsPerPage = 4;
 
-  // Fetch the live deals from the API with consistent caching
-  const { data, isLoading, isError, refetch } = useQuery({
-    queryKey: ["/api/products/deals", "live"],
+  // Fetch deals with refresh functionality
+  const { data, isLoading, error, refetch } = useQuery<any>({
+    queryKey: ["/api/amazon/deals", "liveDeals", refreshKey],
     queryFn: async () => {
       console.log("[LiveDealsPreview] Fetching deals from API...");
-      const response = await fetch("/api/products/deals?category=live");
-
-      if (!response.ok || !response.headers.get('content-type')?.includes('application/json')) {
-        const text = await response.text();
+      const timestamp = Date.now();
+      const rotation = refreshKey % 10;
+      const res = await fetch(`/api/amazon/deals?category=liveDeals&t=${timestamp}&rotate=${rotation}`);
+      
+      if (!res.ok || !res.headers.get('content-type')?.includes('application/json')) {
+        const text = await res.text();
         console.error("[LiveDealsPreview] Invalid JSON response:", text);
         throw new Error('Invalid response from server');
       }
 
-      const jsonData = await response.json();
+      const jsonData = await res.json();
       console.log("[LiveDealsPreview] API Success - received data structure:", Object.keys(jsonData));
       console.log("[LiveDealsPreview] Full API response:", jsonData);
 
@@ -58,7 +66,6 @@ export default function LiveDealsPreview() {
         return [];
       }
 
-      console.log("[LiveDealsPreview] Raw API response:", deals);
       return deals;
     },
     staleTime: 5 * 60 * 1000,
@@ -66,51 +73,57 @@ export default function LiveDealsPreview() {
     refetchOnWindowFocus: false,
   });
 
+  // Function to manually refresh deals
+  const refreshDeals = () => {
+    console.log("[LiveDealsPreview] Manual refresh triggered");
+    setRefreshKey(prev => prev + 1);
+    refetch();
+  };
+
   // Normalize deals to shared format
-  const normalizeDeal = (deal: LiveDeal): NormalizedDeal => {
-    const currentPrice = deal.price || deal.currentPrice || 0;
-    const originalPrice = deal.originalPrice || null;
-    const discount = deal.discountPercentage ||
-      (originalPrice ? Math.round(((originalPrice - currentPrice) / originalPrice) * 100) : 0);
+  const normalizeDeal = (deal: Deal): NormalizedDeal => {
+    const currentPrice = deal.currentPrice || deal.price || 0;
+    const originalPrice = deal.originalPrice || deal.msrp || null;
+    const discount = deal.savings?.Percentage || 
+      (originalPrice && originalPrice > currentPrice 
+        ? Math.round(((originalPrice - currentPrice) / originalPrice) * 100)
+        : 0);
 
     return {
-      title: deal.title,
+      title: deal.title || 'Product Title Unavailable',
       imageUrl: deal.imageUrl || undefined,
       currentPrice,
       originalPrice: originalPrice || undefined,
       discount: discount || undefined,
       url: deal.affiliateUrl || deal.url || `https://www.amazon.com/dp/${deal.asin}`,
-      asin: deal.id || deal.asin,
-      isHot: true,
-      premium: discount >= 50,
-      lowestPrice: deal.lowestPrice ?? currentPrice,
-      highestPrice: deal.highestPrice ?? originalPrice ?? currentPrice
+      asin: deal.asin,
+      isHot: !deal.savings?.Percentage,
+      premium: deal.savings?.Percentage >= 30,
+      lowestPrice: currentPrice,
+      highestPrice: originalPrice || currentPrice
     };
   };
 
-  // Process and store deals
+  // Process deals
   useEffect(() => {
     if (data && Array.isArray(data)) {
-      const processedDeals = data.map(deal => ({
-        ...deal,
-        currentPrice: deal.price || deal.currentPrice || 0,
-        originalPrice: deal.originalPrice || null,
-        affiliateUrl: deal.url || deal.affiliateUrl,
-        discountPercentage: deal.discountPercentage ||
-          (deal.originalPrice ? Math.round(((deal.originalPrice - (deal.price || deal.currentPrice)) / deal.originalPrice) * 100) : 0),
-        savings: deal.savings ||
-          (deal.originalPrice ? Math.round((deal.originalPrice - (deal.price || deal.currentPrice)) * 100) / 100 : 0)
-      })).map(normalizeDeal);
-
+      const processedDeals = data.map(normalizeDeal);
       console.log("[LiveDealsPreview] Processed deals count:", processedDeals.length);
-      setAllDeals(processedDeals);
 
-      // Reset page only if we have new data structure
-      if (processedDeals.length !== allDeals.length) {
+      // Apply randomization
+      const shuffleAmount = refreshKey % 4 + 1;
+      let shuffledDeals = [...processedDeals];
+      for (let i = 0; i < shuffleAmount; i++) {
+        shuffledDeals = shuffledDeals.sort(() => Math.random() - 0.5);
+      }
+
+      setAllDeals(shuffledDeals);
+      
+      if (shuffledDeals.length !== allDeals.length) {
         setCurrentPage(0);
       }
     }
-  }, [data]);
+  }, [data, refreshKey]);
 
   // Pagination logic
   const totalPages = Math.ceil(allDeals.length / dealsPerPage);
@@ -127,26 +140,20 @@ export default function LiveDealsPreview() {
     setCurrentPage(prev => Math.max(prev - 1, 0));
   };
 
-  // Manual refresh function
-  const refreshDeals = () => {
-    console.log("[LiveDealsPreview] Manual refresh triggered");
-    refetch();
-  };
-
   console.log("[LiveDealsPreview] Pagination info:", {
     totalDeals: allDeals.length,
     currentPage,
     totalPages,
     currentDealsCount: currentDeals.length,
-    shouldShowPagination: shouldShowPagination
+    shouldShowPagination
   });
 
   if (isLoading) {
     return (
       <div className="bg-white border rounded-xl shadow-sm p-4 space-y-4">
         <div className="flex justify-between items-center">
-          <h2 className="text-lg font-semibold text-gray-900">Live Deals Right Now</h2>
-          <div className="h-9 w-32 bg-slate-100 rounded-md animate-pulse"></div>
+          <h3 className="text-sm font-semibold">Live Deals Right Now</h3>
+          <div className="h-8 w-24 bg-slate-100 rounded-md animate-pulse"></div>
         </div>
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
           {Array.from({ length: 4 }).map((_, i) => (
@@ -185,12 +192,12 @@ export default function LiveDealsPreview() {
     );
   }
 
-  if (isError || !currentDeals.length) {
+  if (error || (!isLoading && !currentDeals.length)) {
     return (
       <div className="bg-white border rounded-xl shadow-sm p-4 space-y-4">
         <Card className="border-dashed">
           <CardHeader>
-            <CardTitle className="text-center">No Deals Available</CardTitle>
+            <CardTitle className="text-center">No Live Deals Available</CardTitle>
             <CardDescription className="text-center">
               We couldn't find any live deals right now. Please check back later.
             </CardDescription>
@@ -232,39 +239,91 @@ export default function LiveDealsPreview() {
           )}
         </div>
         <div className="flex items-center gap-2">
-          <Button
-            onClick={refreshDeals}
+          {shouldShowPagination && (
+            <span className="text-xs text-muted-foreground">
+              {currentDeals.length} of {allDeals.length} cached deals
+            </span>
+          )}
+          <Button 
+            onClick={refreshDeals} 
             variant="outline"
             size="sm"
-            className="flex items-center gap-1"
+            className="flex items-center gap-1 px-2 py-1 rounded-md bg-amber-100 border border-amber-300 text-amber-800 hover:bg-amber-200 transition-colors text-xs"
           >
-            <RefreshCw className="h-4 w-4" />
+            <RefreshCw className="h-3 w-3" />
             Refresh
           </Button>
         </div>
       </div>
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-        {currentDeals.map((deal, index) => {
-          console.log("[LiveDealsPreview] Rendering deal:", deal);
-          const dealKey = deal.asin || `deal-${index}-${deal.title?.substring(0, 20)}`;
-          return (
-            <SharedProductCard
-              key={dealKey}
-              title={deal.title}
-              imageUrl={deal.imageUrl}
-              currentPrice={deal.currentPrice}
-              originalPrice={deal.originalPrice}
-              discount={deal.discount}
-              url={deal.url}
-              asin={deal.asin}
-              isHot={deal.isHot}
-              premium={deal.premium}
-              lowestPrice={deal.lowestPrice}
-              highestPrice={deal.highestPrice}
-            />
-          );
-        })}
-      </div>
+
+      {!isLoading && currentDeals.length === 0 && (
+        <div className="text-sm text-muted-foreground">
+          No deals available at this moment. Please try again later.
+        </div>
+      )}
+
+      {!isLoading && currentDeals.length > 0 && (
+        <ul className="space-y-3">
+          {currentDeals.map((deal, index) => {
+            console.log("[LiveDealsPreview] Rendering deal:", deal);
+            const dealKey = deal.asin || `deal-${index}-${deal.title?.substring(0, 20)}`;
+            return (
+              <li key={dealKey} className="flex items-start space-x-3 relative">
+                <div className="relative">
+                  {deal.imageUrl ? (
+                    <img
+                      src={deal.imageUrl}
+                      alt={deal.title}
+                      className="w-14 h-14 object-contain border rounded"
+                    />
+                  ) : (
+                    <div className="w-14 h-14 flex items-center justify-center bg-gray-100 border rounded text-xs text-gray-400">No image</div>
+                  )}
+                </div>
+                <div className="flex-1">
+                  <p className="text-xs font-medium leading-tight line-clamp-2">{deal.title}</p>
+                  <div className="text-xs mt-1">
+                    <div className="flex items-center flex-wrap gap-1">
+                      <span className="text-xs font-bold text-green-600">${deal.currentPrice?.toFixed(2)}</span>
+
+                      {/* Show savings data if available */}
+                      {deal.originalPrice && deal.originalPrice > deal.currentPrice && (
+                        <>
+                          <span className="text-muted-foreground line-through text-xs">
+                            ${deal.originalPrice.toFixed(2)}
+                          </span>
+                          <span className="text-[8px] px-1 py-0 h-4 bg-red-500 text-white rounded-full">
+                            {deal.discount || Math.round(((deal.originalPrice - deal.currentPrice) / deal.originalPrice) * 100)}% OFF
+                          </span>
+                          <span className="text-[8px] px-1 py-0 h-4 bg-green-500 text-white rounded-full">
+                            Save ${(deal.originalPrice - deal.currentPrice).toFixed(2)}
+                          </span>
+                        </>
+                      )}
+
+                      {/* Show if no savings */}
+                      {(!deal.originalPrice || deal.originalPrice <= deal.currentPrice) && (
+                        <span className="text-[8px] text-gray-400">Regular Price</span>
+                      )}
+                    </div>
+                  </div>
+                  {deal.url && (
+                    <a
+                      href={deal.url}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="text-xs text-blue-600 hover:underline mt-1 inline-block font-medium"
+                    >
+                      View Deal →
+                    </a>
+                  )}
+                </div>
+              </li>
+            );
+          })}
+        </ul>
+      )}
+      <p className="text-[10px] text-muted-foreground mt-4">Powered by Amazon Product API</p>
     </div>
   );
 }
