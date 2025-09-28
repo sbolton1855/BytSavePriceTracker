@@ -2305,6 +2305,207 @@ IMPORTANT RULES:
     }
   });
 
+  // Wishlist routes
+  
+  // Create or get user's wishlist
+  app.post('/api/wishlist/create', requireAuth, async (req: Request, res: Response) => {
+    try {
+      const userId = (req.user as any).id.toString();
+      
+      // Check if user already has a wishlist
+      const existingWishlist = await db.select()
+        .from(schema.wishlists)
+        .where(eq(schema.wishlists.userId, userId))
+        .limit(1);
+      
+      if (existingWishlist.length > 0) {
+        return res.json(existingWishlist[0]);
+      }
+      
+      // Generate unique slug
+      const slug = `${userId}-${Date.now()}`;
+      
+      // Create new wishlist
+      const newWishlist = await db.insert(schema.wishlists)
+        .values({
+          userId,
+          slug,
+        })
+        .returning();
+      
+      res.status(201).json(newWishlist[0]);
+    } catch (error) {
+      console.error('Error creating wishlist:', error);
+      res.status(500).json({ error: 'Failed to create wishlist' });
+    }
+  });
+
+  // Add product to wishlist
+  app.post('/api/wishlist/add', requireAuth, async (req: Request, res: Response) => {
+    try {
+      const userId = (req.user as any).id.toString();
+      const { productId } = req.body;
+      
+      if (!productId) {
+        return res.status(400).json({ error: 'Product ID is required' });
+      }
+      
+      // Get or create user's wishlist
+      let wishlist = await db.select()
+        .from(schema.wishlists)
+        .where(eq(schema.wishlists.userId, userId))
+        .limit(1);
+      
+      if (wishlist.length === 0) {
+        const slug = `${userId}-${Date.now()}`;
+        const newWishlist = await db.insert(schema.wishlists)
+          .values({ userId, slug })
+          .returning();
+        wishlist = newWishlist;
+      }
+      
+      // Check if product is already in wishlist
+      const existingItem = await db.select()
+        .from(schema.wishlistItems)
+        .where(
+          and(
+            eq(schema.wishlistItems.wishlistId, wishlist[0].id),
+            eq(schema.wishlistItems.productId, productId)
+          )
+        )
+        .limit(1);
+      
+      if (existingItem.length > 0) {
+        return res.status(400).json({ error: 'Product already in wishlist' });
+      }
+      
+      // Add product to wishlist
+      const newItem = await db.insert(schema.wishlistItems)
+        .values({
+          wishlistId: wishlist[0].id,
+          productId,
+        })
+        .returning();
+      
+      res.status(201).json(newItem[0]);
+    } catch (error) {
+      console.error('Error adding to wishlist:', error);
+      res.status(500).json({ error: 'Failed to add to wishlist' });
+    }
+  });
+
+  // Get user's wishlist with items
+  app.get('/api/wishlist/mine', requireAuth, async (req: Request, res: Response) => {
+    try {
+      const userId = (req.user as any).id.toString();
+      
+      // Get user's wishlist with items and product details
+      const wishlistData = await db.select({
+        wishlist: schema.wishlists,
+        item: schema.wishlistItems,
+        product: schema.products,
+      })
+        .from(schema.wishlists)
+        .leftJoin(schema.wishlistItems, eq(schema.wishlists.id, schema.wishlistItems.wishlistId))
+        .leftJoin(schema.products, eq(schema.wishlistItems.productId, schema.products.id))
+        .where(eq(schema.wishlists.userId, userId));
+      
+      if (wishlistData.length === 0) {
+        return res.json({ wishlist: null, items: [] });
+      }
+      
+      const wishlist = wishlistData[0].wishlist;
+      const items = wishlistData
+        .filter(row => row.product !== null)
+        .map(row => ({
+          ...row.item,
+          product: {
+            ...row.product,
+            affiliateUrl: addAffiliateTag(row.product!.url, AFFILIATE_TAG)
+          }
+        }));
+      
+      res.json({ wishlist, items });
+    } catch (error) {
+      console.error('Error fetching user wishlist:', error);
+      res.status(500).json({ error: 'Failed to fetch wishlist' });
+    }
+  });
+
+  // Get public wishlist by slug
+  app.get('/api/wishlist/public/:slug', async (req: Request, res: Response) => {
+    try {
+      const { slug } = req.params;
+      
+      // Get wishlist with items and product details
+      const wishlistData = await db.select({
+        wishlist: schema.wishlists,
+        item: schema.wishlistItems,
+        product: schema.products,
+      })
+        .from(schema.wishlists)
+        .leftJoin(schema.wishlistItems, eq(schema.wishlists.id, schema.wishlistItems.wishlistId))
+        .leftJoin(schema.products, eq(schema.wishlistItems.productId, schema.products.id))
+        .where(eq(schema.wishlists.slug, slug));
+      
+      if (wishlistData.length === 0) {
+        return res.status(404).json({ error: 'Wishlist not found' });
+      }
+      
+      const wishlist = wishlistData[0].wishlist;
+      const items = wishlistData
+        .filter(row => row.product !== null)
+        .map(row => ({
+          ...row.item,
+          product: {
+            ...row.product,
+            affiliateUrl: addAffiliateTag(row.product!.url, AFFILIATE_TAG)
+          }
+        }));
+      
+      res.json({ wishlist, items });
+    } catch (error) {
+      console.error('Error fetching public wishlist:', error);
+      res.status(500).json({ error: 'Failed to fetch wishlist' });
+    }
+  });
+
+  // Remove item from wishlist
+  app.delete('/api/wishlist/remove/:itemId', requireAuth, async (req: Request, res: Response) => {
+    try {
+      const userId = (req.user as any).id.toString();
+      const { itemId } = req.params;
+      
+      // Verify the item belongs to the user's wishlist
+      const itemCheck = await db.select({
+        wishlistItem: schema.wishlistItems,
+        wishlist: schema.wishlists,
+      })
+        .from(schema.wishlistItems)
+        .innerJoin(schema.wishlists, eq(schema.wishlistItems.wishlistId, schema.wishlists.id))
+        .where(
+          and(
+            eq(schema.wishlistItems.id, parseInt(itemId)),
+            eq(schema.wishlists.userId, userId)
+          )
+        )
+        .limit(1);
+      
+      if (itemCheck.length === 0) {
+        return res.status(404).json({ error: 'Wishlist item not found' });
+      }
+      
+      // Remove the item
+      await db.delete(schema.wishlistItems)
+        .where(eq(schema.wishlistItems.id, parseInt(itemId)));
+      
+      res.status(200).json({ message: 'Item removed from wishlist' });
+    } catch (error) {
+      console.error('Error removing from wishlist:', error);
+      res.status(500).json({ error: 'Failed to remove from wishlist' });
+    }
+  });
+
   // AI-powered product search with real Amazon results
   app.post('/api/ai/product-search', async (req: Request, res: Response) => {
     try {

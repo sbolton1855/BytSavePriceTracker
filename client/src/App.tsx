@@ -15,6 +15,7 @@ import HowItWorks from "@/pages/how-it-works";
 import AuthPage from "@/pages/auth-page";
 import SettingsPage from "@/pages/settings";
 import ProductDetails from "@/pages/product-details";
+import PublicWishlistPage from "@/pages/public-wishlist";
 import FAQ from "@/pages/faq";
 import NotFound from "@/pages/not-found";
 import ApiMonitor from "@/pages/api-monitor";
@@ -76,6 +77,9 @@ function Router() {
       </Route>
       <Route path="/products/:id">
         <ProductDetails />
+      </Route>
+      <Route path="/wishlist/:slug">
+        <PublicWishlistPage />
       </Route>
       <Route path="/faq">
         <FAQ />

@@ -209,6 +209,47 @@ export const apiErrorsRelations = relations(apiErrors, ({ one }) => ({
   })
 }));
 
+// Wishlist tables
+export const wishlists = pgTable('wishlists', {
+  id: serial('id').primaryKey(),
+  userId: text('user_id').notNull().references(() => users.id, { onDelete: 'cascade' }),
+  slug: varchar('slug', { length: 50 }).notNull().unique(),
+  createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
+});
+
+export const wishlistItems = pgTable('wishlist_items', {
+  id: serial('id').primaryKey(),
+  wishlistId: integer('wishlist_id').notNull().references(() => wishlists.id, { onDelete: 'cascade' }),
+  productId: integer('product_id').notNull().references(() => products.id, { onDelete: 'cascade' }),
+  createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
+});
+
+// Wishlist relations
+export const wishlistsRelations = relations(wishlists, ({ one, many }) => ({
+  user: one(users, {
+    fields: [wishlists.userId],
+    references: [users.id],
+  }),
+  items: many(wishlistItems),
+}));
+
+export const wishlistItemsRelations = relations(wishlistItems, ({ one }) => ({
+  wishlist: one(wishlists, {
+    fields: [wishlistItems.wishlistId],
+    references: [wishlists.id],
+  }),
+  product: one(products, {
+    fields: [wishlistItems.productId],
+    references: [products.id],
+  }),
+}));
+
+// Wishlist types
+export type Wishlist = InferSelectModel<typeof wishlists>;
+export type NewWishlist = InferInsertModel<typeof wishlists>;
+export type WishlistItem = InferSelectModel<typeof wishlistItems>;
+export type NewWishlistItem = InferInsertModel<typeof wishlistItems>;
+
 // Config table for global settings
 export const config = pgTable('config', {
   id: serial('id').primaryKey(),

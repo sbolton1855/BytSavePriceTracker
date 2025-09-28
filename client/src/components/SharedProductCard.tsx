@@ -3,6 +3,7 @@ import { Badge } from "./ui/badge";
 import { Button } from "./ui/button";
 import { Card, CardContent, CardFooter, CardHeader, CardTitle } from "./ui/card";
 import { ArrowRight, ArrowDownRight } from "lucide-react";
+import AddToWishlistButton from "./AddToWishlistButton";
 
 interface SharedProductCardProps {
   title: string;
@@ -16,6 +17,7 @@ interface SharedProductCardProps {
   premium?: boolean;
   lowestPrice?: number;
   highestPrice?: number;
+  productId?: number;
 }
 
 export default function SharedProductCard({
@@ -29,7 +31,8 @@ export default function SharedProductCard({
   isHot = false,
   premium = false,
   lowestPrice,
-  highestPrice
+  highestPrice,
+  productId
 }: SharedProductCardProps) {
   const savings = originalPrice && originalPrice > currentPrice 
     ? originalPrice - currentPrice 
@@ -117,11 +120,16 @@ export default function SharedProductCard({
       </CardContent>
       <CardFooter className="p-4 pt-0">
         <div className="space-y-2 w-full">
-          <Button asChild className="w-full">
-            <a href={url} target="_blank" rel="noopener noreferrer">
-              View Deal <ArrowRight className="ml-2 h-4 w-4" />
-            </a>
-          </Button>
+          <div className="flex gap-2">
+            <Button asChild className="flex-1">
+              <a href={url} target="_blank" rel="noopener noreferrer">
+                View Deal <ArrowRight className="ml-2 h-4 w-4" />
+              </a>
+            </Button>
+            {productId && (
+              <AddToWishlistButton productId={productId} />
+            )}
+          </div>
           {asin && (
             <Badge variant="outline" className="w-full justify-center py-1 border-dashed text-xs text-muted-foreground hover:bg-primary/5 cursor-pointer hover:border-primary transition-colors">
               <a href={`/dashboard?track=${asin}`} className="flex items-center w-full justify-center">

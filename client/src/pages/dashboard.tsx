@@ -1,8 +1,10 @@
 import { useState, useEffect } from "react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import ProductsDisplay from "@/components/products-display";
 import { AIRecommendations } from "@/components/AIRecommendations";
+import WishlistDashboard from "@/components/WishlistDashboard";
 
 import ProductSearch from "@/components/product-search";
 import { useAuth } from "@/hooks/use-auth";
@@ -77,36 +79,52 @@ const Dashboard: React.FC = () => {
           </Card>
         )}
 
-        {/* For testing - use hardcoded email if no email is available */}
-        <ProductsDisplay 
-          email={userEmail || "SBOLTON1855@GMAIL.COM"} 
-          key={refreshTrigger}
-          onProductsChange={setTrackedProducts}
-        />
+        <Tabs defaultValue="tracked-products" className="space-y-6">
+          <TabsList className="grid w-full grid-cols-3">
+            <TabsTrigger value="tracked-products">Price Tracking</TabsTrigger>
+            <TabsTrigger value="wishlist">My Wishlist</TabsTrigger>
+            <TabsTrigger value="search">Add Products</TabsTrigger>
+          </TabsList>
 
-        {/* AI Recommendations Section */}
-        {trackedProducts.length > 0 && (
-          <div className="mt-8">
-            <AIRecommendations 
-              trackedProducts={trackedProducts}
-              userEmail={userEmail || "SBOLTON1855@GMAIL.COM"}
+          <TabsContent value="tracked-products" className="space-y-6">
+            {/* For testing - use hardcoded email if no email is available */}
+            <ProductsDisplay 
+              email={userEmail || "SBOLTON1855@GMAIL.COM"} 
+              key={refreshTrigger}
+              onProductsChange={setTrackedProducts}
             />
-          </div>
-        )}
 
-        <div className="mt-8" id="search-section">
+            {/* AI Recommendations Section */}
+            {trackedProducts.length > 0 && (
+              <div className="mt-8">
+                <AIRecommendations 
+                  trackedProducts={trackedProducts}
+                  userEmail={userEmail || "SBOLTON1855@GMAIL.COM"}
+                />
+              </div>
+            )}
+          </TabsContent>
+
+          <TabsContent value="wishlist">
+            <WishlistDashboard />
+          </TabsContent>
+
+          <TabsContent value="search">
+            <div id="search-section">
           <Card>
-            <CardHeader>
-              <CardTitle>Search & Track Amazon Products</CardTitle>
-              <CardDescription>
-                Search by name or enter an Amazon URL to track prices
-              </CardDescription>
-            </CardHeader>
-            <CardContent>
-              <ProductSearch onSuccess={handleSearchSuccess} />
-            </CardContent>
-          </Card>
-        </div>
+                <CardHeader>
+                  <CardTitle>Search & Track Amazon Products</CardTitle>
+                  <CardDescription>
+                    Search by name or enter an Amazon URL to track prices
+                  </CardDescription>
+                </CardHeader>
+                <CardContent>
+                  <ProductSearch onSuccess={handleSearchSuccess} />
+                </CardContent>
+              </Card>
+            </div>
+          </TabsContent>
+        </Tabs>
       </div>
     </div>
   );
