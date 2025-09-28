@@ -198,14 +198,43 @@ export default function LiveDealsPreview() {
   return (
     <div className="bg-white border rounded-xl shadow-sm p-4 space-y-4">
       <div className="flex justify-between items-center">
-        <h2 className="text-lg font-semibold text-gray-900">Live Deals Right Now</h2>
-        <button 
-          className={`text-primary-600 hover:text-primary-800 transition-all flex items-center text-sm ${isLoading ? 'opacity-50' : ''}`}
-          onClick={refreshDeals}
-          disabled={isLoading}
-        >
-          <RefreshCw className={`h-3.5 w-3.5 mr-1 ${isLoading ? 'animate-spin' : ''}`} />
-        </button>
+        <div className="flex items-center gap-4">
+          <h2 className="text-lg font-semibold text-gray-900">Live Deals Right Now</h2>
+          {shouldShowPagination && (
+            <div className="flex items-center gap-2">
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={goToPrevPage}
+                disabled={currentPage === 0}
+                className="h-8 w-8 p-0"
+              >
+                <ChevronLeft className="h-4 w-4" />
+              </Button>
+              <span className="text-sm text-gray-900 min-w-[60px] text-center">
+                {currentPage + 1} / {totalPages}
+              </span>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={goToNextPage}
+                disabled={currentPage >= totalPages - 1}
+                className="h-8 w-8 p-0"
+              >
+                <ChevronRight className="h-4 w-4" />
+              </Button>
+            </div>
+          )}
+        </div>
+        <div className="flex items-center gap-2">
+          <button 
+            className={`text-primary-600 hover:text-primary-800 transition-all flex items-center text-sm ${isLoading ? 'opacity-50' : ''}`}
+            onClick={refreshDeals}
+            disabled={isLoading}
+          >
+            <RefreshCw className={`h-3.5 w-3.5 mr-1 ${isLoading ? 'animate-spin' : ''}`} />
+          </button>
+        </div>
       </div>
       {!isLoading && currentDeals.length === 0 && (
         <div className="text-sm text-muted-foreground">
@@ -234,33 +263,6 @@ export default function LiveDealsPreview() {
               />
             );
           })}
-        </div>
-      )}
-      
-      {/* Pagination controls for bottom */}
-      {shouldShowPagination && (
-        <div className="flex justify-center items-center gap-2 mt-4 pt-2 border-t">
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={goToPrevPage}
-            disabled={currentPage === 0}
-            className="h-6 w-6 p-0 text-xs"
-          >
-            <ChevronLeft className="h-3 w-3" />
-          </Button>
-          <span className="text-xs text-gray-600 min-w-[40px] text-center">
-            {currentPage + 1}/{totalPages}
-          </span>
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={goToNextPage}
-            disabled={currentPage >= totalPages - 1}
-            className="h-6 w-6 p-0 text-xs"
-          >
-            <ChevronRight className="h-3 w-3" />
-          </Button>
         </div>
       )}
       
