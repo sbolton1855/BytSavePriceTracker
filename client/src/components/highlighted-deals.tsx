@@ -136,7 +136,12 @@ export default function HighlightedDeals() {
     currentPage,
     totalPages,
     currentDealsCount: currentDeals.length,
-    shouldShowPagination
+    shouldShowPagination,
+    actualDealsToRender: currentDeals.length,
+    firstDealTitle: currentDeals[0]?.title?.substring(0, 30),
+    dealsPerPage,
+    startIndex,
+    endIndex
   });
 
   if (isLoading) {
@@ -242,7 +247,21 @@ export default function HighlightedDeals() {
 
       {currentDeals.length > 0 && (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-          {currentDeals.slice(0, 4).map((deal, index) => {
+          {/* Always show exactly 4 deals - pad with placeholders if needed */}
+          {Array.from({ length: 4 }).map((_, index) => {
+            const deal = currentDeals[index];
+            if (!deal) {
+              // Show placeholder for missing deals
+              return (
+                <div key={`placeholder-${index}`} className="bg-gray-50 border-2 border-dashed border-gray-200 rounded-lg p-4 flex items-center justify-center min-h-[300px]">
+                  <div className="text-center text-gray-400">
+                    <div className="text-sm font-medium">Loading more deals...</div>
+                    <div className="text-xs mt-1">Check back soon</div>
+                  </div>
+                </div>
+              );
+            }
+            
             const dealKey = deal.asin || `deal-${index}-${deal.title?.substring(0, 20)}`;
             return (
               <SharedProductCard
