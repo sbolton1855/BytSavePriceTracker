@@ -340,7 +340,8 @@ export { PriceTrackerDashboard };
 const HeroSection: React.FC = () => {
   return (
     <div className="relative">
-      <PriceTrackerDashboard />
+      {/* Updated to use DealsTabContainer for a tabbed interface */}
+      <DealsTabContainer />
       <div className="mt-6">
         <LiveDealsPreview />
       </div>
