@@ -196,9 +196,9 @@ export default function LiveDealsPreview() {
   }
 
   return (
-    <div className="bg-white border rounded-xl shadow-sm p-4">
-      <div className="flex justify-between items-center mb-2">
-        <h3 className="text-sm font-semibold">Live Deals Right Now</h3>
+    <div className="bg-white border rounded-xl shadow-sm p-4 space-y-4">
+      <div className="flex justify-between items-center">
+        <h2 className="text-lg font-semibold text-gray-900">Live Deals Right Now</h2>
         <button 
           className={`text-primary-600 hover:text-primary-800 transition-all flex items-center text-sm ${isLoading ? 'opacity-50' : ''}`}
           onClick={refreshDeals}
@@ -212,63 +212,30 @@ export default function LiveDealsPreview() {
           No active live deals with savings found. Check back soon for new price drops!
         </div>
       )}
-      <ul className="space-y-3">
-        {currentDeals.slice(0, 4).map((deal, index) => (
-          <li key={deal.asin || index} className="flex items-start space-x-3 relative">
-            <div className="relative">
-              {deal.imageUrl ? (
-                <img
-                  src={deal.imageUrl}
-                  alt={deal.title}
-                  className="w-14 h-14 object-contain border rounded"
-                />
-              ) : (
-                <div className="w-14 h-14 flex items-center justify-center bg-gray-100 border rounded text-xs text-gray-400">No image</div>
-              )}
-            </div>
-            <div className="flex-1">
-              <p className="text-xs font-medium leading-tight line-clamp-2">{deal.title}</p>
-              <div className="text-xs mt-1">
-                <div className="flex items-center flex-wrap gap-1">
-                  <span className="text-xs font-bold text-green-600">${deal.currentPrice?.toFixed(2)}</span>
-
-                  {/* Show discount information */}
-                  {deal.originalPrice && deal.originalPrice > deal.currentPrice && (
-                    <>
-                      <span className="text-muted-foreground line-through text-xs">
-                        ${deal.originalPrice.toFixed(2)}
-                      </span>
-                      <span className="text-[8px] px-1 py-0 h-4 bg-red-500 text-white rounded-full">
-                        {deal.discount || Math.round(((deal.originalPrice - deal.currentPrice) / deal.originalPrice) * 100)}% OFF
-                      </span>
-                      <span className="text-[8px] px-1 py-0 h-4 bg-green-500 text-white rounded-full">
-                        Save ${(deal.originalPrice - deal.currentPrice).toFixed(2)}
-                      </span>
-                    </>
-                  )}
-
-                  {/* Show HOT DEAL for items without savings */}
-                  {(!deal.originalPrice || deal.originalPrice <= deal.currentPrice) && (
-                    <span className="text-[8px] px-1 py-0 h-4 bg-red-500 text-white rounded-full">
-                      HOT DEAL
-                    </span>
-                  )}
-                </div>
-              </div>
-              {deal.url && (
-                <a
-                  href={deal.url}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="text-xs text-blue-600 hover:underline mt-1 inline-block font-medium"
-                >
-                  View Deal →
-                </a>
-              )}
-            </div>
-          </li>
-        ))}
-      </ul>
+      
+      {currentDeals.length > 0 && (
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+          {currentDeals.slice(0, 4).map((deal, index) => {
+            const dealKey = deal.asin || `deal-${index}-${deal.title?.substring(0, 20)}`;
+            return (
+              <SharedProductCard
+                key={dealKey}
+                title={deal.title}
+                imageUrl={deal.imageUrl}
+                currentPrice={deal.currentPrice}
+                originalPrice={deal.originalPrice}
+                discount={deal.discount}
+                url={deal.url}
+                asin={deal.asin}
+                isHot={deal.isHot}
+                premium={deal.premium}
+                lowestPrice={deal.lowestPrice}
+                highestPrice={deal.highestPrice}
+              />
+            );
+          })}
+        </div>
+      )}
       
       {/* Pagination controls for bottom */}
       {shouldShowPagination && (
