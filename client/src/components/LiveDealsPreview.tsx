@@ -144,7 +144,8 @@ export default function LiveDealsPreview() {
     totalDeals: allDeals.length,
     currentPage,
     totalPages,
-    currentDealsCount: currentDeals.length
+    currentDealsCount: currentDeals.length,
+    shouldShowPagination
   });
 
   if (isLoading) {
@@ -210,7 +211,7 @@ export default function LiveDealsPreview() {
     <div className="bg-white border rounded-xl shadow-sm p-4 space-y-4">
       <div className="flex justify-between items-center">
         <div className="flex items-center gap-4">
-          <h2 className="text-lg font-semibold">Live Deals Right Now</h2>
+          <h2 className="text-lg font-semibold text-gray-900">Live Deals Right Now</h2>
           {shouldShowPagination && (
             <div className="flex items-center gap-2">
               <Button
