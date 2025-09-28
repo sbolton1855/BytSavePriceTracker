@@ -1012,17 +1012,23 @@ export async function registerRoutes(app: Express): Promise<Server> {
       // Ensure we always return JSON with proper content type
       res.setHeader('Content-Type', 'application/json');
       
-      const userId = (req.user as any).id.toString();
-      const userEmail = (req.user as any).email.toUpperCase();
-      // console.log(`Fetching tracked products for user ${userId} with email ${userEmail}`);
+      const userId = (req.user as any).id?.toString();
+      const userEmail = (req.user as any).email?.toUpperCase();
+      
+      if (!userId || !userEmail) {
+        console.error('Missing user ID or email in authenticated request');
+        return res.json([]); // Return empty array instead of error
+      }
+
+      console.log(`Fetching tracked products for user ${userId} with email ${userEmail}`);
 
       // Get products by userId
       const userIdProducts = await storage.getTrackedProductsByUserId(userId);
-      // console.log(`Found ${userIdProducts.length} products by userId`);
+      console.log(`Found ${userIdProducts.length} products by userId`);
 
       // Also get products by email (for products tracked before login)
       const emailProducts = await storage.getTrackedProductsByEmail(userEmail);
-      // console.log(`Found ${emailProducts.length} products by email`);
+      console.log(`Found ${emailProducts.length} products by email`);
 
       // Combine both lists, ensuring no duplicates
       let allTrackedProducts = [...userIdProducts];
@@ -1035,21 +1041,50 @@ export async function registerRoutes(app: Express): Promise<Server> {
         }
       }
 
-      // console.log(`Combined total: ${allTrackedProducts.length} tracked products`);
+      console.log(`Combined total: ${allTrackedProducts.length} tracked products`);
+
+      if (allTrackedProducts.length === 0) {
+        return res.json([]);
+      }
 
       // For each tracked product, fetch the product details
       const fullDetails = await Promise.all(
         allTrackedProducts.map(async (item) => {
-          const product = await storage.getProduct(item.productId);
-          if (!product) return null;
-
-          return {
-            ...item,
-            product: {
-              ...product,
-              affiliateUrl: addAffiliateTag(product.url, AFFILIATE_TAG)
+          try {
+            const product = await storage.getProduct(item.productId);
+            if (!product) {
+              console.warn(`Product not found for productId: ${item.productId}`);
+              return null;
             }
-          };
+
+            return {
+              id: item.id,
+              userId: item.userId,
+              email: item.email,
+              productId: item.productId,
+              targetPrice: item.targetPrice,
+              percentageAlert: item.percentageAlert,
+              percentageThreshold: item.percentageThreshold,
+              notified: item.notified,
+              createdAt: item.createdAt,
+              product: {
+                id: product.id,
+                asin: product.asin,
+                title: product.title,
+                url: product.url,
+                imageUrl: product.imageUrl,
+                currentPrice: product.currentPrice,
+                originalPrice: product.originalPrice,
+                lowestPrice: product.lowestPrice,
+                highestPrice: product.highestPrice,
+                lastChecked: product.lastChecked,
+                affiliateUrl: addAffiliateTag(product.url, AFFILIATE_TAG)
+              }
+            };
+          } catch (error) {
+            console.error(`Error processing tracked product ${item.id}:`, error);
+            return null;
+          }
         })
       );
 
@@ -1057,21 +1092,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const validDetails = fullDetails.filter(item => item !== null);
       console.log(`Returning ${validDetails.length} tracked products with details`);
 
-      // Ensure response is properly serializable
-      const response = validDetails.map(item => {
-        try {
-          // Clean any potential circular references or invalid JSON
-          return JSON.parse(JSON.stringify(item));
-        } catch (error) {
-          console.error('Error serializing tracked product:', item?.id, error);
-          return null;
-        }
-      }).filter(item => item !== null);
-
-      res.json(response);
+      res.json(validDetails);
     } catch (error) {
       console.error('Error fetching user tracked products:', error);
-      res.status(500).json({ error: 'Failed to fetch tracked products' });
+      // Return empty array instead of error to prevent frontend crashes
+      res.json([]);
     }
   });
 
