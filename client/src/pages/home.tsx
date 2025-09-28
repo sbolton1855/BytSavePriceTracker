@@ -4,8 +4,8 @@ import FeaturesSection from "@/components/features-section";
 import ProductsDisplay from "@/components/products-display";
 import ProductSearch from "@/components/product-search";
 import ProductTeasers from "@/components/product-teasers";
-import UnifiedDeals from "@/components/UnifiedDeals";
-import DealsTabContainer from "@/components/DealsTabContainer";
+import HighlightedDeals from "@/components/highlighted-deals";
+import LiveDealsPreview from "@/components/LiveDealsPreview";
 import NotificationDemo from "@/components/notification-demo";
 import { AIRecommendations } from "@/components/AIRecommendations";
 import AIProductSearch from "@/components/AIProductSearch";
@@ -348,46 +348,30 @@ const Home: React.FC = () => {
 
       <NotificationDemo />
 
-      {/* Deals Section with Tabbed Interface */}
-      <section className="py-16 bg-white">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="text-center mb-12">
-            <h2 className="text-3xl font-bold text-gray-900 mb-4">
-              🔥 Live Deals & Trending Products
-            </h2>
-            <p className="text-xl text-gray-600 max-w-3xl mx-auto">
-              Fresh deals updated in real-time from Amazon
-            </p>
-          </div>
-          <div className="flex justify-center">
-            <DealsTabContainer />
-          </div>
-        </div>
-      </section>
+      
+          {/* AI Recommendations Section */}
+          <section className="py-16 bg-gradient-to-br from-purple-50 to-indigo-50">
+            <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+              <div className="text-center mb-12">
+                <h2 className="text-3xl font-bold text-gray-900 mb-4">
+                  🤖 AI-Powered Product Discovery
+                </h2>
+                <p className="text-xl text-gray-600 max-w-3xl mx-auto">
+                  Let our AI analyze your tracked products and find real Amazon products you'll love
+                </p>
+              </div>
 
-      {/* AI Recommendations Section */}
-      <section className="py-16 bg-gradient-to-br from-purple-50 to-indigo-50">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="text-center mb-12">
-            <h2 className="text-3xl font-bold text-gray-900 mb-4">
-              🤖 AI-Powered Product Discovery
-            </h2>
-            <p className="text-xl text-gray-600 max-w-3xl mx-auto">
-              Let our AI analyze your tracked products and find real Amazon products you'll love
-            </p>
-          </div>
+              <div className="space-y-8">
+                {/* AI Product Search - Real Amazon Products */}
+                <AIProductSearch 
+                  trackedProducts={trackedProducts || []} 
+                  userEmail={user?.email || savedEmail} 
+                />
 
-          <div className="space-y-8">
-            {/* AI Product Search - Real Amazon Products */}
-            <AIProductSearch 
-              trackedProducts={trackedProducts || []} 
-              userEmail={user?.email || savedEmail} 
-            />
-
-            
-          </div>
-        </div>
-      </section>
+                
+              </div>
+            </div>
+          </section>
     </>
   );
 };

@@ -2787,10 +2787,6 @@ Respond with just the analysis text, no JSON needed.
   app.use('/api', amazonRouter);
   // console.log(">>> [DEBUG] Registered amazonRouter at /api");
 
-  // Import and register unified deals routes
-  const unifiedDealsRoutes = await import('./routes/unifiedDeals');
-  app.use('/', unifiedDealsRoutes.default);
-
   // Register admin keywords routes
   app.use('/api', adminKeywordsRoutes);
 
