@@ -36,16 +36,16 @@ export default function SharedProductCard({
     : 0;
 
   return (
-    <Card className="overflow-hidden flex flex-col h-full hover:shadow-lg transition-shadow">
-      <div className="aspect-video bg-slate-50 flex items-center justify-center relative overflow-hidden">
+    <Card className="overflow-hidden flex flex-col h-[480px] hover:shadow-lg transition-shadow">
+      <div className="aspect-square bg-slate-50 flex items-center justify-center relative overflow-hidden">
         {imageUrl ? (
           <img 
             src={imageUrl} 
             alt={title} 
-            className="object-contain w-full h-full p-2"
+            className="object-contain w-full h-full p-3"
           />
         ) : (
-          <div className="h-full w-full flex items-center justify-center text-slate-400">
+          <div className="h-full w-full flex items-center justify-center text-slate-400 text-sm">
             No image available
           </div>
         )}
@@ -77,49 +77,49 @@ export default function SharedProductCard({
           )}
         </div>
       </div>
-      <CardHeader className="p-4 pb-0">
-        <CardTitle className="text-sm font-medium line-clamp-2">
+      <CardHeader className="p-3 pb-2">
+        <CardTitle className="text-xs font-medium line-clamp-2 leading-tight">
           {title}
         </CardTitle>
       </CardHeader>
-      <CardContent className="p-4 pt-2 flex-grow">
-        <div className="flex items-baseline gap-2">
-          <span className="text-lg font-bold text-primary">
+      <CardContent className="p-3 pt-1 flex-grow">
+        <div className="flex items-baseline gap-2 mb-2">
+          <span className="text-base font-bold text-primary">
             ${currentPrice.toFixed(2)}
           </span>
           {originalPrice && originalPrice > currentPrice && (
-            <span className="text-sm line-through text-muted-foreground">
+            <span className="text-xs line-through text-muted-foreground">
               ${originalPrice.toFixed(2)}
             </span>
           )}
         </div>
 
         {discount && discount > 0 && (
-          <div className="flex flex-col gap-1 mt-1">
-            <div className="flex items-center text-red-600 text-sm">
-              <ArrowDownRight className="h-4 w-4 mr-1" />
-              Price dropped {discount}%
+          <div className="flex flex-col gap-1 mb-2">
+            <div className="flex items-center text-red-600 text-xs">
+              <ArrowDownRight className="h-3 w-3 mr-1" />
+              {discount}% off
             </div>
             {savings > 0 && (
-              <div className="text-green-600 text-sm font-medium">
+              <div className="text-green-600 text-xs font-medium">
                 Save ${savings.toFixed(2)}
               </div>
             )}
           </div>
         )}
 
-        <div className="mt-2 text-xs text-muted-foreground">
+        <div className="text-xs text-muted-foreground">
           <div className="flex justify-between">
-            <span>Lowest: ${(lowestPrice ?? currentPrice).toFixed(2)}</span>
-            <span>Highest: ${(highestPrice ?? originalPrice ?? currentPrice).toFixed(2)}</span>
+            <span>Low: ${(lowestPrice ?? currentPrice).toFixed(2)}</span>
+            <span>High: ${(highestPrice ?? originalPrice ?? currentPrice).toFixed(2)}</span>
           </div>
         </div>
       </CardContent>
-      <CardFooter className="p-4 pt-0">
-        <div className="space-y-2 w-full">
-          <Button asChild className="w-full">
+      <CardFooter className="p-3 pt-0">
+        <div className="space-y-1.5 w-full">
+          <Button asChild className="w-full h-8 text-xs">
             <a href={url} target="_blank" rel="noopener noreferrer">
-              View Deal <ArrowRight className="ml-2 h-4 w-4" />
+              View Deal <ArrowRight className="ml-1 h-3 w-3" />
             </a>
           </Button>
           {asin && (
