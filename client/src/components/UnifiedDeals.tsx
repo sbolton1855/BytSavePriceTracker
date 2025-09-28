@@ -99,7 +99,7 @@ export default function UnifiedDeals({ type, title }: UnifiedDealsProps) {
           <h2 className="text-lg font-semibold text-gray-900">{title}</h2>
           <div className="h-9 w-32 bg-slate-100 rounded-md animate-pulse"></div>
         </div>
-        <div className="grid grid-cols-4 gap-2">
+        <div className="w-[30%] space-y-2">
           {Array.from({ length: 4 }).map((_, i) => (
             <Card key={i} className="overflow-hidden flex h-[120px] w-full border-l-4 border-l-slate-200">
               <div className="w-24 bg-slate-100 flex items-center justify-center relative">
@@ -186,7 +186,7 @@ export default function UnifiedDeals({ type, title }: UnifiedDealsProps) {
       </div>
 
       {currentDeals.length > 0 && (
-        <div className="grid grid-cols-4 gap-2">
+        <div className="w-[30%] space-y-2">
           {currentDeals.map((deal, index) => {
             const dealKey = deal.asin || `deal-${index}-${deal.title?.substring(0, 20)}`;
             
