@@ -248,9 +248,6 @@ const PriceTrackerDashboard: React.FC = () => {
 
   return (
     <div className="bg-white border rounded-xl shadow-sm p-4">
-      <div className="bg-red-600 text-white p-4 mb-4 text-center font-bold text-xl">
-        🚨 TEST BANNER - hero-section.tsx PriceTrackerDashboard - REPLIT AI MODIFIED THIS FILE 🚨
-      </div>
       <div className="flex justify-between items-center mb-2">
         <h3 className="text-sm font-semibold">Price Drop Dashboard</h3>
       </div>
