@@ -99,38 +99,27 @@ export default function UnifiedDeals({ type, title }: UnifiedDealsProps) {
           <h2 className="text-lg font-semibold text-gray-900">{title}</h2>
           <div className="h-9 w-32 bg-slate-100 rounded-md animate-pulse"></div>
         </div>
-        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-4">
+        <div className="grid grid-cols-4 gap-2">
           {Array.from({ length: 4 }).map((_, i) => (
-            <div key={i} className="w-full">
-              <Card className="overflow-hidden h-[360px] max-w-[240px] mx-auto">
-                <div className="h-40 bg-slate-100 flex items-center justify-center relative">
-                  <Skeleton className="h-24 w-24" />
-                  <div className="absolute top-1 right-1">
-                    <Skeleton className="h-3 w-10 rounded-full" />
-                  </div>
+            <Card key={i} className="overflow-hidden flex h-[120px] w-full border-l-4 border-l-slate-200">
+              <div className="w-24 bg-slate-100 flex items-center justify-center relative">
+                <Skeleton className="h-16 w-16" />
+                <div className="absolute top-0.5 right-0.5">
+                  <Skeleton className="h-4 w-8 rounded" />
                 </div>
-                <div className="p-2">
+              </div>
+              <div className="flex-1 flex flex-col justify-between p-2">
+                <div className="flex-1">
                   <Skeleton className="h-3 w-full mb-1" />
-                  <Skeleton className="h-3 w-3/4 mb-2" />
+                  <Skeleton className="h-3 w-3/4 mb-1" />
+                  <Skeleton className="h-4 w-16" />
                 </div>
-                <div className="p-2 pt-0 flex-grow">
-                  <Skeleton className="h-4 w-16 mb-1" />
-                  <div className="space-y-1">
-                    <Skeleton className="h-3 w-20" />
-                  </div>
-                  <div className="mt-1 flex justify-between">
-                    <Skeleton className="h-2 w-12" />
-                    <Skeleton className="h-2 w-12" />
-                  </div>
+                <div className="flex gap-1">
+                  <Skeleton className="h-6 flex-1" />
+                  <Skeleton className="h-6 w-12" />
                 </div>
-                <div className="p-2 pt-0">
-                  <div className="space-y-1 w-full">
-                    <Skeleton className="h-7 w-full" />
-                    <Skeleton className="h-5 w-full" />
-                  </div>
-                </div>
-              </Card>
-            </div>
+              </div>
+            </Card>
           ))}
         </div>
       </div>
@@ -197,7 +186,7 @@ export default function UnifiedDeals({ type, title }: UnifiedDealsProps) {
       </div>
 
       {currentDeals.length > 0 && (
-        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-4">
+        <div className="grid grid-cols-4 gap-2">
           {currentDeals.map((deal, index) => {
             const dealKey = deal.asin || `deal-${index}-${deal.title?.substring(0, 20)}`;
             
@@ -211,8 +200,8 @@ export default function UnifiedDeals({ type, title }: UnifiedDealsProps) {
             }
             
             return (
-              <div key={dealKey} className="w-full">
-                <SharedProductCard
+              <SharedProductCard
+                key={dealKey}
                   title={deal.title}
                   imageUrl={deal.imageUrl}
                   currentPrice={deal.currentPrice}
@@ -225,7 +214,6 @@ export default function UnifiedDeals({ type, title }: UnifiedDealsProps) {
                   lowestPrice={deal.currentPrice}
                   highestPrice={deal.originalPrice || deal.currentPrice}
                 />
-              </div>
             );
           })}
         </div>
