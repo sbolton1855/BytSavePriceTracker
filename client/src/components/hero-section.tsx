@@ -4,6 +4,7 @@ import { Skeleton } from "./ui/skeleton";
 import { useEffect, useState, useCallback } from "react";
 import { Check, TrendingDown, RefreshCw } from "lucide-react";
 import LiveDealsPreview from "@/components/LiveDealsPreview";
+import DealsTabContainer from "@/components/DealsTabContainer";
 
 // Type definition for product deals
 interface ProductDeal {
