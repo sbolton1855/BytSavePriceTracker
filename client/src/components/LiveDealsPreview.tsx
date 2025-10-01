@@ -50,7 +50,6 @@ export default function LiveDealsPreview() {
 
       const jsonData = await res.json();
       console.log("[LiveDealsPreview] API Success - received data structure:", Object.keys(jsonData));
-      console.log("[LiveDealsPreview] Full API response sample:", jsonData.data?.deals?.[0] || jsonData.deals?.[0] || jsonData[0]);
 
       // Standardize deals extraction
       const deals = jsonData.data?.deals || jsonData.deals || jsonData;
@@ -75,23 +74,13 @@ export default function LiveDealsPreview() {
     let savingsAmount = 0;
     let savingsPercentage = 0;
 
-    // Check if deal has explicit savings data
     if (deal.savings?.Amount > 0) {
       savingsAmount = deal.savings.Amount;
       savingsPercentage = deal.savings.Percentage;
-    } else if (originalPrice && originalPrice > currentPrice && currentPrice > 0) {
-      // Calculate savings if we have valid price data
+    } else if (originalPrice && originalPrice > currentPrice) {
       savingsAmount = originalPrice - currentPrice;
       savingsPercentage = Math.round(((originalPrice - currentPrice) / originalPrice) * 100);
     }
-
-    console.log(`[LiveDealsPreview] Normalized deal: ${deal.asin}`, {
-      currentPrice,
-      originalPrice,
-      savingsAmount,
-      savingsPercentage,
-      hasSavings: savingsAmount > 0
-    });
 
     return {
       asin: deal.asin,
@@ -99,8 +88,8 @@ export default function LiveDealsPreview() {
       imageUrl: deal.imageUrl || undefined,
       currentPrice,
       originalPrice: originalPrice || undefined,
-      savingsAmount: savingsAmount > 0 ? savingsAmount : undefined,
-      savingsPercentage: savingsPercentage > 0 ? savingsPercentage : undefined,
+      savingsAmount,
+      savingsPercentage,
       url: deal.affiliateUrl || deal.url || `https://www.amazon.com/dp/${deal.asin}`,
     };
   };
@@ -111,16 +100,9 @@ export default function LiveDealsPreview() {
       const processedDeals = data.map(normalizeDeal);
       console.log("[LiveDealsPreview] Processed deals count:", processedDeals.length);
 
-      // Filter to only show deals with actual savings (at least 5% off)
-      const dealsWithSavings = processedDeals.filter(deal => 
-        deal.savingsPercentage && deal.savingsPercentage >= 5
-      );
-      
-      console.log("[LiveDealsPreview] Deals with meaningful savings:", dealsWithSavings.length);
+      setAllDeals(processedDeals);
 
-      setAllDeals(dealsWithSavings);
-
-      if (dealsWithSavings.length !== allDeals.length) {
+      if (processedDeals.length !== allDeals.length) {
         setCurrentPage(0);
       }
     }
@@ -260,8 +242,8 @@ export default function LiveDealsPreview() {
                 <div className="flex items-center flex-wrap gap-1">
                   <span className="text-xs font-bold text-green-600">${deal.currentPrice?.toFixed(2)}</span>
 
-                  {/* Show savings if we have the data (filtered deals should always have this) */}
-                  {deal.savingsPercentage && deal.savingsAmount && deal.originalPrice && (
+                  {/* Show savings data if available */}
+                  {deal.savingsAmount && deal.savingsAmount > 0 && deal.savingsPercentage && deal.originalPrice && (
                     <>
                       <span className="text-muted-foreground line-through text-xs">
                         ${deal.originalPrice.toFixed(2)}
@@ -273,6 +255,26 @@ export default function LiveDealsPreview() {
                         Save ${deal.savingsAmount.toFixed(2)}
                       </span>
                     </>
+                  )}
+
+                  {/* Fallback for products with original price but no savings data */}
+                  {!deal.savingsAmount && deal.originalPrice && deal.originalPrice > deal.currentPrice && (
+                    <>
+                      <span className="text-muted-foreground line-through text-xs">
+                        ${deal.originalPrice.toFixed(2)}
+                      </span>
+                      <span className="text-[8px] px-1 py-0 h-4 bg-red-500 text-white rounded-full">
+                        {Math.round(((deal.originalPrice - deal.currentPrice) / deal.originalPrice) * 100)}% OFF
+                      </span>
+                      <span className="text-[8px] px-1 py-0 h-4 bg-green-500 text-white rounded-full">
+                        Save ${(deal.originalPrice - deal.currentPrice).toFixed(2)}
+                      </span>
+                    </>
+                  )}
+
+                  {/* Only show if there are no savings at all */}
+                  {!deal.savingsAmount && (!deal.originalPrice || deal.originalPrice <= deal.currentPrice) && (
+                    <span className="text-[8px] text-gray-400">Regular Price</span>
                   )}
                 </div>
               </div>
