@@ -2,10 +2,9 @@
 import { useState, useEffect } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { Button } from "./ui/button";
-import { Card, CardDescription, CardHeader, CardTitle } from "./ui/card";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "./ui/card";
 import { Skeleton } from "./ui/skeleton";
 import { RefreshCw, ChevronLeft, ChevronRight } from "lucide-react";
-import SharedProductCard from "./SharedProductCard";
 
 type Deal = {
   asin: string;
@@ -26,12 +25,9 @@ interface NormalizedDeal {
   imageUrl?: string;
   currentPrice: number;
   originalPrice?: number;
-  discount?: number;
+  savingsAmount?: number;
+  savingsPercentage?: number;
   url: string;
-  isHot?: boolean;
-  premium?: boolean;
-  lowestPrice?: number;
-  highestPrice?: number;
 }
 
 export default function LiveDealsPreview() {
@@ -54,7 +50,6 @@ export default function LiveDealsPreview() {
 
       const jsonData = await res.json();
       console.log("[LiveDealsPreview] API Success - received data structure:", Object.keys(jsonData));
-      console.log("[LiveDealsPreview] Full API response sample:", jsonData.data?.deals?.[0] || jsonData.deals?.[0] || jsonData[0]);
 
       // Standardize deals extraction
       const deals = jsonData.data?.deals || jsonData.deals || jsonData;
@@ -74,47 +69,28 @@ export default function LiveDealsPreview() {
   // Normalize deals to shared format
   const normalizeDeal = (deal: Deal): NormalizedDeal => {
     const currentPrice = deal.currentPrice || deal.price || 0;
-    let originalPrice: number | undefined = undefined;
+    const originalPrice = deal.originalPrice || deal.msrp || null;
+    
     let savingsAmount = 0;
-    let discount = 0;
+    let savingsPercentage = 0;
 
-    // Check if deal has explicit savings data from Amazon
     if (deal.savings?.Amount > 0) {
       savingsAmount = deal.savings.Amount;
-      discount = deal.savings.Percentage;
-      originalPrice = currentPrice + savingsAmount;
-    } else if (deal.originalPrice && deal.originalPrice > currentPrice) {
-      // Use originalPrice if available
-      originalPrice = deal.originalPrice;
+      savingsPercentage = deal.savings.Percentage;
+    } else if (originalPrice && originalPrice > currentPrice) {
       savingsAmount = originalPrice - currentPrice;
-      discount = Math.round((savingsAmount / originalPrice) * 100);
-    } else if (deal.msrp && deal.msrp > currentPrice) {
-      // Fall back to MSRP
-      originalPrice = deal.msrp;
-      savingsAmount = originalPrice - currentPrice;
-      discount = Math.round((savingsAmount / originalPrice) * 100);
+      savingsPercentage = Math.round(((originalPrice - currentPrice) / originalPrice) * 100);
     }
-
-    console.log(`[LiveDealsPreview] Normalized deal: ${deal.asin}`, {
-      currentPrice,
-      originalPrice,
-      savingsAmount,
-      discount,
-      hasSavings: savingsAmount > 0
-    });
 
     return {
       asin: deal.asin,
       title: deal.title || 'Product Title Unavailable',
       imageUrl: deal.imageUrl || undefined,
       currentPrice,
-      originalPrice,
-      discount: discount > 0 ? discount : undefined,
+      originalPrice: originalPrice || undefined,
+      savingsAmount,
+      savingsPercentage,
       url: deal.affiliateUrl || deal.url || `https://www.amazon.com/dp/${deal.asin}`,
-      isHot: !originalPrice && currentPrice < 15, // HOT DEAL if no original price but cheap
-      premium: false, // Remove premium badge
-      lowestPrice: currentPrice,
-      highestPrice: originalPrice || currentPrice
     };
   };
 
@@ -124,16 +100,9 @@ export default function LiveDealsPreview() {
       const processedDeals = data.map(normalizeDeal);
       console.log("[LiveDealsPreview] Processed deals count:", processedDeals.length);
 
-      // Filter to only show deals with actual savings (at least 5% off) or HOT deals
-      const dealsWithSavings = processedDeals.filter(deal => 
-        (deal.discount && deal.discount >= 5) || deal.isHot
-      );
-      
-      console.log("[LiveDealsPreview] Deals with meaningful savings:", dealsWithSavings.length);
+      setAllDeals(processedDeals);
 
-      setAllDeals(dealsWithSavings);
-
-      if (dealsWithSavings.length !== allDeals.length) {
+      if (processedDeals.length !== allDeals.length) {
         setCurrentPage(0);
       }
     }
@@ -165,50 +134,25 @@ export default function LiveDealsPreview() {
     currentPage,
     totalPages,
     currentDealsCount: currentDeals.length,
-    shouldShowPagination,
-    actualDealsToRender: currentDeals.length,
-    firstDealTitle: currentDeals[0]?.title?.substring(0, 30),
-    dealsPerPage,
-    startIndex,
-    endIndex
+    shouldShowPagination
   });
 
   if (isLoading) {
     return (
-      <div className="bg-white border rounded-xl shadow-sm p-4 space-y-4">
-        <div className="flex justify-between items-center">
-          <h2 className="text-lg font-semibold text-gray-900">Live Deals Right Now</h2>
-          <div className="h-9 w-32 bg-slate-100 rounded-md animate-pulse"></div>
+      <div className="bg-white border rounded-xl shadow-sm p-4">
+        <div className="flex justify-between items-center mb-2">
+          <Skeleton className="h-5 w-32" />
+          <Skeleton className="h-4 w-16" />
         </div>
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+        <div className="text-sm text-muted-foreground mb-4">Loading deals...</div>
+        <div className="space-y-3">
           {Array.from({ length: 4 }).map((_, i) => (
-            <div key={i} className="overflow-hidden h-full">
-              <div className="aspect-video bg-slate-100 flex items-center justify-center relative">
-                <Skeleton className="h-[140px] w-[200px]" />
-                <div className="absolute top-2 right-2">
-                  <Skeleton className="h-5 w-16 rounded-full" />
-                </div>
-              </div>
-              <div className="p-4">
-                <Skeleton className="h-4 w-full mb-2" />
+            <div key={i} className="flex items-start space-x-3">
+              <Skeleton className="w-14 h-14" />
+              <div className="flex-1 space-y-2">
+                <Skeleton className="h-4 w-full" />
                 <Skeleton className="h-4 w-3/4" />
-              </div>
-              <div className="p-4 pt-0 flex-grow">
-                <Skeleton className="h-6 w-24 mb-3" />
-                <div className="space-y-2">
-                  <Skeleton className="h-4 w-28" />
-                  <Skeleton className="h-4 w-32" />
-                </div>
-                <div className="mt-3 flex justify-between">
-                  <Skeleton className="h-3 w-20" />
-                  <Skeleton className="h-3 w-20" />
-                </div>
-              </div>
-              <div className="p-4 pt-0">
-                <div className="space-y-2 w-full">
-                  <Skeleton className="h-10 w-full" />
-                  <Skeleton className="h-7 w-full" />
-                </div>
+                <Skeleton className="h-4 w-1/2" />
               </div>
             </div>
           ))}
@@ -219,12 +163,12 @@ export default function LiveDealsPreview() {
 
   if (error || (!isLoading && !currentDeals.length)) {
     return (
-      <div className="bg-white border rounded-xl shadow-sm p-4 space-y-4">
+      <div className="bg-white border rounded-xl shadow-sm p-4">
         <Card className="border-dashed">
           <CardHeader>
             <CardTitle className="text-center">No Live Deals Available</CardTitle>
             <CardDescription className="text-center">
-              We couldn't find any live deals right now. Check back soon for new price drops!
+              We couldn't find any live deals right now. Please check back later.
             </CardDescription>
           </CardHeader>
         </Card>
@@ -233,10 +177,10 @@ export default function LiveDealsPreview() {
   }
 
   return (
-    <div className="bg-white border rounded-xl shadow-sm p-4 space-y-4">
-      <div className="flex justify-between items-center">
+    <div className="bg-white border rounded-xl shadow-sm p-4">
+      <div className="flex justify-between items-center mb-2">
         <div className="flex items-center gap-4">
-          <h2 className="text-lg font-semibold text-gray-900">Live Deals Right Now</h2>
+          <h3 className="text-sm font-semibold">Live Deals Right Now</h3>
           {shouldShowPagination && (
             <div className="flex items-center gap-2">
               <Button
@@ -263,54 +207,92 @@ export default function LiveDealsPreview() {
             </div>
           )}
         </div>
-        <div className="flex items-center gap-2">
-          <button 
-            className={`text-primary-600 hover:text-primary-800 transition-all flex items-center text-sm ${isLoading ? 'opacity-50' : ''}`}
-            onClick={refreshDeals}
-            disabled={isLoading}
-          >
-            <RefreshCw className={`h-3.5 w-3.5 mr-1 ${isLoading ? 'animate-spin' : ''}`} />
-          </button>
-        </div>
+        <button 
+          className={`text-primary-600 hover:text-primary-800 transition-all flex items-center text-sm ${isLoading ? 'opacity-50' : ''}`}
+          onClick={refreshDeals}
+          disabled={isLoading}
+        >
+          <RefreshCw className={`h-3.5 w-3.5 mr-1 ${isLoading ? 'animate-spin' : ''}`} />
+        </button>
       </div>
 
-      {currentDeals.length > 0 && (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-          {/* Always show exactly 4 deals - pad with placeholders if needed */}
-          {Array.from({ length: 4 }).map((_, index) => {
-            const deal = currentDeals[index];
-            if (!deal) {
-              // Show placeholder for missing deals
-              return (
-                <div key={`placeholder-${index}`} className="bg-gray-50 border-2 border-dashed border-gray-200 rounded-lg p-4 flex items-center justify-center min-h-[300px]">
-                  <div className="text-center text-gray-400">
-                    <div className="text-sm font-medium">Loading more deals...</div>
-                    <div className="text-xs mt-1">Check back soon</div>
-                  </div>
-                </div>
-              );
-            }
-            
-            const dealKey = deal.asin || `deal-${index}-${deal.title?.substring(0, 20)}`;
-            return (
-              <SharedProductCard
-                key={dealKey}
-                title={deal.title}
-                imageUrl={deal.imageUrl}
-                currentPrice={deal.currentPrice}
-                originalPrice={deal.originalPrice}
-                discount={deal.discount}
-                url={deal.url}
-                asin={deal.asin}
-                isHot={deal.isHot}
-                premium={deal.premium}
-                lowestPrice={deal.lowestPrice}
-                highestPrice={deal.highestPrice}
-              />
-            );
-          })}
+      {!isLoading && currentDeals.length === 0 && (
+        <div className="text-sm text-muted-foreground">
+          No active live deals with savings found. Check back soon for new price drops!
         </div>
       )}
+
+      <ul className="space-y-3">
+        {currentDeals.slice(0, 4).map((deal, index) => (
+          <li key={deal.asin || index} className="flex items-start space-x-3 relative">
+            <div className="relative">
+              {deal.imageUrl ? (
+                <img
+                  src={deal.imageUrl}
+                  alt={deal.title}
+                  className="w-14 h-14 object-contain border rounded"
+                />
+              ) : (
+                <div className="w-14 h-14 flex items-center justify-center bg-gray-100 border rounded text-xs text-gray-400">No image</div>
+              )}
+            </div>
+            <div className="flex-1">
+              <p className="text-xs font-medium leading-tight line-clamp-2">{deal.title}</p>
+              <div className="text-xs mt-1">
+                <div className="flex items-center flex-wrap gap-1">
+                  <span className="text-xs font-bold text-green-600">${deal.currentPrice?.toFixed(2)}</span>
+
+                  {/* Show savings data if available */}
+                  {deal.savingsAmount && deal.savingsAmount > 0 && deal.savingsPercentage && deal.originalPrice && (
+                    <>
+                      <span className="text-muted-foreground line-through text-xs">
+                        ${deal.originalPrice.toFixed(2)}
+                      </span>
+                      <span className="text-[8px] px-1 py-0 h-4 bg-red-500 text-white rounded-full">
+                        {deal.savingsPercentage}% OFF
+                      </span>
+                      <span className="text-[8px] px-1 py-0 h-4 bg-green-500 text-white rounded-full">
+                        Save ${deal.savingsAmount.toFixed(2)}
+                      </span>
+                    </>
+                  )}
+
+                  {/* Fallback for products with original price but no savings data */}
+                  {!deal.savingsAmount && deal.originalPrice && deal.originalPrice > deal.currentPrice && (
+                    <>
+                      <span className="text-muted-foreground line-through text-xs">
+                        ${deal.originalPrice.toFixed(2)}
+                      </span>
+                      <span className="text-[8px] px-1 py-0 h-4 bg-red-500 text-white rounded-full">
+                        {Math.round(((deal.originalPrice - deal.currentPrice) / deal.originalPrice) * 100)}% OFF
+                      </span>
+                      <span className="text-[8px] px-1 py-0 h-4 bg-green-500 text-white rounded-full">
+                        Save ${(deal.originalPrice - deal.currentPrice).toFixed(2)}
+                      </span>
+                    </>
+                  )}
+
+                  {/* Only show if there are no savings at all */}
+                  {!deal.savingsAmount && (!deal.originalPrice || deal.originalPrice <= deal.currentPrice) && (
+                    <span className="text-[8px] text-gray-400">Regular Price</span>
+                  )}
+                </div>
+              </div>
+              {deal.url && (
+                <a
+                  href={deal.url}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="text-xs text-blue-600 hover:underline mt-1 inline-block font-medium"
+                >
+                  View Deal →
+                </a>
+              )}
+            </div>
+          </li>
+        ))}
+      </ul>
+      <p className="text-[10px] text-muted-foreground mt-4">Powered by Amazon Product API</p>
     </div>
   );
 }
