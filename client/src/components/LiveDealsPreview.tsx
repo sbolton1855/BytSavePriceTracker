@@ -280,13 +280,6 @@ export default function LiveDealsPreview() {
                     </span>
                   )}
                 </div>
-                
-                {/* Price drop indicator below price */}
-                {deal.savingsPercentage && deal.savingsPercentage > 0 && (
-                  <div className="text-[9px] text-red-600 mt-0.5 font-medium">
-                    ↓ Price dropped {deal.savingsPercentage}%
-                  </div>
-                )}
               </div>
               {deal.url && (
                 <a
