@@ -2,7 +2,7 @@
 import { useState, useEffect } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { Button } from "./ui/button";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "./ui/card";
+import { Card, CardDescription, CardHeader, CardTitle } from "./ui/card";
 import { Skeleton } from "./ui/skeleton";
 import { RefreshCw, ChevronLeft, ChevronRight } from "lucide-react";
 import SharedProductCard from "./SharedProductCard";
@@ -111,8 +111,8 @@ export default function LiveDealsPreview() {
       originalPrice,
       discount: discount > 0 ? discount : undefined,
       url: deal.affiliateUrl || deal.url || `https://www.amazon.com/dp/${deal.asin}`,
-      isHot: !originalPrice, // HOT DEAL if no original price
-      premium: false, // Remove premium flag
+      isHot: !originalPrice && currentPrice < 15, // HOT DEAL if no original price but cheap
+      premium: false, // Remove premium badge
       lowestPrice: currentPrice,
       highestPrice: originalPrice || currentPrice
     };
@@ -165,7 +165,12 @@ export default function LiveDealsPreview() {
     currentPage,
     totalPages,
     currentDealsCount: currentDeals.length,
-    shouldShowPagination
+    shouldShowPagination,
+    actualDealsToRender: currentDeals.length,
+    firstDealTitle: currentDeals[0]?.title?.substring(0, 30),
+    dealsPerPage,
+    startIndex,
+    endIndex
   });
 
   if (isLoading) {
@@ -306,7 +311,6 @@ export default function LiveDealsPreview() {
           })}
         </div>
       )}
-      <p className="text-[10px] text-muted-foreground mt-4">Powered by Amazon Product API</p>
     </div>
   );
 }
