@@ -242,41 +242,32 @@ export default function LiveDealsPreview() {
                 <div className="flex items-center flex-wrap gap-1">
                   <span className="text-xs font-bold text-green-600">${deal.currentPrice?.toFixed(2)}</span>
 
-                  {/* Show savings data if available */}
-                  {deal.savingsAmount && deal.savingsAmount > 0 && deal.savingsPercentage && deal.originalPrice && (
+                  {/* Show original price and badges if discount exists */}
+                  {deal.originalPrice && deal.originalPrice > deal.currentPrice && (
                     <>
                       <span className="text-muted-foreground line-through text-xs">
                         ${deal.originalPrice.toFixed(2)}
                       </span>
-                      <span className="text-[8px] px-1 py-0 h-4 bg-red-500 text-white rounded-full">
-                        {deal.savingsPercentage}% OFF
-                      </span>
-                      <span className="text-[8px] px-1 py-0 h-4 bg-green-500 text-white rounded-full">
-                        Save ${deal.savingsAmount.toFixed(2)}
-                      </span>
+                      {deal.savingsPercentage > 0 && (
+                        <span className="text-[8px] px-1.5 py-0.5 bg-red-500 text-white rounded-full font-semibold">
+                          {deal.savingsPercentage}% OFF
+                        </span>
+                      )}
+                      {deal.savingsAmount > 0 && (
+                        <span className="text-[8px] px-1.5 py-0.5 bg-green-500 text-white rounded-full font-semibold">
+                          Save ${deal.savingsAmount.toFixed(2)}
+                        </span>
+                      )}
                     </>
-                  )}
-
-                  {/* Fallback for products with original price but no savings data */}
-                  {!deal.savingsAmount && deal.originalPrice && deal.originalPrice > deal.currentPrice && (
-                    <>
-                      <span className="text-muted-foreground line-through text-xs">
-                        ${deal.originalPrice.toFixed(2)}
-                      </span>
-                      <span className="text-[8px] px-1 py-0 h-4 bg-red-500 text-white rounded-full">
-                        {Math.round(((deal.originalPrice - deal.currentPrice) / deal.originalPrice) * 100)}% OFF
-                      </span>
-                      <span className="text-[8px] px-1 py-0 h-4 bg-green-500 text-white rounded-full">
-                        Save ${(deal.originalPrice - deal.currentPrice).toFixed(2)}
-                      </span>
-                    </>
-                  )}
-
-                  {/* Only show if there are no savings at all */}
-                  {!deal.savingsAmount && (!deal.originalPrice || deal.originalPrice <= deal.currentPrice) && (
-                    <span className="text-[8px] text-gray-400">Regular Price</span>
                   )}
                 </div>
+                
+                {/* Price drop indicator below price */}
+                {deal.originalPrice && deal.originalPrice > deal.currentPrice && deal.savingsPercentage > 0 && (
+                  <div className="text-[10px] text-red-600 mt-0.5">
+                    Price dropped {deal.savingsPercentage}%
+                  </div>
+                )}
               </div>
               {deal.url && (
                 <a
