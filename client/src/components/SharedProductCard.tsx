@@ -51,13 +51,14 @@ export default function SharedProductCard({
       rel="noopener noreferrer" 
       className="block h-full group no-underline"
       onClick={(e) => {
+        console.log('[SharedProductCard] Card clicked! URL:', url);
         if (!url) {
           e.preventDefault();
           console.error('[SharedProductCard] Click prevented - no URL');
         }
       }}
     >
-      <Card className="overflow-hidden flex flex-col h-full hover:shadow-lg transition-shadow cursor-pointer">
+      <Card className="overflow-hidden flex flex-col h-full hover:shadow-lg hover:scale-[1.02] transition-all cursor-pointer">
         <div className="aspect-video bg-slate-50 flex items-center justify-center relative overflow-hidden">
           {imageUrl ? (
             <img
@@ -139,7 +140,7 @@ export default function SharedProductCard({
         <CardFooter className="p-4 pt-0">
           <div className="space-y-2 w-full">
             <div className="flex gap-2">
-              <div className="flex-1 bg-primary text-primary-foreground hover:bg-primary/90 h-10 px-4 py-2 rounded-md inline-flex items-center justify-center font-medium transition-colors pointer-events-none">
+              <div className="flex-1 bg-primary text-primary-foreground hover:bg-primary/90 h-10 px-4 py-2 rounded-md inline-flex items-center justify-center font-medium transition-colors">
                 View Deal <ArrowRight className="ml-2 h-4 w-4" />
               </div>
               {productId && (
@@ -148,21 +149,18 @@ export default function SharedProductCard({
                     e.preventDefault();
                     e.stopPropagation();
                   }}
-                  className="pointer-events-auto"
                 >
                   <AddToWishlistButton productId={productId} />
                 </div>
               )}
             </div>
             {asin && (
-              <a
-                href={`/dashboard?track=${asin}`}
+              <div
                 onClick={(e) => {
                   e.preventDefault();
                   e.stopPropagation();
                   window.location.href = `/dashboard?track=${asin}`;
                 }}
-                className="block pointer-events-auto"
               >
                 <Badge 
                   variant="outline" 
@@ -170,7 +168,7 @@ export default function SharedProductCard({
                 >
                   Track Price
                 </Badge>
-              </a>
+              </div>
             )}
           </div>
         </CardFooter>
