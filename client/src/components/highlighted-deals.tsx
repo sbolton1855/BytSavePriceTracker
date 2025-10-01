@@ -275,6 +275,8 @@ export default function HighlightedDeals() {
             // Ensure we have a valid URL with affiliate tag
             const affiliateUrl = deal.url || (deal.asin ? `https://www.amazon.com/dp/${deal.asin}?tag=bytsave-20` : '');
             
+            console.log('[TrendingNow] Card URL:', { asin: deal.asin, url: deal.url, affiliateUrl });
+            
             return (
               <SharedProductCard
                 key={dealKey}
@@ -283,7 +285,7 @@ export default function HighlightedDeals() {
                 currentPrice={deal.currentPrice}
                 originalPrice={deal.originalPrice}
                 discount={deal.discount}
-                url={affiliateUrl}
+                url={affiliateUrl || ''}
                 asin={deal.asin}
                 isHot={deal.isHot}
                 premium={deal.premium}

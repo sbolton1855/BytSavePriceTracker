@@ -33,6 +33,8 @@ export default function SharedProductCard({
   highestPrice,
   productId
 }: SharedProductCardProps) {
+  console.log('[SharedProductCard] Rendered with URL:', url, 'ASIN:', asin);
+
   const savings = originalPrice && originalPrice > currentPrice
     ? originalPrice - currentPrice
     : 0;
