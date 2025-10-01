@@ -74,13 +74,24 @@ export default function LiveDealsPreview() {
     let savingsAmount = 0;
     let savingsPercentage = 0;
 
+    // Check for Amazon API savings data first
     if (deal.savings?.Amount > 0) {
       savingsAmount = deal.savings.Amount;
-      savingsPercentage = deal.savings.Percentage;
-    } else if (originalPrice && originalPrice > currentPrice) {
+      savingsPercentage = deal.savings.Percentage || Math.round(((deal.savings.Amount / currentPrice) / (1 + (deal.savings.Amount / currentPrice))) * 100);
+    } 
+    // Calculate from original price if available
+    else if (originalPrice && originalPrice > currentPrice) {
       savingsAmount = originalPrice - currentPrice;
       savingsPercentage = Math.round(((originalPrice - currentPrice) / originalPrice) * 100);
     }
+
+    console.log(`[LiveDealsPreview] Normalized deal: ${deal.asin}`, {
+      currentPrice,
+      originalPrice,
+      savingsAmount,
+      discount: savingsPercentage,
+      hasSavings: savingsAmount > 0
+    });
 
     return {
       asin: deal.asin,
@@ -88,8 +99,8 @@ export default function LiveDealsPreview() {
       imageUrl: deal.imageUrl || undefined,
       currentPrice,
       originalPrice: originalPrice || undefined,
-      savingsAmount,
-      savingsPercentage,
+      savingsAmount: savingsAmount > 0 ? savingsAmount : undefined,
+      savingsPercentage: savingsPercentage > 0 ? savingsPercentage : undefined,
       url: deal.affiliateUrl || deal.url || `https://www.amazon.com/dp/${deal.asin}`,
     };
   };
@@ -100,9 +111,15 @@ export default function LiveDealsPreview() {
       const processedDeals = data.map(normalizeDeal);
       console.log("[LiveDealsPreview] Processed deals count:", processedDeals.length);
 
-      setAllDeals(processedDeals);
+      // Filter to only include deals with actual savings
+      const dealsWithSavings = processedDeals.filter(deal => 
+        deal.savingsAmount && deal.savingsAmount > 0
+      );
+      console.log("[LiveDealsPreview] Deals with meaningful savings:", dealsWithSavings.length);
 
-      if (processedDeals.length !== allDeals.length) {
+      setAllDeals(dealsWithSavings);
+
+      if (dealsWithSavings.length !== allDeals.length) {
         setCurrentPage(0);
       }
     }
@@ -245,16 +262,16 @@ export default function LiveDealsPreview() {
                   {/* Show original price and badges if discount exists */}
                   {deal.originalPrice && deal.originalPrice > deal.currentPrice && (
                     <>
-                      <span className="text-muted-foreground line-through text-xs">
+                      <span className="text-muted-foreground line-through text-[10px]">
                         ${deal.originalPrice.toFixed(2)}
                       </span>
-                      {deal.savingsPercentage > 0 && (
-                        <span className="text-[8px] px-1.5 py-0.5 bg-red-500 text-white rounded-full font-semibold">
+                      {deal.savingsPercentage && deal.savingsPercentage > 0 && (
+                        <span className="text-[9px] px-1.5 py-0.5 bg-red-500 text-white rounded-full font-semibold">
                           {deal.savingsPercentage}% OFF
                         </span>
                       )}
-                      {deal.savingsAmount > 0 && (
-                        <span className="text-[8px] px-1.5 py-0.5 bg-green-500 text-white rounded-full font-semibold">
+                      {deal.savingsAmount && deal.savingsAmount > 0 && (
+                        <span className="text-[9px] px-1.5 py-0.5 bg-green-500 text-white rounded-full font-semibold">
                           Save ${deal.savingsAmount.toFixed(2)}
                         </span>
                       )}
@@ -263,9 +280,9 @@ export default function LiveDealsPreview() {
                 </div>
                 
                 {/* Price drop indicator below price */}
-                {deal.originalPrice && deal.originalPrice > deal.currentPrice && deal.savingsPercentage > 0 && (
-                  <div className="text-[10px] text-red-600 mt-0.5">
-                    Price dropped {deal.savingsPercentage}%
+                {deal.originalPrice && deal.originalPrice > deal.currentPrice && deal.savingsPercentage && deal.savingsPercentage > 0 && (
+                  <div className="text-[9px] text-red-600 mt-0.5 font-medium">
+                    ↓ Price dropped {deal.savingsPercentage}%
                   </div>
                 )}
               </div>
