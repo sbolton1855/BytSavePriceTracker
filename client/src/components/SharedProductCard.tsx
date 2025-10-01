@@ -144,31 +144,22 @@ export default function SharedProductCard({
                 View Deal <ArrowRight className="ml-2 h-4 w-4" />
               </div>
               {productId && (
-                <div 
-                  onClick={(e) => {
-                    e.preventDefault();
-                    e.stopPropagation();
-                  }}
-                >
+                <div onClick={(e) => e.stopPropagation()}>
                   <AddToWishlistButton productId={productId} />
                 </div>
               )}
             </div>
             {asin && (
-              <div
+              <Badge 
+                variant="outline" 
+                className="w-full justify-center py-1 border-dashed text-xs text-muted-foreground hover:bg-primary/5 cursor-pointer hover:border-primary transition-colors"
                 onClick={(e) => {
-                  e.preventDefault();
                   e.stopPropagation();
                   window.location.href = `/dashboard?track=${asin}`;
                 }}
               >
-                <Badge 
-                  variant="outline" 
-                  className="w-full justify-center py-1 border-dashed text-xs text-muted-foreground hover:bg-primary/5 cursor-pointer hover:border-primary transition-colors"
-                >
-                  Track Price
-                </Badge>
-              </div>
+                Track Price
+              </Badge>
             )}
           </div>
         </CardFooter>

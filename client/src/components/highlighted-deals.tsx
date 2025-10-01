@@ -287,7 +287,12 @@ export default function HighlightedDeals() {
                 : `${affiliateUrl}?tag=bytsave-20`;
             }
             
-            console.log('[TrendingNow] Final Card URL:', affiliateUrl, 'for ASIN:', deal.asin);
+            console.log('[TrendingNow] Rendering card:', {
+              asin: deal.asin,
+              title: deal.title?.substring(0, 30),
+              affiliateUrl,
+              hasUrl: !!affiliateUrl
+            });
             
             return (
               <SharedProductCard
