@@ -71,13 +71,21 @@ export default function HighlightedDeals() {
     const discount = deal.discountPercentage ||
       (originalPrice ? Math.round(((originalPrice - currentPrice) / originalPrice) * 100) : 0);
 
+    // Ensure URL has affiliate tag
+    let url = deal.affiliateUrl || deal.url;
+    if (!url && deal.asin) {
+      url = `https://www.amazon.com/dp/${deal.asin}?tag=bytsave-20`;
+    } else if (url && !url.includes('tag=')) {
+      url = url.includes('?') ? `${url}&tag=bytsave-20` : `${url}?tag=bytsave-20`;
+    }
+
     return {
       title: deal.title,
       imageUrl: deal.imageUrl || undefined,
       currentPrice,
       originalPrice: originalPrice || undefined,
       discount: discount || undefined,
-      url: deal.affiliateUrl || deal.url || `https://www.amazon.com/dp/${deal.asin}`,
+      url: url || '',
       asin: deal.id || deal.asin,
       isHot: false,
       premium: discount >= 30,
@@ -263,6 +271,10 @@ export default function HighlightedDeals() {
             }
             
             const dealKey = deal.asin || `deal-${index}-${deal.title?.substring(0, 20)}`;
+            
+            // Ensure we have a valid URL with affiliate tag
+            const affiliateUrl = deal.url || (deal.asin ? `https://www.amazon.com/dp/${deal.asin}?tag=bytsave-20` : '');
+            
             return (
               <SharedProductCard
                 key={dealKey}
@@ -271,7 +283,7 @@ export default function HighlightedDeals() {
                 currentPrice={deal.currentPrice}
                 originalPrice={deal.originalPrice}
                 discount={deal.discount}
-                url={deal.url}
+                url={affiliateUrl}
                 asin={deal.asin}
                 isHot={deal.isHot}
                 premium={deal.premium}
