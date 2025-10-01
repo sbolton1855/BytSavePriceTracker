@@ -45,7 +45,7 @@ export default function SharedProductCard({
           <img 
             src={imageUrl} 
             alt={title} 
-            className="object-contain w-full h-full p-2"
+            className="object-contain max-h-full max-w-full p-4"
           />
         ) : (
           <div className="h-full w-full flex items-center justify-center text-slate-400">
@@ -53,31 +53,22 @@ export default function SharedProductCard({
           </div>
         )}
         <div className="absolute top-2 right-2 flex flex-col gap-1 items-end">
-          {discount && discount > 0 && (
-            <Badge className="bg-red-600 text-white font-bold shadow-lg">
-              {discount}% OFF
-            </Badge>
-          )}
-          {originalPrice && currentPrice < originalPrice && (
-            <Badge className="bg-green-600 text-white text-xs shadow-lg">
-              Save ${savings.toFixed(2)}
-            </Badge>
-          )}
-          {currentPrice < 15 && (
-            <Badge className="bg-blue-600 text-white text-xs">
-              Under $15
-            </Badge>
-          )}
-          {premium && (
-            <Badge className="bg-purple-600 text-white text-xs">
-              PREMIUM DEAL
-            </Badge>
-          )}
-          {isHot && !discount && (
-            <Badge className="bg-red-500 text-white text-xs">
+          {discount && discount > 0 ? (
+            <>
+              <Badge className="bg-red-600 text-white font-bold shadow-lg">
+                {discount}% OFF
+              </Badge>
+              {originalPrice && currentPrice < originalPrice && (
+                <Badge className="bg-green-600 text-white text-xs shadow-lg">
+                  Save ${savings.toFixed(2)}
+                </Badge>
+              )}
+            </>
+          ) : isHot ? (
+            <Badge className="bg-red-500 text-white text-xs shadow-lg">
               HOT DEAL
             </Badge>
-          )}
+          ) : null}
         </div>
       </div>
       <CardHeader className="p-4 pb-0">

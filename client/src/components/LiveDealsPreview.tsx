@@ -111,8 +111,8 @@ export default function LiveDealsPreview() {
       originalPrice,
       discount: discount > 0 ? discount : undefined,
       url: deal.affiliateUrl || deal.url || `https://www.amazon.com/dp/${deal.asin}`,
-      isHot: !originalPrice && currentPrice < 15, // HOT DEAL if no original price but cheap
-      premium: discount >= 30,
+      isHot: !originalPrice, // HOT DEAL if no original price
+      premium: false, // Remove premium flag
       lowestPrice: currentPrice,
       highestPrice: originalPrice || currentPrice
     };
