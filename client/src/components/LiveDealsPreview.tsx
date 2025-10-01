@@ -241,57 +241,57 @@ export default function LiveDealsPreview() {
 
       <ul className="space-y-3">
         {currentDeals.slice(0, 4).map((deal, index) => (
-          <li key={deal.asin || index} className="flex items-start space-x-3 relative">
-            <div className="relative">
-              {deal.imageUrl ? (
-                <img
-                  src={deal.imageUrl}
-                  alt={deal.title}
-                  className="w-14 h-14 object-contain border rounded"
-                />
-              ) : (
-                <div className="w-14 h-14 flex items-center justify-center bg-gray-100 border rounded text-xs text-gray-400">No image</div>
-              )}
-            </div>
-            <div className="flex-1">
-              <p className="text-xs font-medium leading-tight line-clamp-2">{deal.title}</p>
-              <div className="text-xs mt-1">
-                <div className="flex items-center flex-wrap gap-1">
-                  <span className="text-xs font-bold text-green-600">${deal.currentPrice?.toFixed(2)}</span>
-
-                  {/* Show strikethrough original price if available */}
-                  {deal.originalPrice && deal.originalPrice > deal.currentPrice && (
-                    <span className="text-muted-foreground line-through text-[10px]">
-                      ${deal.originalPrice.toFixed(2)}
-                    </span>
-                  )}
-
-                  {/* Show discount percentage badge if savings data exists */}
-                  {deal.savingsPercentage && deal.savingsPercentage > 0 && (
-                    <span className="text-[9px] px-1.5 py-0.5 bg-red-500 text-white rounded-full font-semibold">
-                      {deal.savingsPercentage}% OFF
-                    </span>
-                  )}
-
-                  {/* Show savings amount badge if savings data exists */}
-                  {deal.savingsAmount && deal.savingsAmount > 0 && (
-                    <span className="text-[9px] px-1.5 py-0.5 bg-green-500 text-white rounded-full font-semibold">
-                      Save ${deal.savingsAmount.toFixed(2)}
-                    </span>
-                  )}
-                </div>
+          <li key={deal.asin || index}>
+            <a
+              href={deal.url}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="flex items-start space-x-3 p-2 rounded-lg hover:bg-gray-50 transition-colors cursor-pointer group"
+            >
+              <div className="relative flex-shrink-0">
+                {deal.imageUrl ? (
+                  <img
+                    src={deal.imageUrl}
+                    alt={deal.title}
+                    className="w-14 h-14 object-contain border rounded group-hover:border-blue-400 transition-colors"
+                  />
+                ) : (
+                  <div className="w-14 h-14 flex items-center justify-center bg-gray-100 border rounded text-xs text-gray-400">No image</div>
+                )}
               </div>
-              {deal.url && (
-                <a
-                  href={deal.url}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="text-xs text-blue-600 hover:underline mt-1 inline-block font-medium"
-                >
+              <div className="flex-1 min-w-0">
+                <p className="text-xs font-medium leading-tight line-clamp-2 group-hover:text-blue-600 transition-colors">{deal.title}</p>
+                <div className="text-xs mt-1">
+                  <div className="flex items-center flex-wrap gap-1">
+                    <span className="text-xs font-bold text-green-600">${deal.currentPrice?.toFixed(2)}</span>
+
+                    {/* Show strikethrough original price if available */}
+                    {deal.originalPrice && deal.originalPrice > deal.currentPrice && (
+                      <span className="text-muted-foreground line-through text-[10px]">
+                        ${deal.originalPrice.toFixed(2)}
+                      </span>
+                    )}
+
+                    {/* Show discount percentage badge if savings data exists */}
+                    {deal.savingsPercentage && deal.savingsPercentage > 0 && (
+                      <span className="text-[9px] px-1.5 py-0.5 bg-red-500 text-white rounded-full font-semibold">
+                        {deal.savingsPercentage}% OFF
+                      </span>
+                    )}
+
+                    {/* Show savings amount badge if savings data exists */}
+                    {deal.savingsAmount && deal.savingsAmount > 0 && (
+                      <span className="text-[9px] px-1.5 py-0.5 bg-green-500 text-white rounded-full font-semibold">
+                        Save ${deal.savingsAmount.toFixed(2)}
+                      </span>
+                    )}
+                  </div>
+                </div>
+                <span className="text-xs text-blue-600 group-hover:underline mt-1 inline-block font-medium">
                   View Deal →
-                </a>
-              )}
-            </div>
+                </span>
+              </div>
+            </a>
           </li>
         ))}
       </ul>

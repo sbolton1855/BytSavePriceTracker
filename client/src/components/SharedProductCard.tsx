@@ -1,4 +1,3 @@
-
 import { Badge } from "./ui/badge";
 import { Button } from "./ui/button";
 import { Card, CardContent, CardFooter, CardHeader, CardTitle } from "./ui/card";
@@ -34,17 +33,17 @@ export default function SharedProductCard({
   highestPrice,
   productId
 }: SharedProductCardProps) {
-  const savings = originalPrice && originalPrice > currentPrice 
-    ? originalPrice - currentPrice 
+  const savings = originalPrice && originalPrice > currentPrice
+    ? originalPrice - currentPrice
     : 0;
 
   return (
     <Card className="overflow-hidden flex flex-col h-full hover:shadow-lg transition-shadow">
       <div className="aspect-video bg-slate-50 flex items-center justify-center relative overflow-hidden">
         {imageUrl ? (
-          <img 
-            src={imageUrl} 
-            alt={title} 
+          <img
+            src={imageUrl}
+            alt={title}
             className="object-contain w-full h-full p-2"
           />
         ) : (
