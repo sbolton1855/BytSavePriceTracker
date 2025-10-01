@@ -260,21 +260,37 @@ export default function LiveDealsPreview() {
                 <div className="flex items-center flex-wrap gap-1">
                   <span className="text-xs font-bold text-green-600">${deal.currentPrice?.toFixed(2)}</span>
 
-                  {/* Show savings if we have the data (filtered deals should always have this) */}
+                  {/* Show savings if we have the data */}
                   {deal.savingsPercentage && deal.savingsAmount && deal.originalPrice && (
                     <>
                       <span className="text-muted-foreground line-through text-xs">
                         ${deal.originalPrice.toFixed(2)}
                       </span>
-                      <span className="text-[8px] px-1 py-0 h-4 bg-red-500 text-white rounded-full">
+                      <span className="text-[8px] px-1.5 py-0.5 bg-red-600 text-white rounded-full font-semibold">
                         {deal.savingsPercentage}% OFF
                       </span>
-                      <span className="text-[8px] px-1 py-0 h-4 bg-green-500 text-white rounded-full">
+                      <span className="text-[8px] px-1.5 py-0.5 bg-green-600 text-white rounded-full font-semibold">
                         Save ${deal.savingsAmount.toFixed(2)}
                       </span>
                     </>
                   )}
+
+                  {/* Show HOT DEAL badge when there's no original price but price is low */}
+                  {!deal.originalPrice && deal.currentPrice < 15 && (
+                    <span className="text-[8px] px-1.5 py-0.5 bg-red-500 text-white rounded-full font-semibold">
+                      HOT DEAL
+                    </span>
+                  )}
                 </div>
+
+                {/* Optional price range display */}
+                {deal.originalPrice && deal.currentPrice && (
+                  <div className="text-[10px] text-muted-foreground mt-0.5">
+                    {deal.currentPrice < deal.originalPrice * 0.7 && (
+                      <span className="text-orange-600 font-medium">🔥 Best price</span>
+                    )}
+                  </div>
+                )}
               </div>
               {deal.url && (
                 <a
