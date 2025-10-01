@@ -273,9 +273,21 @@ export default function HighlightedDeals() {
             const dealKey = deal.asin || `deal-${index}-${deal.title?.substring(0, 20)}`;
             
             // Ensure we have a valid URL with affiliate tag
-            const affiliateUrl = deal.url || (deal.asin ? `https://www.amazon.com/dp/${deal.asin}?tag=bytsave-20` : '');
+            let affiliateUrl = deal.url || '';
             
-            console.log('[TrendingNow] Card URL:', { asin: deal.asin, url: deal.url, affiliateUrl });
+            // If no URL but we have ASIN, construct Amazon URL
+            if (!affiliateUrl && deal.asin) {
+              affiliateUrl = `https://www.amazon.com/dp/${deal.asin}?tag=bytsave-20`;
+            }
+            
+            // If URL exists but missing affiliate tag, add it
+            if (affiliateUrl && !affiliateUrl.includes('tag=')) {
+              affiliateUrl = affiliateUrl.includes('?') 
+                ? `${affiliateUrl}&tag=bytsave-20` 
+                : `${affiliateUrl}?tag=bytsave-20`;
+            }
+            
+            console.log('[TrendingNow] Final Card URL:', affiliateUrl, 'for ASIN:', deal.asin);
             
             return (
               <SharedProductCard
@@ -285,7 +297,7 @@ export default function HighlightedDeals() {
                 currentPrice={deal.currentPrice}
                 originalPrice={deal.originalPrice}
                 discount={deal.discount}
-                url={affiliateUrl || ''}
+                url={affiliateUrl}
                 asin={deal.asin}
                 isHot={deal.isHot}
                 premium={deal.premium}
