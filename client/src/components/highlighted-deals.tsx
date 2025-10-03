@@ -302,7 +302,7 @@ export default function HighlightedDeals() {
                 currentPrice={deal.currentPrice}
                 originalPrice={deal.originalPrice}
                 discount={deal.discount}
-                url={affiliateUrl}
+                url={affiliateUrl || `https://www.amazon.com/dp/${deal.asin}?tag=bytsave-20`}
                 asin={deal.asin}
                 isHot={deal.isHot}
                 premium={deal.premium}

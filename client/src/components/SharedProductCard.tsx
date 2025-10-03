@@ -40,22 +40,20 @@ export default function SharedProductCard({
     : 0;
 
   // Ensure we have a valid URL
+  const finalUrl = url || (asin ? `https://www.amazon.com/dp/${asin}?tag=bytsave-20` : '#');
+  
   if (!url) {
-    console.warn('[SharedProductCard] No URL provided for card:', { title, asin });
+    console.warn('[SharedProductCard] No URL provided, using fallback for card:', { title, asin, finalUrl });
   }
 
   return (
     <a 
-      href={url || '#'} 
+      href={finalUrl} 
       target="_blank" 
       rel="noopener noreferrer" 
-      className="block h-full group no-underline"
+      className="block h-full group no-underline cursor-pointer"
       onClick={(e) => {
-        console.log('[SharedProductCard] Card clicked! URL:', url);
-        if (!url) {
-          e.preventDefault();
-          console.error('[SharedProductCard] Click prevented - no URL');
-        }
+        console.log('[SharedProductCard] Link clicked!', { url: finalUrl, willNavigate: !!finalUrl && finalUrl !== '#' });
       }}
     >
       <Card className="overflow-hidden flex flex-col h-full hover:shadow-lg hover:scale-[1.02] transition-all cursor-pointer">
