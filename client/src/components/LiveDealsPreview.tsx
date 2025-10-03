@@ -302,6 +302,11 @@ export default function LiveDealsPreview() {
             });
 
             console.log(`[LiveDealsPreview DOM DEBUG] ${deal.asin} - Container classes:`, 'grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6');
+            const discount = deal.savingsPercentage || 0;
+            const premium = discount >= 30;
+            const lowestPrice = deal.currentPrice;
+            const highestPrice = deal.originalPrice || deal.currentPrice;
+
             console.log(`[LiveDealsPreview PROPS DEBUG] ${deal.asin}:`, {
               currentPrice: deal.currentPrice,
               originalPrice: deal.originalPrice,
@@ -311,11 +316,6 @@ export default function LiveDealsPreview() {
               lowestPrice: lowestPrice,
               highestPrice: highestPrice
             });
-            
-            const discount = deal.savingsPercentage || 0;
-            const premium = discount >= 30;
-            const lowestPrice = deal.currentPrice;
-            const highestPrice = deal.originalPrice || deal.currentPrice;
 
             return (
               <SharedProductCard

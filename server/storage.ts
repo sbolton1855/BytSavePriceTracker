@@ -104,12 +104,50 @@ export class DatabaseStorage implements IStorage {
   }
 
   async getProduct(id: number): Promise<Product | undefined> {
-    const [product] = await db.select().from(products).where(eq(products.id, id));
+    const [product] = await db
+      .select({
+        id: products.id,
+        asin: products.asin,
+        title: products.title,
+        url: products.url,
+        imageUrl: products.imageUrl,
+        currentPrice: products.currentPrice,
+        originalPrice: products.originalPrice,
+        discountPercentage: products.discountPercentage,
+        lowestPrice: products.lowestPrice,
+        highestPrice: products.highestPrice,
+        lastChecked: products.lastChecked,
+        createdAt: products.createdAt,
+        updatedAt: products.updatedAt,
+        isDiscovered: products.isDiscovered,
+        category: products.category
+      })
+      .from(products)
+      .where(eq(products.id, id));
     return product;
   }
 
   async getProductByAsin(asin: string): Promise<Product | undefined> {
-    const [product] = await db.select().from(products).where(eq(products.asin, asin));
+    const [product] = await db
+      .select({
+        id: products.id,
+        asin: products.asin,
+        title: products.title,
+        url: products.url,
+        imageUrl: products.imageUrl,
+        currentPrice: products.currentPrice,
+        originalPrice: products.originalPrice,
+        discountPercentage: products.discountPercentage,
+        lowestPrice: products.lowestPrice,
+        highestPrice: products.highestPrice,
+        lastChecked: products.lastChecked,
+        createdAt: products.createdAt,
+        updatedAt: products.updatedAt,
+        isDiscovered: products.isDiscovered,
+        category: products.category
+      })
+      .from(products)
+      .where(eq(products.asin, asin));
     return product;
   }
 
@@ -123,7 +161,25 @@ export class DatabaseStorage implements IStorage {
   }
 
   async getAllProducts(): Promise<Product[]> {
-    return await db.select().from(products);
+    return await db
+      .select({
+        id: products.id,
+        asin: products.asin,
+        title: products.title,
+        url: products.url,
+        imageUrl: products.imageUrl,
+        currentPrice: products.currentPrice,
+        originalPrice: products.originalPrice,
+        discountPercentage: products.discountPercentage,
+        lowestPrice: products.lowestPrice,
+        highestPrice: products.highestPrice,
+        lastChecked: products.lastChecked,
+        createdAt: products.createdAt,
+        updatedAt: products.updatedAt,
+        isDiscovered: products.isDiscovered,
+        category: products.category
+      })
+      .from(products);
   }
 
   // Tracked product operations
