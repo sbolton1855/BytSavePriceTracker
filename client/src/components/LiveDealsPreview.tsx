@@ -305,6 +305,8 @@ export default function LiveDealsPreview() {
                 discount={deal.savingsPercentage}
                 url={affiliateUrl || `https://www.amazon.com/dp/${deal.asin}?tag=bytsave-20`}
                 asin={deal.asin}
+                isHot={false}
+                premium={deal.savingsPercentage ? deal.savingsPercentage >= 30 : false}
                 lowestPrice={deal.currentPrice}
                 highestPrice={deal.originalPrice ?? deal.currentPrice}
               />
