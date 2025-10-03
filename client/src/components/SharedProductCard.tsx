@@ -2,6 +2,7 @@ import { Badge } from "./ui/badge";
 import { Button } from "./ui/button";
 import { Card, CardContent, CardFooter, CardHeader, CardTitle } from "./ui/card";
 import { ArrowRight, ArrowDownRight } from "lucide-react";
+import { Link } from "wouter";
 import AddToWishlistButton from "./AddToWishlistButton";
 
 interface SharedProductCardProps {
@@ -148,16 +149,12 @@ export default function SharedProductCard({
               )}
             </div>
             {asin && (
-              <Badge 
-                variant="outline" 
-                className="w-full justify-center py-1 border-dashed text-xs text-muted-foreground hover:bg-primary/5 cursor-pointer hover:border-primary transition-colors"
-                onClick={(e) => {
-                  e.stopPropagation();
-                  window.location.href = `/dashboard?track=${asin}`;
-                }}
+              <Link 
+                href={`/dashboard?track=${asin}`}
+                className="w-full inline-flex items-center justify-center py-1 px-2.5 text-xs font-semibold border border-dashed rounded-full text-muted-foreground hover:bg-primary/5 cursor-pointer hover:border-primary transition-colors"
               >
                 Track Price
-              </Badge>
+              </Link>
             )}
           </div>
         </CardFooter>
