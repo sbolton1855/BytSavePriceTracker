@@ -5,6 +5,7 @@ import { Button } from "./ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "./ui/card";
 import { Skeleton } from "./ui/skeleton";
 import { RefreshCw, ChevronLeft, ChevronRight } from "lucide-react";
+import SharedProductCard from "./SharedProductCard";
 
 type Deal = {
   asin: string;
@@ -101,7 +102,7 @@ export default function LiveDealsPreview() {
       originalPrice: originalPrice || undefined,
       savingsAmount: savingsAmount > 0 ? savingsAmount : undefined,
       savingsPercentage: savingsPercentage > 0 ? savingsPercentage : undefined,
-      url: deal.affiliateUrl || deal.url || `https://www.amazon.com/dp/${deal.asin}`,
+      url: deal.affiliateUrl || deal.url || `https://www.amazon.com/dp/${deal.asin}?tag=bytsave-20`,
     };
   };
 
@@ -156,20 +157,40 @@ export default function LiveDealsPreview() {
 
   if (isLoading) {
     return (
-      <div className="bg-white border rounded-xl shadow-sm p-4">
-        <div className="flex justify-between items-center mb-2">
-          <Skeleton className="h-5 w-32" />
-          <Skeleton className="h-4 w-16" />
+      <div className="bg-white border rounded-xl shadow-sm p-4 space-y-4">
+        <div className="flex justify-between items-center">
+          <h2 className="text-lg font-semibold text-gray-900">Live Deals Right Now</h2>
+          <div className="h-9 w-32 bg-slate-100 rounded-md animate-pulse"></div>
         </div>
-        <div className="text-sm text-muted-foreground mb-4">Loading deals...</div>
-        <div className="space-y-3">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
           {Array.from({ length: 4 }).map((_, i) => (
-            <div key={i} className="flex items-start space-x-3">
-              <Skeleton className="w-14 h-14" />
-              <div className="flex-1 space-y-2">
-                <Skeleton className="h-4 w-full" />
+            <div key={i} className="overflow-hidden h-full">
+              <div className="aspect-video bg-slate-100 flex items-center justify-center relative">
+                <Skeleton className="h-[140px] w-[200px]" />
+                <div className="absolute top-2 right-2">
+                  <Skeleton className="h-5 w-16 rounded-full" />
+                </div>
+              </div>
+              <div className="p-4">
+                <Skeleton className="h-4 w-full mb-2" />
                 <Skeleton className="h-4 w-3/4" />
-                <Skeleton className="h-4 w-1/2" />
+              </div>
+              <div className="p-4 pt-0 flex-grow">
+                <Skeleton className="h-6 w-24 mb-3" />
+                <div className="space-y-2">
+                  <Skeleton className="h-4 w-28" />
+                  <Skeleton className="h-4 w-32" />
+                </div>
+                <div className="mt-3 flex justify-between">
+                  <Skeleton className="h-3 w-20" />
+                  <Skeleton className="h-3 w-20" />
+                </div>
+              </div>
+              <div className="p-4 pt-0">
+                <div className="space-y-2 w-full">
+                  <Skeleton className="h-10 w-full" />
+                  <Skeleton className="h-7 w-full" />
+                </div>
               </div>
             </div>
           ))}
@@ -180,7 +201,7 @@ export default function LiveDealsPreview() {
 
   if (error || (!isLoading && !currentDeals.length)) {
     return (
-      <div className="bg-white border rounded-xl shadow-sm p-4">
+      <div className="bg-white border rounded-xl shadow-sm p-4 space-y-4">
         <Card className="border-dashed">
           <CardHeader>
             <CardTitle className="text-center">No Live Deals Available</CardTitle>
@@ -194,10 +215,10 @@ export default function LiveDealsPreview() {
   }
 
   return (
-    <div className="bg-white border rounded-xl shadow-sm p-4">
-      <div className="flex justify-between items-center mb-2">
+    <div className="bg-white border rounded-xl shadow-sm p-4 space-y-4">
+      <div className="flex justify-between items-center">
         <div className="flex items-center gap-4">
-          <h3 className="text-sm font-semibold">Live Deals Right Now</h3>
+          <h3 className="text-lg font-semibold text-gray-900">Live Deals Right Now</h3>
           {shouldShowPagination && (
             <div className="flex items-center gap-2">
               <Button
@@ -233,68 +254,64 @@ export default function LiveDealsPreview() {
         </button>
       </div>
 
-      {!isLoading && currentDeals.length === 0 && (
-        <div className="text-sm text-muted-foreground">
-          No active live deals with savings found. Check back soon for new price drops!
-        </div>
-      )}
-
-      <ul className="space-y-3">
-        {currentDeals.slice(0, 4).map((deal, index) => (
-          <li key={deal.asin || index}>
-            <a
-              href={deal.url}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="flex items-start space-x-3 p-2 rounded-lg hover:bg-gray-50 transition-colors cursor-pointer group"
-            >
-              <div className="relative flex-shrink-0">
-                {deal.imageUrl ? (
-                  <img
-                    src={deal.imageUrl}
-                    alt={deal.title}
-                    className="w-14 h-14 object-contain border rounded group-hover:border-blue-400 transition-colors"
-                  />
-                ) : (
-                  <div className="w-14 h-14 flex items-center justify-center bg-gray-100 border rounded text-xs text-gray-400">No image</div>
-                )}
-              </div>
-              <div className="flex-1 min-w-0">
-                <p className="text-xs font-medium leading-tight line-clamp-2 group-hover:text-blue-600 transition-colors">{deal.title}</p>
-                <div className="text-xs mt-1">
-                  <div className="flex items-center flex-wrap gap-1">
-                    <span className="text-xs font-bold text-green-600">${deal.currentPrice?.toFixed(2)}</span>
-
-                    {/* Show strikethrough original price if available */}
-                    {deal.originalPrice && deal.originalPrice > deal.currentPrice && (
-                      <span className="text-muted-foreground line-through text-[10px]">
-                        ${deal.originalPrice.toFixed(2)}
-                      </span>
-                    )}
-
-                    {/* Show discount percentage badge if savings data exists */}
-                    {deal.savingsPercentage && deal.savingsPercentage > 0 && (
-                      <span className="text-[9px] px-1.5 py-0.5 bg-red-500 text-white rounded-full font-semibold">
-                        {deal.savingsPercentage}% OFF
-                      </span>
-                    )}
-
-                    {/* Show savings amount badge if savings data exists */}
-                    {deal.savingsAmount && deal.savingsAmount > 0 && (
-                      <span className="text-[9px] px-1.5 py-0.5 bg-green-500 text-white rounded-full font-semibold">
-                        Save ${deal.savingsAmount.toFixed(2)}
-                      </span>
-                    )}
+      {currentDeals.length > 0 && (
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+          {/* Always show exactly 4 deals - pad with placeholders if needed */}
+          {Array.from({ length: 4 }).map((_, index) => {
+            const deal = currentDeals[index];
+            if (!deal) {
+              // Show placeholder for missing deals
+              return (
+                <div key={`placeholder-${index}`} className="bg-gray-50 border-2 border-dashed border-gray-200 rounded-lg p-4 flex items-center justify-center min-h-[300px]">
+                  <div className="text-center text-gray-400">
+                    <div className="text-sm font-medium">Loading more deals...</div>
+                    <div className="text-xs mt-1">Check back soon</div>
                   </div>
                 </div>
-                <span className="text-xs text-blue-600 group-hover:underline mt-1 inline-block font-medium">
-                  View Deal →
-                </span>
-              </div>
-            </a>
-          </li>
-        ))}
-      </ul>
+              );
+            }
+            
+            const dealKey = deal.asin || `deal-${index}-${deal.title?.substring(0, 20)}`;
+            
+            // Ensure we have a valid URL with affiliate tag
+            let affiliateUrl = deal.url || '';
+            
+            // If no URL but we have ASIN, construct Amazon URL
+            if (!affiliateUrl && deal.asin) {
+              affiliateUrl = `https://www.amazon.com/dp/${deal.asin}?tag=bytsave-20`;
+            }
+            
+            // If URL exists but missing affiliate tag, add it
+            if (affiliateUrl && !affiliateUrl.includes('tag=')) {
+              affiliateUrl = affiliateUrl.includes('?') 
+                ? `${affiliateUrl}&tag=bytsave-20` 
+                : `${affiliateUrl}?tag=bytsave-20`;
+            }
+            
+            console.log('[LiveDealsPreview] Rendering card:', {
+              asin: deal.asin,
+              title: deal.title?.substring(0, 30),
+              affiliateUrl,
+              hasUrl: !!affiliateUrl
+            });
+            
+            return (
+              <SharedProductCard
+                key={dealKey}
+                title={deal.title}
+                imageUrl={deal.imageUrl}
+                currentPrice={deal.currentPrice}
+                originalPrice={deal.originalPrice}
+                discount={deal.savingsPercentage}
+                url={affiliateUrl || `https://www.amazon.com/dp/${deal.asin}?tag=bytsave-20`}
+                asin={deal.asin}
+                lowestPrice={deal.currentPrice}
+                highestPrice={deal.originalPrice ?? deal.currentPrice}
+              />
+            );
+          })}
+        </div>
+      )}
       <p className="text-[10px] text-muted-foreground mt-4">Powered by Amazon Product API</p>
     </div>
   );
