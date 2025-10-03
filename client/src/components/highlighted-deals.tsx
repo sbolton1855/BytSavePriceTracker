@@ -293,6 +293,17 @@ export default function HighlightedDeals() {
               affiliateUrl,
               hasUrl: !!affiliateUrl
             });
+
+            console.log(`[TrendingNow DOM DEBUG] ${deal.asin} - Container classes:`, 'grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6');
+            console.log(`[TrendingNow PROPS DEBUG] ${deal.asin}:`, {
+              currentPrice: deal.currentPrice,
+              originalPrice: deal.originalPrice,
+              discount: deal.discount,
+              isHot: deal.isHot,
+              premium: deal.premium,
+              lowestPrice: deal.lowestPrice,
+              highestPrice: deal.highestPrice
+            });
             
             return (
               <SharedProductCard

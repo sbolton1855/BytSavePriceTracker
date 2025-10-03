@@ -4,6 +4,7 @@ import { Card, CardContent, CardFooter, CardHeader, CardTitle } from "./ui/card"
 import { ArrowRight, ArrowDownRight } from "lucide-react";
 import { Link } from "wouter";
 import AddToWishlistButton from "./AddToWishlistButton";
+import { useEffect, useRef } from "react";
 
 interface SharedProductCardProps {
   title: string;
@@ -35,6 +36,20 @@ export default function SharedProductCard({
   productId
 }: SharedProductCardProps) {
   console.log('[SharedProductCard] Rendered with URL:', url, 'ASIN:', asin);
+  
+  // COMPREHENSIVE DEBUGGING
+  console.log(`[SharedProductCard DEBUG] ${asin || 'no-asin'} PROPS:`, {
+    title: title?.substring(0, 40),
+    currentPrice,
+    originalPrice,
+    discount,
+    isHot,
+    premium,
+    lowestPrice,
+    highestPrice,
+    productId,
+    url: url?.substring(0, 50)
+  });
 
   const savings = originalPrice && originalPrice > currentPrice
     ? originalPrice - currentPrice
@@ -47,8 +62,41 @@ export default function SharedProductCard({
     console.warn('[SharedProductCard] No URL provided, using fallback for card:', { title, asin, finalUrl });
   }
 
+  const cardRef = useRef<HTMLAnchorElement>(null);
+  const imageContainerRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (cardRef.current && imageContainerRef.current) {
+      const cardStyles = window.getComputedStyle(cardRef.current);
+      const imgStyles = window.getComputedStyle(imageContainerRef.current);
+      
+      console.log(`[SharedProductCard COMPUTED STYLES] ${asin || 'no-asin'} CARD:`, {
+        display: cardStyles.display,
+        height: cardStyles.height,
+        margin: cardStyles.margin,
+        padding: cardStyles.padding,
+        width: cardStyles.width,
+        flexGrow: cardStyles.flexGrow,
+        flexShrink: cardStyles.flexShrink,
+        flexBasis: cardStyles.flexBasis
+      });
+
+      console.log(`[SharedProductCard COMPUTED STYLES] ${asin || 'no-asin'} IMAGE CONTAINER:`, {
+        aspectRatio: imgStyles.aspectRatio,
+        display: imgStyles.display,
+        height: imgStyles.height,
+        width: imgStyles.width,
+        padding: imgStyles.padding,
+        backgroundColor: imgStyles.backgroundColor,
+        justifyContent: imgStyles.justifyContent,
+        alignItems: imgStyles.alignItems
+      });
+    }
+  }, [asin]);
+
   return (
-    <a 
+    <a
+      ref={cardRef} 
       href={finalUrl} 
       target="_blank" 
       rel="noopener noreferrer" 
@@ -58,7 +106,7 @@ export default function SharedProductCard({
       }}
     >
       <Card className="overflow-hidden flex flex-col h-full hover:shadow-lg hover:scale-[1.02] transition-all cursor-pointer">
-        <div className="aspect-video bg-slate-50 flex items-center justify-center relative overflow-hidden">
+        <div ref={imageContainerRef} className="aspect-video bg-slate-50 flex items-center justify-center relative overflow-hidden">
           {imageUrl ? (
             <img
               src={imageUrl}
