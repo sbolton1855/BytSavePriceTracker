@@ -143,9 +143,7 @@ export default function SharedProductCard({
                 View Deal <ArrowRight className="ml-2 h-4 w-4" />
               </div>
               {productId && (
-                <div onClick={(e) => e.stopPropagation()}>
-                  <AddToWishlistButton productId={productId} />
-                </div>
+                <AddToWishlistButton productId={productId} />
               )}
             </div>
             {asin && (
