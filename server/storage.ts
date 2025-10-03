@@ -341,13 +341,35 @@ export class DatabaseStorage implements IStorage {
       );
     }
 
-    return await db
+    const rawProducts = await db
       .select()
       .from(products)
       .where(whereConditions)
       .orderBy(sql`RANDOM()`)
       .limit(limit)
       .offset(offset);
+
+    // Calculate discount and savings dynamically in JavaScript
+    return rawProducts.map(product => {
+      const currentPrice = product.currentPrice;
+      const originalPrice = product.originalPrice;
+      
+      let discount = product.discountPercentage || 0;
+      let savings = 0;
+
+      // Recalculate if we have original price
+      if (originalPrice && originalPrice > currentPrice) {
+        discount = Math.round(((originalPrice - currentPrice) / originalPrice) * 100);
+        savings = Math.round((originalPrice - currentPrice) * 100) / 100;
+      }
+
+      return {
+        ...product,
+        discountPercentage: discount,
+        // Note: We're not adding a savings field to the Product type
+        // If needed, compute it in the route handler
+      };
+    });
   }
 
   // Helper method to get keywords for category filtering

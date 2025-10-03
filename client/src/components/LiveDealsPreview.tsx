@@ -86,12 +86,18 @@ export default function LiveDealsPreview() {
       savingsPercentage = Math.round(((originalPrice - currentPrice) / originalPrice) * 100);
     }
 
+    const computedDiscount = savingsPercentage || (originalPrice && originalPrice > currentPrice 
+      ? Math.round(((originalPrice - currentPrice) / originalPrice) * 100) 
+      : 0);
+
     console.log(`[LiveDealsPreview] Normalized deal: ${deal.asin}`, {
       currentPrice,
       originalPrice,
       savingsAmount,
-      discount: savingsPercentage,
-      hasSavings: savingsAmount > 0
+      discount: computedDiscount,
+      hasSavings: savingsAmount > 0,
+      premium: computedDiscount >= 30,
+      isHot: false
     });
 
     return {
@@ -101,7 +107,7 @@ export default function LiveDealsPreview() {
       currentPrice,
       originalPrice: originalPrice || undefined,
       savingsAmount: savingsAmount > 0 ? savingsAmount : undefined,
-      savingsPercentage: savingsPercentage > 0 ? savingsPercentage : undefined,
+      savingsPercentage: computedDiscount > 0 ? computedDiscount : undefined,
       url: deal.affiliateUrl || deal.url || `https://www.amazon.com/dp/${deal.asin}?tag=bytsave-20`,
     };
   };
@@ -299,13 +305,18 @@ export default function LiveDealsPreview() {
             console.log(`[LiveDealsPreview PROPS DEBUG] ${deal.asin}:`, {
               currentPrice: deal.currentPrice,
               originalPrice: deal.originalPrice,
-              discount: deal.discount,
+              discount: discount,
               isHot: false,
-              premium: deal.premium,
-              lowestPrice: deal.lowestPrice,
-              highestPrice: deal.highestPrice
+              premium: premium,
+              lowestPrice: lowestPrice,
+              highestPrice: highestPrice
             });
             
+            const discount = deal.savingsPercentage || 0;
+            const premium = discount >= 30;
+            const lowestPrice = deal.currentPrice;
+            const highestPrice = deal.originalPrice || deal.currentPrice;
+
             return (
               <SharedProductCard
                 key={dealKey}
@@ -313,13 +324,13 @@ export default function LiveDealsPreview() {
                 imageUrl={deal.imageUrl}
                 currentPrice={deal.currentPrice}
                 originalPrice={deal.originalPrice}
-                discount={deal.savingsPercentage}
+                discount={discount}
                 url={affiliateUrl || `https://www.amazon.com/dp/${deal.asin}?tag=bytsave-20`}
                 asin={deal.asin}
                 isHot={false}
-                premium={deal.savingsPercentage ? deal.savingsPercentage >= 30 : false}
-                lowestPrice={deal.currentPrice}
-                highestPrice={deal.originalPrice ?? deal.currentPrice}
+                premium={premium}
+                lowestPrice={lowestPrice}
+                highestPrice={highestPrice}
               />
             );
           })}
