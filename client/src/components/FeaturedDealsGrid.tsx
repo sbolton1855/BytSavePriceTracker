@@ -1,6 +1,6 @@
 
 import { useQuery } from "@tanstack/react-query";
-import { UnifiedProductCard } from "./UnifiedProductCard";
+import SharedProductCard from "@/components/SharedProductCard";
 import { Loader2 } from "lucide-react";
 
 export function FeaturedDealsGrid() {
@@ -36,21 +36,23 @@ export function FeaturedDealsGrid() {
       {gridProducts.slice(0, 4).map((product: any) => {
         const currentPrice = product.price || product.currentPrice || 0;
         const originalPrice = product.msrp || product.originalPrice || null;
-        const savings = product.savings || {};
+        const discount = product.savings?.Percentage || (originalPrice && originalPrice > currentPrice ? Math.round(((originalPrice - currentPrice) / originalPrice) * 100) : 0);
         
         return (
-          <UnifiedProductCard
+          <SharedProductCard
             key={product.asin}
             title={product.title || 'Product'}
-            image={product.imageUrl || ''}
+            imageUrl={product.imageUrl || ''}
             url={product.url || `https://www.amazon.com/dp/${product.asin}?tag=bytsave-20`}
-            currentPrice={currentPrice.toString()}
-            originalPrice={originalPrice?.toString()}
-            savings={{
-              amount: savings.Amount?.toString() || (originalPrice && originalPrice > currentPrice ? (originalPrice - currentPrice).toFixed(2) : undefined),
-              percentage: savings.Percentage || (originalPrice && originalPrice > currentPrice ? Math.round(((originalPrice - currentPrice) / originalPrice) * 100) : undefined)
-            }}
+            currentPrice={currentPrice}
+            originalPrice={originalPrice}
+            discount={discount}
             asin={product.asin}
+            isHot={product.isHot}
+            premium={product.premium}
+            lowestPrice={product.lowestPrice || currentPrice}
+            highestPrice={product.highestPrice || originalPrice || currentPrice}
+            productId={product.id}
           />
         );
       })}
