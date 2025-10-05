@@ -19,6 +19,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Search, Target, Bell, ChevronDown, ChevronUp } from "lucide-react";
 import DashboardToggle from "@/components/DashboardToggle";
+import { FeaturedDealsGrid } from "@/components/FeaturedDealsGrid";
 
 const Home: React.FC = () => {
   const { user } = useAuth();
@@ -274,9 +275,25 @@ const Home: React.FC = () => {
         </div>
       </section>
 
-      {/* How It Works Section - Visual and Trust-Building */}
+      {/* Featured Deals Section */}
+      <section className="py-16 bg-gray-50">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+          <div className="text-center mb-12">
+            <h2 className="text-3xl font-bold text-gray-900 sm:text-4xl">
+              Today's Featured Deals
+            </h2>
+            <p className="mt-4 text-xl text-gray-600">
+              Hand-picked deals with the biggest savings
+            </p>
+          </div>
+
+          <FeaturedDealsGrid />
+        </div>
+      </section>
+
+      {/* How It Works Section */}
       <section className="py-20 bg-white" id="how-it-works">
-        <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="text-center mb-16">
             <h2 className="text-3xl lg:text-4xl font-bold text-gray-900 mb-4">
               How It Works
@@ -348,7 +365,7 @@ const Home: React.FC = () => {
 
       <NotificationDemo />
 
-      
+
           {/* AI Recommendations Section */}
           <section className="py-16 bg-gradient-to-br from-purple-50 to-indigo-50">
             <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
@@ -363,12 +380,12 @@ const Home: React.FC = () => {
 
               <div className="space-y-8">
                 {/* AI Product Search - Real Amazon Products */}
-                <AIProductSearch 
-                  trackedProducts={trackedProducts || []} 
-                  userEmail={user?.email || savedEmail} 
+                <AIProductSearch
+                  trackedProducts={trackedProducts || []}
+                  userEmail={user?.email || savedEmail}
                 />
 
-                
+
               </div>
             </div>
           </section>
