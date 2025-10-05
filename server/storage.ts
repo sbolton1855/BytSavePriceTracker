@@ -409,7 +409,7 @@ export class DatabaseStorage implements IStorage {
     return rawProducts.map(product => {
       const currentPrice = product.currentPrice;
       const originalPrice = product.originalPrice;
-      
+
       let discount = product.discountPercentage || 0;
       let savings = 0;
 
