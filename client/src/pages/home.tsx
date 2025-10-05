@@ -18,8 +18,6 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Search, Target, Bell, ChevronDown, ChevronUp } from "lucide-react";
-import DashboardToggle from "@/components/DashboardToggle";
-// FeaturedDealsGrid removed - will be replaced with SharedDealsTab
 
 const Home: React.FC = () => {
   const { user } = useAuth();
@@ -267,9 +265,12 @@ const Home: React.FC = () => {
               )}
             </div>
 
-            {/* Right Side: Dashboard Toggle */}
+            {/* Right Side: Deal Display */}
             <div className="relative">
-              <DashboardToggle />
+              {/* TODO: Mount new tabbed shared deal display component here */}
+              <div className="bg-white border rounded-xl shadow-sm p-6 text-center text-gray-500">
+                Deal display component will be mounted here
+              </div>
             </div>
           </div>
         </div>
