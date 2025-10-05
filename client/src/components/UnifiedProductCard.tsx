@@ -38,18 +38,22 @@ export function UnifiedProductCard({
           {title}
         </div>
         <div className="flex items-center gap-2 flex-wrap">
-          <span className="text-green-600 font-bold text-sm">${currentPrice}</span>
+          <span className="text-green-600 font-bold text-sm">
+            ${parseFloat(currentPrice).toFixed(2)}
+          </span>
           {originalPrice && (
-            <span className="line-through text-gray-400 text-xs">${originalPrice}</span>
+            <span className="line-through text-gray-400 text-xs">
+              ${parseFloat(originalPrice).toFixed(2)}
+            </span>
           )}
-          {savings?.percentage && (
+          {savings?.percentage && savings.percentage > 0 && (
             <Badge className="text-xs bg-red-500 hover:bg-red-600">
               {savings.percentage}% OFF
             </Badge>
           )}
-          {savings?.amount && (
+          {savings?.amount && parseFloat(savings.amount) > 0 && (
             <Badge className="text-xs bg-green-600 hover:bg-green-700">
-              Save ${savings.amount}
+              Save ${parseFloat(savings.amount).toFixed(2)}
             </Badge>
           )}
         </div>

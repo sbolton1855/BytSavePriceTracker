@@ -97,23 +97,33 @@ export default function DealsPage() {
             <div className="flex justify-center items-center py-12">
               <Loader2 className="h-8 w-8 animate-spin text-primary" />
             </div>
-          ) : (
+          ) : gridProducts && gridProducts.length > 0 ? (
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
-              {gridProducts?.slice(0, 4).map((product: any) => (
-                <UnifiedProductCard
-                  key={product.asin}
-                  title={product.title}
-                  image={product.imageUrl}
-                  url={product.url}
-                  currentPrice={product.price?.toString() || '0'}
-                  originalPrice={product.savings?.originalPrice?.toString()}
-                  savings={{
-                    amount: product.savings?.Amount?.toString(),
-                    percentage: product.savings?.Percentage
-                  }}
-                  asin={product.asin}
-                />
-              ))}
+              {gridProducts.slice(0, 4).map((product: any) => {
+                const currentPrice = product.price || product.currentPrice || 0;
+                const originalPrice = product.msrp || product.originalPrice || null;
+                const savings = product.savings || {};
+                
+                return (
+                  <UnifiedProductCard
+                    key={product.asin}
+                    title={product.title || 'Product'}
+                    image={product.imageUrl || ''}
+                    url={product.url || `https://www.amazon.com/dp/${product.asin}?tag=bytsave-20`}
+                    currentPrice={currentPrice.toString()}
+                    originalPrice={originalPrice?.toString()}
+                    savings={{
+                      amount: savings.Amount?.toString() || (originalPrice && originalPrice > currentPrice ? (originalPrice - currentPrice).toFixed(2) : undefined),
+                      percentage: savings.Percentage || (originalPrice && originalPrice > currentPrice ? Math.round(((originalPrice - currentPrice) / originalPrice) * 100) : undefined)
+                    }}
+                    asin={product.asin}
+                  />
+                );
+              })}
+            </div>
+          ) : (
+            <div className="text-center py-12 text-gray-500">
+              No featured deals available at the moment.
             </div>
           )}
         </div>
