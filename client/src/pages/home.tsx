@@ -19,7 +19,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Search, Target, Bell, ChevronDown, ChevronUp } from "lucide-react";
 import DashboardToggle from "@/components/DashboardToggle";
-import { FeaturedDealsGrid } from "@/components/FeaturedDealsGrid";
+// FeaturedDealsGrid removed - will be replaced with SharedDealsTab
 
 const Home: React.FC = () => {
   const { user } = useAuth();
@@ -287,7 +287,7 @@ const Home: React.FC = () => {
             </p>
           </div>
 
-          <FeaturedDealsGrid />
+          {/* 🔧 TODO: Mount new <SharedDealsTab /> component here later */}
         </div>
       </section>
 
